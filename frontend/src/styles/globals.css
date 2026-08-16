@@ -1,0 +1,34 @@
+:root {
+  font-family: Arial, sans-serif;
+  color: #17202a;
+  background: #f5f7fa;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.top-navigation {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  background: #ffffff;
+  border-bottom: 1px solid #dce2e8;
+}
+
+.top-navigation a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.top-navigation a.active {
+  font-weight: 700;
+}
+
+.page {
+  padding: 2rem;
+}
