@@ -12,3 +12,9 @@ test('nav switches to the Developer page', () => {
   fireEvent.click(screen.getByText('Developer'));
   expect(screen.getByText(/API endpoints/i)).toBeInTheDocument();
 });
+
+test('sign-in stub is still reachable', () => {
+  render(<App />);
+  fireEvent.click(screen.getByTitle('Sign in'));
+  expect(screen.getByText(/Sign-in will be added here/i)).toBeInTheDocument();
+});
