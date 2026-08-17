@@ -1,0 +1,143 @@
+.page:has(.signin-card) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.signin-card {
+  width: min(1120px, 94vw);
+  min-height: 620px;
+  margin: 0 auto;
+  padding: 3.25rem;
+  background: #050000;
+  display: flex;
+  gap: 1.5rem;
+  border: 1px solid #2b2b2b;
+}
+
+.signin-welcome,
+.signin-actions {
+  flex: 1;
+  padding: 3rem;
+  background: rgba(8, 8, 8, 0.9);
+}
+
+.signin-actions {
+  max-width: 100%;
+}
+
+.signin-actions h2 {
+  margin: 0 0 0.9rem;
+  color: #ff1a1a;
+  font-size: 2rem;
+}
+
+.signin-subtitle {
+  margin: 0 0 1.2rem;
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+
+.signin-form {
+  width: 100%;
+  padding: 1.25rem 1.25rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+}
+
+.signin-form:hover {
+  border-color: #ff1a1a;
+}
+
+.signin-form label {
+  font-size: 1.05rem;
+  color: #f2f2f2;
+}
+
+.signin-form input {
+  width: 100%;
+  height: 48px;
+  box-sizing: border-box;
+  color: #adadad;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.7);
+  font-size: 1rem;
+  padding: 0.2rem 0;
+  outline: none;
+  caret-color: #ff1a1a;
+}
+
+.signin-form input::placeholder {
+  color: #8f8f8f;
+}
+
+.signin-form input:focus,
+.signin-form input:active {
+  border-bottom-color: #ff1a1a;
+}
+
+.signin-divider {
+  margin: 1rem 0;
+  font-size: 1rem;
+}
+
+.btn {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid #ff1a1a;
+  background: rgba(255, 0, 0, 0.14);
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+.btn-google,
+.btn-github {
+  border-color: #6b6b6b;
+  background: transparent;
+}
+
+.btn-google:hover,
+.btn-github:hover {
+  border-color: #ff1a1a;
+}
+
+.btn-primary {
+  animation: signin-blink-btn 2.2s infinite;
+}
+
+.signin-icon-svg {
+  width: 74px;
+  height: 74px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+.github-icon-svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+@keyframes signin-blink-btn {
+  0%,
+  100% {
+    border-color: #ff1a1a;
+    box-shadow: 0 0 0 rgba(255, 0, 0, 0);
+    background: rgba(255, 0, 0, 0.14);
+  }
+  50% {
+    border-color: #ff4c4c;
+    box-shadow: 0 0 16px rgba(255, 0, 0, 0.55);
+    background: rgba(255, 0, 0, 0.34);
+  }
+}

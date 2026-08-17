@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import '../styles/signin.css';
 
 function SignInPage() {
   const [email, setEmail] = useState('');
