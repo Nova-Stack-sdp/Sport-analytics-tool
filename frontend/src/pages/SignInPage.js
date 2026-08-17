@@ -24,6 +24,10 @@ function SignInPage() {
             Welcome to <strong className="accent">F1 Analytics</strong>
           </h1>
           <p>Get closer to the action. Sign in with Google or GitHub for custom stats, predictions &amp; more.</p>
+
+          <figure className="race-track" aria-hidden="true">
+            <figcaption className="race-track-label">LAP TELEMETRY</figcaption>
+          </figure>
         </section>
 
         <section className="signin-actions">

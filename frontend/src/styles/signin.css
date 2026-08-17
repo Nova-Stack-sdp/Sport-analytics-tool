@@ -39,6 +39,60 @@
   line-height: 1.35;
 }
 
+.race-track {
+  position: relative;
+  margin: 2.5rem 0 0;
+  padding: 0.6rem 0 0;
+  height: 54px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.race-track-label {
+  margin: 0 0 0.75rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.race-track::before,
+.race-track::after {
+  content: '';
+  position: absolute;
+  left: -35%;
+  width: 35%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #ff1a1a, transparent);
+  animation: race-streak 2.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.race-track::before {
+  top: 60%;
+}
+
+.race-track::after {
+  top: 85%;
+  opacity: 0.5;
+  animation-delay: 0.9s;
+}
+
+@keyframes race-streak {
+  0% {
+    left: -35%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    left: 100%;
+    opacity: 0;
+  }
+}
+
 .signin-form {
   width: 100%;
   padding: 1.25rem 1.25rem 0.75rem;
