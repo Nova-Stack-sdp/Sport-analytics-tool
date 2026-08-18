@@ -1,23 +1,20 @@
-import logo from './logo.svg';
-import './App.css';
+import { useState } from 'react';
+import { BrowserRouter } from 'react-router-dom';
+import TopNavigation from './components/TopNavigation';
+import AppRoutes from './navigation/AppRoutes';
 
 function App() {
+  const [theme, setTheme] = useState('dark'); // defaults dark, matching the mockup and docs site
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div className="app-shell" data-theme={theme}>
+      <BrowserRouter>
+        <TopNavigation
+          theme={theme}
+          onToggleTheme={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+        />
+        <AppRoutes />
+      </BrowserRouter>
     </div>
   );
 }
