@@ -59,15 +59,15 @@ enum SessionStatus {
 }
 
 model Session {
-  id        String        @id @default(uuid()) @map("session_id")
+  id          String        @id @default(uuid()) @map("session_id")
   // OpenF1's session_key
-  openf1Key Int?          @unique @map("openf1_key")
-  meetingId String        @map("meeting_id")
-  meeting   Meeting       @relation(fields: [meetingId], references: [id])
-  type      SessionType
-  startTime DateTime      @map("start_time")
-  endTime   DateTime?     @map("end_time")
-  status    SessionStatus @default(scheduled)
+  openf1Key   Int?          @unique @map("openf1_key")
+  meetingId   String        @map("meeting_id")
+  meeting     Meeting       @relation(fields: [meetingId], references: [id])
+  type        SessionType
+  startTime   DateTime      @map("start_time")
+  endTime     DateTime?     @map("end_time")
+  status      SessionStatus @default(scheduled)
 
   entries     Entry[]
   submissions Submission[]
@@ -79,10 +79,10 @@ model Session {
 }
 
 model Team {
-  id          String            @id @default(uuid()) @map("team_id")
-  name        String
-  season      Int
-  entries     Entry[]
+  id      String        @id @default(uuid()) @map("team_id")
+  name    String
+  season  Int
+  entries Entry[]
   seasonStats TeamSeasonStats[]
 
   @@unique([name, season])
@@ -90,10 +90,10 @@ model Team {
 }
 
 model Driver {
-  id           String              @id @default(uuid()) @map("driver_id")
+  id           String   @id @default(uuid()) @map("driver_id")
   name         String
   // OpenF1 treats this as the persistent driver identifier — unique so sync can upsert by it
-  driverNumber Int                 @unique @map("driver_number")
+  driverNumber Int      @unique @map("driver_number")
   entries      Entry[]
   careerStats  DriverCareerStats[]
 
@@ -109,7 +109,7 @@ model Entry {
   teamId    String  @map("team_id")
   team      Team    @relation(fields: [teamId], references: [id])
 
-  events       Event[]
+  events      Event[]
   sessionStats DriverSessionStats?
 
   @@unique([sessionId, driverId])
@@ -166,20 +166,21 @@ enum EventType {
   weather_snapshot
   session_status_change
   classification
+  grid_position
 }
 
 model Event {
-  id         String    @id @default(uuid()) @map("event_id")
-  sessionId  String    @map("session_id")
-  session    Session   @relation(fields: [sessionId], references: [id])
+  id        String    @id @default(uuid()) @map("event_id")
+  sessionId String    @map("session_id")
+  session   Session   @relation(fields: [sessionId], references: [id])
   // Null for session-wide events (flags, weather, session status).
-  entryId    String?   @map("entry_id")
-  entry      Entry?    @relation(fields: [entryId], references: [id])
-  eventType  EventType @map("event_type")
-  lapNumber  Int?      @map("lap_number")
-  occurredAt DateTime  @map("occurred_at")
+  entryId   String?   @map("entry_id")
+  entry     Entry?    @relation(fields: [entryId], references: [id])
+  eventType EventType @map("event_type")
+  lapNumber Int?      @map("lap_number")
+  occurredAt DateTime @map("occurred_at")
   // Shape depends on eventType — see EVENT TYPES table in project docs.
-  payload    Json
+  payload   Json
 
   sourceSubmissionId String     @map("source_submission_id")
   sourceSubmission   Submission @relation(fields: [sourceSubmissionId], references: [id])
@@ -204,13 +205,13 @@ model Event {
 // ------------------------------------------------------------
 
 model DriverSessionStats {
-  entryId         String @id @map("entry_id")
-  entry           Entry  @relation(fields: [entryId], references: [id])
-  fastestLapMs    Int?   @map("fastest_lap_ms")
-  avgLapMs        Float? @map("avg_lap_ms")
-  totalPitTimeMs  Int?   @map("total_pit_time_ms")
-  positionsGained Int?   @map("positions_gained")
-  finalPosition   Int?   @map("final_position")
+  entryId         String  @id @map("entry_id")
+  entry           Entry   @relation(fields: [entryId], references: [id])
+  fastestLapMs    Int?    @map("fastest_lap_ms")
+  avgLapMs        Float?  @map("avg_lap_ms")
+  totalPitTimeMs  Int?    @map("total_pit_time_ms")
+  positionsGained Int?    @map("positions_gained")
+  finalPosition   Int?    @map("final_position")
   points          Float?
 
   @@map("driver_session_stats")

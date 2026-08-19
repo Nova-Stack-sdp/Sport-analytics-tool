@@ -52,6 +52,9 @@ async function fetchOpenF1(path, params = {}) {
     return fetchOpenF1(path, params);
   }
   if (res.status === 404) {
+    // OpenF1 returns 404 with {"detail":"No results found."} for an empty
+    // result set, instead of 200 + []. Treat it as "no records" rather than
+    // a failure, so a session missing e.g. pit stop data doesn't abort the sync.
     return [];
   }
   if (!res.ok) {
@@ -86,7 +89,7 @@ function mapFlag(flag) {
     GREEN: 'green',
     CLEAR: 'green',
     YELLOW: 'yellow',
-    DOUBLE_YELLOW: 'yellow',
+    'DOUBLE YELLOW': 'yellow',
     RED: 'red',
     'SAFETY CAR': 'safety_car',
     'VIRTUAL SAFETY CAR': 'vsc',
@@ -184,7 +187,40 @@ async function syncDimensions(sessionKey) {
     entryByDriverNumber.set(d.driver_number, entry.id);
   }
 
-  return { sessionId: session.id, season: meeting.season, entryByDriverNumber };
+  return {
+    sessionId: session.id,
+    season: meeting.season,
+    entryByDriverNumber,
+    meetingKey: sessionData.meeting_key,
+    sessionName: sessionData.session_name,
+  };
+}
+
+/**
+ * OpenF1 quirk, confirmed against real data (not documented): /starting_grid
+ * is stored keyed to the QUALIFYING session's session_key, not the race's —
+ * even though the grid applies to the race. Querying /starting_grid with a
+ * race's own session_key returns nothing. So when syncing a Race or Sprint,
+ * we first have to find that meeting's qualifying session and use its key
+ * instead. For any other session type, there's no meaningful grid to fetch.
+ */
+async function resolveGridSessionKey(meetingKey, sessionName) {
+  if (sessionName !== 'Race' && sessionName !== 'Sprint') return null;
+
+  const targetName = sessionName === 'Race' ? 'Qualifying' : 'Sprint Qualifying';
+  const meetingSessions = await fetchOpenF1('sessions', { meeting_key: meetingKey });
+
+  let match = meetingSessions.find((s) => s.session_name === targetName);
+  if (!match && sessionName === 'Sprint') {
+    // Some seasons call it "Sprint Shootout" instead of "Sprint Qualifying".
+    match = meetingSessions.find((s) => s.session_name === 'Sprint Shootout');
+  }
+
+  if (!match) {
+    console.warn(`Could not find a qualifying session for meeting_key=${meetingKey} — grid_position will be skipped.`);
+    return null;
+  }
+  return match.session_key;
 }
 
 /**
@@ -192,7 +228,7 @@ async function syncDimensions(sessionKey) {
  * a normalized { eventType, entryId, lapNumber, occurredAt, payload } shape,
  * or null if the record fails basic validation (with a reason logged).
  */
-async function collectEvents(sessionKey, entryByDriverNumber) {
+async function collectEvents(sessionKey, entryByDriverNumber, gridSessionKey) {
   const events = [];
   const rejections = [];
 
@@ -357,6 +393,27 @@ async function collectEvents(sessionKey, entryByDriverNumber) {
     });
   }
 
+  // grid_position — the actual sourced starting position, replacing the old
+  // guess-from-lap-data approach with a real event. Queried against
+  // gridSessionKey (the meeting's qualifying session), not sessionKey — see
+  // resolveGridSessionKey for why.
+  const grid = gridSessionKey
+    ? await fetchOpenF1('starting_grid', { session_key: gridSessionKey })
+    : [];
+  for (const g of grid) {
+    if (!entryFor(g.driver_number)) {
+      reject('grid_position', g, `unknown driver_number ${g.driver_number}`);
+      continue;
+    }
+    events.push({
+      eventType: EventType.grid_position,
+      entryId: entryFor(g.driver_number),
+      lapNumber: null,
+      occurredAt: new Date(), // grid is set pre-race, no natural timestamp
+      payload: { position: g.position },
+    });
+  }
+
   // classification
   const results = await fetchOpenF1('session_result', { session_key: sessionKey });
   for (const r of results) {
@@ -385,8 +442,9 @@ async function syncSession(sessionKeyRaw) {
   const sessionKey = Number(sessionKeyRaw);
   console.log(`Syncing session_key=${sessionKey}...`);
 
-  const { sessionId, entryByDriverNumber } = await syncDimensions(sessionKey);
-  const { events, rejections } = await collectEvents(sessionKey, entryByDriverNumber);
+  const { sessionId, entryByDriverNumber, meetingKey, sessionName } = await syncDimensions(sessionKey);
+  const gridSessionKey = await resolveGridSessionKey(meetingKey, sessionName);
+  const { events, rejections } = await collectEvents(sessionKey, entryByDriverNumber, gridSessionKey);
 
   if (rejections.length > 0) {
     console.warn(`${rejections.length} record(s) rejected:`);
