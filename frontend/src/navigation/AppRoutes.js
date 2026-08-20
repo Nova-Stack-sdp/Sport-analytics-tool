@@ -6,6 +6,7 @@ import SubmissionsPage from '../pages/SubmissionsPage';
 import TimeTravelPage from '../pages/TimeTravelPage';
 import DatasetsPage from '../pages/DatasetsPage';
 import DeveloperPage from '../pages/DeveloperPage';
+import AdminPage from '../pages/AdminPage';
 import SignInPage from '../pages/SignInPage';
 
 function AppRoutes() {
@@ -18,6 +19,7 @@ function AppRoutes() {
       <Route path="/timetravel" element={<TimeTravelPage />} />
       <Route path="/datasets" element={<DatasetsPage />} />
       <Route path="/developer" element={<DeveloperPage />} />
+      <Route path="/admin" element={<AdminPage />} />
       <Route path="/sign-in" element={<SignInPage />} />
     </Routes>
   );
