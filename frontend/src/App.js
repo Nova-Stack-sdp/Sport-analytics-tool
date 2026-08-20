@@ -1,7 +1,23 @@
 import { useState } from 'react';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, useLocation } from 'react-router-dom';
 import TopNavigation from './components/TopNavigation';
 import AppRoutes from './navigation/AppRoutes';
+
+// The welcome page ("/") is a full-screen landing view with its own bottom
+// nav, so the persistent top nav is hidden there and shown everywhere else.
+function AppShell({ theme, onToggleTheme }) {
+  const location = useLocation();
+  const isWelcomePage = location.pathname === '/';
+
+  return (
+    <>
+      {!isWelcomePage && (
+        <TopNavigation theme={theme} onToggleTheme={onToggleTheme} />
+      )}
+      <AppRoutes />
+    </>
+  );
+}
 
 function App() {
   const [theme, setTheme] = useState('dark'); // defaults dark, matching the mockup and docs site
@@ -9,11 +25,10 @@ function App() {
   return (
     <div className="app-shell" data-theme={theme}>
       <BrowserRouter>
-        <TopNavigation
+        <AppShell
           theme={theme}
           onToggleTheme={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
         />
-        <AppRoutes />
       </BrowserRouter>
     </div>
   );

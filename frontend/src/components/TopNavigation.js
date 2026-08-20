@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 
 const NAV_ITEMS = [
-  { to: '/', label: 'Overview', end: true },
+  { to: '/overview', label: 'Overview' },
   { to: '/fixtures', label: 'Fixtures & Events' },
   { to: '/statistics', label: 'Statistics' },
   { to: '/submissions', label: 'Submissions' },
@@ -18,10 +18,10 @@ function TopNavigation({ theme, onToggleTheme }) {
   return (
     <div className="topnav" aria-label="Main navigation">
       <div className="topnav-inner">
-        <div className="brand">
+        <NavLink to="/" className="brand" style={{ textDecoration: 'none' }}>
           <div className="brand-mark">F1</div>
           <div className="brand-text">Analytics</div>
-        </div>
+        </NavLink>
         <div className="nav-items">
           {NAV_ITEMS.map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end} className={navItemClass}>
