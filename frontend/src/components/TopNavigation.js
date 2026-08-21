@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { to: '/timetravel', label: 'Time-Travel' },
   { to: '/datasets', label: 'Datasets' },
   { to: '/developer', label: 'Developer' },
+  { to: '/admin', label: 'Admin' },
 ];
 
 function navItemClass({ isActive }) {
