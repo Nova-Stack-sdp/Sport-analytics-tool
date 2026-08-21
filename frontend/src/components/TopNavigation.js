@@ -36,7 +36,7 @@ function TopNavigation({ theme, onToggleTheme }) {
           <button className="theme-toggle" title="Toggle dark mode" onClick={onToggleTheme}>
             <span>{theme === 'dark' ? '☀' : '🌙'}</span>
           </button>
-          <NavLink to="/sign-in" className="avatar" title="Sign in">SignIN</NavLink>
+          <NavLink to="/sign-in" className="avatar" title="Sign in">SignIn</NavLink>
         </div>
       </div>
     </div>
