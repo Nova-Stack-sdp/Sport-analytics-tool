@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { BrowserRouter, useLocation } from 'react-router-dom';
-import TopNavigation from './components/TopNavigation';
+import TopNav from './components/TopNavigation';
 import AppRoutes from './navigation/AppRoutes';
 
 // The welcome page ("/") is a full-screen landing view with its own bottom
@@ -12,7 +12,7 @@ function AppShell({ theme, onToggleTheme }) {
   return (
     <>
       {!isWelcomePage && (
-        <TopNavigation theme={theme} onToggleTheme={onToggleTheme} />
+        <TopNav theme={theme} onToggleTheme={onToggleTheme} />
       )}
       <AppRoutes />
     </>
