@@ -7,6 +7,8 @@ import TimeTravelPage from '../pages/TimeTravelPage';
 import DatasetsPage from '../pages/DatasetsPage';
 import DeveloperPage from '../pages/DeveloperPage';
 import SignInPage from '../pages/SignInPage';
+import SignUpPage from '../pages/SignUpPage';
+import DashboardPage from '../pages/DashboardPage';
 
 function AppRoutes() {
   return (
@@ -19,6 +21,8 @@ function AppRoutes() {
       <Route path="/datasets" element={<DatasetsPage />} />
       <Route path="/developer" element={<DeveloperPage />} />
       <Route path="/sign-in" element={<SignInPage />} />
+      <Route path="/sign-up" element={<SignUpPage />} />
+      <Route path="/dashboard" element={<DashboardPage />} />
     </Routes>
   );
 }
