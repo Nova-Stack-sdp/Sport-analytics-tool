@@ -15,7 +15,7 @@ function navItemClass({ isActive }) {
   return `nav-item${isActive ? ' active' : ''}`;
 }
 
-function TopNavigation({ theme, onToggleTheme }) {
+function TopNav({ theme, onToggleTheme }) {
   return (
     <div className="topnav" aria-label="Main navigation">
       <div className="topnav-inner">
@@ -34,13 +34,13 @@ function TopNavigation({ theme, onToggleTheme }) {
           <div className="live-pill live-blink">LIVE</div>
           <div className="season-pill">2026 Season ▾</div>
           <button className="theme-toggle" title="Toggle dark mode" onClick={onToggleTheme}>
-            <span>{theme === 'dark' ? '☀' : '🌙'}</span>
+            <span>{theme === 'dark' ? '☀' : '☾'}</span>
           </button>
-          <NavLink to="/sign-in" className="avatar" title="Sign in">NS</NavLink>
+          <NavLink to="/sign-in" className="avatar" title="Sign in">SignIn</NavLink>
         </div>
       </div>
     </div>
   );
 }
 
-export default TopNavigation;
+export default TopNav;

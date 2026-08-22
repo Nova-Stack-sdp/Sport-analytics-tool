@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { BrowserRouter } from 'react-router-dom';
-import TopNavigation from './components/TopNavigation';
+import TopNav from './components/TopNavigation';
 import AppRoutes from './navigation/AppRoutes';
 
 function App() {
@@ -9,7 +9,7 @@ function App() {
   return (
     <div className="app-shell" data-theme={theme}>
       <BrowserRouter>
-        <TopNavigation
+        <TopNav
           theme={theme}
           onToggleTheme={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
         />
