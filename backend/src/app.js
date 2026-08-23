@@ -1,8 +1,8 @@
 import express from 'express';
+import cors from 'cors';
+import { fixturesRouter } from './routes/fixtures.js';
 import { overviewRouter } from './routes/overview.js';
 import { statisticsRouter } from './routes/statistics.js';
-import cors from 'cors';
-import { overviewRouter } from './routes/overview.js';
 
 export function createApp() {
   const app = express();
@@ -33,6 +33,8 @@ export function createApp() {
   });
 
   app.use('/api/overview', overviewRouter);
+  app.use('/api/statistics', statisticsRouter);
+  app.use('/api/fixtures', fixturesRouter);
 
   // 404 for anything else under /api
   app.use('/api', (req, res) => {
@@ -45,9 +47,6 @@ export function createApp() {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   });
-  
-  app.use('/api/overview', overviewRouter);
-  app.use('/api/statistics', statisticsRouter);
 
   return app;
 }
