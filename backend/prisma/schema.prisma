@@ -1,0 +1,263 @@
+// ============================================================
+// F1 Sport Analytics Platform — Prisma schema
+// Event-sourced: dimension tables -> event log (source of truth) -> projections (derived, rebuildable)
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ------------------------------------------------------------
+// 1. Dimension tables (reference data)
+// ------------------------------------------------------------
+
+model Circuit {
+  id        String    @id @default(uuid()) @map("circuit_id")
+  // OpenF1's circuit_key — lets the sync job upsert instead of duplicating rows
+  openf1Key Int?      @unique @map("openf1_key")
+  name      String
+  country   String
+  location  String
+  meetings  Meeting[]
+
+  @@map("circuit")
+}
+
+model Meeting {
+  id        String    @id @default(uuid()) @map("meeting_id")
+  // OpenF1's meeting_key
+  openf1Key Int?      @unique @map("openf1_key")
+  season    Int
+  name      String
+  circuitId String    @map("circuit_id")
+  circuit   Circuit   @relation(fields: [circuitId], references: [id])
+  startDate DateTime  @map("start_date") @db.Date
+  sessions  Session[]
+
+  @@index([season])
+  @@index([circuitId])
+  @@map("meeting")
+}
+
+enum SessionType {
+  FP1
+  FP2
+  FP3
+  Q
+  Sprint
+  Race
+}
+
+enum SessionStatus {
+  scheduled
+  live
+  finished
+}
+
+model Session {
+  id          String        @id @default(uuid()) @map("session_id")
+  // OpenF1's session_key
+  openf1Key   Int?          @unique @map("openf1_key")
+  meetingId   String        @map("meeting_id")
+  meeting     Meeting       @relation(fields: [meetingId], references: [id])
+  type        SessionType
+  startTime   DateTime      @map("start_time")
+  endTime     DateTime?     @map("end_time")
+  status      SessionStatus @default(scheduled)
+
+  entries     Entry[]
+  submissions Submission[]
+  events      Event[]
+
+  @@index([meetingId])
+  @@index([type])
+  @@map("session")
+}
+
+model Team {
+  id      String        @id @default(uuid()) @map("team_id")
+  name    String
+  season  Int
+  entries Entry[]
+  seasonStats TeamSeasonStats[]
+
+  @@unique([name, season])
+  @@map("team")
+}
+
+model Driver {
+  id           String   @id @default(uuid()) @map("driver_id")
+  name         String
+  // OpenF1 treats this as the persistent driver identifier — unique so sync can upsert by it
+  driverNumber Int      @unique @map("driver_number")
+  entries      Entry[]
+  careerStats  DriverCareerStats[]
+
+  @@map("driver")
+}
+
+model Entry {
+  id        String  @id @default(uuid()) @map("entry_id")
+  sessionId String  @map("session_id")
+  session   Session @relation(fields: [sessionId], references: [id])
+  driverId  String  @map("driver_id")
+  driver    Driver  @relation(fields: [driverId], references: [id])
+  teamId    String  @map("team_id")
+  team      Team    @relation(fields: [teamId], references: [id])
+
+  events      Event[]
+  sessionStats DriverSessionStats?
+
+  @@unique([sessionId, driverId])
+  @@index([teamId])
+  @@map("entry")
+}
+
+// ------------------------------------------------------------
+// 2. Event log (append-only, source of truth)
+// ------------------------------------------------------------
+
+enum SubmissionSource {
+  openf1_sync
+  manual_upload
+}
+
+enum SubmissionStatus {
+  pending
+  accepted
+  rejected
+  partially_accepted
+}
+
+model Submission {
+  id               String           @id @default(uuid()) @map("submission_id")
+  source           SubmissionSource
+  // References an auth-system user ID, not a local FK — no User model in this schema.
+  // Null for automated OpenF1 sync submissions.
+  submitterId      String?          @map("submitter_id")
+  sessionId        String           @map("session_id")
+  session          Session          @relation(fields: [sessionId], references: [id])
+  fileRef          String?          @map("file_ref")
+  status           SubmissionStatus @default(pending)
+  validationErrors Json?            @map("validation_errors")
+  submittedAt      DateTime         @default(now()) @map("submitted_at")
+  // References an auth-system user ID (admin who reviewed), not a local FK.
+  reviewedBy       String?          @map("reviewed_by")
+  reviewedAt       DateTime?        @map("reviewed_at")
+
+  events Event[]
+
+  @@index([sessionId])
+  @@index([status])
+  @@map("submission")
+}
+
+enum EventType {
+  lap_completed
+  pit_stop
+  tyre_stint
+  position_change
+  flag_event
+  race_control_message
+  weather_snapshot
+  session_status_change
+  classification
+  grid_position
+}
+
+model Event {
+  id        String    @id @default(uuid()) @map("event_id")
+  sessionId String    @map("session_id")
+  session   Session   @relation(fields: [sessionId], references: [id])
+  // Null for session-wide events (flags, weather, session status).
+  entryId   String?   @map("entry_id")
+  entry     Entry?    @relation(fields: [entryId], references: [id])
+  eventType EventType @map("event_type")
+  lapNumber Int?      @map("lap_number")
+  occurredAt DateTime @map("occurred_at")
+  // Shape depends on eventType — see EVENT TYPES table in project docs.
+  payload   Json
+
+  sourceSubmissionId String     @map("source_submission_id")
+  sourceSubmission   Submission @relation(fields: [sourceSubmissionId], references: [id])
+
+  // Self-referencing correction chain: this event, if superseded, points forward
+  // to the event that replaces it. The original row is never deleted or edited.
+  supersededById String? @unique @map("superseded_by")
+  supersededBy   Event?  @relation("EventSupersession", fields: [supersededById], references: [id])
+  supersedes     Event?  @relation("EventSupersession")
+
+  ingestedAt DateTime @default(now()) @map("ingested_at")
+
+  @@index([sessionId, eventType])
+  @@index([entryId])
+  @@index([sourceSubmissionId])
+  @@index([sessionId, lapNumber])
+  @@map("event")
+}
+
+// ------------------------------------------------------------
+// 3. Projection tables (computed, rebuildable — NOT source of truth)
+// ------------------------------------------------------------
+
+model DriverSessionStats {
+  entryId         String  @id @map("entry_id")
+  entry           Entry   @relation(fields: [entryId], references: [id])
+  fastestLapMs    Int?    @map("fastest_lap_ms")
+  avgLapMs        Float?  @map("avg_lap_ms")
+  totalPitTimeMs  Int?    @map("total_pit_time_ms")
+  positionsGained Int?    @map("positions_gained")
+  finalPosition   Int?    @map("final_position")
+  points          Float?
+
+  @@map("driver_session_stats")
+}
+
+model DriverCareerStats {
+  driverId String @map("driver_id")
+  driver   Driver @relation(fields: [driverId], references: [id])
+  season   Int
+  wins     Int    @default(0)
+  podiums  Int    @default(0)
+  points   Float  @default(0)
+  dnfCount Int    @default(0) @map("dnf_count")
+
+  @@id([driverId, season])
+  @@map("driver_career_stats")
+}
+
+model TeamSeasonStats {
+  teamId          String @map("team_id")
+  team            Team   @relation(fields: [teamId], references: [id])
+  season          Int
+  points          Float  @default(0)
+  wins            Int    @default(0)
+  reliabilityRate Float? @map("reliability_rate")
+
+  @@id([teamId, season])
+  @@map("team_season_stats")
+}
+
+enum SubjectType {
+  driver
+  team
+}
+
+model HeadToHead {
+  id          String      @id @default(uuid())
+  // Polymorphic: refers to driver_id or team_id depending on subjectType.
+  // Not a real FK — can't be, since it points at two different tables.
+  subjectAId  String      @map("subject_a_id")
+  subjectBId  String      @map("subject_b_id")
+  subjectType SubjectType @map("subject_type")
+  winsA       Int         @default(0) @map("wins_a")
+  winsB       Int         @default(0) @map("wins_b")
+  sampleSize  Int         @default(0) @map("sample_size")
+
+  @@unique([subjectAId, subjectBId, subjectType])
+  @@map("head_to_head")
+}
