@@ -83,18 +83,41 @@ describe('GET /api/timetravel/changelog', () => {
 });
 
 describe('GET /api/timetravel/asof', () => {
-  test('excludes events ingested after the cutoff, and excludes events superseded before it', async () => {
+  test('includes an event whose own submission was submitted exactly at the cutoff', async () => {
+    // Regression test: ingestedAt and submittedAt can round to different
+    // milliseconds after serialization even when written in the same
+    // transaction — the filter must key off submittedAt on both sides so
+    // an event isn't excluded from its own checkpoint.
     mockPrisma.event.findMany.mockResolvedValue([
       {
         eventType: 'classification',
-        ingestedAt: '2026-08-15T13:01:00.000Z',
+        payload: { final_position: 2, points: 18 },
+        sourceSubmission: { submittedAt: '2026-08-19T01:26:32.172Z' },
+        supersededBy: null,
+      },
+    ]);
+
+    const app = createApp();
+    const res = await request(app).get(
+      '/api/timetravel/asof?sessionId=s1&entryId=e1&date=2026-08-19T01:26:32.172Z'
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.stats.points).toBe(18);
+  });
+
+  test('excludes events from submissions submitted after the cutoff, and excludes events superseded before it', async () => {
+    mockPrisma.event.findMany.mockResolvedValue([
+      {
+        eventType: 'classification',
         payload: { final_position: 1, points: 25 },
-        supersededBy: { ingestedAt: '2026-08-19T00:41:19.000Z' },
+        sourceSubmission: { submittedAt: '2026-08-15T13:01:00.000Z' },
+        supersededBy: { sourceSubmission: { submittedAt: '2026-08-19T00:41:19.000Z' } },
       },
       {
         eventType: 'classification',
-        ingestedAt: '2026-08-19T00:41:19.000Z',
         payload: { final_position: 1, points: 26 },
+        sourceSubmission: { submittedAt: '2026-08-19T00:41:19.000Z' },
         supersededBy: null,
       },
     ]);

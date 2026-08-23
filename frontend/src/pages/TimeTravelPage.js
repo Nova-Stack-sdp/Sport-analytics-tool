@@ -17,14 +17,18 @@ function formatLapTime(ms) {
   return `${minutes}:${seconds.padStart(6, '0')}`;
 }
 
-function DiffCell({ before, after }) {
-  const same = before === after || (before == null && after == null);
-  if (same) return <td className="mono secondary">{before ?? '—'}</td>;
+function CompareRow({ label, before, after, format = (v) => v ?? '—' }) {
+  const same = before === after;
   return (
-    <td className="mono">
-      {before != null && <span className="diff-rem">{before}</span>}{' '}
-      {after != null && <span className="diff-add">{after}</span>}
-    </td>
+    <tr>
+      <td>{label}</td>
+      <td className={same ? 'mono secondary' : 'mono'}>
+        {same ? format(before) : <span className="diff-rem">{format(before)}</span>}
+      </td>
+      <td className={same ? 'mono secondary' : 'mono'}>
+        {same ? format(after) : <span className="diff-add">{format(after)}</span>}
+      </td>
+    </tr>
   );
 }
 
@@ -313,20 +317,18 @@ function TimeTravelPage() {
                         <th>Checkpoint A</th>
                         <th>Checkpoint B</th>
                       </tr>
-                      <tr>
-                        <td>Points</td>
-                        <DiffCell before={asOfA.stats.points} after={asOfB.stats.points} />
-                      </tr>
-                      <tr>
-                        <td>Final position</td>
-                        <DiffCell before={asOfA.stats.finalPosition} after={asOfB.stats.finalPosition} />
-                      </tr>
-                      <tr>
-                        <td>Fastest lap</td>
-                        <td className="mono secondary">
-                          {formatLapTime(asOfA.stats.fastestLapMs)} → {formatLapTime(asOfB.stats.fastestLapMs)}
-                        </td>
-                      </tr>
+                      <CompareRow label="Points" before={asOfA.stats.points} after={asOfB.stats.points} />
+                      <CompareRow
+                        label="Final position"
+                        before={asOfA.stats.finalPosition}
+                        after={asOfB.stats.finalPosition}
+                      />
+                      <CompareRow
+                        label="Fastest lap"
+                        before={asOfA.stats.fastestLapMs}
+                        after={asOfB.stats.fastestLapMs}
+                        format={formatLapTime}
+                      />
                     </tbody>
                   </table>
                 )}

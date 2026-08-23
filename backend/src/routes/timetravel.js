@@ -108,10 +108,17 @@ timeTravelRouter.get('/changelog', async (req, res, next) => {
 
 /**
  * Reconstructs one entry's session stats as they would have appeared as of
- * a given date: only events already ingested by then, and only the version
- * that was live at that time (i.e. not yet superseded, or superseded only
- * after the cutoff). Reuses the same pure computeSessionStatsForEntry the
- * live derivation pipeline uses — same math, different event set.
+ * a given date: only events from submissions submitted at or before the
+ * cutoff, and only the version that was live at that time (not yet
+ * corrected by a submission before the cutoff). Reuses the same pure
+ * computeSessionStatsForEntry the live derivation pipeline uses — same
+ * math, different event set.
+ *
+ * Deliberately compares submittedAt to submittedAt (via each event's
+ * sourceSubmission), not event.ingestedAt to submission.submittedAt —
+ * those are two different timestamp columns that can round to different
+ * milliseconds once serialized, which put an event right on its own
+ * checkpoint's boundary and wrongly excluded it.
  */
 timeTravelRouter.get('/asof', async (req, res, next) => {
   try {
@@ -126,12 +133,15 @@ timeTravelRouter.get('/asof', async (req, res, next) => {
 
     const events = await prisma.event.findMany({
       where: { sessionId, entryId },
-      include: { supersededBy: { select: { ingestedAt: true } } },
+      include: {
+        sourceSubmission: { select: { submittedAt: true } },
+        supersededBy: { include: { sourceSubmission: { select: { submittedAt: true } } } },
+      },
     });
 
     const asOfEvents = events.filter((e) => {
-      if (new Date(e.ingestedAt) > cutoff) return false;
-      if (e.supersededBy && new Date(e.supersededBy.ingestedAt) <= cutoff) return false;
+      if (new Date(e.sourceSubmission.submittedAt) > cutoff) return false;
+      if (e.supersededBy && new Date(e.supersededBy.sourceSubmission.submittedAt) <= cutoff) return false;
       return true;
     });
 
