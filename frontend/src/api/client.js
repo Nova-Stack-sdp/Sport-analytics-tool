@@ -34,3 +34,11 @@ export function getStatistics({ view, season, sessionId } = {}) {
   const query = params.toString();
   return request(`/api/statistics${query ? `?${query}` : ''}`);
 }
+
+export function getFixtures() {
+  return request('/api/fixtures');
+}
+
+export function getFixtureEvents(sessionId) {
+  return request(`/api/fixtures/${sessionId}/events`);
+}
