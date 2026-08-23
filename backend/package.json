@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
-    "@prisma/client": "^7.9.1"
+    "@prisma/client": "^7.9.1",
+    "firebase-admin": "^13.0.0"
   }
 }
