@@ -1,5 +1,28 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import App from './App';
+
+// AuthContext drives everything route-protection-related, so control it
+// directly here rather than letting real Firebase try to restore a session
+// in jsdom.
+let authCallback;
+jest.mock('./firebase', () => ({
+  auth: {},
+  googleProvider: {},
+  githubProvider: {},
+}));
+jest.mock('firebase/auth', () => ({
+  onAuthStateChanged: (auth, callback) => {
+    authCallback = callback;
+    return () => {};
+  },
+  signOut: jest.fn(),
+}));
+
+function emitAuthState(user) {
+  act(() => {
+    authCallback(user);
+  });
+}
 
 beforeEach(() => {
   window.history.pushState({}, '', '/');
@@ -11,29 +34,44 @@ test('renders the welcome page by default, with no persistent top nav', () => {
   expect(screen.queryByLabelText('Main navigation')).not.toBeInTheDocument();
 });
 
-test('welcome page bottom nav reaches the Overview dashboard', () => {
+test('signed-out users are redirected to sign-in when visiting a protected page', async () => {
   render(<App />);
+  emitAuthState(null);
+
   fireEvent.click(screen.getByRole('link', { name: 'Overview' }));
-  expect(screen.getAllByText(/Overview/i).length).toBeGreaterThan(0);
+
+  await waitFor(() =>
+    expect(screen.getByRole('heading', { name: /^sign in$/i })).toBeInTheDocument()
+  );
+});
+
+test('signed-in users reach the Overview dashboard, with the persistent top nav', async () => {
+  render(<App />);
+  emitAuthState({ uid: 'u1', email: 'driver@example.com' });
+
+  fireEvent.click(screen.getByRole('link', { name: 'Overview' }));
+
+  await waitFor(() => expect(screen.getAllByText(/Overview/i).length).toBeGreaterThan(0));
   expect(screen.getByLabelText('Main navigation')).toBeInTheDocument();
 });
 
-test('nav switches to the Developer page', () => {
+test('nav switches to the Developer page once signed in', async () => {
   render(<App />);
+  emitAuthState({ uid: 'u1' });
+
+  fireEvent.click(screen.getByRole('link', { name: 'Overview' }));
+  await waitFor(() => expect(screen.getAllByText(/Overview/i).length).toBeGreaterThan(0));
+
   fireEvent.click(screen.getByText('Developer'));
   expect(screen.getByText(/API endpoints/i)).toBeInTheDocument();
 });
 
-test('sign-in is reachable once past the welcome page', () => {
+test('the hero banner\'s live fixture link works once signed in', async () => {
   render(<App />);
-  fireEvent.click(screen.getByRole('link', { name: 'Overview' }));
-  fireEvent.click(screen.getByTitle('Sign in'));
-  expect(screen.getByRole('heading', { name: /Sign In or Sign Up/i })).toBeInTheDocument();
-});
+  emitAuthState({ uid: 'u1' });
 
-test('hero banner links to the live fixture', () => {
-  render(<App />);
   expect(screen.getByText('NOVA STACK')).toBeInTheDocument();
   fireEvent.click(screen.getByText('Open live fixture'));
-  expect(screen.getByText('Event log')).toBeInTheDocument();
+
+  await waitFor(() => expect(screen.getByText('Event log')).toBeInTheDocument());
 });

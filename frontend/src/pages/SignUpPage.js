@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router-dom';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth } from '../firebase';
 import '../styles/auth.css';
@@ -62,7 +62,7 @@ function SignUpPage() {
       });
       // Firebase signs the account in immediately on creation, so there's
       // no separate "now go sign in" step.
-      navigate('/dashboard', { replace: true });
+      navigate('/overview', { replace: true });
     } catch (error) {
       setStatus('error');
       setMessage(friendlyAuthError(error));

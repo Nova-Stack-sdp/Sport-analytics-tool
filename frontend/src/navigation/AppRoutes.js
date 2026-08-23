@@ -10,23 +10,25 @@ import DeveloperPage from '../pages/DeveloperPage';
 import AdminPage from '../pages/AdminPage';
 import SignInPage from '../pages/SignInPage';
 import SignUpPage from '../pages/SignUpPage';
-import DashboardPage from '../pages/DashboardPage';
+import ForgotPasswordPage from '../pages/ForgotPasswordPage';
+import RequireAuth from '../components/RequireAuth';
 
 function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<WelcomePage />} />
-      <Route path="/overview" element={<OverviewPage />} />
-      <Route path="/fixtures" element={<FixturesEventsPage />} />
-      <Route path="/statistics" element={<StatisticsPage />} />
-      <Route path="/submissions" element={<SubmissionsPage />} />
-      <Route path="/timetravel" element={<TimeTravelPage />} />
-      <Route path="/datasets" element={<DatasetsPage />} />
-      <Route path="/developer" element={<DeveloperPage />} />
-      <Route path="/admin" element={<AdminPage />} />
       <Route path="/sign-in" element={<SignInPage />} />
       <Route path="/sign-up" element={<SignUpPage />} />
-      <Route path="/dashboard" element={<DashboardPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+
+      <Route path="/overview" element={<RequireAuth><OverviewPage /></RequireAuth>} />
+      <Route path="/fixtures" element={<RequireAuth><FixturesEventsPage /></RequireAuth>} />
+      <Route path="/statistics" element={<RequireAuth><StatisticsPage /></RequireAuth>} />
+      <Route path="/submissions" element={<RequireAuth><SubmissionsPage /></RequireAuth>} />
+      <Route path="/timetravel" element={<RequireAuth><TimeTravelPage /></RequireAuth>} />
+      <Route path="/datasets" element={<RequireAuth><DatasetsPage /></RequireAuth>} />
+      <Route path="/developer" element={<RequireAuth><DeveloperPage /></RequireAuth>} />
+      <Route path="/admin" element={<RequireAuth><AdminPage /></RequireAuth>} />
     </Routes>
   );
 }

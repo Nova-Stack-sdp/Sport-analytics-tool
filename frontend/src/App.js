@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { BrowserRouter, useLocation } from 'react-router-dom';
 import TopNav from './components/TopNavigation';
 import AppRoutes from './navigation/AppRoutes';
+import { AuthProvider } from './context/AuthContext';
 
 // The welcome page ("/") is a full-screen landing view with its own bottom
 // nav, so the persistent top nav is hidden there and shown everywhere else.
@@ -25,10 +26,12 @@ function App() {
   return (
     <div className="app-shell" data-theme={theme}>
       <BrowserRouter>
-        <AppShell
-          theme={theme}
-          onToggleTheme={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
-        />
+        <AuthProvider>
+          <AppShell
+            theme={theme}
+            onToggleTheme={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+          />
+        </AuthProvider>
       </BrowserRouter>
     </div>
   );

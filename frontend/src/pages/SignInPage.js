@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router';
+import { useNavigate, Link } from 'react-router-dom';
 import { signInWithPopup, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth, googleProvider, githubProvider } from '../firebase';
 import '../styles/auth.css';
@@ -58,7 +58,7 @@ function SignInPage() {
       // Also creates the account automatically if this Google user is new —
       // that's why sign-up doesn't need its own Google button.
       await signInWithPopup(auth, googleProvider);
-      navigate('/dashboard', { replace: true });
+      navigate('/overview', { replace: true });
     } catch (error) {
       const friendly = friendlyAuthError(error);
       if (friendly) {
@@ -76,7 +76,7 @@ function SignInPage() {
     try {
       // Also creates the account automatically if this GitHub user is new.
       await signInWithPopup(auth, githubProvider);
-      navigate('/dashboard', { replace: true });
+      navigate('/overview', { replace: true });
     } catch (error) {
       const friendly = friendlyAuthError(error);
       if (friendly) {
@@ -105,7 +105,7 @@ function SignInPage() {
     setMessage('');
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      navigate('/dashboard', { replace: true });
+      navigate('/overview', { replace: true });
     } catch (error) {
       setStatus('error');
       setMessage(friendlyAuthError(error) ?? 'Something went wrong signing in. Try again.');
@@ -194,9 +194,9 @@ function SignInPage() {
               )}
             </label>
 
-            <a className="auth-forgot" href="/forgot-password">
+            <Link className="auth-forgot" to="/forgot-password">
               Forgot password?
-            </a>
+            </Link>
 
             <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
               {isSubmitting ? 'Signing in…' : 'Continue'}
