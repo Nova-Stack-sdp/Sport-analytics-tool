@@ -1,4 +1,6 @@
 import express from 'express';
+import { overviewRouter } from './routes/overview.js';
+import { statisticsRouter } from './routes/statistics.js';
 import cors from 'cors';
 import { overviewRouter } from './routes/overview.js';
 
@@ -43,6 +45,9 @@ export function createApp() {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   });
+  
+  app.use('/api/overview', overviewRouter);
+  app.use('/api/statistics', statisticsRouter);
 
   return app;
 }
