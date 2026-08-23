@@ -44,11 +44,36 @@ test('signed-out users can view Overview without signing in', async () => {
   expect(screen.queryByRole('heading', { name: /^sign in$/i })).not.toBeInTheDocument();
 });
 
-test('signed-out users are redirected to sign-in when visiting Submissions', async () => {
+test('signed-out users never see links to Submissions, Datasets, Developer, or Admin', async () => {
   render(<App />);
   emitAuthState(null);
 
-  fireEvent.click(screen.getByRole('link', { name: 'Submissions' }));
+  fireEvent.click(screen.getByRole('link', { name: 'Overview' }));
+  await waitFor(() => expect(screen.getAllByText(/Overview/i).length).toBeGreaterThan(0));
+
+  expect(screen.queryByRole('link', { name: 'Submissions' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Datasets' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Developer' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Admin' })).not.toBeInTheDocument();
+});
+
+test('signed-in users see every nav link, including the protected ones', async () => {
+  render(<App />);
+  emitAuthState({ uid: 'u1' });
+
+  fireEvent.click(screen.getByRole('link', { name: 'Overview' }));
+  await waitFor(() => expect(screen.getAllByText(/Overview/i).length).toBeGreaterThan(0));
+
+  expect(screen.getByRole('link', { name: 'Submissions' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Datasets' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Developer' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Admin' })).toBeInTheDocument();
+});
+
+test('a signed-out user who navigates straight to /submissions by URL is redirected to sign-in', async () => {
+  window.history.pushState({}, '', '/submissions');
+  render(<App />);
+  emitAuthState(null);
 
   await waitFor(() =>
     expect(screen.getByRole('heading', { name: /^sign in$/i })).toBeInTheDocument()

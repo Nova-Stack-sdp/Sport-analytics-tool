@@ -115,7 +115,7 @@ function SignInPage() {
   const isSubmitting = status === 'submitting';
 
   return (
-    <main className="page">
+    <main className="auth-page">
       <section className="auth-card">
         <span aria-hidden="true" className="auth-scan" />
 

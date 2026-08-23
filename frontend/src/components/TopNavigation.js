@@ -7,11 +7,11 @@ const NAV_ITEMS = [
   { to: '/overview', label: 'Overview' },
   { to: '/fixtures', label: 'Fixtures & Events' },
   { to: '/statistics', label: 'Statistics' },
-  { to: '/submissions', label: 'Submissions' },
+  { to: '/submissions', label: 'Submissions', requiresAuth: true },
   { to: '/timetravel', label: 'Time-Travel' },
-  { to: '/datasets', label: 'Datasets' },
-  { to: '/developer', label: 'Developer' },
-  { to: '/admin', label: 'Admin' },
+  { to: '/datasets', label: 'Datasets', requiresAuth: true },
+  { to: '/developer', label: 'Developer', requiresAuth: true },
+  { to: '/admin', label: 'Admin', requiresAuth: true },
 ];
 
 function navItemClass({ isActive }) {
@@ -40,7 +40,7 @@ function TopNav({ theme, onToggleTheme }) {
           <div className="brand-text">Analytics</div>
         </NavLink>
         <div className="nav-items">
-          {NAV_ITEMS.map((item) => (
+          {NAV_ITEMS.filter((item) => !item.requiresAuth || user).map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end} className={navItemClass}>
               {item.label}
             </NavLink>

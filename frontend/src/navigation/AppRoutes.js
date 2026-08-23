@@ -26,9 +26,9 @@ function AppRoutes() {
       <Route path="/statistics" element={<StatisticsPage />} />
       <Route path="/submissions" element={<RequireAuth><SubmissionsPage /></RequireAuth>} />
       <Route path="/timetravel" element={<TimeTravelPage />} />
-      <Route path="/datasets" element={<DatasetsPage />} />
+      <Route path="/datasets" element={<RequireAuth><DatasetsPage /></RequireAuth>} />
       <Route path="/developer" element={<RequireAuth><DeveloperPage /></RequireAuth>} />
-      <Route path="/admin" element={<AdminPage />} />
+      <Route path="/admin" element={<RequireAuth><AdminPage /></RequireAuth>} />
     </Routes>
   );
 }
