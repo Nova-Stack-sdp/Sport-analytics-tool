@@ -21,11 +21,11 @@ function AppRoutes() {
       <Route path="/sign-up" element={<SignUpPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
-      <Route path="/overview" element={<RequireAuth><OverviewPage /></RequireAuth>} />
-      <Route path="/fixtures" element={<RequireAuth><FixturesEventsPage /></RequireAuth>} />
-      <Route path="/statistics" element={<RequireAuth><StatisticsPage /></RequireAuth>} />
+      <Route path="/overview" element={<OverviewPage />} />
+      <Route path="/fixtures" element={<FixturesEventsPage />} />
+      <Route path="/statistics" element={<StatisticsPage />} />
       <Route path="/submissions" element={<RequireAuth><SubmissionsPage /></RequireAuth>} />
-      <Route path="/timetravel" element={<RequireAuth><TimeTravelPage /></RequireAuth>} />
+      <Route path="/timetravel" element={<TimeTravelPage />} />
       <Route path="/datasets" element={<RequireAuth><DatasetsPage /></RequireAuth>} />
       <Route path="/developer" element={<RequireAuth><DeveloperPage /></RequireAuth>} />
       <Route path="/admin" element={<RequireAuth><AdminPage /></RequireAuth>} />
