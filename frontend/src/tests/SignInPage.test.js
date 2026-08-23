@@ -1,51 +1,99 @@
-import { render, screen, fireEvent } from '@testing-library/react';
-import '@testing-library/jest-dom';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import SignInPage from '../pages/SignInPage';
+import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+
+jest.mock('../firebase', () => ({
+  auth: {},
+  googleProvider: {},
+  githubProvider: {},
+}));
+
+jest.mock('firebase/auth', () => ({
+  signInWithEmailAndPassword: jest.fn(),
+  signInWithPopup: jest.fn(),
+}));
+
+const mockNavigate = jest.fn();
+jest.mock('react-router-dom', () => ({
+  ...jest.requireActual('react-router-dom'),
+  useNavigate: () => mockNavigate,
+}));
+
+function renderPage() {
+  return render(
+    <MemoryRouter>
+      <SignInPage />
+    </MemoryRouter>
+  );
+}
+
+beforeEach(() => {
+  jest.clearAllMocks();
+});
 
 describe('SignInPage', () => {
-  it('renders the sign-in form and required inputs', () => {
-    render(<SignInPage />);
-
-    expect(
-      screen.getByRole('heading', { name: /sign in or sign up/i })
-    ).toBeInTheDocument();
+  test('renders the sign-in form', () => {
+    renderPage();
+    expect(screen.getByRole('heading', { name: /^sign in$/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /continue/i })).toBeInTheDocument();
   });
 
-  it('marks the email and password fields as required', () => {
-    render(<SignInPage />);
+  test('shows validation errors instead of submitting when fields are empty', async () => {
+    renderPage();
 
-    expect(screen.getByLabelText(/email/i)).toBeRequired();
-    expect(screen.getByLabelText(/password/i)).toBeRequired();
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+    expect(await screen.findByText(/enter your email/i)).toBeInTheDocument();
+    expect(screen.getByText(/enter your password/i)).toBeInTheDocument();
+    expect(signInWithEmailAndPassword).not.toHaveBeenCalled();
   });
 
-  it('accepts user input in the form fields', () => {
-    render(<SignInPage />);
+  test('signs in with email/password and navigates to /overview on success', async () => {
+    signInWithEmailAndPassword.mockResolvedValue({ user: { uid: 'u1' } });
+    renderPage();
 
-    const emailInput = screen.getByLabelText(/email/i);
-    const passwordInput = screen.getByLabelText(/password/i);
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'driver@example.com' } });
+    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'password123' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
-    fireEvent.change(emailInput, { target: { value: 'user@example.com' } });
-    fireEvent.change(passwordInput, { target: { value: 'SecurePass123!' } });
-
-    expect(emailInput).toHaveValue('user@example.com');
-    expect(passwordInput).toHaveValue('SecurePass123!');
+    await waitFor(() =>
+      expect(signInWithEmailAndPassword).toHaveBeenCalledWith(
+        expect.anything(),
+        'driver@example.com',
+        'password123'
+      )
+    );
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/overview', { replace: true }));
   });
 
-  it('allows form submission when required values are present', () => {
-    render(<SignInPage />);
+  test('shows a friendly message on invalid credentials, not the raw Firebase error', async () => {
+    signInWithEmailAndPassword.mockRejectedValue({ code: 'auth/invalid-credential' });
+    renderPage();
 
-    fireEvent.change(screen.getByLabelText(/email/i), {
-      target: { value: 'user@example.com' },
-    });
-    fireEvent.change(screen.getByLabelText(/password/i), {
-      target: { value: 'SecurePass123!' },
-    });
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'driver@example.com' } });
+    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'wrongpass' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
-    fireEvent.submit(screen.getByRole('button', { name: /continue/i }).closest('form'));
+    expect(await screen.findByText(/incorrect email or password/i)).toBeInTheDocument();
+  });
 
-    expect(screen.getByRole('button', { name: /continue/i })).toBeInTheDocument();
+  test('Google sign-in calls signInWithPopup and navigates to /overview on success', async () => {
+    signInWithPopup.mockResolvedValue({ user: { uid: 'u1' } });
+    renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: /continue with google/i }));
+
+    await waitFor(() => expect(signInWithPopup).toHaveBeenCalled());
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/overview', { replace: true }));
+  });
+
+  test('the forgot-password link points to a real route', () => {
+    renderPage();
+    expect(screen.getByText(/forgot password/i).closest('a')).toHaveAttribute(
+      'href',
+      '/forgot-password'
+    );
   });
 });
