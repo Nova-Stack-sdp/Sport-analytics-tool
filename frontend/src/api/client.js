@@ -42,3 +42,19 @@ export function getFixtures() {
 export function getFixtureEvents(sessionId) {
   return request(`/api/fixtures/${sessionId}/events`);
 }
+
+export function getTimeTravelContext(sessionId) {
+  const params = new URLSearchParams();
+  if (sessionId) params.set('sessionId', sessionId);
+  const query = params.toString();
+  return request(`/api/timetravel/context${query ? `?${query}` : ''}`);
+}
+
+export function getTimeTravelChangelog(entryId) {
+  return request(`/api/timetravel/changelog?entryId=${entryId}`);
+}
+
+export function getTimeTravelAsOf({ sessionId, entryId, date }) {
+  const params = new URLSearchParams({ sessionId, entryId, date });
+  return request(`/api/timetravel/asof?${params.toString()}`);
+}
