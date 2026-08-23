@@ -34,11 +34,21 @@ test('renders the welcome page by default, with no persistent top nav', () => {
   expect(screen.queryByLabelText('Main navigation')).not.toBeInTheDocument();
 });
 
-test('signed-out users are redirected to sign-in when visiting a protected page', async () => {
+test('signed-out users can view Overview without signing in', async () => {
   render(<App />);
   emitAuthState(null);
 
   fireEvent.click(screen.getByRole('link', { name: 'Overview' }));
+
+  await waitFor(() => expect(screen.getAllByText(/Overview/i).length).toBeGreaterThan(0));
+  expect(screen.queryByRole('heading', { name: /^sign in$/i })).not.toBeInTheDocument();
+});
+
+test('signed-out users are redirected to sign-in when visiting Submissions', async () => {
+  render(<App />);
+  emitAuthState(null);
+
+  fireEvent.click(screen.getByRole('link', { name: 'Submissions' }));
 
   await waitFor(() =>
     expect(screen.getByRole('heading', { name: /^sign in$/i })).toBeInTheDocument()
