@@ -23,4 +23,14 @@ async function request(path) {
 
 export function getOverview() {
   return request('/api/overview');
+
+}
+
+export function getStatistics({ view, season, sessionId } = {}) {
+  const params = new URLSearchParams();
+  if (view) params.set('view', view);
+  if (season != null) params.set('season', season);
+  if (sessionId) params.set('sessionId', sessionId);
+  const query = params.toString();
+  return request(`/api/statistics${query ? `?${query}` : ''}`);
 }
