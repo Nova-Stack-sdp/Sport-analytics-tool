@@ -1,0 +1,60 @@
+/**
+ * Backend API client.
+ *
+ * Base URL comes from REACT_APP_API_URL, a build-time env var (CRA only
+ * exposes vars prefixed REACT_APP_). Set this in Netlify's site settings ->
+ * Environment variables, pointing at the Northflank service URL, e.g.
+ * https://sport--backend-api--7kcwxz9xblx5.code.run
+ *
+ * Falls back to that same Northflank URL for local dev convenience — override
+ * it locally via a .env.local file if you're running the backend elsewhere
+ * (e.g. http://localhost:8080).
+ */
+const API_BASE_URL =
+  process.env.REACT_APP_API_URL || 'https://sport--backend-api--7kcwxz9xblx5.code.run';
+
+async function request(path) {
+  const res = await fetch(`${API_BASE_URL}${path}`);
+  if (!res.ok) {
+    throw new Error(`Request to ${path} failed with status ${res.status}`);
+  }
+  return res.json();
+}
+
+export function getOverview() {
+  return request('/api/overview');
+
+}
+
+export function getStatistics({ view, season, sessionId } = {}) {
+  const params = new URLSearchParams();
+  if (view) params.set('view', view);
+  if (season != null) params.set('season', season);
+  if (sessionId) params.set('sessionId', sessionId);
+  const query = params.toString();
+  return request(`/api/statistics${query ? `?${query}` : ''}`);
+}
+
+export function getFixtures() {
+  return request('/api/fixtures');
+}
+
+export function getFixtureEvents(sessionId) {
+  return request(`/api/fixtures/${sessionId}/events`);
+}
+
+export function getTimeTravelContext(sessionId) {
+  const params = new URLSearchParams();
+  if (sessionId) params.set('sessionId', sessionId);
+  const query = params.toString();
+  return request(`/api/timetravel/context${query ? `?${query}` : ''}`);
+}
+
+export function getTimeTravelChangelog(entryId) {
+  return request(`/api/timetravel/changelog?entryId=${entryId}`);
+}
+
+export function getTimeTravelAsOf({ sessionId, entryId, date }) {
+  const params = new URLSearchParams({ sessionId, entryId, date });
+  return request(`/api/timetravel/asof?${params.toString()}`);
+}

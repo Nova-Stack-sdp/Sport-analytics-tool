@@ -27,11 +27,19 @@
  *    SessionType enum has no dedicated slot for them.
  */
 
+import net from 'node:net';
 import pkg from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import 'dotenv/config';
+import { runDerivationForSession } from '../derivation/index.js';
 
 const { PrismaClient, SubmissionSource, SubmissionStatus, EventType } = pkg;
+
+// Same Node dual-stack connection fix as src/lib/prisma.js — see that file
+// for the full explanation. This job connects to Postgres independently
+// (it's a standalone script, not run through the Express app), so it needs
+// the fix applied here too.
+net.setDefaultAutoSelectFamily(false);
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
@@ -487,7 +495,21 @@ async function syncSession(sessionKeyRaw) {
     return submission;
   });
 
-  console.log(`Submission ${result.id} created — status: ${result.status}, events written: ${events.length}`);
+    console.log(`Submission ${result.id} created — status: ${result.status}, events written: ${events.length}`);
+
+  // Derivation cascade was previously never triggered anywhere — submissions
+  // landed as accepted/partially_accepted with real events, but the
+  // projection tables (driver_career_stats, team_season_stats, etc.) stayed
+  // empty forever, which is why the Overview/Statistics pages showed no
+  // leaderboard despite having real data. Mirrors the doc comment on
+  // runDerivationForSession: run it whenever a submission touching this
+  // session moves to accepted or partially_accepted.
+  if (result.status === SubmissionStatus.accepted || result.status === SubmissionStatus.partially_accepted) {
+    console.log(`Running derivation for session ${sessionId}...`);
+    await runDerivationForSession(prisma, sessionId);
+    console.log('Derivation complete.');
+  }
+
   return result;
 }
 
