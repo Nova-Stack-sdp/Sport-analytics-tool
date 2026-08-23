@@ -1,8 +1,9 @@
 import express from 'express';
 import cors from 'cors';
-import { fixturesRouter } from './routes/fixtures.js';
 import { overviewRouter } from './routes/overview.js';
 import { statisticsRouter } from './routes/statistics.js';
+import { fixturesRouter } from './routes/fixtures.js';
+import { timeTravelRouter } from './routes/timetravel.js';
 
 export function createApp() {
   const app = express();
@@ -35,6 +36,7 @@ export function createApp() {
   app.use('/api/overview', overviewRouter);
   app.use('/api/statistics', statisticsRouter);
   app.use('/api/fixtures', fixturesRouter);
+  app.use('/api/timetravel', timeTravelRouter);
 
   // 404 for anything else under /api
   app.use('/api', (req, res) => {
