@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../firebase';
+import { getCurrentUser } from '../api/authClient';
 
 const AuthContext = createContext({ user: null, loading: true });
 
@@ -9,14 +8,10 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Firebase persists the session itself (localStorage by default), so
-    // this fires immediately with the restored user on page load, then
-    // again on every sign-in/sign-out.
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser);
-      setLoading(false);
-    });
-    return unsubscribe;
+    getCurrentUser()
+      .then(({ user: currentUser }) => setUser(currentUser))
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false));
   }, []);
 
   return <AuthContext.Provider value={{ user, loading }}>{children}</AuthContext.Provider>;

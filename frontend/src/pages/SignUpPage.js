@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { auth } from '../firebase';
+import { register } from '../api/authClient';
 import '../styles/auth.css';
 
 const initialForm = {
@@ -14,11 +13,11 @@ const initialForm = {
 
 function friendlyAuthError(error) {
   switch (error.code) {
-    case 'auth/email-already-in-use':
+    case 'account-exists':
       return 'An account with that email already exists. Try signing in instead.';
-    case 'auth/weak-password':
+    case 'weak-password':
       return 'Choose a stronger password (at least 6 characters).';
-    case 'auth/invalid-email':
+    case 'invalid-email':
       return 'Enter a valid email.';
     default:
       return 'Something went wrong creating your account. Try again.';
@@ -56,12 +55,12 @@ function SignUpPage() {
     setStatus('submitting');
     setMessage('');
     try {
-      const credential = await createUserWithEmailAndPassword(auth, form.email, form.password);
-      await updateProfile(credential.user, {
-        displayName: `${form.firstName} ${form.lastName}`,
+      await register({
+        email: form.email,
+        password: form.password,
+        firstName: form.firstName,
+        lastName: form.lastName,
       });
-      // Firebase signs the account in immediately on creation, so there's
-      // no separate "now go sign in" step.
       navigate('/overview', { replace: true });
     } catch (error) {
       setStatus('error');

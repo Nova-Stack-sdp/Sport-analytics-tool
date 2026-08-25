@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { signInWithPopup, signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider, githubProvider } from '../firebase';
+import { login } from '../api/authClient';
 import '../styles/auth.css';
 
 function friendlyAuthError(error) {
-  switch (error.code) {
+  switch (error.code || error.message) {
     case 'auth/invalid-credential':
     case 'auth/wrong-password':
     case 'auth/user-not-found':
+    case 'Incorrect email or password':
       return 'Incorrect email or password.';
     case 'auth/too-many-requests':
       return 'Too many attempts. Try again in a bit.';
@@ -104,7 +106,7 @@ function SignInPage() {
     setStatus('submitting');
     setMessage('');
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await login({ email, password });
       navigate('/overview', { replace: true });
     } catch (error) {
       setStatus('error');

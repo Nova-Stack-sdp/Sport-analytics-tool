@@ -4,6 +4,7 @@ import { overviewRouter } from './routes/overview.js';
 import { statisticsRouter } from './routes/statistics.js';
 import { fixturesRouter } from './routes/fixtures.js';
 import { timeTravelRouter } from './routes/timetravel.js';
+import { authRouter } from './routes/auth.js';
 
 export function createApp() {
   const app = express();
@@ -21,6 +22,7 @@ export function createApp() {
   app.use(
     cors({
       origin: allowedOrigins.includes('*') ? '*' : allowedOrigins,
+      credentials: true,
     })
   );
   app.use(express.json());
@@ -32,6 +34,8 @@ export function createApp() {
   app.get('/health', (req, res) => {
     res.json({ status: 'ok' });
   });
+
+  app.use('/api/auth', authRouter);
 
   app.use('/api/overview', overviewRouter);
   app.use('/api/statistics', statisticsRouter);

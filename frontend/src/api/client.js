@@ -14,7 +14,7 @@ const API_BASE_URL =
   process.env.REACT_APP_API_URL || 'https://sport--backend-api--7kcwxz9xblx5.code.run';
 
 async function request(path) {
-  const res = await fetch(`${API_BASE_URL}${path}`);
+  const res = await fetch(`${API_BASE_URL}${path}`, { credentials: 'include' });
   if (!res.ok) {
     throw new Error(`Request to ${path} failed with status ${res.status}`);
   }
