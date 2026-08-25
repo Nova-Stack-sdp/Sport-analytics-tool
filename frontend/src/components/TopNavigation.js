@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { signOut } from 'firebase/auth';
+import { signOut as firebaseSignOut } from 'firebase/auth';
 import { auth } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 
@@ -24,11 +24,12 @@ function initialsFor(user) {
 }
 
 function TopNav({ theme, onToggleTheme }) {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
-    await signOut(auth);
+    await signOut();
+    await firebaseSignOut(auth);
     navigate('/sign-in', { replace: true });
   };
 

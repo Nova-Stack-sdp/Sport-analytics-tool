@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { register } from '../api/authClient';
+import { useAuth } from '../context/AuthContext';
 import '../styles/auth.css';
 
 const initialForm = {
@@ -12,10 +13,12 @@ const initialForm = {
 };
 
 function friendlyAuthError(error) {
-  switch (error.code) {
+  switch (error.code || error.message) {
     case 'account-exists':
+    case 'An account with that email already exists':
       return 'An account with that email already exists. Try signing in instead.';
     case 'weak-password':
+    case 'A valid email and password of at least 8 characters are required':
       return 'Choose a stronger password (at least 6 characters).';
     case 'invalid-email':
       return 'Enter a valid email.';
@@ -26,6 +29,7 @@ function friendlyAuthError(error) {
 
 function SignUpPage() {
   const navigate = useNavigate();
+  const { refreshUser } = useAuth();
   const [form, setForm] = useState(initialForm);
   const [fieldErrors, setFieldErrors] = useState({});
   const [status, setStatus] = useState('idle'); // idle | submitting | error
@@ -61,6 +65,7 @@ function SignUpPage() {
         firstName: form.firstName,
         lastName: form.lastName,
       });
+      await refreshUser();
       navigate('/overview', { replace: true });
     } catch (error) {
       setStatus('error');

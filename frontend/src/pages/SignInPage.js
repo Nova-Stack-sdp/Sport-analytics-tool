@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider, githubProvider } from '../firebase';
 import { login } from '../api/authClient';
+import { useAuth } from '../context/AuthContext';
 import '../styles/auth.css';
 
 function friendlyAuthError(error) {
@@ -47,6 +48,7 @@ function GithubIcon() {
 
 function SignInPage() {
   const navigate = useNavigate();
+  const { refreshUser } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
@@ -107,6 +109,7 @@ function SignInPage() {
     setMessage('');
     try {
       await login({ email, password });
+      await refreshUser();
       navigate('/overview', { replace: true });
     } catch (error) {
       setStatus('error');

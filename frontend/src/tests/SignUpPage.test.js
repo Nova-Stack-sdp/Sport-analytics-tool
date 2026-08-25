@@ -1,13 +1,12 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import SignUpPage from '../pages/SignUpPage';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { register } from '../api/authClient';
 
 jest.mock('../firebase', () => ({ auth: {} }));
 
-jest.mock('firebase/auth', () => ({
-  createUserWithEmailAndPassword: jest.fn(),
-  updateProfile: jest.fn(),
+jest.mock('../api/authClient', () => ({
+  register: jest.fn(),
 }));
 
 const mockNavigate = jest.fn();
@@ -37,7 +36,7 @@ beforeEach(() => {
 });
 
 describe('SignUpPage', () => {
-  test('rejects mismatched passwords without calling Firebase', async () => {
+  test('rejects mismatched passwords without calling the auth API', async () => {
     renderPage();
     fillValidForm();
     fireEvent.change(screen.getByLabelText(/confirm password/i), { target: { value: 'somethingelse' } });
@@ -45,33 +44,29 @@ describe('SignUpPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /create account/i }));
 
     expect(await screen.findByText(/don't match/i)).toBeInTheDocument();
-    expect(createUserWithEmailAndPassword).not.toHaveBeenCalled();
+    expect(register).not.toHaveBeenCalled();
   });
 
-  test('creates the account, sets the display name, and navigates to /overview', async () => {
-    createUserWithEmailAndPassword.mockResolvedValue({ user: { uid: 'u1' } });
-    updateProfile.mockResolvedValue();
+  test('creates the account and navigates to /overview', async () => {
+    register.mockResolvedValue({ user: { uid: 'u1' } });
     renderPage();
     fillValidForm();
 
     fireEvent.click(screen.getByRole('button', { name: /create account/i }));
 
     await waitFor(() =>
-      expect(createUserWithEmailAndPassword).toHaveBeenCalledWith(
-        expect.anything(),
-        'ada@example.com',
-        'longenough1'
-      )
-    );
-    expect(updateProfile).toHaveBeenCalledWith(
-      { uid: 'u1' },
-      { displayName: 'Ada Lovelace' }
+      expect(register).toHaveBeenCalledWith({
+        email: 'ada@example.com',
+        password: 'longenough1',
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+      })
     );
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/overview', { replace: true }));
   });
 
   test('shows a friendly message when the email is already in use', async () => {
-    createUserWithEmailAndPassword.mockRejectedValue({ code: 'auth/email-already-in-use' });
+    register.mockRejectedValue(new Error('An account with that email already exists'));
     renderPage();
     fillValidForm();
 

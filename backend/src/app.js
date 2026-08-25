@@ -12,16 +12,16 @@ export function createApp() {
   // FRONTEND_ORIGIN should be set on Northflank to the exact Netlify URL,
   // e.g. "https://sport-analytics-tool.netlify.app". Comma-separate if you
   // need more than one (a preview URL + the production domain, say).
-  // Falls back to "*" so local/dev work out of the box, but that fallback
-  // should never be relied on in production.
-  const allowedOrigins = (process.env.FRONTEND_ORIGIN || '*')
+  // Cookies require an explicit origin when credentials are enabled. Set
+  // FRONTEND_ORIGIN to the deployed frontend origin in production.
+  const allowedOrigins = (process.env.FRONTEND_ORIGIN || 'http://localhost:3000')
     .split(',')
     .map((o) => o.trim())
     .filter(Boolean);
 
   app.use(
     cors({
-      origin: allowedOrigins.includes('*') ? '*' : allowedOrigins,
+      origin: allowedOrigins,
       credentials: true,
     })
   );

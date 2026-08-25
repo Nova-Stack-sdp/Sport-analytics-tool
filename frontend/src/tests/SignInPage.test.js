@@ -1,7 +1,8 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import SignInPage from '../pages/SignInPage';
-import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { signInWithPopup } from 'firebase/auth';
+import { login } from '../api/authClient';
 
 jest.mock('../firebase', () => ({
   auth: {},
@@ -10,8 +11,11 @@ jest.mock('../firebase', () => ({
 }));
 
 jest.mock('firebase/auth', () => ({
-  signInWithEmailAndPassword: jest.fn(),
   signInWithPopup: jest.fn(),
+}));
+
+jest.mock('../api/authClient', () => ({
+  login: jest.fn(),
 }));
 
 const mockNavigate = jest.fn();
@@ -47,11 +51,11 @@ describe('SignInPage', () => {
 
     expect(await screen.findByText(/enter your email/i)).toBeInTheDocument();
     expect(screen.getByText(/enter your password/i)).toBeInTheDocument();
-    expect(signInWithEmailAndPassword).not.toHaveBeenCalled();
+    expect(login).not.toHaveBeenCalled();
   });
 
   test('signs in with email/password and navigates to /overview on success', async () => {
-    signInWithEmailAndPassword.mockResolvedValue({ user: { uid: 'u1' } });
+    login.mockResolvedValue({ user: { uid: 'u1' } });
     renderPage();
 
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'driver@example.com' } });
@@ -59,17 +63,16 @@ describe('SignInPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() =>
-      expect(signInWithEmailAndPassword).toHaveBeenCalledWith(
-        expect.anything(),
-        'driver@example.com',
-        'password123'
-      )
+      expect(login).toHaveBeenCalledWith({
+        email: 'driver@example.com',
+        password: 'password123',
+      })
     );
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/overview', { replace: true }));
   });
 
   test('shows a friendly message on invalid credentials, not the raw Firebase error', async () => {
-    signInWithEmailAndPassword.mockRejectedValue({ code: 'auth/invalid-credential' });
+    login.mockRejectedValue(new Error('Incorrect email or password'));
     renderPage();
 
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'driver@example.com' } });
