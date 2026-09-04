@@ -5,7 +5,8 @@ services:
       dockerfile: Dockerfile
     container_name: sport-analytics-backend
     env_file:
-      - ./backend/.env
+      - path: ./backend/.env
+        required: false
     ports:
       - "8080:8080"
 
@@ -18,5 +19,3 @@ services:
       REACT_APP_API_URL: http://localhost:8080
     ports:
       - "3000:3000"
-    depends_on:
-      - backend
