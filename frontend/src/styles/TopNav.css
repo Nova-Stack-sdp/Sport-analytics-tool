@@ -1,9 +1,11 @@
 .topnav {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 20;
-  background: linear-gradient(90deg, #9D0D0D 0%, #9D0D0D 25%, #9D0D0D 100%);
-  border-bottom: 1px solid #9D0D0D;
+  background: linear-gradient(90deg, var(--accent-dark) 0%, var(--accent) 100%);
+  border-bottom: 1px solid var(--accent-dark);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
 }
 

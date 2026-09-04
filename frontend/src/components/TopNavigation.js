@@ -7,6 +7,8 @@ const NAV_ITEMS = [
   { to: '/overview', label: 'Overview' },
   { to: '/fixtures', label: 'Fixtures & Events' },
   { to: '/statistics', label: 'Statistics' },
+  { to: '/teams', label: 'Teams' },
+  { to: '/drivers', label: 'Drivers' },
   { to: '/submissions', label: 'Submissions', requiresAuth: true },
   { to: '/timetravel', label: 'Time-Travel' },
   { to: '/datasets', label: 'Datasets', requiresAuth: true },

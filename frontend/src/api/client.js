@@ -58,3 +58,23 @@ export function getTimeTravelAsOf({ sessionId, entryId, date }) {
   const params = new URLSearchParams({ sessionId, entryId, date });
   return request(`/api/timetravel/asof?${params.toString()}`);
 }
+
+export function getPopularVideos() {
+  return request('/api/videos/popular');
+}
+
+export function getTeams() {
+  return request('/api/teams');
+}
+
+export function getTeam(id) {
+  return request(`/api/teams/${id}`);
+}
+
+export function getDrivers() {
+  return request('/api/drivers');
+}
+
+export function getDriver(id) {
+  return request(`/api/drivers/${id}`);
+}
