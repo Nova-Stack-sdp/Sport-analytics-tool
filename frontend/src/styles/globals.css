@@ -422,6 +422,9 @@ table.results td{padding:9px 10px;border-bottom:1px solid var(--border-soft);col
 }
 
 /* Team detail */
+.td-roster-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin:26px 0;}
+@media (max-width:760px){.td-roster-grid{grid-template-columns:1fr;}}
+
 .td-hero{position:relative;border-radius:var(--radius-lg);overflow:hidden;background:linear-gradient(120deg,var(--tc,#7a1010) 0%,#0c0c10 85%);padding:44px;text-align:center;border:1px solid var(--border-soft);}
 .td-hero h1{font-size:44px;font-weight:900;margin:0 0 16px;color:#fff;}
 .td-logo{width:90px;height:90px;object-fit:contain;margin-bottom:18px;}
@@ -442,7 +445,8 @@ table.results td{padding:9px 10px;border-bottom:1px solid var(--border-soft);col
 .bio{font-size:12.5px;line-height:1.7;color:var(--text-secondary);}
 .gallery-title{font-size:13px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;}
 .gallery-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:26px 0;}
-.gallery-cell{aspect-ratio:16/10;border-radius:10px;background:linear-gradient(150deg,var(--tc,#333),#0c0c10);}
+.gallery-cell{aspect-ratio:16/10;border-radius:10px;background:linear-gradient(150deg,var(--tc,#333),#0c0c10);overflow:hidden;position:relative;}
+.gallery-img{width:100%;height:100%;object-fit:cover;display:block;}
 
 @media (max-width:760px){
   .td-hero{padding:28px;}

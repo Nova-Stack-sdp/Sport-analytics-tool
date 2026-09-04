@@ -62,30 +62,78 @@ function flagEmoji(countryCode) {
 driversRouter.get('/', async (req, res, next) => {
   try {
     const season = await getCurrentSeason();
-    const careerStats = await prisma.driverCareerStats.findMany({
+    let careerStats = await prisma.driverCareerStats.findMany({
       where: { season },
-      include: { driver: { include: { entries: { include: { team: true, session: { include: { meeting: true } } } } } } },
       orderBy: { points: 'desc' },
     });
 
+    // A season synced before derivation ran (or a session whose results
+    // OpenF1 hadn't published yet) leaves driver_career_stats empty even
+    // though drivers and entries exist. Fall back to the entry list so the
+    // page still shows every driver — and where possible, fill in real
+    // points from API-Sports' standings instead of leaving everyone at 0.
+    if (careerStats.length === 0) {
+      const [entries, standings] = await Promise.all([
+        prisma.entry.findMany({
+          where: { session: { meeting: { season } } },
+          include: { driver: true, session: { include: { meeting: true } } },
+        }),
+        // Best-effort only: real points instead of hardcoded 0s when
+        // API-Sports has this season's standings. If the call fails, or a
+        // driver isn't in the response, we still fall through to 0 below —
+        // this never blocks the list from rendering.
+        apiSports(`/rankings/drivers?season=${season}`).catch(() => []),
+      ]);
+      const standingsByNumber = new Map(
+        standings.map((row) => [row.driver?.number, row]),
+      );
+      const seen = new Map();
+      for (const e of entries) {
+        if (!seen.has(e.driverId)) {
+          const standing = standingsByNumber.get(e.driver.driverNumber);
+          seen.set(e.driverId, {
+            driverId: e.driverId,
+            driver: e.driver,
+            points: standing?.points ?? 0,
+            wins: 0,
+            podiums: 0,
+          });
+        }
+      }
+      careerStats = Array.from(seen.values()).sort((a, b) => b.points - a.points);
+    } else {
+      const loaded = await prisma.driverCareerStats.findMany({
+        where: { season },
+        include: { driver: { include: { entries: { include: { team: true, session: { include: { meeting: true } } } } } } },
+        orderBy: { points: 'desc' },
+      });
+      careerStats = loaded;
+    }
+
     const enriched = [];
     for (const cs of careerStats) {
-      const team = cs.driver.entries
+      const driverWithEntries = cs.driver?.entries
+        ? cs.driver
+        : await prisma.driver.findUnique({
+            where: { id: cs.driverId },
+            include: { entries: { include: { team: true, session: { include: { meeting: true } } } } },
+          });
+      const team = (driverWithEntries?.entries ?? [])
         .filter((e) => e.session.meeting.season === season)
         .slice(-1)[0]?.team;
 
       let apiDriver = null;
       try {
-        [apiDriver] = await apiSports(`/drivers?number=${cs.driver.driverNumber}`);
+        [apiDriver] = await apiSports(`/drivers?number=${driverWithEntries.driverNumber}`);
       } catch (err) {
         // API-Sports can be flaky per call; don't let one driver break the list.
       }
 
       enriched.push({
-        id: cs.driver.id,
+        id: driverWithEntries.id,
         apiId: apiDriver ? String(apiDriver.id) : null,
-        name: cs.driver.name,
-        number: cs.driver.driverNumber,
+        name: driverWithEntries.name,
+        number: driverWithEntries.driverNumber,
         points: cs.points,
         wins: cs.wins,
         podiums: cs.podiums,

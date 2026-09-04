@@ -30,6 +30,22 @@ const DESTINATIONS = [
     short: 'Tt',
     desc: 'Rewind any session to see exactly what the standings looked like at a given moment.',
   },
+  {
+    to: '/drivers',
+    label: 'Drivers',
+    short: 'Dr',
+    desc: 'Profiles and statistics for each driver in the series.',
+  },
+  {
+    to: '/teams',
+    label: 'Teams',
+    short: 'Tm',
+    desc: 'Profiles and statistics for each team in the series.',
+  },
+
+
+
+
 ];
 
 function WelcomePage() {

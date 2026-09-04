@@ -44,6 +44,27 @@ function TeamDetailPage() {
           </div>
         </div>
 
+        <h3 className="gallery-title">Drivers</h3>
+        <div className="td-roster-grid">
+          {team.drivers.map((d) => (
+            <Link key={d.id} to={`/driver/${d.id}`} className="driver-cell" style={{ '--tc': team.color }}>
+              <div className="driver-photo">
+                {d.imageUrl ? (
+                  <img src={d.imageUrl} alt={d.name} />
+                ) : (
+                  <span className="driver-num">{d.number}</span>
+                )}
+              </div>
+              <div className="driver-strip">
+                <div>
+                  <div className="driver-name">{d.name}</div>
+                  <div className="driver-team">#{d.number}</div>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+
         <div className="td-two-col">
           <div className="stat-list">
             <h3>{team.season} season</h3>
