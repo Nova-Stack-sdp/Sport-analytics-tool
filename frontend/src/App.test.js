@@ -24,21 +24,29 @@ function emitAuthState(user) {
   });
 }
 
+function getTopNavLink(name) {
+  // The persistent top nav is the only region with aria-label="Main navigation".
+  const topnav = screen.getByLabelText('Main navigation');
+  const links = Array.from(topnav.querySelectorAll('a'));
+  return links.find((a) => a.textContent.trim() === name);
+}
+
 beforeEach(() => {
   window.history.pushState({}, '', '/');
 });
 
-test('renders the welcome page by default, with no persistent top nav', () => {
+test('renders the welcome page by default, with the persistent top nav', () => {
   render(<App />);
   expect(screen.getByText('NOVA STACK')).toBeInTheDocument();
-  expect(screen.queryByLabelText('Main navigation')).not.toBeInTheDocument();
+  expect(screen.getByLabelText('Main navigation')).toBeInTheDocument();
 });
 
 test('signed-out users can view Overview without signing in', async () => {
   render(<App />);
   emitAuthState(null);
 
-  fireEvent.click(screen.getByRole('link', { name: 'Overview' }));
+  // Navigate to Overview using the top nav link.
+  fireEvent.click(getTopNavLink('Overview'));
 
   await waitFor(() => expect(screen.getAllByText(/Overview/i).length).toBeGreaterThan(0));
   expect(screen.queryByRole('heading', { name: /^sign in$/i })).not.toBeInTheDocument();
@@ -48,7 +56,7 @@ test('signed-out users never see links to Submissions, Datasets, Developer, or A
   render(<App />);
   emitAuthState(null);
 
-  fireEvent.click(screen.getByRole('link', { name: 'Overview' }));
+  fireEvent.click(getTopNavLink('Overview'));
   await waitFor(() => expect(screen.getAllByText(/Overview/i).length).toBeGreaterThan(0));
 
   expect(screen.queryByRole('link', { name: 'Submissions' })).not.toBeInTheDocument();
@@ -61,7 +69,7 @@ test('signed-in users see every nav link, including the protected ones', async (
   render(<App />);
   emitAuthState({ uid: 'u1' });
 
-  fireEvent.click(screen.getByRole('link', { name: 'Overview' }));
+  fireEvent.click(getTopNavLink('Overview'));
   await waitFor(() => expect(screen.getAllByText(/Overview/i).length).toBeGreaterThan(0));
 
   expect(screen.getByRole('link', { name: 'Submissions' })).toBeInTheDocument();
@@ -84,7 +92,7 @@ test('signed-in users reach the Overview dashboard, with the persistent top nav'
   render(<App />);
   emitAuthState({ uid: 'u1', email: 'driver@example.com' });
 
-  fireEvent.click(screen.getByRole('link', { name: 'Overview' }));
+  fireEvent.click(getTopNavLink('Overview'));
 
   await waitFor(() => expect(screen.getAllByText(/Overview/i).length).toBeGreaterThan(0));
   expect(screen.getByLabelText('Main navigation')).toBeInTheDocument();
@@ -94,7 +102,7 @@ test('nav switches to the Developer page once signed in', async () => {
   render(<App />);
   emitAuthState({ uid: 'u1' });
 
-  fireEvent.click(screen.getByRole('link', { name: 'Overview' }));
+  fireEvent.click(getTopNavLink('Overview'));
   await waitFor(() => expect(screen.getAllByText(/Overview/i).length).toBeGreaterThan(0));
 
   fireEvent.click(screen.getByText('Developer'));
