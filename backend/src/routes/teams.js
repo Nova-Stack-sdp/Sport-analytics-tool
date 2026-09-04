@@ -4,45 +4,6 @@ import { prisma } from '../lib/prisma.js';
 export const teamsRouter = Router();
 
 const API_SPORTS_BASE = 'https://v1.formula-1.api-sports.io';
-
-// Gallery images come from Wikimedia Commons (freely licensed). Queried by
-// the team's current chassis name (API-Sports provides it), which maps to
-// well-photographed files. Falls back to a plain gradient when nothing is
-// found — the frontend renders that automatically.
-const WIKI_HEADERS = {
-  'User-Agent': 'SportAnalyticsTool/1.0 (student project; F1 analytics dashboard)',
-};
-const WIKI_API = 'https://commons.wikimedia.org/w/api.php';
-
-async function fetchTeamGallery(teamName, chassis) {
-  if (!chassis) return [];
-  const params = new URLSearchParams({
-    action: 'query',
-    generator: 'search',
-    gsrsearch: `${chassis} Formula 1`,
-    gsrlimit: '8',
-    gsrnamespace: '6',
-    prop: 'imageinfo',
-    iiprop: 'url',
-    iiurlwidth: '1200',
-    format: 'json',
-    origin: '*',
-  });
-  const res = await fetch(`${WIKI_API}?${params.toString()}`, { headers: WIKI_HEADERS });
-  if (!res.ok) return [];
-  const data = await res.json();
-  const pages = Object.values(data.query?.pages ?? {});
-  return pages
-    .filter((p) => /\.(jpe?g|png)$/i.test(p.title || ''))
-    .slice(0, 4)
-    .map((p, index) => ({
-      rank: index + 1,
-      url: p.imageinfo?.[0]?.thumburl ?? p.imageinfo?.[0]?.url ?? null,
-      source: 'Wikimedia Commons',
-    }))
-    .filter((shot) => shot.url);
-}
-
 const F1_COLORS = {
   'Red Bull Racing': '#3671C6',
   'Oracle Red Bull Racing': '#3671C6',
@@ -144,8 +105,6 @@ teamsRouter.get('/:id', async (req, res, next) => {
     const [teamDetail] = await apiSports(`/teams?id=${id}`);
     if (!teamDetail) return res.status(404).json({ error: 'Team not found' });
 
-    const gallery = await fetchTeamGallery(teamDetail.name, teamDetail.chassis).catch(() => []);
-
     const stats = await prisma.teamSeasonStats.findFirst({
       where: { team: { name: teamDetail.name }, season },
       include: { team: { include: { entries: { include: { session: { include: { meeting: true } }, driver: true } } } } },
@@ -163,6 +122,22 @@ teamsRouter.get('/:id', async (req, res, next) => {
         }
       }
     }
+
+    // Enrich each roster driver with their photo from API-Sports, same
+    // source drivers.js already uses for the Drivers list/detail pages —
+    // previously this route never made this call, so imageUrl was always
+    // undefined here even though the driver's own profile page has one.
+    await Promise.all(
+      Array.from(drivers.values()).map(async (d) => {
+        try {
+          const [apiDriver] = await apiSports(`/drivers?number=${d.number}`);
+          d.imageUrl = apiDriver?.image || null;
+        } catch (err) {
+          // One flaky lookup shouldn't break the whole team page.
+          d.imageUrl = null;
+        }
+      }),
+    );
 
     res.json({
       id: String(teamDetail.id),
@@ -186,7 +161,6 @@ teamsRouter.get('/:id', async (req, res, next) => {
         ? { points: stats.points, wins: stats.wins, reliabilityRate: stats.reliabilityRate }
         : null,
       drivers: Array.from(drivers.values()),
-      gallery,
     });
   } catch (err) {
     next(err);

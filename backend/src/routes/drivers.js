@@ -45,6 +45,68 @@ async function apiSports(path) {
   return data.response || [];
 }
 
+const OPENF1_BASE = 'https://api.openf1.org/v1';
+
+async function openF1(path, params) {
+  const query = new URLSearchParams(params).toString();
+  const res = await fetch(`${OPENF1_BASE}/${path}?${query}`);
+  if (res.status === 404) return [];
+  if (!res.ok) throw new Error(`OpenF1 ${path} -> ${res.status}`);
+  return res.json();
+}
+
+function resultForEntry(entry, result, grid) {
+  const position = result?.position ?? entry.sessionStats?.finalPosition ?? null;
+  const points = result?.points ?? entry.sessionStats?.points ?? 0;
+  const dnf = result
+    ? Boolean(result.dnf || result.dns || result.dsq)
+    : Boolean(entry.sessionStats && entry.sessionStats.finalPosition == null);
+
+  return {
+    sessionId: entry.session.id,
+    meetingName: entry.session.meeting.name,
+    type: entry.session.type,
+    startedAt: entry.session.startTime,
+    qualified: grid?.position ?? null,
+    result: position,
+    dnf,
+    fastestLap: false,
+    points,
+    laps: result?.number_of_laps ?? null,
+    gapToLeader: result?.gap_to_leader ?? null,
+    duration: result?.duration ?? null,
+    status: result?.dsq ? 'DSQ' : result?.dns ? 'DNS' : result?.dnf ? 'DNF' : result ? 'Finished' : entry.sessionStats ? 'Finished' : 'Unknown',
+    source: result ? 'openf1' : 'local',
+  };
+}
+
+function summariseResults(results) {
+  const classified = results.filter((result) => result.result != null);
+  const bestFinish = classified.length ? Math.min(...classified.map((result) => result.result)) : null;
+  const gridPositions = results
+    .map((result) => result.qualified)
+    .filter((position) => position != null);
+
+  return {
+    starts: results.length,
+    points: results.reduce((sum, result) => sum + (Number(result.points) || 0), 0),
+    wins: classified.filter((result) => result.result === 1).length,
+    podiums: classified.filter((result) => result.result <= 3).length,
+    dnfCount: results.filter((result) => result.dnf).length,
+    poles: gridPositions.filter((position) => position === 1).length,
+    highestGridPosition: gridPositions.length ? Math.min(...gridPositions) : null,
+    highestRaceFinish: bestFinish ? { position: bestFinish, number: classified.filter((result) => result.result === bestFinish).length } : null,
+    averageFinish: classified.length
+      ? Number((classified.reduce((sum, result) => sum + result.result, 0) / classified.length).toFixed(1))
+      : null,
+  };
+}
+
+function openF1TeamColor(color) {
+  if (!color) return null;
+  return color.startsWith('#') ? color : `#${color}`;
+}
+
 async function getCurrentSeason() {
   const latestMeeting = await prisma.meeting.findFirst({ orderBy: { season: 'desc' } });
   return latestMeeting?.season ?? new Date().getFullYear();
@@ -70,37 +132,25 @@ driversRouter.get('/', async (req, res, next) => {
     // A season synced before derivation ran (or a session whose results
     // OpenF1 hadn't published yet) leaves driver_career_stats empty even
     // though drivers and entries exist. Fall back to the entry list so the
-    // page still shows every driver — and where possible, fill in real
-    // points from API-Sports' standings instead of leaving everyone at 0.
+    // page still shows every driver, with zeroed stats, instead of nothing.
     if (careerStats.length === 0) {
-      const [entries, standings] = await Promise.all([
-        prisma.entry.findMany({
-          where: { session: { meeting: { season } } },
-          include: { driver: true, session: { include: { meeting: true } } },
-        }),
-        // Best-effort only: real points instead of hardcoded 0s when
-        // API-Sports has this season's standings. If the call fails, or a
-        // driver isn't in the response, we still fall through to 0 below —
-        // this never blocks the list from rendering.
-        apiSports(`/rankings/drivers?season=${season}`).catch(() => []),
-      ]);
-      const standingsByNumber = new Map(
-        standings.map((row) => [row.driver?.number, row]),
-      );
+      const entries = await prisma.entry.findMany({
+        where: { session: { meeting: { season } } },
+        include: { driver: true, session: { include: { meeting: true } } },
+      });
       const seen = new Map();
       for (const e of entries) {
         if (!seen.has(e.driverId)) {
-          const standing = standingsByNumber.get(e.driver.driverNumber);
           seen.set(e.driverId, {
             driverId: e.driverId,
             driver: e.driver,
-            points: standing?.points ?? 0,
+            points: 0,
             wins: 0,
             podiums: 0,
           });
         }
       }
-      careerStats = Array.from(seen.values()).sort((a, b) => b.points - a.points);
+      careerStats = Array.from(seen.values());
     } else {
       const loaded = await prisma.driverCareerStats.findMany({
         where: { season },
@@ -166,54 +216,87 @@ driversRouter.get('/:id', async (req, res, next) => {
     });
     if (!driver) return res.status(404).json({ error: 'Driver not found' });
 
-    let apiDriver = null;
-    try {
-      [apiDriver] = await apiSports(`/drivers?number=${driver.driverNumber}`);
-    } catch (err) {
-      // fall through
-    }
+    const trackedEntries = driver.entries
+      .filter((entry) => entry.session.type === 'Race' || entry.session.type === 'Sprint')
+      .sort((a, b) => new Date(b.session.startTime) - new Date(a.session.startTime));
+    const latestEntry = trackedEntries.find((entry) => entry.session.openf1Key)
+      || [...driver.entries].sort((a, b) => new Date(b.session.startTime) - new Date(a.session.startTime))
+        .find((entry) => entry.session.openf1Key);
 
-    const currentTeam = driver.entries
-      .filter((e) => e.session.meeting.season === season)
-      .slice(-1)[0]?.team;
+    const [openF1Profile, apiDriver] = await Promise.all([
+      latestEntry
+        ? openF1('drivers', { session_key: latestEntry.session.openf1Key, driver_number: driver.driverNumber })
+          .then(([profile]) => profile || null)
+          .catch(() => null)
+        : Promise.resolve(null),
+      apiSports(`/drivers?number=${driver.driverNumber}`)
+        .then(([profile]) => profile || null)
+        .catch(() => null),
+    ]);
 
-    const currentSeasonStats = driver.careerStats[0] || { points: 0, wins: 0, podiums: 0, dnfCount: 0 };
+    const results = await Promise.all(trackedEntries.map(async (entry) => {
+      if (!entry.session.openf1Key) return resultForEntry(entry, null, null);
 
-    const results = driver.entries
-      .filter((e) => e.session.meeting.season === season && e.sessionStats)
-      .sort((a, b) => new Date(b.session.startTime) - new Date(a.session.startTime))
-      .map((e) => ({
-        sessionId: e.session.id,
-        meetingName: e.session.meeting.name,
-        type: e.session.type,
-        qualified: e.sessionStats.finalPosition ?? null,
-        result: e.sessionStats.finalPosition ?? null,
-        dnf: e.sessionStats.finalPosition == null,
-        fastestLap: false,
-        points: e.sessionStats.points ?? 0,
-      }));
+      try {
+        const [sessionResults, startingGrid] = await Promise.all([
+          openF1('session_result', { session_key: entry.session.openf1Key, driver_number: driver.driverNumber }),
+          entry.session.meeting.openf1Key
+            ? openF1('starting_grid', { meeting_key: entry.session.meeting.openf1Key, driver_number: driver.driverNumber })
+            : Promise.resolve([]),
+        ]);
+        return resultForEntry(entry, sessionResults[0], startingGrid[0]);
+      } catch (err) {
+        // Preserve locally tracked data if OpenF1 is temporarily unavailable.
+        return resultForEntry(entry, null, null);
+      }
+    }));
+
+    const seasonResults = results.filter((result) => {
+      const entry = trackedEntries.find((trackedEntry) => trackedEntry.session.id === result.sessionId);
+      return entry?.session.meeting.season === season;
+    });
+    const derivedSeasonStats = summariseResults(seasonResults);
+    const localSeasonStats = driver.careerStats[0];
+    const seasonStats = seasonResults.length
+      ? derivedSeasonStats
+      : {
+          ...derivedSeasonStats,
+          points: localSeasonStats?.points ?? 0,
+          wins: localSeasonStats?.wins ?? 0,
+          podiums: localSeasonStats?.podiums ?? 0,
+          dnfCount: localSeasonStats?.dnfCount ?? 0,
+        };
+    const trackedHistoryStats = summariseResults(results);
+    const currentTeam = trackedEntries.find((entry) => entry.session.meeting.season === season)?.team
+      || driver.entries
+        .filter((entry) => entry.session.meeting.season === season)
+        .sort((a, b) => new Date(b.session.startTime) - new Date(a.session.startTime))[0]?.team;
+    const countryCode = openF1Profile?.country_code || apiDriver?.country?.code || null;
+    const resolvedTeamName = openF1Profile?.team_name || currentTeam?.name || apiDriver?.teams?.[0]?.team?.name || 'Unknown';
 
     res.json({
       id: driver.id,
       apiId: apiDriver ? String(apiDriver.id) : null,
-      name: driver.name,
+      name: openF1Profile?.full_name || driver.name,
       number: driver.driverNumber,
-      nationality: apiDriver?.nationality || 'Unknown',
-      countryCode: apiDriver?.country?.code || null,
-      flag: flagEmoji(apiDriver?.country?.code || ''),
+      broadcastName: openF1Profile?.broadcast_name || null,
+      acronym: openF1Profile?.name_acronym || null,
+      firstName: openF1Profile?.first_name || null,
+      lastName: openF1Profile?.last_name || null,
+      nationality: apiDriver?.nationality || countryCode || 'Unknown',
+      countryCode,
+      flag: flagEmoji(countryCode || ''),
       birthdate: apiDriver?.birthdate || null,
       birthplace: apiDriver?.birthplace || null,
-      imageUrl: apiDriver?.image || null,
-      teamName: currentTeam?.name || (apiDriver?.teams?.[0]?.team?.name || 'Unknown'),
-      teamColor: teamColor(currentTeam?.name || apiDriver?.teams?.[0]?.team?.name || ''),
-      grandsPrixEntered: apiDriver?.grands_prix_entered || driver.entries.length,
+      imageUrl: openF1Profile?.headshot_url || apiDriver?.image || null,
+      teamName: resolvedTeamName,
+      teamColor: openF1TeamColor(openF1Profile?.team_colour) || teamColor(resolvedTeamName),
+      grandsPrixEntered: apiDriver?.grands_prix_entered || trackedHistoryStats.starts,
       worldChampionships: apiDriver?.world_championships || 0,
-      careerPoints: apiDriver?.career_points || '0',
-      podiums: apiDriver?.podiums || currentSeasonStats.podiums,
-      highestRaceFinish: apiDriver?.highest_race_finish || null,
-      highestGridPosition: apiDriver?.highest_grid_position || null,
+      careerPoints: apiDriver?.career_points || null,
       season,
-      seasonStats: currentSeasonStats,
+      seasonStats,
+      trackedHistoryStats,
       results,
     });
   } catch (err) {

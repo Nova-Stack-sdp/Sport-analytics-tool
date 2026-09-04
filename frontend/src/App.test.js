@@ -37,7 +37,7 @@ beforeEach(() => {
 
 test('renders the welcome page by default, with the persistent top nav', () => {
   render(<App />);
-  expect(screen.getByText('NOVA STACK')).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'F1 lytics' })).toBeInTheDocument();
   expect(screen.getByLabelText('Main navigation')).toBeInTheDocument();
 });
 
@@ -113,7 +113,7 @@ test('the hero banner\'s live fixture link works once signed in', async () => {
   render(<App />);
   emitAuthState({ uid: 'u1' });
 
-  expect(screen.getByText('NOVA STACK')).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'F1 lytics' })).toBeInTheDocument();
   fireEvent.click(screen.getByText('Open live fixture'));
 
   await waitFor(() => expect(screen.getByText('Event log')).toBeInTheDocument());
