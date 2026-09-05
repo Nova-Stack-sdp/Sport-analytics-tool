@@ -1,4 +1,8 @@
 node_modules
 coverage
+build
 .git
 .gitignore
+Dockerfile
+npm-debug.log
+.env
