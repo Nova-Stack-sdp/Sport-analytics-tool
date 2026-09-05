@@ -8,6 +8,7 @@ import TimeTravelPage from '../pages/TimeTravelPage';
 import DatasetsPage from '../pages/DatasetsPage';
 import DeveloperPage from '../pages/DeveloperPage';
 import AdminPage from '../pages/AdminPage';
+import WatchLivePage from '../pages/WatchLivePage';
 import SignInPage from '../pages/SignInPage';
 import SignUpPage from '../pages/SignUpPage';
 import ForgotPasswordPage from '../pages/ForgotPasswordPage';
@@ -38,6 +39,7 @@ function AppRoutes() {
       <Route path="/team/:id" element={<TeamDetailPage />} />
       <Route path="/drivers" element={<DriversPage />} />
       <Route path="/driver/:id" element={<DriverDetailPage />} />
+      <Route path="/watch-live" element={<WatchLivePage />} />
     </Routes>
   );
 }
