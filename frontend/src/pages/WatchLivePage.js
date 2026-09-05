@@ -2,16 +2,13 @@ function WatchLivePage() {
   return (
     <div className="page" id="page-watch-live">
       <div className="pagehead">
-      <div className="section-eyebrow">Live</div>
-      <div className="section-title">Watch Live</div>
+        <div className="section-eyebrow">Live</div>
+        <div className="section-title">Watch Live</div>
         <div className="section-desc">
-            <h1>Watch Live</h1>
-          <p>Follow the session as it happens</p>
+          <h1>Watch Live</h1>
+         <p>Follow the session as it happens.</p>
         </div>
-
       </div>
-
-
       <div className="content">
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
           <div className="video-embed">
