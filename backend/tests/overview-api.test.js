@@ -38,6 +38,8 @@ function baseMocks() {
   mockPrisma.session.findFirst.mockResolvedValue(null);
   mockPrisma.event.findMany.mockResolvedValue([]);
   mockPrisma.submission.findMany.mockResolvedValue([]);
+  mockPrisma.driverCareerStats.findMany.mockResolvedValue([]);
+  mockPrisma.teamSeasonStats.findMany.mockResolvedValue([]);
 }
 
 describe('GET /api/overview', () => {
@@ -100,6 +102,27 @@ describe('GET /api/overview', () => {
     expect(mockPrisma.driverCareerStats.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { season: 2026 } })
     );
+  });
+
+  test('returns recent events from the latest session', async () => {
+    baseMocks();
+    mockPrisma.session.findFirst.mockResolvedValue({
+      id: 's1',
+      type: 'Race',
+      status: 'finished',
+      startTime: '2024-03-02T15:00:00.000Z',
+      meeting: { name: 'Bahrain Grand Prix', circuit: { name: 'Sakhir', country: 'Bahrain' } },
+    });
+    mockPrisma.event.findMany.mockResolvedValue([
+      { id: 'e1', eventType: 'lap_completed', lapNumber: 1, occurredAt: '2024-03-02T15:05:00.000Z' },
+    ]);
+
+    const app = createApp();
+    const res = await request(app).get('/api/overview');
+
+    expect(res.status).toBe(200);
+    expect(res.body.latestSession).toMatchObject({ id: 's1', meetingName: 'Bahrain Grand Prix' });
+    expect(res.body.recentEvents).toHaveLength(1);
   });
 
   test('returns 500 with a generic message if the database query fails', async () => {

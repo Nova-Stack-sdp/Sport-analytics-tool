@@ -129,3 +129,15 @@ describe('GET /api/statistics', () => {
     expect(res.body.rows.map((r) => r.driverId)).toEqual(['d1', 'd2']); // sorted by position
   });
 });
+
+describe('GET /api/statistics error handling', () => {
+  test('returns 500 when the query fails', async () => {
+    mockPrisma.meeting.findMany.mockRejectedValue(new Error('connection refused'));
+
+    const app = createApp();
+    const res = await request(app).get('/api/statistics?view=season');
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: 'Internal server error' });
+  });
+});

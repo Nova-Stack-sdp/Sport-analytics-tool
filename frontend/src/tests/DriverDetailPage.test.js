@@ -15,17 +15,31 @@ const fullDriver = {
   imageUrl: 'https://example.test/max.png',
   teamName: 'Red Bull Racing',
   teamColor: '#3671C6',
-  grandsPrixEntered: 244,
-  worldChampionships: 4,
-  careerPoints: '3553.5',
-  podiums: 131,
-  highestRaceFinish: { position: 1, number: 71 },
-  highestGridPosition: 1,
+  broadcastName: 'M VERSTAPPEN',
+  acronym: 'VER',
   season: 2026,
-  seasonStats: { points: 232, podiums: 10, dnfCount: 2, wins: 10 },
+  seasonStats: {
+    poles: 3,
+    wins: 10,
+    starts: 12,
+    points: '232.5',
+    podiums: 10,
+    averageFinish: 1.5,
+    highestRaceFinish: { position: 1 },
+    dnfCount: 2,
+  },
+  trackedHistoryStats: {
+    starts: 100,
+    points: 3553.5,
+    wins: 71,
+    podiums: 131,
+    highestRaceFinish: { position: 1 },
+    averageFinish: 2.1,
+  },
   results: [
-    { sessionId: 's1', meetingName: 'Bahrain GP', type: 'Race', qualified: 1, result: 2, dnf: true, fastestLap: false, points: 18 },
-    { sessionId: 's2', meetingName: 'Saudi Arabian GP', type: 'Race', qualified: null, result: null, dnf: false, fastestLap: true, points: 0 },
+    { sessionId: 's1', meetingName: 'Bahrain GP', type: 'Race', qualified: 1, result: 2, status: 'Finished', laps: 57, gapToLeader: 0, points: 18 },
+    { sessionId: 's2', meetingName: 'Saudi Arabian GP', type: 'Sprint', qualified: null, result: null, status: 'DNF', laps: null, gapToLeader: '1.5', points: 0.5 },
+    { sessionId: 's3', meetingName: 'Miami GP', type: 'Race', qualified: 3, result: 3, status: 'Finished', laps: 56, gapToLeader: '+2', points: 15 },
   ],
 };
 
@@ -39,14 +53,9 @@ const sparseDriver = {
   imageUrl: null,
   teamName: 'Unknown Team',
   teamColor: '#CE0D14',
-  grandsPrixEntered: 0,
-  worldChampionships: 0,
-  careerPoints: '0',
-  podiums: 0,
-  highestRaceFinish: null,
-  highestGridPosition: null,
   season: 2026,
-  seasonStats: null,
+  seasonStats: { starts: 10, dnfCount: 0 },
+  trackedHistoryStats: null,
   results: [],
 };
 
@@ -61,103 +70,70 @@ function renderPage(id = 'driver-1') {
 }
 
 describe('DriverDetailPage', () => {
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
+  afterEach(() => jest.clearAllMocks());
 
-  test('shows a loading state and requests the driver identified in the route', () => {
+  test('shows loading and requests the driver from the route', () => {
     getDriver.mockReturnValue(new Promise(() => {}));
-
     renderPage('driver-42');
-
     expect(screen.getByText('Loading driver…')).toBeInTheDocument();
     expect(getDriver).toHaveBeenCalledWith('driver-42');
   });
 
-  test('renders API-Sports profile data, local stats, and all result table branches', async () => {
+  test('renders enriched profile, derived totals, and result-table fallback values', async () => {
     getDriver.mockResolvedValue(fullDriver);
-
     renderPage();
 
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Max Verstappen' })).toBeInTheDocument());
-
     expect(screen.getByRole('img', { name: 'Max Verstappen' })).toHaveAttribute('src', fullDriver.imageUrl);
+    expect(screen.getByText('M VERSTAPPEN · VER')).toBeInTheDocument();
     expect(screen.getByText('🇳🇱 Dutch')).toBeInTheDocument();
-    expect(screen.getByText('1997-09-30')).toBeInTheDocument();
-    expect(screen.getByText('71')).toBeInTheDocument();
-    expect(screen.getAllByText('3553.5')).toHaveLength(2);
-    expect(screen.getByText('1%')).toBeInTheDocument();
+    expect(screen.getAllByText('232.5')).toHaveLength(2);
+    expect(screen.getByText('17%')).toBeInTheDocument();
     expect(screen.getByText('Bahrain GP · Race')).toBeInTheDocument();
-    expect(screen.getByText('Saudi Arabian GP · Race')).toBeInTheDocument();
-    expect(screen.getByText('1th')).toBeInTheDocument();
-    expect(screen.getByText('2th')).toBeInTheDocument();
+    expect(screen.getByText('Saudi Arabian GP · Sprint')).toBeInTheDocument();
+    expect(screen.getByText('Winner')).toBeInTheDocument();
+    expect(screen.getByText('+1.5')).toBeInTheDocument();
+    expect(screen.getByText('+2')).toBeInTheDocument();
+    expect(screen.getAllByText('P1').length).toBeGreaterThan(1);
     expect(screen.getAllByText('—').length).toBeGreaterThan(1);
-    expect(screen.getAllByText('Yes')).toHaveLength(2);
+    expect(screen.getByText('0.5')).toBeInTheDocument();
   });
 
-  test('renders safe fallback values and number portrait when optional fields are missing', async () => {
+  test('renders number portrait and safe fallbacks when optional fields are absent', async () => {
     getDriver.mockResolvedValue(sparseDriver);
-
     renderPage('driver-2');
 
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Fallback Driver' })).toBeInTheDocument());
-
     expect(screen.queryByRole('img', { name: 'Fallback Driver' })).not.toBeInTheDocument();
     expect(screen.getAllByText('99')).toHaveLength(2);
     expect(screen.getByText('🏁 Unknown')).toBeInTheDocument();
     expect(screen.getByText('0%')).toBeInTheDocument();
-    expect(screen.getAllByText('—').length).toBeGreaterThan(2);
     expect(document.querySelector('table.results')).not.toBeInTheDocument();
   });
 
-  test('shows a pole-count fallback when the highest-grid condition is met without finish data', async () => {
-    getDriver.mockResolvedValue({ ...sparseDriver, highestGridPosition: 1 });
-
-    renderPage('driver-2');
-
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Fallback Driver' })).toBeInTheDocument());
-    expect(screen.getByText('Poles').parentElement).toHaveTextContent('—');
-  });
-
-  test('shows an API error', async () => {
-    getDriver.mockRejectedValue(new Error('Driver endpoint unavailable'));
-
+  test('shows an API error and nothing for a successful null response', async () => {
+    getDriver.mockRejectedValueOnce(new Error('Driver endpoint unavailable'));
     renderPage();
-
     expect(await screen.findByText('Driver endpoint unavailable')).toBeInTheDocument();
-  });
 
-  test('renders nothing after a successful null response', async () => {
-    getDriver.mockResolvedValue(null);
-    const { container } = renderPage();
-
-    await waitFor(() => expect(getDriver).toHaveBeenCalled());
+    getDriver.mockResolvedValueOnce(null);
+    const { container } = renderPage('driver-2');
     await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
 
-  test('does not update state after unmounting while a request is pending', async () => {
+  test('does not update state after an unmounted request settles', async () => {
     let resolveRequest;
-    getDriver.mockReturnValue(new Promise((resolve) => { resolveRequest = resolve; }));
-    const { unmount } = renderPage();
-
-    unmount();
-    await act(async () => {
-      resolveRequest(fullDriver);
-    });
-
-    expect(getDriver).toHaveBeenCalledTimes(1);
-  });
-
-  test('does not update state after an unmounted request rejects', async () => {
     let rejectRequest;
-    getDriver.mockReturnValue(new Promise((resolve, reject) => { rejectRequest = reject; }));
-    const { unmount } = renderPage();
+    getDriver
+      .mockReturnValueOnce(new Promise((resolve) => { resolveRequest = resolve; }))
+      .mockReturnValueOnce(new Promise((resolve, reject) => { rejectRequest = reject; }));
+    const first = renderPage();
+    first.unmount();
+    await act(async () => resolveRequest(fullDriver));
 
-    unmount();
-    await act(async () => {
-      rejectRequest(new Error('Late failure'));
-    });
-
-    expect(getDriver).toHaveBeenCalledTimes(1);
+    const second = renderPage('driver-2');
+    second.unmount();
+    await act(async () => rejectRequest(new Error('Late failure')));
+    expect(getDriver).toHaveBeenCalledTimes(2);
   });
 });

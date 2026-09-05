@@ -1,9 +1,12 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import TeamsPage from '../pages/TeamsPage';
-import { getTeams } from '../api/client';
+import { getCachedImageUrl, getTeams } from '../api/client';
 
-jest.mock('../api/client', () => ({ getTeams: jest.fn() }));
+jest.mock('../api/client', () => ({
+  getCachedImageUrl: jest.fn((source) => `https://cache.test/?source=${encodeURIComponent(source)}`),
+  getTeams: jest.fn(),
+}));
 
 const teams = [
   {
@@ -33,20 +36,32 @@ function renderPage() {
 }
 
 describe('TeamsPage', () => {
-  afterEach(() => {
-    jest.clearAllMocks();
+  const originalRequestIdleCallback = window.requestIdleCallback;
+  const originalCancelIdleCallback = window.cancelIdleCallback;
+
+  beforeEach(() => {
+    getCachedImageUrl.mockImplementation((source) => `https://cache.test/?source=${encodeURIComponent(source)}`);
+    window.requestIdleCallback = undefined;
+    window.cancelIdleCallback = undefined;
   });
 
-  test('shows a loading state until the teams API resolves', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+    window.requestIdleCallback = originalRequestIdleCallback;
+    window.cancelIdleCallback = originalCancelIdleCallback;
+  });
+
+  test('shows a loading state until the first team page resolves', () => {
     getTeams.mockReturnValue(new Promise(() => {}));
 
     renderPage();
 
     expect(screen.getByText('Loading teams…')).toBeInTheDocument();
+    expect(getTeams).toHaveBeenCalledWith({ limit: 2, offset: 0 });
   });
 
-  test('renders ranked team cards, API-Sports logos, fallback initials, and detail links', async () => {
-    getTeams.mockResolvedValue({ season: 2026, teams });
+  test('renders the initial team cards with cached logos, fallback initials, and detail links', async () => {
+    getTeams.mockResolvedValue({ season: 2026, teams, total: 2, hasMore: false });
 
     renderPage();
 
@@ -55,7 +70,7 @@ describe('TeamsPage', () => {
     expect(screen.queryByText('Loading teams…')).not.toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'Red Bull Racing' })).toHaveAttribute(
       'src',
-      teams[0].logoUrl
+      `https://cache.test/?source=${encodeURIComponent(teams[0].logoUrl)}`
     );
     expect(screen.getByText('MR')).toBeInTheDocument();
     expect(screen.getByText('612 pts')).toBeInTheDocument();
@@ -66,8 +81,47 @@ describe('TeamsPage', () => {
     expect(screen.getByRole('link', { name: /McLaren Racing/i })).toHaveAttribute('href', '/team/2');
   });
 
+  test('prefetches remaining team cards and reveals them when View more is clicked', async () => {
+    const remainingTeams = [{
+      id: '3',
+      name: 'Scuderia Ferrari',
+      color: '#E8002D',
+      logoUrl: 'https://example.test/ferrari.png',
+      initials: 'SF',
+      points: 400,
+    }];
+    window.requestIdleCallback = jest.fn((callback) => {
+      callback();
+      return 1;
+    });
+    window.cancelIdleCallback = jest.fn();
+    getTeams
+      .mockResolvedValueOnce({ season: 2026, teams, total: 3, hasMore: true })
+      .mockResolvedValueOnce({ season: 2026, teams: remainingTeams, total: 3, hasMore: false });
+
+    renderPage();
+
+    await screen.findByText('Red Bull Racing');
+    await waitFor(() => expect(getTeams).toHaveBeenLastCalledWith({ limit: 100, offset: 2 }));
+    expect(screen.queryByText('Scuderia Ferrari')).not.toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'View more' }));
+
+    expect(await screen.findByText('Scuderia Ferrari')).toBeInTheDocument();
+    expect(getCachedImageUrl).toHaveBeenCalledWith(remainingTeams[0].logoUrl);
+  });
+
+  test('falls back to initials when a cached team logo fails', async () => {
+    getTeams.mockResolvedValue({ season: 2026, teams: [teams[0]], total: 1, hasMore: false });
+
+    renderPage();
+
+    fireEvent.error(await screen.findByRole('img', { name: 'Red Bull Racing' }));
+    expect(await screen.findByText('RB')).toBeInTheDocument();
+  });
+
   test('shows the empty state when the API returns no teams', async () => {
-    getTeams.mockResolvedValue({ season: 2026, teams: [] });
+    getTeams.mockResolvedValue({ season: 2026, teams: [], total: 0, hasMore: false });
 
     renderPage();
 
@@ -83,14 +137,14 @@ describe('TeamsPage', () => {
     expect(screen.queryByRole('link', { name: /Red Bull Racing/i })).not.toBeInTheDocument();
   });
 
-  test('does not update state after unmounting while a request is pending', async () => {
+  test('does not update state after unmounting while the first request is pending', async () => {
     let resolveRequest;
     getTeams.mockReturnValue(new Promise((resolve) => { resolveRequest = resolve; }));
     const { unmount } = renderPage();
 
     unmount();
     await act(async () => {
-      resolveRequest({ season: 2026, teams });
+      resolveRequest({ season: 2026, teams, total: 2, hasMore: false });
     });
 
     expect(getTeams).toHaveBeenCalledTimes(1);

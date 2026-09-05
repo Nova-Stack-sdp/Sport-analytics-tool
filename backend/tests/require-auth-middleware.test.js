@@ -106,4 +106,16 @@ describe('requireAuth', () => {
     expect(next).toHaveBeenCalled();
     expect(res.status).not.toHaveBeenCalled();
   });
+
+  test('defaults email to null when the decoded token omits it', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user_123' });
+    const req = { headers: { authorization: 'Bearer good-token' } };
+    const res = buildRes();
+    const next = jest.fn();
+
+    await requireAuth(req, res, next);
+
+    expect(req.user).toEqual({ uid: 'user_123', email: null });
+    expect(next).toHaveBeenCalled();
+  });
 });

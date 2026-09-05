@@ -23,7 +23,7 @@ const fullTeam = {
   season: 2026,
   seasonStats: { points: 612, wins: 10, reliabilityRate: 0.92 },
   drivers: [
-    { id: 'driver-1', name: 'Max Verstappen', number: 1 },
+    { id: 'driver-1', name: 'Max Verstappen', number: 1, imageUrl: 'https://example.test/max.png' },
     { id: 'driver-2', name: 'Yuki Tsunoda', number: 22 },
   ],
 };
@@ -79,6 +79,7 @@ describe('TeamDetailPage', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Red Bull Racing' })).toBeInTheDocument());
 
     expect(screen.getByRole('img', { name: 'Red Bull Racing' })).toHaveAttribute('src', fullTeam.logoUrl);
+    expect(screen.getByRole('img', { name: 'Max Verstappen' })).toHaveAttribute('src', fullTeam.drivers[0].imageUrl);
     expect(screen.getByText('612')).toBeInTheDocument();
     expect(screen.getByText('10')).toBeInTheDocument();
     expect(screen.getByText('P1 (130x)')).toBeInTheDocument();

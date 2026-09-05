@@ -98,3 +98,32 @@ describe('GET /api/fixtures/:sessionId/events', () => {
     ]);
   });
 });
+
+describe('GET /api/fixtures error handling', () => {
+  test('returns 500 when listing fixtures fails', async () => {
+    mockPrisma.session.findMany.mockRejectedValue(new Error('connection refused'));
+
+    const app = createApp();
+    const res = await request(app).get('/api/fixtures');
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: 'Internal server error' });
+  });
+
+  test('returns 500 when fetching fixture events fails', async () => {
+    mockPrisma.session.findUnique.mockResolvedValue({
+      id: 's1',
+      type: 'Race',
+      status: 'finished',
+      startTime: '2024-03-02T15:00:00.000Z',
+      meeting: { name: 'Bahrain Grand Prix', circuit: { name: 'Sakhir' } },
+    });
+    mockPrisma.event.findMany.mockRejectedValue(new Error('connection refused'));
+
+    const app = createApp();
+    const res = await request(app).get('/api/fixtures/s1/events');
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: 'Internal server error' });
+  });
+});
