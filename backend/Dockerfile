@@ -1,4 +1,4 @@
-FROM node:24-bookworm-slim
+FROM node:24-alpine
 
 WORKDIR /app
 
@@ -13,5 +13,7 @@ COPY jest.config.js ./
 RUN npx prisma generate
 
 COPY src ./src
+
+EXPOSE 8080
 
 CMD ["npm", "start"]
