@@ -2,9 +2,11 @@ FROM node:24-alpine
 
 WORKDIR /app
 
+RUN apk add --no-cache openssl
+
 COPY package*.json ./
 RUN npm install -g npm@latest
-RUN npm ci --ignore-scripts --no-audit --no-fundudit --no-fund
+RUN npm ci --ignore-scripts --no-audit --no-fund
 
 COPY prisma ./prisma
 COPY prisma.config.ts ./
