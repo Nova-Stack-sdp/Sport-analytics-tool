@@ -25,7 +25,7 @@ jobs:
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          token: 8d404320-08be-4d89-8672-31835467d45d
           files: ./frontend/coverage/lcov.info
           flags: frontend
           fail_ci_if_error: true
