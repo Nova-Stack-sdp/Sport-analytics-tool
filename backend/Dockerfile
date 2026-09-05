@@ -1,20 +1,17 @@
-FROM node:22-bookworm-slim
+FROM node:24-bookworm-slim
 
 WORKDIR /app
 
 COPY package*.json ./
+
+RUN npm ci --no-audit --no-fund
+
 COPY prisma ./prisma
 COPY prisma.config.ts ./
 COPY jest.config.js ./
 
-RUN npm ci --ignore-scripts --no-audit --no-fund --prefer-offline \
-	--fetch-retries=2 --fetch-timeout=120000
-
-RUN DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres" ./node_modules/.bin/prisma generate
+RUN npx prisma generate
 
 COPY src ./src
-COPY tests ./tests
-
-EXPOSE 8080
 
 CMD ["npm", "start"]
