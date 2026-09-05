@@ -3,7 +3,8 @@ WORKDIR /app
 
 COPY package*.json ./
 
-RUN npm ci --no-audit --no-fund --verbose
+RUN npm ci --ignore-scripts --no-audit --no-fund --prefer-offline --no-progress \
+	--fetch-retries=2 --fetch-timeout=120000
 
 COPY . .
 
