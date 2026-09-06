@@ -2,7 +2,9 @@ import { describe, expect, test } from '@jest/globals';
 import {
   Barcelona_video_chunks,
   buildBarcelonaOpenF1Chunks,
+  createBarcelonaWatchLiveBuffer,
   createBarcelonaWatchLiveState,
+  getBarcelonaCachedState,
   mapBarcelonaVideoTime,
 } from '../src/routes/watchLive.js';
 
@@ -68,5 +70,32 @@ describe('Barcelona video mapping', () => {
       weather: { airTemperature: 28, trackTemperature: 42, humidity: 48, rainfall: 0, windSpeed: 2 },
       recentRaceControl: [{ lapNumber: 11, category: 'Flag', flag: 'GREEN', message: 'TRACK CLEAR' }],
     });
+  });
+
+  test('reuses whole-second snapshots and builds a capped future buffer', () => {
+    const bundle = {
+      session_key: 11307,
+      session: [],
+      meeting: [],
+      drivers: [],
+      laps: [],
+      pit: [],
+      stints: [],
+      position: [],
+      race_control: [],
+      weather: [],
+    };
+    const chunks = buildBarcelonaOpenF1Chunks(bundle);
+    const cache = new Map();
+
+    expect(getBarcelonaCachedState(923.1, bundle, chunks, cache))
+      .toBe(getBarcelonaCachedState(923.9, bundle, chunks, cache));
+
+    expect(createBarcelonaWatchLiveBuffer(923.7, 2, bundle, chunks, cache)).toMatchObject({
+      requestedVideoSeconds: 923.7,
+      bufferStartSeconds: 923,
+      bufferEndSeconds: 925,
+    });
+    expect(cache.size).toBe(3);
   });
 });

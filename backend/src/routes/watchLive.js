@@ -7,6 +7,8 @@ export const watchLiveRouter = Router();
 // as "live" doesn't change, so there's no need to re-fetch it per request.
 let Barcelona_openf1Data = null;
 let Barcelona_openf1Chunks = null;
+const Barcelona_snapshotCache = new Map();
+const MAX_BUFFER_SECONDS = 20;
 
 async function getBarcelonaOpenF1Data() {
   if (!Barcelona_openf1Data) {
@@ -369,6 +371,36 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
   };
 }
 
+export function getBarcelonaCachedState(videoSeconds, bundle, chunks, cache = Barcelona_snapshotCache) {
+  const snapshotSecond = Math.floor(videoSeconds);
+  let snapshot = cache.get(snapshotSecond);
+
+  if (!snapshot) {
+    snapshot = createBarcelonaWatchLiveState(snapshotSecond, bundle, chunks);
+    cache.set(snapshotSecond, snapshot);
+  }
+
+  return snapshot;
+}
+
+export function createBarcelonaWatchLiveBuffer(videoSeconds, bufferSeconds, bundle, chunks, cache) {
+  const bufferStartSeconds = Math.floor(videoSeconds);
+  const finalVideoSecond = Barcelona_video_chunks.at(-1).videoEndSeconds;
+  const bufferEndSeconds = Math.min(bufferStartSeconds + bufferSeconds, finalVideoSecond);
+  const snapshots = [];
+
+  for (let second = bufferStartSeconds; second <= bufferEndSeconds; second += 1) {
+    snapshots.push(getBarcelonaCachedState(second, bundle, chunks, cache));
+  }
+
+  return {
+    requestedVideoSeconds: videoSeconds,
+    bufferStartSeconds,
+    bufferEndSeconds,
+    snapshots,
+  };
+}
+
 watchLiveRouter.get('/state', async (req, res, next) => {
   const value = req.query.videoSeconds;
   const videoSeconds = typeof value === 'string' && value.trim() !== '' ? Number(value) : Number.NaN;
@@ -384,9 +416,24 @@ watchLiveRouter.get('/state', async (req, res, next) => {
     });
   }
 
+  const requestedBufferSeconds = req.query.bufferSeconds;
+  const bufferSeconds = requestedBufferSeconds == null
+    ? null
+    : Number(requestedBufferSeconds);
+  if (bufferSeconds != null && (!Number.isInteger(bufferSeconds)
+    || bufferSeconds < 1 || bufferSeconds > MAX_BUFFER_SECONDS)) {
+    return res.status(400).json({
+      error: `bufferSeconds must be an integer between 1 and ${MAX_BUFFER_SECONDS}`,
+    });
+  }
+
   try {
     const { bundle, chunks } = await getBarcelonaOpenF1Data();
-    return res.json(createBarcelonaWatchLiveState(videoSeconds, bundle, chunks));
+    if (bufferSeconds != null) {
+      return res.json(createBarcelonaWatchLiveBuffer(videoSeconds, bufferSeconds, bundle, chunks));
+    }
+
+    return res.json(getBarcelonaCachedState(videoSeconds, bundle, chunks));
   } catch (err) {
     return next(err);
   }
