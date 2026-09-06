@@ -162,6 +162,24 @@
   margin-top: 8px;
 }
 
+#page-watch-live .radar-empty-state,
+#page-watch-live .watch-live-empty-cell {
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-align: center;
+}
+
+#page-watch-live .radar-empty-state {
+  grid-column: 1 / -1;
+  padding: 24px 12px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+}
+
+#page-watch-live .watch-live-empty-cell {
+  padding: 28px 6px;
+}
+
 #page-watch-live .radar-column {
   border: 1px solid var(--border);
   border-radius: 10px;
