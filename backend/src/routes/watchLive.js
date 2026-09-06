@@ -8,13 +8,19 @@ export const watchLiveRouter = Router();
 let Barcelona_openf1Data = null;
 let Barcelona_openf1Chunks = null;
 
+async function getBarcelonaOpenF1Data() {
+  if (!Barcelona_openf1Data) {
+    Barcelona_openf1Data = await fetchBarcelonaRaceRaw();
+    Barcelona_openf1Chunks = buildBarcelonaOpenF1Chunks(Barcelona_openf1Data);
+  }
+
+  return { bundle: Barcelona_openf1Data, chunks: Barcelona_openf1Chunks };
+}
+
 watchLiveRouter.get('/', async (req, res, next) => {
   try {
-    if (!Barcelona_openf1Data) {
-      Barcelona_openf1Data = await fetchBarcelonaRaceRaw();
-      Barcelona_openf1Chunks = buildBarcelonaOpenF1Chunks(Barcelona_openf1Data);
-    }
-    res.json(Barcelona_openf1Data);
+    const { bundle } = await getBarcelonaOpenF1Data();
+    res.json(bundle);
   } catch (err) {
     next(err);
   }
@@ -274,3 +280,114 @@ export function buildBarcelonaOpenF1Chunks(bundle) {
     };
   });
 }
+
+function latestRecordsByDriver(records, timestamp) {
+  const latestRecords = new Map();
+  for (const record of records) {
+    if (Date.parse(record.date) <= timestamp) {
+      latestRecords.set(record.driver_number, record);
+    }
+  }
+  return latestRecords;
+}
+
+function latestRecord(records, timestamp) {
+  return records.reduce((latest, record) => (
+    Date.parse(record.date) <= timestamp ? record : latest
+  ), null);
+}
+
+function normalizeDriver(driver) {
+  return {
+    driverNumber: driver.driver_number,
+    driverName: driver.full_name ?? driver.name_acronym ?? null,
+    teamName: driver.team_name ?? null,
+  };
+}
+
+export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
+  const mapping = mapBarcelonaVideoTime(videoSeconds);
+  if (!mapping) return null;
+
+  const chunk = chunks.find((candidate) => candidate.id === mapping.chunkId);
+  const timestamp = Date.parse(mapping.openF1Timestamp);
+  const driversByNumber = new Map(
+    (bundle.drivers ?? []).map((driver) => [driver.driver_number, normalizeDriver(driver)])
+  );
+  const positionsByDriver = latestRecordsByDriver(chunk.resources.position, timestamp);
+  const stintsByDriver = latestRecordsByDriver(chunk.resources.stints, timestamp);
+  const lapsAtTimestamp = chunk.resources.laps.filter((lap) => Date.parse(lap.date) <= timestamp);
+  const weather = latestRecord(chunk.resources.weather, timestamp);
+
+  const leaderboard = [...positionsByDriver.values()]
+    .sort((left, right) => left.position - right.position)
+    .map((position) => ({
+      position: position.position,
+      ...(driversByNumber.get(position.driver_number) ?? { driverNumber: position.driver_number, driverName: null, teamName: null }),
+      tyreCompound: stintsByDriver.get(position.driver_number)?.compound ?? null,
+      stintNumber: stintsByDriver.get(position.driver_number)?.stint_number ?? null,
+    }));
+
+  const totalLaps = Math.max(0, ...(bundle.laps ?? [])
+    .map((lap) => lap.lap_number)
+    .filter(Number.isFinite));
+  const currentLap = Math.max(0, ...lapsAtTimestamp
+    .map((lap) => lap.lap_number)
+    .filter(Number.isFinite));
+
+  return {
+    videoSeconds,
+    mapping,
+    session: {
+      sessionKey: bundle.session_key,
+      sessionName: bundle.session?.[0]?.session_name ?? null,
+      meetingName: bundle.meeting?.[0]?.meeting_name ?? null,
+      currentLap,
+      totalLaps,
+    },
+    leaderboard,
+    weather: weather ? {
+      airTemperature: weather.air_temperature ?? null,
+      trackTemperature: weather.track_temperature ?? null,
+      humidity: weather.humidity ?? null,
+      rainfall: weather.rainfall ?? null,
+      windSpeed: weather.wind_speed ?? null,
+    } : null,
+    recentRaceControl: chunk.resources.race_control
+      .filter((event) => Date.parse(event.date) <= timestamp)
+      .slice(-5)
+      .map((event) => ({
+        date: event.date,
+        lapNumber: event.lap_number ?? null,
+        category: event.category ?? null,
+        flag: event.flag ?? null,
+        message: event.message ?? null,
+      })),
+    recentAnchors: chunk.videoAnchors
+      .filter((anchor) => anchor.startSeconds <= videoSeconds)
+      .slice(-5),
+  };
+}
+
+watchLiveRouter.get('/state', async (req, res, next) => {
+  const value = req.query.videoSeconds;
+  const videoSeconds = typeof value === 'string' && value.trim() !== '' ? Number(value) : Number.NaN;
+  if (!Number.isFinite(videoSeconds)) {
+    return res.status(400).json({ error: 'videoSeconds must be a finite number' });
+  }
+
+  const mapping = mapBarcelonaVideoTime(videoSeconds);
+
+  if (!mapping) {
+    return res.status(400).json({
+      error: `videoSeconds must be between 0 and ${Barcelona_video_chunks.at(-1).videoEndSeconds}`,
+    });
+  }
+
+  try {
+    const { bundle, chunks } = await getBarcelonaOpenF1Data();
+    return res.json(createBarcelonaWatchLiveState(videoSeconds, bundle, chunks));
+  } catch (err) {
+    return next(err);
+  }
+});
