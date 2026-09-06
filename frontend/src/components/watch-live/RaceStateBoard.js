@@ -32,10 +32,14 @@ function RaceStateBoard({ leaderboard }) {
                   <strong>P{entry.position}</strong>
                 </div>
                 <div className="radar-metric-row">
+                  <span>Momentum</span>
+                  <strong>{entry.positionChange == null ? '--' : `${entry.positionChange > 0 ? '+' : ''}${entry.positionChange}`}</strong>
+                </div>
+                <div className="radar-metric-row">
                   <span>Tyre</span>
                   <strong>{entry.tyreCompound ?? '--'}</strong>
                 </div>
-                <div className="radar-advice">{entry.teamName ?? 'Team unavailable'}</div>
+                <div className="radar-advice">{entry.momentum}</div>
               </div>
             ))}
           </div>

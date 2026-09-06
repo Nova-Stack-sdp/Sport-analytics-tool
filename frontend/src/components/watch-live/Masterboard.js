@@ -5,7 +5,7 @@ function Masterboard({ leaderboard, error }) {
       <div className="card-head">
         <div>
           <div className="card-title leaderboard-title">Masterboard</div>
-          <div className="card-title-sub">Current race order and strategy</div>
+          <div className="card-title-sub">Current race order, strategy, and momentum</div>
         </div>
         <span className="pill pill-gray">Playback time</span>
       </div>
@@ -18,12 +18,13 @@ function Masterboard({ leaderboard, error }) {
             <th>Team</th>
             <th>Tire</th>
             <th>Stint</th>
+            <th>Trend</th>
           </tr>
         </thead>
         <tbody>
           {leaderboard.length === 0 ? (
             <tr>
-              <td colSpan="5" className="watch-live-empty-cell">{error ?? 'No playback data available.'}</td>
+              <td colSpan="6" className="watch-live-empty-cell">{error ?? 'No playback data available.'}</td>
             </tr>
           ) : leaderboard.map((row) => (
             <tr key={row.driverNumber}>
@@ -31,7 +32,10 @@ function Masterboard({ leaderboard, error }) {
               <td><div className="driver-meta"><span>{row.driverName ?? `Driver ${row.driverNumber}`}</span></div></td>
               <td className="mono">{row.teamName ?? '--'}</td>
               <td><span className="tire-pill">{row.tyreCompound ?? '--'}</span></td>
-              <td className="mono momentum-cell">{row.stintNumber ?? '--'}</td>
+              <td className="mono">{row.stintNumber ?? '--'}</td>
+              <td className="mono momentum-cell">
+                {row.positionChange == null ? '--' : `${row.positionChange > 0 ? '+' : ''}${row.positionChange}`}
+              </td>
             </tr>
           ))}
         </tbody>

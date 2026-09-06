@@ -2,13 +2,14 @@ import LiveTicker from '../components/watch-live/LiveTicker';
 import Masterboard from '../components/watch-live/Masterboard';
 import PlaybackVideo from '../components/watch-live/PlaybackVideo';
 import RaceStateBoard from '../components/watch-live/RaceStateBoard';
+import { deriveWatchLiveAnalytics } from '../features/watch-live/deriveAnalytics';
 import { useWatchLivePlayback } from '../hooks/useWatchLivePlayback';
 
 // Composes the synchronized Watch Live dashboard.
 function WatchLivePage() {
-  const { iframeRef, state, error, loading } = useWatchLivePlayback();
+  const { iframeRef, state, snapshots, error, loading } = useWatchLivePlayback();
 
-  const leaderboard = state?.leaderboard ?? [];
+  const { leaderboard } = deriveWatchLiveAnalytics(state, snapshots);
   const tickerEvents = state?.recentAnchors ?? [];
 
   return (

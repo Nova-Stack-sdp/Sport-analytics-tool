@@ -110,5 +110,5 @@ export function useWatchLivePlayback() {
     };
   }, []);
 
-  return { iframeRef, state, error, loading };
+  return { iframeRef, state, snapshots: bufferRef.current?.snapshots ?? [], error, loading };
 }
