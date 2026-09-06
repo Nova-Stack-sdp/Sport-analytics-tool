@@ -1,2 +1,5 @@
 # Local Netlify folder
 .netlify
+
+# Local frontend and backend configuration
+.env.local

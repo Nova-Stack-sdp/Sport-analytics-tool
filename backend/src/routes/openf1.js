@@ -58,84 +58,102 @@ async function paceBundleRequests() {
   }
 }
 
+class OpenF1PassthroughError extends Error {
+  constructor(status, payload) {
+    super('OpenF1 upstream returned a non-200 response');
+    this.status = status;
+    this.payload = payload;
+  }
+}
+
+// Fetches one raw Barcelona bundle for the sync and Watch Live routes.
+export async function fetchBarcelonaRaceRaw() {
+  const sessionKey = BARCELONA_2026_RACE_SESSION_KEY;
+  const sessionResult = await fetchOpenF1Json(
+    buildResourceUrl('sessions', { session_key: sessionKey })
+  );
+  if (sessionResult.status !== 200) {
+    throw new OpenF1PassthroughError(sessionResult.status, sessionResult.payload);
+  }
+
+  const session = sessionResult.payload[0];
+  if (!session) throw new OpenF1PassthroughError(404, { error: 'OpenF1 session not found' });
+  if (session.session_type !== 'Race' && session.session_type !== 'Sprint') {
+    throw new OpenF1PassthroughError(400, { error: 'The requested session is not a race' });
+  }
+
+  const resources = [
+    ['meeting', 'meetings', { meeting_key: session.meeting_key }],
+    ['drivers', 'drivers', { session_key: sessionKey }],
+    ['laps', 'laps', { session_key: sessionKey }],
+    ['pit', 'pit', { session_key: sessionKey }],
+    ['stints', 'stints', { session_key: sessionKey }],
+    ['position', 'position', { session_key: sessionKey }],
+    // Supplies per-driver telemetry, including speed in km/h.
+    ['car_data', 'car_data', { session_key: sessionKey }],
+    ['race_control', 'race_control', { session_key: sessionKey }],
+    ['weather', 'weather', { session_key: sessionKey }],
+    ['session_result', 'session_result', { session_key: sessionKey }],
+  ];
+
+  const bundle = {
+    session_key: sessionKey,
+    session: sessionResult.payload,
+  };
+
+  for (const [bundleKey, resource, params] of resources) {
+    await paceBundleRequests();
+    const result = await fetchRequiredResource(resource, params);
+    if (!Array.isArray(result) && result.status !== 200) {
+      throw new OpenF1PassthroughError(result.status, result.payload);
+    }
+    bundle[bundleKey] = Array.isArray(result) ? result : result.payload;
+  }
+
+  await paceBundleRequests();
+  const meetingSessionsResult = await fetchRequiredResource('sessions', {
+    meeting_key: session.meeting_key,
+  });
+  if (!Array.isArray(meetingSessionsResult) && meetingSessionsResult.status !== 200) {
+    throw new OpenF1PassthroughError(meetingSessionsResult.status, meetingSessionsResult.payload);
+  }
+  const meetingSessions = Array.isArray(meetingSessionsResult)
+    ? meetingSessionsResult
+    : meetingSessionsResult.payload;
+  const qualifyingNames = session.session_type === 'Sprint'
+    ? ['Sprint Qualifying', 'Sprint Shootout']
+    : ['Qualifying'];
+  const qualifyingSession = meetingSessions.find((item) =>
+    qualifyingNames.includes(item.session_name)
+  );
+
+  if (qualifyingSession) {
+    await paceBundleRequests();
+    const gridResult = await fetchRequiredResource('starting_grid', {
+      session_key: qualifyingSession.session_key,
+    });
+    if (!Array.isArray(gridResult) && gridResult.status !== 200) {
+      throw new OpenF1PassthroughError(gridResult.status, gridResult.payload);
+    }
+    bundle.starting_grid = Array.isArray(gridResult) ? gridResult : gridResult.payload;
+  } else {
+    bundle.starting_grid = [];
+  }
+
+  return bundle;
+}
+
 // One raw bundle containing the OpenF1 records consumed by the existing sync
 // adapter. Records are not normalized, derived, or written to the database.
 openF1Router.get('/races/barcelona-2026/raw', async (req, res) => {
-  const sessionKey = BARCELONA_2026_RACE_SESSION_KEY;
   try {
-    const sessionResult = await fetchOpenF1Json(
-      buildResourceUrl('sessions', { session_key: sessionKey })
-    );
-    if (sessionResult.status !== 200) {
-      return res.status(sessionResult.status).json(sessionResult.payload);
-    }
-
-    const session = sessionResult.payload[0];
-    if (!session) return res.status(404).json({ error: 'OpenF1 session not found' });
-    if (session.session_type !== 'Race' && session.session_type !== 'Sprint') {
-      return res.status(400).json({ error: 'The requested session is not a race' });
-    }
-
-    const resources = [
-      ['meeting', 'meetings', { meeting_key: session.meeting_key }],
-      ['drivers', 'drivers', { session_key: sessionKey }],
-      ['laps', 'laps', { session_key: sessionKey }],
-      ['pit', 'pit', { session_key: sessionKey }],
-      ['stints', 'stints', { session_key: sessionKey }],
-      ['position', 'position', { session_key: sessionKey }],
-      ['race_control', 'race_control', { session_key: sessionKey }],
-      ['weather', 'weather', { session_key: sessionKey }],
-      ['session_result', 'session_result', { session_key: sessionKey }],
-    ];
-
-    const bundle = {
-      session_key: sessionKey,
-      session: sessionResult.payload,
-    };
-
-    for (const [bundleKey, resource, params] of resources) {
-      await paceBundleRequests();
-      const result = await fetchRequiredResource(resource, params);
-      if (!Array.isArray(result) && result.status !== 200) {
-        return res.status(result.status).json(result.payload);
-      }
-      bundle[bundleKey] = Array.isArray(result) ? result : result.payload;
-    }
-
-    // OpenF1 stores a race's starting grid under the qualifying session key.
-    await paceBundleRequests();
-    const meetingSessionsResult = await fetchRequiredResource('sessions', {
-      meeting_key: session.meeting_key,
-    });
-    if (!Array.isArray(meetingSessionsResult) && meetingSessionsResult.status !== 200) {
-      return res.status(meetingSessionsResult.status).json(meetingSessionsResult.payload);
-    }
-    const meetingSessions = Array.isArray(meetingSessionsResult)
-      ? meetingSessionsResult
-      : meetingSessionsResult.payload;
-    const qualifyingNames = session.session_type === 'Sprint'
-      ? ['Sprint Qualifying', 'Sprint Shootout']
-      : ['Qualifying'];
-    const qualifyingSession = meetingSessions.find((item) =>
-      qualifyingNames.includes(item.session_name)
-    );
-
-    if (qualifyingSession) {
-      await paceBundleRequests();
-      const gridResult = await fetchRequiredResource('starting_grid', {
-        session_key: qualifyingSession.session_key,
-      });
-      if (!Array.isArray(gridResult) && gridResult.status !== 200) {
-        return res.status(gridResult.status).json(gridResult.payload);
-      }
-      bundle.starting_grid = Array.isArray(gridResult) ? gridResult : gridResult.payload;
-    } else {
-      bundle.starting_grid = [];
-    }
-
+    const bundle = await fetchBarcelonaRaceRaw();
     res.set('Cache-Control', 'no-store');
     return res.json(bundle);
   } catch (error) {
+    if (error instanceof OpenF1PassthroughError) {
+      return res.status(error.status).json(error.payload);
+    }
     return sendOpenF1Failure(res, error);
   }
 });

@@ -30,6 +30,7 @@ export function useWatchLivePlayback() {
   const fetchingRef = useRef(false);
   const lastSnapshotSecondRef = useRef(null);
   const [state, setState] = useState(null);
+  const [snapshots, setSnapshots] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -54,6 +55,7 @@ export function useWatchLivePlayback() {
         if (disposed) return;
 
         bufferRef.current = nextBuffer;
+  setSnapshots(nextBuffer.snapshots ?? []);
         setError(null);
       } catch (requestError) {
         if (!disposed) setError(requestError.message);
@@ -110,5 +112,5 @@ export function useWatchLivePlayback() {
     };
   }, []);
 
-  return { iframeRef, state, snapshots: bufferRef.current?.snapshots ?? [], error, loading };
+  return { iframeRef, state, snapshots, error, loading };
 }

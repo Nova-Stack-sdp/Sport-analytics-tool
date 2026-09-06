@@ -7,6 +7,7 @@ describe('deriveWatchLiveAnalytics', () => {
       leaderboard: [
         { driverNumber: 44, position: 3 },
         { driverNumber: 63, position: 1 },
+        { driverNumber: 1, position: 4 },
       ],
     };
     const current = {
@@ -15,6 +16,7 @@ describe('deriveWatchLiveAnalytics', () => {
         { driverNumber: 44, position: 1 },
         { driverNumber: 63, position: 2 },
         { driverNumber: 12, position: 3 },
+        { driverNumber: 1, position: 4 },
       ],
     };
 
@@ -22,6 +24,7 @@ describe('deriveWatchLiveAnalytics', () => {
       expect.objectContaining({ driverNumber: 44, positionChange: 2, momentum: 'Gaining positions' }),
       expect.objectContaining({ driverNumber: 63, positionChange: -1, momentum: 'Losing positions' }),
       expect.objectContaining({ driverNumber: 12, positionChange: null, momentum: 'Collecting data' }),
+      expect.objectContaining({ driverNumber: 1, positionChange: 0, momentum: 'Holding position' }),
     ]);
   });
 });

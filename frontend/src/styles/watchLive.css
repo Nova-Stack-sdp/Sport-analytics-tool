@@ -211,6 +211,12 @@
   margin-bottom: 8px;
 }
 
+#page-watch-live .radar-column-empty {
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
 #page-watch-live .radar-entry {
   border-top: 1px solid var(--border-soft);
   padding-top: 8px;

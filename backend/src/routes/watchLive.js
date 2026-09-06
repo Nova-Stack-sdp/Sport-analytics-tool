@@ -235,6 +235,7 @@ const TIME_SERIES_RESOURCE_KEYS = [
   'pit',
   'stints',
   'position',
+  'car_data',
   'race_control',
   'weather',
 ];
@@ -319,6 +320,8 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
   );
   const positionsByDriver = latestRecordsByDriver(chunk.resources.position, timestamp);
   const stintsByDriver = latestRecordsByDriver(chunk.resources.stints, timestamp);
+  // Selects each driver's latest telemetry sample at playback time.
+  const carDataByDriver = latestRecordsByDriver(chunk.resources.car_data, timestamp);
   const lapsAtTimestamp = chunk.resources.laps.filter((lap) => Date.parse(lap.date) <= timestamp);
   const weather = latestRecord(chunk.resources.weather, timestamp);
 
@@ -329,6 +332,7 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
       ...(driversByNumber.get(position.driver_number) ?? { driverNumber: position.driver_number, driverName: null, teamName: null }),
       tyreCompound: stintsByDriver.get(position.driver_number)?.compound ?? null,
       stintNumber: stintsByDriver.get(position.driver_number)?.stint_number ?? null,
+      speedKph: carDataByDriver.get(position.driver_number)?.speed ?? null,
     }));
 
   const totalLaps = Math.max(0, ...(bundle.laps ?? [])
