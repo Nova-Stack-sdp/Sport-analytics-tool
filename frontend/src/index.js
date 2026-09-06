@@ -4,6 +4,7 @@ import App from './App';
 import reportWebVitals from './reportWebVitals';
 import './styles/globals.css';
 import './styles/TopNav.css';
+import './styles/watchLive.css';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
