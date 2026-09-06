@@ -63,6 +63,10 @@ export function getPopularVideos() {
   return request('/api/videos/popular');
 }
 
+export function getLiveVideo() {
+  return request('/api/watch-live');
+}
+
 export function getTeams() {
   return request('/api/teams');
 }
