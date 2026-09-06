@@ -18,3 +18,4 @@ watchLiveRouter.get('/', async (req, res, next) => {
   }
 });
 
+// at this point, the Barcelona 2026 race data has been fetched and cached.
