@@ -6,11 +6,13 @@ export const watchLiveRouter = Router();
 // Fetched once and cached — the Barcelona 2026 race this feature simulates
 // as "live" doesn't change, so there's no need to re-fetch it per request.
 let Barcelona_openf1Data = null;
+let Barcelona_openf1Chunks = null;
 
 watchLiveRouter.get('/', async (req, res, next) => {
   try {
     if (!Barcelona_openf1Data) {
       Barcelona_openf1Data = await fetchBarcelonaRaceRaw();
+      Barcelona_openf1Chunks = buildBarcelonaOpenF1Chunks(Barcelona_openf1Data);
     }
     res.json(Barcelona_openf1Data);
   } catch (err) {
@@ -135,3 +137,140 @@ export const Barcelona_video_anchors = [
   { startSeconds: 3138, endSeconds: 3150, category: 'event', description: 'Antonelli exits the pits and narrowly holds position ahead of Norris.' },
   { startSeconds: 3168, endSeconds: 3168, category: 'event', description: 'Transcript excerpt ends with Hamilton leading.' },
 ];
+
+// Each boundary is a strategy reset confirmed by an OpenF1 pit record. The
+// early grid-to-lights transition needs its own calibration point because the
+// broadcast compresses the pre-race sequence.
+export const Barcelona_video_chunks = [
+  {
+    id: 'opening-stint',
+    videoStartSeconds: 0,
+    videoEndSeconds: 923,
+    calibrationAnchors: [
+      { videoSeconds: 0, openF1Timestamp: '2026-06-14T13:00:00.000Z', source: 'scheduled-session-start' },
+      { videoSeconds: 14, openF1Timestamp: '2026-06-14T13:03:27.854Z', source: 'session-started' },
+      { videoSeconds: 923, openF1Timestamp: '2026-06-14T13:19:06.289Z', source: 'hamilton-first-pit-stop' },
+    ],
+  },
+  {
+    id: 'first-strategy-cycle',
+    videoStartSeconds: 923,
+    videoEndSeconds: 2244.5,
+    calibrationAnchors: [
+      { videoSeconds: 923, openF1Timestamp: '2026-06-14T13:19:06.289Z', source: 'hamilton-first-pit-stop' },
+      { videoSeconds: 2244.5, openF1Timestamp: '2026-06-14T13:41:28.951Z', source: 'hamilton-second-pit-stop' },
+    ],
+  },
+  {
+    id: 'second-strategy-cycle',
+    videoStartSeconds: 2244.5,
+    videoEndSeconds: 3019,
+    calibrationAnchors: [
+      { videoSeconds: 2244.5, openF1Timestamp: '2026-06-14T13:41:28.951Z', source: 'hamilton-second-pit-stop' },
+      { videoSeconds: 3019, openF1Timestamp: '2026-06-14T13:53:54.451Z', source: 'russell-final-pit-stop' },
+    ],
+  },
+  {
+    id: 'final-pit-cycle',
+    videoStartSeconds: 3019,
+    videoEndSeconds: 3168,
+    calibrationAnchors: [
+      { videoSeconds: 3019, openF1Timestamp: '2026-06-14T13:53:54.451Z', source: 'russell-final-pit-stop' },
+      { videoSeconds: 3144, openF1Timestamp: '2026-06-14T13:55:16.919Z', source: 'antonelli-final-pit-stop' },
+      {
+        videoSeconds: 3168,
+        openF1Timestamp: '2026-06-14T13:55:32.753Z',
+        source: 'antonelli-final-pit-stop-rate',
+        estimated: true,
+      },
+    ],
+  },
+];
+
+function interpolateTimestamp(videoSeconds, startAnchor, endAnchor) {
+  const startMilliseconds = Date.parse(startAnchor.openF1Timestamp);
+  const endMilliseconds = Date.parse(endAnchor.openF1Timestamp);
+  const progress = (videoSeconds - startAnchor.videoSeconds)
+    / (endAnchor.videoSeconds - startAnchor.videoSeconds);
+
+  return new Date(startMilliseconds + ((endMilliseconds - startMilliseconds) * progress)).toISOString();
+}
+
+export function mapBarcelonaVideoTime(videoSeconds) {
+  if (!Number.isFinite(videoSeconds)) {
+    throw new TypeError('videoSeconds must be a finite number');
+  }
+
+  const finalChunk = Barcelona_video_chunks.at(-1);
+  const chunk = Barcelona_video_chunks.find((candidate) => {
+    const includesEnd = candidate.id === finalChunk.id;
+    return videoSeconds >= candidate.videoStartSeconds
+      && (videoSeconds < candidate.videoEndSeconds || (includesEnd && videoSeconds <= candidate.videoEndSeconds));
+  });
+  if (!chunk) return null;
+
+  const anchors = chunk.calibrationAnchors;
+  const endAnchorIndex = anchors.findIndex((anchor) => videoSeconds <= anchor.videoSeconds);
+  const endAnchor = anchors[Math.max(endAnchorIndex, 1)];
+  const startAnchor = anchors[anchors.indexOf(endAnchor) - 1];
+
+  return {
+    chunkId: chunk.id,
+    openF1Timestamp: interpolateTimestamp(videoSeconds, startAnchor, endAnchor),
+    estimated: Boolean(startAnchor.estimated || endAnchor.estimated),
+  };
+}
+
+const TIME_SERIES_RESOURCE_KEYS = [
+  'laps',
+  'pit',
+  'stints',
+  'position',
+  'race_control',
+  'weather',
+];
+
+function recordsWithinTimestampRange(records, startTimestamp, endTimestamp, includesEnd) {
+  const startMilliseconds = Date.parse(startTimestamp);
+  const endMilliseconds = Date.parse(endTimestamp);
+
+  return records.filter((record) => {
+    const timestamp = Date.parse(record.date);
+    return Number.isFinite(timestamp)
+      && timestamp >= startMilliseconds
+      && (timestamp < endMilliseconds || (includesEnd && timestamp <= endMilliseconds));
+  });
+}
+
+export function buildBarcelonaOpenF1Chunks(bundle) {
+  return Barcelona_video_chunks.map((chunk) => {
+    const start = mapBarcelonaVideoTime(chunk.videoStartSeconds);
+    const end = mapBarcelonaVideoTime(chunk.videoEndSeconds);
+    const isFinalChunk = chunk.id === Barcelona_video_chunks.at(-1).id;
+    const resources = Object.fromEntries(
+      TIME_SERIES_RESOURCE_KEYS.map((resourceKey) => [
+        resourceKey,
+        recordsWithinTimestampRange(
+          Array.isArray(bundle[resourceKey]) ? bundle[resourceKey] : [],
+          start.openF1Timestamp,
+          end.openF1Timestamp,
+          isFinalChunk
+        ),
+      ])
+    );
+
+    return {
+      id: chunk.id,
+      videoStartSeconds: chunk.videoStartSeconds,
+      videoEndSeconds: chunk.videoEndSeconds,
+      openF1StartTimestamp: start.openF1Timestamp,
+      openF1EndTimestamp: end.openF1Timestamp,
+      estimated: Boolean(start.estimated || end.estimated),
+      videoAnchors: Barcelona_video_anchors.filter((anchor) =>
+        anchor.startSeconds >= chunk.videoStartSeconds
+        && (anchor.startSeconds < chunk.videoEndSeconds || isFinalChunk)
+      ),
+      resources,
+    };
+  });
+}
