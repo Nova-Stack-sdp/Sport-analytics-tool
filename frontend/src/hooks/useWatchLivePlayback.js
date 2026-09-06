@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { getWatchLiveState } from '../api/client';
 
+// Synchronizes YouTube playback with buffered replay snapshots.
 const VIDEO_BUFFER_SECONDS = 15;
 const BUFFER_REFILL_SECONDS = 2;
 

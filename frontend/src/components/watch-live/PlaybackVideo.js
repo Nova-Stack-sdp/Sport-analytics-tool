@@ -1,3 +1,4 @@
+// Renders the synchronized video player and session metadata.
 const YOUTUBE_PLAYER_URL = 'https://www.youtube.com/embed/O3oYzBXzAIs?enablejsapi=1&playsinline=1&start=5';
 
 function formatWeather(weather) {

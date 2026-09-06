@@ -1,3 +1,4 @@
+// Renders the synchronized leaderboard and tyre strategy.
 function Masterboard({ leaderboard, error }) {
   return (
     <div className="card masterboard-card">

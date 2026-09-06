@@ -4,6 +4,7 @@ import PlaybackVideo from '../components/watch-live/PlaybackVideo';
 import RaceStateBoard from '../components/watch-live/RaceStateBoard';
 import { useWatchLivePlayback } from '../hooks/useWatchLivePlayback';
 
+// Composes the synchronized Watch Live dashboard.
 function WatchLivePage() {
   const { iframeRef, state, error, loading } = useWatchLivePlayback();
 

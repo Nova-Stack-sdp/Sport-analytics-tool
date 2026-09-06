@@ -1,3 +1,4 @@
+// Renders transcript anchors for the current playback state.
 function formatPlaybackTime(seconds) {
   const totalSeconds = Math.floor(seconds ?? 0);
   const minutes = Math.floor(totalSeconds / 60);

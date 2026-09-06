@@ -1,3 +1,4 @@
+// Groups the current race order into a compact state board.
 function RaceStateBoard({ leaderboard }) {
   const columns = [
     { label: 'Front', accent: 'accent', entries: leaderboard.slice(0, 2) },
