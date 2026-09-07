@@ -1,13 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
-function formatTime(seconds) {
-  const total = Math.floor(seconds ?? 0);
-  const min = Math.floor(total / 60);
-  return `${min}:${String(total % 60).padStart(2, '0')}`;
-}
-
-// TV-style news ticker that scrolls events from right to left,
-// like a live broadcast lower-third crawl.
+// TV-style news ticker that scrolls race commentary from right to left,
+// like a live broadcast announcer feed.
 function LiveTicker({ events, error }) {
   const containerRef = useRef(null);
   const trackRef = useRef(null);
@@ -26,7 +20,6 @@ function LiveTicker({ events, error }) {
     if (!container || !track) return;
 
     const containerWidth = container.offsetWidth;
-    // Content is duplicated 2x for seamless wrap; singleSetWidth = half.
     const singleSetWidth = track.scrollWidth / 2;
     if (singleSetWidth === 0) return;
 
@@ -47,7 +40,6 @@ function LiveTicker({ events, error }) {
       frameId = requestAnimationFrame(tick);
     };
 
-    // Start just off the right edge.
     offsetRef.current = 0;
     track.style.transform = `translateX(${containerWidth}px)`;
     frameId = requestAnimationFrame(tick);
@@ -60,7 +52,7 @@ function LiveTicker({ events, error }) {
       <div className="tv-ticker">
         <div className="tv-ticker-badge">LIVE</div>
         <div className="tv-ticker-viewport">
-          <span className="tv-ticker-empty">{error ?? 'Awaiting playback events\u2026'}</span>
+          <span className="tv-ticker-empty">{error ?? 'Awaiting commentary\u2026'}</span>
         </div>
       </div>
     );
@@ -80,10 +72,7 @@ function LiveTicker({ events, error }) {
         <div className="tv-ticker-track" ref={trackRef}>
           {doubled.map((event, i) => (
             <span className="tv-ticker-item" key={`${event.startSeconds}-${i}`}>
-              <span className="tv-ticker-time">{formatTime(event.startSeconds)}</span>
-              <span className="tv-ticker-dot" />
               <span className="tv-ticker-text">{event.description}</span>
-              <span className="tv-ticker-sep">\u2502</span>
             </span>
           ))}
         </div>
