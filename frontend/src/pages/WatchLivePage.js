@@ -3,7 +3,6 @@ import Masterboard from '../components/watch-live/Masterboard';
 import PlaybackVideo from '../components/watch-live/PlaybackVideo';
 import SessionSetupBar from '../components/watch-live/SessionSetupBar';
 import PlaybackStatusBar from '../components/watch-live/PlaybackStatusBar';
-import TrackNotesCard from '../components/watch-live/TrackNotesCard';
 import BattleRadar from '../components/watch-live/BattleRadar';
 import WatchLiveFooter from '../components/watch-live/WatchLiveFooter';
 import { deriveWatchLiveAnalytics } from '../features/watch-live/deriveAnalytics';
@@ -29,7 +28,6 @@ function WatchLivePage() {
 
           <div className="watch-live-sidebar">
             <Masterboard leaderboard={leaderboard} error={error} />
-            <TrackNotesCard trackData={state?.session} />
           </div>
         </div>
 

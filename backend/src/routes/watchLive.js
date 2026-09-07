@@ -254,7 +254,8 @@ function recordsWithinTimestampRange(records, startTimestamp, endTimestamp, incl
   const endMilliseconds = Date.parse(endTimestamp);
 
   return records.filter((record) => {
-    const timestamp = Date.parse(record.date);
+    // Most OpenF1 resources use `date`; laps use `date_start`.
+    const timestamp = Date.parse(record.date ?? record.date_start);
     return Number.isFinite(timestamp)
       && timestamp >= startMilliseconds
       && (timestamp < endMilliseconds || (includesEnd && timestamp <= endMilliseconds));
@@ -348,7 +349,14 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
   const stintsByDriver = latestRecordsByDriver(chunk.resources.stints, timestamp);
   // Selects each driver's latest telemetry sample at playback time.
   const carDataByDriver = latestRecordsByDriver(chunk.resources.car_data, timestamp);
-  const lapsAtTimestamp = chunk.resources.laps.filter((lap) => Date.parse(lap.date) <= timestamp);
+  // Scan all chunks for completed laps — a lap may have started in an earlier
+  // chunk and finished in the current one, so looking at only the current
+  // chunk's laps can miss it.
+  const allLapRecords = chunks.flatMap((c) => c.resources.laps ?? []);
+  const lapsCompleted = allLapRecords.filter((lap) => {
+    const lapEnd = Date.parse(lap.date_start) + (lap.lap_duration ?? 0) * 1000;
+    return Number.isFinite(lapEnd) && lapEnd <= timestamp;
+  });
   const weather = latestRecord(chunk.resources.weather, timestamp);
 
   const leaderboard = [...positionsByDriver.values()]
@@ -364,7 +372,7 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
   const totalLaps = Math.max(0, ...(bundle.laps ?? [])
     .map((lap) => lap.lap_number)
     .filter(Number.isFinite));
-  const currentLap = Math.max(0, ...lapsAtTimestamp
+  const currentLap = Math.max(0, ...lapsCompleted
     .map((lap) => lap.lap_number)
     .filter(Number.isFinite));
 
