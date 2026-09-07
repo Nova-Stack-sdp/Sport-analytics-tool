@@ -589,6 +589,10 @@
   color: var(--text-primary);
 }
 
+#page-watch-live .radar-metric-row strong.radar-gap {
+  color: #f59e0b;
+}
+
 #page-watch-live .radar-advice {
   margin-top: 6px;
   padding: 6px 7px;
