@@ -28,6 +28,7 @@ function WatchLivePage() {
           <div className="watch-live-primary">
             <PlaybackVideo iframeRef={iframeRef} state={state} loading={loading} />
             <PlaybackStatusBar state={state} />
+            <LiveTicker events={tickerEvents} error={error} />
           </div>
 
           <div className="watch-live-sidebar">
@@ -36,8 +37,6 @@ function WatchLivePage() {
         </div>
 
         <BattleRadar leaderboard={leaderboard} />
-
-        <LiveTicker events={tickerEvents} error={error} />
 
         <WatchLiveFooter />
       </div>
