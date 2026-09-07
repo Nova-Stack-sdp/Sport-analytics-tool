@@ -8,6 +8,7 @@ export const watchLiveRouter = Router();
 // as "live" doesn't change, so there's no need to re-fetch it per request.
 let Barcelona_openf1Data = null;
 let Barcelona_openf1Chunks = null;
+let Barcelona_precomputed = null;
 const Barcelona_snapshotCache = new Map();
 const MAX_BUFFER_SECONDS = 20;
 
@@ -15,9 +16,52 @@ async function getBarcelonaOpenF1Data() {
   if (!Barcelona_openf1Data) {
     Barcelona_openf1Data = await fetchBarcelonaRaceRaw();
     Barcelona_openf1Chunks = buildBarcelonaOpenF1Chunks(Barcelona_openf1Data);
+    Barcelona_precomputed = buildPrecomputedIndex(Barcelona_openf1Data, Barcelona_openf1Chunks);
   }
 
   return { bundle: Barcelona_openf1Data, chunks: Barcelona_openf1Chunks };
+}
+
+// Builds a one-time lookup index from the cached OpenF1 bundle so each
+// snapshot computation avoids re-parsing timestamps, re-flattening laps,
+// and re-scanning driver records. Called once after the initial fetch.
+function buildPrecomputedIndex(bundle, chunks) {
+  const driversByNumber = new Map(
+    (bundle.drivers ?? []).map((d) => [d.driver_number, normalizeDriver(d)])
+  );
+
+  // Groups time-series records by driver with pre-parsed timestamps so
+  // latestByDriver can use a single comparison per record.
+  function indexByDriver(records, dateField) {
+    const index = new Map();
+    for (const record of records) {
+      const dateValue = record[dateField] ?? record.date;
+      const ms = Date.parse(dateValue);
+      if (!Number.isFinite(ms)) continue;
+      const driver = record.driver_number;
+      if (!index.has(driver)) index.set(driver, []);
+      index.get(driver).push({ ...record, _ms: ms });
+    }
+    return index;
+  }
+
+  const positionIndex = indexByDriver(bundle.position ?? [], 'date');
+  const stintIndex = indexByDriver(bundle.stints ?? [], 'date');
+  const carDataIndex = indexByDriver(bundle.car_data ?? [], 'date');
+
+  // Pre-flatten laps from all chunks with pre-parsed start timestamps.
+  // OpenF1 lap records use date_start; tests may use date.
+  const allLaps = chunks.flatMap((c) => (c.resources.laps ?? []).map((lap) => ({
+    ...lap,
+    _startMs: Date.parse(lap.date_start ?? lap.date),
+  }))).filter((lap) => Number.isFinite(lap._startMs))
+    .sort((a, b) => a._startMs - b._startMs);
+
+  const totalLaps = Math.max(0, ...(bundle.laps ?? [])
+    .map((lap) => lap.lap_number)
+    .filter(Number.isFinite));
+
+  return { driversByNumber, positionIndex, stintIndex, carDataIndex, allLaps, totalLaps };
 }
 
 // Triggers the one-time OpenF1 fetch in the background so the cache is warm
@@ -295,14 +339,28 @@ export function buildBarcelonaOpenF1Chunks(bundle) {
   });
 }
 
-function latestRecordsByDriver(records, timestamp) {
-  const latestRecords = new Map();
-  for (const record of records) {
-    if (Date.parse(record.date) <= timestamp) {
-      latestRecords.set(record.driver_number, record);
+function latestByDriver(driverRecords, timestamp) {
+  const latest = new Map();
+  for (const [driverNumber, records] of driverRecords) {
+    for (const record of records) {
+      if (record._ms <= timestamp) latest.set(driverNumber, record);
     }
   }
-  return latestRecords;
+  return latest;
+}
+
+// Builds a pre-parsed, per-driver index from a flat record array.
+// Used by the on-the-fly fallback path when no precomputed index exists.
+function buildDriverIndex(records, dateField = 'date') {
+  const index = new Map();
+  for (const record of records) {
+    const ms = Date.parse(record[dateField] ?? record.date);
+    if (!Number.isFinite(ms)) continue;
+    const driver = record.driver_number;
+    if (!index.has(driver)) index.set(driver, []);
+    index.get(driver).push({ ...record, _ms: ms });
+  }
+  return index;
 }
 
 function latestRecord(records, timestamp) {
@@ -324,16 +382,17 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
   if (!mapping) return null;
 
   const chunk = chunks.find((candidate) => candidate.id === mapping.chunkId);
+  const idx = Barcelona_precomputed;
   const timestamp = Date.parse(mapping.openF1Timestamp);
-  const driversByNumber = new Map(
+  const driversByNumber = idx?.driversByNumber ?? new Map(
     (bundle.drivers ?? []).map((driver) => [driver.driver_number, normalizeDriver(driver)])
   );
   // Merge live position data with the starting grid so the masterboard always
   // shows all drivers. Grid positions act as a base layer — live position
-  // records override them as they become available. Without this, the
-  // leaderboard drops to only the drivers that have live records during the
-  // early race transition, and the Battle Radar picks wrong midfield positions.
-  const livePositions = latestRecordsByDriver(chunk.resources.position, timestamp);
+  // records override them as they become available.
+  const livePositions = idx
+    ? latestByDriver(idx.positionIndex, timestamp)
+    : latestByDriver(buildDriverIndex(chunk.resources.position ?? []), timestamp);
   const positionsByDriver = new Map();
   if (Array.isArray(bundle.starting_grid) && bundle.starting_grid.length > 0) {
     for (const entry of bundle.starting_grid) {
@@ -346,23 +405,26 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
   for (const [driverNumber, record] of livePositions) {
     positionsByDriver.set(driverNumber, record);
   }
-  const stintsByDriver = latestRecordsByDriver(chunk.resources.stints, timestamp);
-  // Scan all chunks for completed laps — a lap may have started in an earlier
-  // chunk and finished in the current one, so looking at only the current
-  // chunk's laps can miss it.
-  const allLapRecords = chunks.flatMap((c) => c.resources.laps ?? []);
-  const lapsCompleted = allLapRecords.filter((lap) => {
-    const lapEnd = Date.parse(lap.date_start) + (lap.lap_duration ?? 0) * 1000;
-    return Number.isFinite(lapEnd) && lapEnd <= timestamp;
-  });
+  const stintsByDriver = idx
+    ? latestByDriver(idx.stintIndex, timestamp)
+    : latestByDriver(buildDriverIndex(chunk.resources.stints ?? []), timestamp);
+  // car_data may be available for some sessions; use the precomputed index
+  // when available, otherwise build it on the fly.
+  const carDataByDriver = idx
+    ? latestByDriver(idx.carDataIndex, timestamp)
+    : latestByDriver(buildDriverIndex(chunk.resources.car_data ?? []), timestamp);
   // OpenF1 car_data is not available for every session. Fall back to speed
   // traps embedded in lap records (st_speed at start/finish, i1/i2 at sector
   // boundaries). Pick the latest available trap per driver so the value
   // reflects their most recent on-track speed.
+  const allLaps = idx?.allLaps ?? chunks.flatMap((c) =>
+    (c.resources.laps ?? []).map((lap) => ({ ...lap, _startMs: Date.parse(lap.date_start ?? lap.date) }))
+      .filter((lap) => Number.isFinite(lap._startMs))
+      .sort((a, b) => a._startMs - b._startMs)
+  );
   const latestLapsByDriver = new Map();
-  for (const lap of allLapRecords) {
-    const lapStart = Date.parse(lap.date_start);
-    if (Number.isFinite(lapStart) && lapStart <= timestamp) {
+  for (const lap of allLaps) {
+    if (lap._startMs <= timestamp) {
       latestLapsByDriver.set(lap.driver_number, lap);
     }
   }
@@ -373,19 +435,24 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
     .map((position) => {
       const driverLap = latestLapsByDriver.get(position.driver_number);
       const lapSpeed = driverLap?.st_speed ?? driverLap?.i2_speed ?? driverLap?.i1_speed ?? null;
+      const carSpeed = carDataByDriver.get(position.driver_number)?.speed ?? null;
       return {
         position: position.position,
         ...(driversByNumber.get(position.driver_number) ?? { driverNumber: position.driver_number, driverName: null, teamName: null }),
         tyreCompound: stintsByDriver.get(position.driver_number)?.compound ?? null,
         stintNumber: stintsByDriver.get(position.driver_number)?.stint_number ?? null,
-        speedKph: lapSpeed,
+        speedKph: lapSpeed ?? carSpeed,
       };
     });
 
-  const totalLaps = Math.max(0, ...(bundle.laps ?? [])
+  const currentLap = Math.max(0, ...allLaps
+    .filter((lap) => {
+      const lapEnd = lap._startMs + (lap.lap_duration ?? 0) * 1000;
+      return Number.isFinite(lapEnd) && lapEnd <= timestamp;
+    })
     .map((lap) => lap.lap_number)
     .filter(Number.isFinite));
-  const currentLap = Math.max(0, ...lapsCompleted
+  const totalLaps = idx?.totalLaps ?? Math.max(0, ...(bundle.laps ?? [])
     .map((lap) => lap.lap_number)
     .filter(Number.isFinite));
 

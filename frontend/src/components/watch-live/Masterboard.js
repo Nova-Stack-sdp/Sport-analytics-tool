@@ -1,5 +1,7 @@
+import { memo } from 'react';
+
 // Renders the synchronized leaderboard and tyre strategy.
-function Masterboard({ leaderboard, error }) {
+const Masterboard = memo(function Masterboard({ leaderboard, error }) {
   // Show simplified empty state if no data
   if (leaderboard.length === 0) {
     return (
@@ -59,6 +61,6 @@ function Masterboard({ leaderboard, error }) {
       </table>
     </div>
   );
-}
+});
 
 export default Masterboard;

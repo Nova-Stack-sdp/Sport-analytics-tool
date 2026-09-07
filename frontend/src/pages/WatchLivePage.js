@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import LiveTicker from '../components/watch-live/LiveTicker';
 import Masterboard from '../components/watch-live/Masterboard';
 import PlaybackVideo from '../components/watch-live/PlaybackVideo';
@@ -12,8 +13,11 @@ import { useWatchLivePlayback } from '../hooks/useWatchLivePlayback';
 function WatchLivePage() {
   const { iframeRef, state, snapshots, error, loading } = useWatchLivePlayback();
 
-  const { leaderboard } = deriveWatchLiveAnalytics(state, snapshots);
-  const tickerEvents = state?.recentAnchors ?? [];
+  const { leaderboard } = useMemo(
+    () => deriveWatchLiveAnalytics(state, snapshots),
+    [state, snapshots]
+  );
+  const tickerEvents = useMemo(() => state?.recentAnchors ?? [], [state]);
 
   return (
     <div className="page" id="page-watch-live">
