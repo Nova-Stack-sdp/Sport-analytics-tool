@@ -7,21 +7,25 @@ export const watchLiveRouter = Router();
 // The DB row key for the persisted bundle cache (see ExternalApiCache in
 // schema.prisma). Bumped if the bundle's *shape* ever changes in a way that
 // would make an old cached payload stale/incompatible.
-const BARCELONA_CACHE_KEY = 'openf1:barcelona-2026-race:v1';
+const BARCELONA_CACHE_KEY = 'openf1:barcelona-2026-race:v2';
 
 // In-memory cache on top of the DB cache — avoids a DB round-trip on every
 // single request within the same running process, while the DB layer
 // avoids re-fetching from OpenF1 (which takes ~2 minutes) after a restart.
 let Barcelona_openf1Data = null;
 let Barcelona_openf1Chunks = null;
+// Tracks an in-progress fetch so concurrent callers await the SAME promise
+// instead of each independently kicking off their own full fetch sequence
+// against OpenF1. Without this, every request that arrives before the
+// first fetch finishes starts a brand new multi-request sequence — a
+// classic cache-stampede bug, and exactly what was tripping OpenF1's real
+// rate limits (30/min, 3/sec): a dozen overlapping fetch sequences instead
+// of one paced one.
+let Barcelona_fetchPromise = null;
 const Barcelona_snapshotCache = new Map();
 const MAX_BUFFER_SECONDS = 20;
 
-async function getBarcelonaOpenF1Data() {
-  if (Barcelona_openf1Data) {
-    return { bundle: Barcelona_openf1Data, chunks: Barcelona_openf1Chunks };
-  }
-
+async function fetchAndCacheBarcelonaData() {
   // Imported lazily, not at module top-level: buildBarcelonaOpenF1Chunks and
   // createBarcelonaWatchLiveState are imported directly by existing tests
   // that never call this function and never need a database connection.
@@ -34,23 +38,41 @@ async function getBarcelonaOpenF1Data() {
     where: { key: BARCELONA_CACHE_KEY },
   });
 
-  if (cached) {
-    Barcelona_openf1Data = cached.payload;
-  } else {
-    Barcelona_openf1Data = await fetchBarcelonaRaceRaw();
-    // Persist so the next cold start (server restart/redeploy) doesn't have
-    // to redo the ~2-minute fetch chain against OpenF1 again. Best-effort —
-    // if this write fails, the in-memory cache above still works for the
-    // lifetime of this process, we just lose the durability across restarts.
-    try {
-      await prisma.externalApiCache.upsert({
-        where: { key: BARCELONA_CACHE_KEY },
-        create: { key: BARCELONA_CACHE_KEY, payload: Barcelona_openf1Data },
-        update: { payload: Barcelona_openf1Data, fetchedAt: new Date() },
-      });
-    } catch (err) {
-      console.error('Failed to persist Barcelona OpenF1 cache to DB:', err);
-    }
+  if (cached) return cached.payload;
+
+  const fresh = await fetchBarcelonaRaceRaw();
+  // Persist so the next cold start (server restart/redeploy) doesn't have
+  // to redo the ~2-minute fetch chain against OpenF1 again. Best-effort —
+  // if this write fails, the in-memory cache above still works for the
+  // lifetime of this process, we just lose the durability across restarts.
+  try {
+    await prisma.externalApiCache.upsert({
+      where: { key: BARCELONA_CACHE_KEY },
+      create: { key: BARCELONA_CACHE_KEY, payload: fresh },
+      update: { payload: fresh, fetchedAt: new Date() },
+    });
+  } catch (err) {
+    console.error('Failed to persist Barcelona OpenF1 cache to DB:', err);
+  }
+  return fresh;
+}
+
+async function getBarcelonaOpenF1Data() {
+  if (Barcelona_openf1Data) {
+    return { bundle: Barcelona_openf1Data, chunks: Barcelona_openf1Chunks };
+  }
+
+  if (!Barcelona_fetchPromise) {
+    Barcelona_fetchPromise = fetchAndCacheBarcelonaData();
+  }
+
+  try {
+    Barcelona_openf1Data = await Barcelona_fetchPromise;
+  } catch (err) {
+    // Let the next request retry from scratch instead of staying stuck
+    // pointing at a rejected promise forever.
+    Barcelona_fetchPromise = null;
+    throw err;
   }
 
   Barcelona_openf1Chunks = buildBarcelonaOpenF1Chunks(Barcelona_openf1Data);
@@ -273,6 +295,7 @@ const TIME_SERIES_RESOURCE_KEYS = [
   'stints',
   'position',
   'car_data',
+  'location',
   'race_control',
   'weather',
 ];
@@ -359,7 +382,14 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
   const stintsByDriver = latestRecordsByDriver(chunk.resources.stints, timestamp);
   // Selects each driver's latest telemetry sample at playback time.
   const carDataByDriver = latestRecordsByDriver(chunk.resources.car_data, timestamp);
-  const lapsAtTimestamp = chunk.resources.laps.filter((lap) => Date.parse(lap.date) <= timestamp);
+  const locationByDriver = latestRecordsByDriver(chunk.resources.location, timestamp);
+  // NOTE: OpenF1's /laps resource uses `date_start`, not `date` like most
+  // other resources (pit, position, stints, race_control, weather,
+  // car_data, location all use `date`). Using the wrong field name here
+  // meant Date.parse(undefined) => NaN => this filter was always empty,
+  // which is why currentLap was stuck at 0 regardless of playback position
+  // while totalLaps (which doesn't need a date) displayed correctly.
+  const lapsAtTimestamp = chunk.resources.laps.filter((lap) => Date.parse(lap.date_start) <= timestamp);
   const weather = latestRecord(chunk.resources.weather, timestamp);
 
   const leaderboard = [...positionsByDriver.values()]
@@ -370,6 +400,10 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
       tyreCompound: stintsByDriver.get(position.driver_number)?.compound ?? null,
       stintNumber: stintsByDriver.get(position.driver_number)?.stint_number ?? null,
       speedKph: carDataByDriver.get(position.driver_number)?.speed ?? null,
+      // Real x,y,z from OpenF1's /location — null if no location record has
+      // arrived yet for this driver at this point in the session.
+      x: locationByDriver.get(position.driver_number)?.x ?? null,
+      y: locationByDriver.get(position.driver_number)?.y ?? null,
     }));
 
   const totalLaps = Math.max(0, ...(bundle.laps ?? [])
@@ -455,6 +489,7 @@ watchLiveRouter.get('/state', async (req, res, next) => {
   if (!mapping) {
     return res.status(400).json({
       error: `videoSeconds must be between 0 and ${Barcelona_video_chunks.at(-1).videoEndSeconds}`,
+      maxVideoSeconds: Barcelona_video_chunks.at(-1).videoEndSeconds,
     });
   }
 
@@ -476,6 +511,82 @@ watchLiveRouter.get('/state', async (req, res, next) => {
     }
 
     return res.json(getBarcelonaCachedState(videoSeconds, bundle, chunks));
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Derives an accurate track outline from real location telemetry, the same
+// technique the reference F1 Race Replay tool uses via FastF1: pick one
+// clean, representative lap and trace the x,y points a car actually drove.
+// This works for any circuit with no per-track manual design — it's why
+// neither that tool nor this one needs a hand-drawn map per circuit.
+let Barcelona_trackShapeCache = null;
+
+function deriveTrackShape(bundle) {
+  if (Barcelona_trackShapeCache) return Barcelona_trackShapeCache;
+
+  const locationRecords = bundle.location ?? [];
+  if (locationRecords.length === 0) return null;
+
+  // Prefer the driver with the most location records — a clean run with
+  // fewer gaps in telemetry coverage than a driver who retired early or
+  // spent time in the garage.
+  const countsByDriver = new Map();
+  for (const record of locationRecords) {
+    countsByDriver.set(record.driver_number, (countsByDriver.get(record.driver_number) ?? 0) + 1);
+  }
+  const [referenceDriver] = [...countsByDriver.entries()].sort((a, b) => b[1] - a[1])[0] ?? [null];
+  if (referenceDriver == null) return null;
+
+  // Prefer a single representative lap over the whole session — avoids
+  // pit lane excursions and formation-lap oddities cluttering the outline.
+  // Picks a lap roughly a third of the way through the race: early enough
+  // that tyre wear/fuel load haven't caused an unusual line, late enough
+  // to be clear of first-lap incidents.
+  const driverLaps = (bundle.laps ?? [])
+    .filter((lap) => lap.driver_number === referenceDriver && lap.lap_number && lap.date_start)
+    .sort((a, b) => a.lap_number - b.lap_number);
+
+  let windowStartMs = null;
+  let windowEndMs = null;
+  if (driverLaps.length > 2) {
+    const sampleIndex = Math.floor(driverLaps.length / 3);
+    windowStartMs = Date.parse(driverLaps[sampleIndex].date_start);
+    windowEndMs = driverLaps[sampleIndex + 1]
+      ? Date.parse(driverLaps[sampleIndex + 1].date_start)
+      : windowStartMs + 2 * 60 * 1000;
+  }
+
+  const candidatePoints = locationRecords
+    .filter((record) => record.driver_number === referenceDriver)
+    .filter((record) => {
+      if (windowStartMs == null) return true;
+      const t = Date.parse(record.date);
+      return t >= windowStartMs && t <= windowEndMs;
+    })
+    .map((record) => ({ x: record.x, y: record.y }))
+    .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+
+  if (candidatePoints.length < 10) return null;
+
+  // Downsample to a manageable point count for a smooth-but-light SVG path.
+  const TARGET_POINTS = 200;
+  const step = Math.max(1, Math.floor(candidatePoints.length / TARGET_POINTS));
+  const points = candidatePoints.filter((_, i) => i % step === 0);
+
+  Barcelona_trackShapeCache = { points, sourceDriverNumber: referenceDriver };
+  return Barcelona_trackShapeCache;
+}
+
+watchLiveRouter.get('/track-shape', async (req, res, next) => {
+  try {
+    const { bundle } = await getBarcelonaOpenF1Data();
+    const shape = deriveTrackShape(bundle);
+    if (!shape) {
+      return res.status(404).json({ error: 'No location telemetry available to derive a track shape' });
+    }
+    return res.json(shape);
   } catch (err) {
     return next(err);
   }
