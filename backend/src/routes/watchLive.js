@@ -20,6 +20,15 @@ async function getBarcelonaOpenF1Data() {
   return { bundle: Barcelona_openf1Data, chunks: Barcelona_openf1Chunks };
 }
 
+// Triggers the one-time OpenF1 fetch in the background so the cache is warm
+// by the time a user hits the watch-live page. Called from server.js at
+// startup — failures are logged but never fatal.
+export function prewarmBarcelonaCache() {
+  getBarcelonaOpenF1Data().catch((err) => {
+    console.warn('Barcelona OpenF1 cache pre-warm failed:', err.message);
+  });
+}
+
 watchLiveRouter.get('/', async (req, res, next) => {
   try {
     const { bundle } = await getBarcelonaOpenF1Data();
@@ -318,7 +327,18 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
   const driversByNumber = new Map(
     (bundle.drivers ?? []).map((driver) => [driver.driver_number, normalizeDriver(driver)])
   );
-  const positionsByDriver = latestRecordsByDriver(chunk.resources.position, timestamp);
+  // OpenF1 position records don't exist until the race is officially under
+  // way. Before that, fall back to the starting grid so the masterboard
+  // shows all drivers as soon as the user hits play.
+  let positionsByDriver = latestRecordsByDriver(chunk.resources.position, timestamp);
+  if (positionsByDriver.size === 0 && Array.isArray(bundle.starting_grid) && bundle.starting_grid.length > 0) {
+    positionsByDriver = new Map(
+      bundle.starting_grid.map((entry) => [
+        entry.driver_number,
+        { driver_number: entry.driver_number, position: entry.position },
+      ])
+    );
+  }
   const stintsByDriver = latestRecordsByDriver(chunk.resources.stints, timestamp);
   // Selects each driver's latest telemetry sample at playback time.
   const carDataByDriver = latestRecordsByDriver(chunk.resources.car_data, timestamp);
