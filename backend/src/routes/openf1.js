@@ -58,6 +58,38 @@ async function paceBundleRequests() {
   }
 }
 
+// OpenF1 rejects bulk car_data requests for a full race with a 422
+// ("asking for too much data at once"). This helper splits the request
+// into overlapping time windows so each individual response stays within
+// the upstream limit.
+const CAR_DATA_CHUNK_MINUTES = 10;
+
+async function fetchCarDataChunked(sessionKey, sessionStart, sessionEnd) {
+  const startMs = Date.parse(sessionStart);
+  const endMs = Date.parse(sessionEnd);
+  const chunkMs = CAR_DATA_CHUNK_MINUTES * 60 * 1000;
+  const allRecords = [];
+
+  for (let windowStart = startMs; windowStart < endMs; windowStart += chunkMs) {
+    // Overlap by 1 second so records at a boundary aren't missed.
+    const windowEnd = Math.min(windowStart + chunkMs + 1000, endMs + 1000);
+    await paceBundleRequests();
+    const url = buildResourceUrl('car_data', {
+      session_key: sessionKey,
+      date_start: new Date(windowStart).toISOString(),
+      date_end: new Date(windowEnd).toISOString(),
+    });
+    const result = await fetchOpenF1Json(url);
+    if (result.status === 404) continue;
+    if (result.status !== 200) {
+      throw new OpenF1PassthroughError(result.status, result.payload);
+    }
+    allRecords.push(...result.payload);
+  }
+
+  return allRecords;
+}
+
 // Thrown when an upstream OpenF1 call comes back with a non-200 status that
 // should be passed straight through to the HTTP response as-is.
 class OpenF1PassthroughError extends Error {
@@ -90,6 +122,8 @@ export async function fetchBarcelonaRaceRaw() {
     throw new OpenF1PassthroughError(400, { error: 'The requested session is not a race' });
   }
 
+  // Resources fetched in a single request — car_data is handled separately
+  // below because OpenF1 rejects a full-race car_data query as too large.
   const resources = [
     ['meeting', 'meetings', { meeting_key: session.meeting_key }],
     ['drivers', 'drivers', { session_key: sessionKey }],
@@ -97,8 +131,6 @@ export async function fetchBarcelonaRaceRaw() {
     ['pit', 'pit', { session_key: sessionKey }],
     ['stints', 'stints', { session_key: sessionKey }],
     ['position', 'position', { session_key: sessionKey }],
-    // Supplies per-driver telemetry, including speed in km/h.
-    ['car_data', 'car_data', { session_key: sessionKey }],
     ['race_control', 'race_control', { session_key: sessionKey }],
     ['weather', 'weather', { session_key: sessionKey }],
     ['session_result', 'session_result', { session_key: sessionKey }],
@@ -117,6 +149,15 @@ export async function fetchBarcelonaRaceRaw() {
     }
     bundle[bundleKey] = Array.isArray(result) ? result : result.payload;
   }
+
+  // Fetch car_data in time-windowed chunks to avoid the 422 "too much data"
+  // rejection from OpenF1's free tier.
+  await paceBundleRequests();
+  bundle.car_data = await fetchCarDataChunked(
+    sessionKey,
+    session.date_start,
+    session.date_end
+  );
 
   // OpenF1 stores a race's starting grid under the qualifying session key.
   await paceBundleRequests();
