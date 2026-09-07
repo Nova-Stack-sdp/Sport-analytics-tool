@@ -40,6 +40,36 @@
   align-self: start;
 }
 
+/* Loading overlay during initial OpenF1 cache fill */
+#page-watch-live .watch-live-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 60px 20px;
+  margin: 0 20px;
+}
+
+#page-watch-live .watch-live-loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(255, 255, 255, 0.08);
+  border-top-color: #e10600;
+  border-radius: 50%;
+  animation: wl-spin 0.8s linear infinite;
+}
+
+@keyframes wl-spin {
+  to { transform: rotate(360deg); }
+}
+
+#page-watch-live .watch-live-loading-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  letter-spacing: 0.3px;
+}
+
 /* SessionSetupBar styles */
 #page-watch-live .session-setup-bar {
   margin: 0 20px 16px 20px;

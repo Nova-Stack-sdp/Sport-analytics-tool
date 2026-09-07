@@ -66,11 +66,17 @@ function buildPrecomputedIndex(bundle, chunks) {
     lapsByDriver.get(driver).push(lap);
   }
 
+  // Precompute sorted lap end times for O(log n) currentLap lookups.
+  const completedLapEnds = allLaps
+    .filter((lap) => Number.isFinite(lap.lap_duration) && lap.lap_duration > 0)
+    .map((lap) => ({ endMs: lap._startMs + lap.lap_duration * 1000, lap_number: lap.lap_number }))
+    .sort((a, b) => a.endMs - b.endMs);
+
   const totalLaps = Math.max(0, ...(bundle.laps ?? [])
     .map((lap) => lap.lap_number)
     .filter(Number.isFinite));
 
-  return { driversByNumber, positionIndex, stintIndex, carDataIndex, allLaps, lapsByDriver, totalLaps };
+  return { driversByNumber, positionIndex, stintIndex, carDataIndex, allLaps, lapsByDriver, completedLapEnds, totalLaps };
 }
 
 // Triggers the one-time OpenF1 fetch in the background so the cache is warm
@@ -272,12 +278,14 @@ export function mapBarcelonaVideoTime(videoSeconds) {
     throw new TypeError('videoSeconds must be a finite number');
   }
 
-  const finalChunk = Barcelona_video_chunks.at(-1);
-  const chunk = Barcelona_video_chunks.find((candidate) => {
-    const includesEnd = candidate.id === finalChunk.id;
-    return videoSeconds >= candidate.videoStartSeconds
-      && (videoSeconds < candidate.videoEndSeconds || (includesEnd && videoSeconds <= candidate.videoEndSeconds));
-  });
+  if (videoSeconds < 0) return null;
+
+  // Inclusive end boundary (<=): at shared boundaries like videoSeconds=923,
+  // the earlier chunk wins because its end matches before the next chunk starts.
+  const chunk = Barcelona_video_chunks.find((candidate) => (
+    videoSeconds >= candidate.videoStartSeconds
+    && videoSeconds <= candidate.videoEndSeconds
+  ));
   if (!chunk) return null;
 
   const anchors = chunk.calibrationAnchors;
@@ -390,9 +398,23 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
   const mapping = mapBarcelonaVideoTime(videoSeconds);
   if (!mapping) return null;
 
-  const chunk = chunks.find((candidate) => candidate.id === mapping.chunkId);
+  const chunkIdx = chunks.findIndex((candidate) => candidate.id === mapping.chunkId);
+  const chunk = chunks[chunkIdx];
   const idx = Barcelona_precomputed;
   const timestamp = Date.parse(mapping.openF1Timestamp);
+
+  // At chunk boundaries, map() returns the earlier chunk (inclusive end)
+  // but recordsWithinTimestampRange uses exclusive end (<), so records at
+  // the exact boundary timestamp live in the next chunk. Fall back to the
+  // adjacent chunk's resources when the mapped chunk is empty at the boundary.
+  const nextChunk = chunkIdx + 1 < chunks.length ? chunks[chunkIdx + 1] : null;
+  const chunkMsEnd = Date.parse(chunk.openF1EndTimestamp);
+  const atBoundary = nextChunk && Number.isFinite(chunkMsEnd) && timestamp === chunkMsEnd;
+  function resourceRecords(key) {
+    const records = chunk.resources[key] ?? [];
+    if (records.length > 0 || !atBoundary) return records;
+    return nextChunk.resources[key] ?? [];
+  }
   const driversByNumber = idx?.driversByNumber ?? new Map(
     (bundle.drivers ?? []).map((driver) => [driver.driver_number, normalizeDriver(driver)])
   );
@@ -401,7 +423,7 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
   // records override them as they become available.
   const livePositions = idx
     ? latestByDriver(idx.positionIndex, timestamp)
-    : latestByDriver(buildDriverIndex(chunk.resources.position ?? []), timestamp);
+    : latestByDriver(buildDriverIndex(resourceRecords('position')), timestamp);
   const positionsByDriver = new Map();
   const gridByDriver = new Map();
   if (Array.isArray(bundle.starting_grid) && bundle.starting_grid.length > 0) {
@@ -418,12 +440,12 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
   }
   const stintsByDriver = idx
     ? latestByDriver(idx.stintIndex, timestamp)
-    : latestByDriver(buildDriverIndex(chunk.resources.stints ?? []), timestamp);
+    : latestByDriver(buildDriverIndex(resourceRecords('stints')), timestamp);
   // car_data may be available for some sessions; use the precomputed index
   // when available, otherwise build it on the fly.
   const carDataByDriver = idx
     ? latestByDriver(idx.carDataIndex, timestamp)
-    : latestByDriver(buildDriverIndex(chunk.resources.car_data ?? []), timestamp);
+    : latestByDriver(buildDriverIndex(resourceRecords('car_data')), timestamp);
   // Binary-search the precomputed per-driver lap index to find the latest
   // lap at or before the current timestamp, plus the previous lap (for
   // lastLapTime). O(log n) per driver instead of O(n) over all laps.
@@ -445,13 +467,19 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
         else hi = mid - 1;
       }
       if (hi >= 0) {
-        latestLapsByDriver.set(driverNum, driverLaps[hi]);
-        if (hi > 0) previousLapsByDriver.set(driverNum, driverLaps[hi - 1]);
+        const latestLap = driverLaps[hi];
+        // Only count laps where lap_duration is populated (lap completed).
+        // This prevents pit-stop laps from creating phantom gaps.
+        if (Number.isFinite(latestLap.lap_duration) && latestLap.lap_duration > 0) {
+          latestLapsByDriver.set(driverNum, latestLap);
+          if (hi > 0) previousLapsByDriver.set(driverNum, driverLaps[hi - 1]);
+        }
       }
     }
   } else {
     for (const lap of allLaps) {
-      if (lap._startMs <= timestamp) {
+      if (lap._startMs <= timestamp
+        && Number.isFinite(lap.lap_duration) && lap.lap_duration > 0) {
         const current = latestLapsByDriver.get(lap.driver_number);
         if (current && lap._startMs > current._startMs) {
           previousLapsByDriver.set(lap.driver_number, current);
@@ -460,7 +488,7 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
       }
     }
   }
-  const weather = latestRecord(chunk.resources.weather, timestamp);
+  const weather = latestRecord(resourceRecords('weather'), timestamp);
 
   // Build the leaderboard sorted by position, then compute per-driver
   // metrics that depend on neighbours (gap) or historical data (lap time,
@@ -500,13 +528,29 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
     };
   });
 
-  const currentLap = Math.max(0, ...allLaps
-    .filter((lap) => {
-      const lapEnd = lap._startMs + (lap.lap_duration ?? 0) * 1000;
-      return Number.isFinite(lapEnd) && lapEnd <= timestamp;
-    })
-    .map((lap) => lap.lap_number)
-    .filter(Number.isFinite));
+  // currentLap via binary search on precomputed completed-lap end times.
+  const completedLapEnds = idx?.completedLapEnds ?? [];
+  let currentLap = 0;
+  if (completedLapEnds.length > 0) {
+    let lo = 0;
+    let hi = completedLapEnds.length - 1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (completedLapEnds[mid].endMs <= timestamp) lo = mid + 1;
+      else hi = mid - 1;
+    }
+    for (let i = 0; i < lo; i++) {
+      if (completedLapEnds[i].lap_number > currentLap) {
+        currentLap = completedLapEnds[i].lap_number;
+      }
+    }
+  } else {
+    // Fallback: highest started lap number (no completion check).
+    currentLap = Math.max(0, ...allLaps
+      .filter((lap) => Number.isFinite(lap._startMs) && lap._startMs <= timestamp)
+      .map((lap) => lap.lap_number)
+      .filter(Number.isFinite));
+  }
   const totalLaps = idx?.totalLaps ?? Math.max(0, ...(bundle.laps ?? [])
     .map((lap) => lap.lap_number)
     .filter(Number.isFinite));
@@ -529,7 +573,7 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
       rainfall: weather.rainfall ?? null,
       windSpeed: weather.wind_speed ?? null,
     } : null,
-    recentRaceControl: chunk.resources.race_control
+    recentRaceControl: resourceRecords('race_control')
       .filter((event) => Date.parse(event.date) <= timestamp)
       .slice(-5)
       .map((event) => ({

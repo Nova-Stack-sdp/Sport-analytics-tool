@@ -20,10 +20,19 @@ function WatchLivePage() {
   );
   const tickerEvents = useMemo(() => state?.recentAnchors ?? [], [state]);
 
+  const showLoadingOverlay = loading && !state && !error;
+
   return (
     <div className="page" id="page-watch-live">
       <div className="content">
         <SessionSetupBar onFindRace={(filters) => console.log('Find race:', filters)} />
+
+        {showLoadingOverlay && (
+          <div className="watch-live-loading">
+            <div className="watch-live-loading-spinner" />
+            <div className="watch-live-loading-text">Loading race telemetry&hellip;</div>
+          </div>
+        )}
 
         <div className="watch-live-grid">
           <div className="watch-live-primary">
