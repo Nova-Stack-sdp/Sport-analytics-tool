@@ -82,3 +82,10 @@ export function getDrivers() {
 export function getDriver(id) {
   return request(`/api/drivers/${id}`);
 }
+
+// Fetches one replay state or a short playback buffer.
+export function getWatchLiveState({ videoSeconds, bufferSeconds } = {}) {
+  const params = new URLSearchParams({ videoSeconds: String(videoSeconds) });
+  if (bufferSeconds != null) params.set('bufferSeconds', String(bufferSeconds));
+  return request(`/api/watch-live/state?${params.toString()}`);
+}

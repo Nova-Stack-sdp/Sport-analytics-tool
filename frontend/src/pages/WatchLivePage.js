@@ -1,50 +1,43 @@
-import { useEffect, useState } from 'react';
-import { getLiveVideo } from '../api/client';
+import LiveTicker from '../components/watch-live/LiveTicker';
+import Masterboard from '../components/watch-live/Masterboard';
+import PlaybackVideo from '../components/watch-live/PlaybackVideo';
+import SessionSetupBar from '../components/watch-live/SessionSetupBar';
+import PlaybackStatusBar from '../components/watch-live/PlaybackStatusBar';
+import TrackNotesCard from '../components/watch-live/TrackNotesCard';
+import BattleRadar from '../components/watch-live/BattleRadar';
+import WatchLiveFooter from '../components/watch-live/WatchLiveFooter';
+import { deriveWatchLiveAnalytics } from '../features/watch-live/deriveAnalytics';
+import { useWatchLivePlayback } from '../hooks/useWatchLivePlayback';
 
-const FALLBACK_EMBED_URL = 'https://www.youtube.com/embed/O3oYzBXzAIs?si=LDYbi9zAYU7namuA&start=5';
-
+// Composes the synchronized Watch Live dashboard.
 function WatchLivePage() {
-  const [video, setVideo] = useState(null);
+  const { iframeRef, state, snapshots, error, loading } = useWatchLivePlayback();
 
-  useEffect(() => {
-    let cancelled = false;
-    getLiveVideo()
-      .then((data) => {
-        if (!cancelled) setVideo(data.video || null);
-      })
-      .catch(() => {
-        // Keep the static fallback embed if the request fails.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const embedUrl = video?.embedUrl || FALLBACK_EMBED_URL;
+  const { leaderboard } = deriveWatchLiveAnalytics(state, snapshots);
+  const tickerEvents = state?.recentAnchors ?? [];
 
   return (
     <div className="page" id="page-watch-live">
-      <div className="pagehead">
-        <div className="section-eyebrow">Live</div>
-        <div className="section-title">Watch Live</div>
-        <div className="section-desc">
-          <h1>Watch Live</h1>
-         <p>{video?.title || 'Follow the session as it happens.'}</p>
-        </div>
-      </div>
       <div className="content">
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div className="video-embed">
-            <iframe
-              src={embedUrl}
-              title="YouTube video player"
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              referrerPolicy="strict-origin-when-cross-origin"
-              allowFullScreen
-            />
+        <SessionSetupBar onFindRace={(filters) => console.log('Find race:', filters)} />
+
+        <div className="watch-live-grid">
+          <div className="watch-live-primary">
+            <PlaybackVideo iframeRef={iframeRef} state={state} loading={loading} />
+            <PlaybackStatusBar state={state} />
+          </div>
+
+          <div className="watch-live-sidebar">
+            <Masterboard leaderboard={leaderboard} error={error} />
+            <TrackNotesCard trackData={state?.session} />
           </div>
         </div>
+
+        <BattleRadar leaderboard={leaderboard} />
+
+        <LiveTicker events={tickerEvents} error={error} />
+
+        <WatchLiveFooter />
       </div>
     </div>
   );

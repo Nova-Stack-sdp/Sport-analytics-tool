@@ -70,8 +70,8 @@ class OpenF1PassthroughError extends Error {
 
 /**
  * Builds the raw OpenF1 bundle (session, laps, pit, stints, position,
- * race_control, weather, session_result, starting_grid) for the Barcelona
- * 2026 race. Records are not normalized, derived, or written to the
+ * car_data, race_control, weather, session_result, starting_grid) for the
+ * Barcelona 2026 race. Records are not normalized, derived, or written to the
  * database — exported so other routes (e.g. watchLive.js) can reuse it
  * in-process instead of calling this endpoint over HTTP.
  */
@@ -97,6 +97,8 @@ export async function fetchBarcelonaRaceRaw() {
     ['pit', 'pit', { session_key: sessionKey }],
     ['stints', 'stints', { session_key: sessionKey }],
     ['position', 'position', { session_key: sessionKey }],
+    // Supplies per-driver telemetry, including speed in km/h.
+    ['car_data', 'car_data', { session_key: sessionKey }],
     ['race_control', 'race_control', { session_key: sessionKey }],
     ['weather', 'weather', { session_key: sessionKey }],
     ['session_result', 'session_result', { session_key: sessionKey }],
@@ -151,7 +153,7 @@ export async function fetchBarcelonaRaceRaw() {
 }
 
 // One raw bundle containing the OpenF1 records consumed by the existing sync
-// adapter.
+// adapter. Records are not normalized, derived, or written to the database.
 openF1Router.get('/races/barcelona-2026/raw', async (req, res) => {
   try {
     const bundle = await fetchBarcelonaRaceRaw();

@@ -34,6 +34,7 @@ describe('GET /api/openf1/races/barcelona-2026/raw', () => {
       pit: [{ session_key: 11307, driver_number: 63, lap_number: 20 }],
       stints: [{ session_key: 11307, driver_number: 63, stint_number: 1 }],
       position: [{ session_key: 11307, driver_number: 63, position: 1 }],
+      car_data: [{ session_key: 11307, driver_number: 63, speed: 287 }],
       race_control: [{ session_key: 11307, category: 'Flag', flag: 'GREEN' }],
       weather: [{ session_key: 11307, air_temperature: 26 }],
       session_result: [{ session_key: 11307, driver_number: 63, position: 1 }],
@@ -69,6 +70,7 @@ describe('GET /api/openf1/races/barcelona-2026/raw', () => {
       pit: payloads.pit,
       stints: payloads.stints,
       position: payloads.position,
+      car_data: payloads.car_data,
       race_control: payloads.race_control,
       weather: payloads.weather,
       session_result: payloads.session_result,
@@ -85,6 +87,11 @@ describe('GET /api/openf1/races/barcelona-2026/raw', () => {
       .map(([url]) => url)
       .find((url) => url.pathname.endsWith('/starting_grid'));
     expect(gridUrl.searchParams.get('session_key')).toBe('11303');
+
+    const carDataUrl = global.fetch.mock.calls
+      .map(([url]) => url)
+      .find((url) => url.pathname.endsWith('/car_data'));
+    expect(carDataUrl.searchParams.get('session_key')).toBe('11307');
   });
 
   test('passes through OpenF1 authentication errors without making a bundle', async () => {
