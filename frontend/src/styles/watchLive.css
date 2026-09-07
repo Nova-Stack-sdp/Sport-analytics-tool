@@ -688,30 +688,33 @@
   text-align: center;
 }
 
-/* TV-style live ticker crawl */
+/* TV-style live ticker — one announcement at a time, slide + red glow */
+@keyframes tv-ticker-slide {
+  0%   { transform: translateX(100%); opacity: 0; }
+  6%   { opacity: 1; }
+  88%  { transform: translateX(0);    opacity: 1; }
+  100% { transform: translateX(-100%); opacity: 0; }
+}
+
+@keyframes tv-ticker-flicker {
+  0%   { box-shadow: 0 0 8px rgba(225,6,0,0.7), inset 0 0 6px rgba(225,6,0,0.15); border-color: #e10600; }
+  20%  { box-shadow: 0 0 20px rgba(225,6,0,0.95), inset 0 0 12px rgba(225,6,0,0.25); border-color: #ff2a1f; }
+  40%  { box-shadow: 0 0 5px rgba(225,6,0,0.4), inset 0 0 3px rgba(225,6,0,0.08); border-color: #b80500; }
+  60%  { box-shadow: 0 0 16px rgba(225,6,0,0.85), inset 0 0 10px rgba(225,6,0,0.2); border-color: #e10600; }
+  80%  { box-shadow: 0 0 4px rgba(225,6,0,0.3), inset 0 0 2px rgba(225,6,0,0.05); border-color: #a00400; }
+  100% { box-shadow: 0 0 8px rgba(225,6,0,0.7), inset 0 0 6px rgba(225,6,0,0.15); border-color: #e10600; }
+}
+
 #page-watch-live .tv-ticker {
   display: flex;
   align-items: stretch;
-  height: 34px;
+  height: 38px;
   margin-top: 6px;
-  background: #0e0e10;
-  border: 1px solid var(--border);
+  background: #0a0a0c;
+  border: 1.5px solid #e10600;
   border-radius: 6px;
   overflow: hidden;
-}
-
-#page-watch-live .tv-ticker-badge {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 12px;
-  background: #e10600;
-  color: #fff;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 1.5px;
-  flex-shrink: 0;
+  animation: tv-ticker-flicker 2.4s ease-in-out infinite;
 }
 
 #page-watch-live .tv-ticker-viewport {
@@ -720,29 +723,17 @@
   position: relative;
   display: flex;
   align-items: center;
-}
-
-#page-watch-live .tv-ticker-track {
-  display: flex;
-  white-space: nowrap;
-  will-change: transform;
-}
-
-#page-watch-live .tv-ticker-item {
-  display: inline;
-  flex-shrink: 0;
-}
-
-#page-watch-live .tv-ticker-item::after {
-  content: '\00a0\00a0\2014\00a0\00a0';
-  color: var(--text-tertiary);
-  opacity: 0.4;
+  padding: 0 16px;
 }
 
 #page-watch-live .tv-ticker-text {
-  font-size: 11.5px;
+  position: absolute;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 500;
   color: var(--text-primary);
-  line-height: 1;
+  letter-spacing: 0.2px;
+  animation: tv-ticker-slide 5.8s ease-in-out forwards;
 }
 
 #page-watch-live .tv-ticker-empty {
