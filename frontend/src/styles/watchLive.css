@@ -1,5 +1,9 @@
 #page-watch-live {
   min-height: calc(100vh - 72px);
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  padding: 0;
   background: #0a0a0a;
 }
 
@@ -16,12 +20,12 @@
 
 #page-watch-live .watch-live-grid {
   display: grid;
-  grid-template-columns: minmax(0, 3.8fr) minmax(280px, 1fr);
-  gap: 20px;
+  grid-template-columns: minmax(0, 4.2fr) minmax(260px, 0.95fr);
+  gap: 24px;
   align-items: start;
-  width: 100%;
-  margin: 20px;
-  margin-bottom: 0;
+  width: calc(100% - 40px);
+  margin: 0 20px 20px 20px;
+  padding: 0;
 }
 
 #page-watch-live .watch-live-primary {
@@ -38,17 +42,29 @@
 
 /* SessionSetupBar styles */
 #page-watch-live .session-setup-bar {
-  margin: 20px;
-  padding: 12px 16px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.02);
+  margin: 0 20px 16px 20px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
 }
 
 #page-watch-live .setup-bar-content {
   display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+#page-watch-live .setup-bar-header {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-tertiary);
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 24px;
+  margin-bottom: 8px;
 }
 
 #page-watch-live .setup-bar-inputs {
@@ -56,12 +72,14 @@
   align-items: flex-end;
   gap: 12px;
   flex: 1;
+  width: 100%;
 }
 
 #page-watch-live .setup-field {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex: 1;
 }
 
 #page-watch-live .setup-label {
@@ -73,13 +91,14 @@
 }
 
 #page-watch-live .setup-input {
-  padding: 6px 10px;
+  padding: 8px 12px;
   border: 1px solid var(--border-soft);
-  border-radius: 6px;
+  border-radius: 4px;
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-primary);
-  font-size: 12px;
-  min-width: 120px;
+  font-size: 13px;
+  min-width: 140px;
+  font-family: inherit;
 }
 
 #page-watch-live .setup-input::placeholder {
@@ -87,17 +106,18 @@
 }
 
 #page-watch-live .setup-button {
-  padding: 6px 14px;
+  padding: 8px 16px;
   background: #e41e0e;
   color: #fff;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   font-weight: 700;
   font-size: 12px;
   cursor: pointer;
   text-transform: uppercase;
   letter-spacing: 0.3px;
   transition: background 0.2s;
+  height: fit-content;
 }
 
 #page-watch-live .setup-button:hover {
@@ -105,7 +125,7 @@
 }
 
 #page-watch-live .setup-bar-helper {
-  flex: 1;
+  display: none;
 }
 
 #page-watch-live .helper-text {
@@ -116,7 +136,6 @@
 }
 
 #page-watch-live .setup-bar-steps {
-  min-width: 200px;
   text-align: right;
 }
 
@@ -124,7 +143,7 @@
   font-size: 10px;
   color: var(--text-tertiary);
   font-weight: 600;
-  text-transform: uppercase;
+  text-transform: lowercase;
   letter-spacing: 0.25px;
 }
 
@@ -133,48 +152,48 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 14px;
-  background: rgba(255, 255, 255, 0.01);
-  border: 1px solid var(--border-soft);
-  border-radius: 8px;
-  gap: 20px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  gap: 16px;
 }
 
 #page-watch-live .status-left {
   display: flex;
-  gap: 20px;
+  gap: 24px;
   flex: 1;
 }
 
 #page-watch-live .status-item {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 #page-watch-live .status-label {
-  font-size: 9px;
+  font-size: 8px;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.25px;
   color: var(--text-tertiary);
   font-weight: 700;
 }
 
 #page-watch-live .status-value {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--text-primary);
 }
 
 #page-watch-live .intensity-meter {
-  min-width: 120px;
+  min-width: 100px;
 }
 
 #page-watch-live .intensity-bar {
   width: 100%;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 3px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
   overflow: hidden;
 }
 
@@ -195,23 +214,23 @@
 }
 
 #page-watch-live .sync-badge {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.25px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.05);
+  padding: 4px 10px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
 }
 
 #page-watch-live .sync-badge.synced {
   color: var(--status-green);
-  background: rgba(34, 197, 94, 0.1);
+  background: rgba(34, 197, 94, 0.12);
 }
 
 #page-watch-live .sync-badge.unsynced {
   color: var(--text-tertiary);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 #page-watch-live .video-panel,
@@ -221,13 +240,14 @@
 #page-watch-live .ticker-card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-soft);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 #page-watch-live .video-panel {
   padding: 0;
   overflow: hidden;
+  border-radius: 8px;
 }
 
 #page-watch-live .live-panel-head {
@@ -251,19 +271,20 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  min-width: 110px;
+  min-width: 100px;
 }
 
 #page-watch-live .label-soft {
-  font-size: 10.5px;
+  font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.3px;
   color: var(--text-tertiary);
   font-weight: 700;
 }
 
 #page-watch-live .video-meta strong {
-  font-size: 12.5px;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 #page-watch-live .masterboard-card {
@@ -641,17 +662,18 @@
 #page-watch-live .watch-live-footer {
   margin: 20px;
   margin-top: 18px;
-  padding: 14px 16px;
+  padding: 12px 16px;
   border-top: 1px solid var(--border-soft);
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  background: transparent;
 }
 
 #page-watch-live .footer-content {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   width: 100%;
 }
 
@@ -688,7 +710,7 @@
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  min-height: 430px;
+  min-height: 400px;
   overflow: hidden;
   border-radius: 0;
   background: rgba(0, 0, 0, 0.04);

@@ -13,6 +13,11 @@ function SessionSetupBar({ onFindRace }) {
   return (
     <div className="session-setup-bar">
       <div className="setup-bar-content">
+        <div className="setup-bar-header">
+          <span>Session Setup & Sync</span>
+          <span className="step-indicator">1. find race - 2. sync clock</span>
+        </div>
+
         <div className="setup-bar-inputs">
           <div className="setup-field">
             <label htmlFor="season-input" className="setup-label">Season</label>
@@ -47,10 +52,6 @@ function SessionSetupBar({ onFindRace }) {
           <p className="helper-text">
             Sync happens automatically when you hit play.
           </p>
-        </div>
-
-        <div className="setup-bar-steps">
-          <span className="step-indicator">1. find race · 2. sync clock</span>
         </div>
       </div>
     </div>
