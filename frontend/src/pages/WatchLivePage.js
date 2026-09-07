@@ -1,7 +1,11 @@
 import LiveTicker from '../components/watch-live/LiveTicker';
 import Masterboard from '../components/watch-live/Masterboard';
 import PlaybackVideo from '../components/watch-live/PlaybackVideo';
-import RaceStateBoard from '../components/watch-live/RaceStateBoard';
+import SessionSetupBar from '../components/watch-live/SessionSetupBar';
+import PlaybackStatusBar from '../components/watch-live/PlaybackStatusBar';
+import TrackNotesCard from '../components/watch-live/TrackNotesCard';
+import BattleRadar from '../components/watch-live/BattleRadar';
+import WatchLiveFooter from '../components/watch-live/WatchLiveFooter';
 import { deriveWatchLiveAnalytics } from '../features/watch-live/deriveAnalytics';
 import { useWatchLivePlayback } from '../hooks/useWatchLivePlayback';
 
@@ -14,26 +18,26 @@ function WatchLivePage() {
 
   return (
     <div className="page" id="page-watch-live">
-      <div className="pagehead">
-        <div className="section-eyebrow">Live</div>
-        <div className="section-title">Watch Live</div>
-        <div className="section-desc">
-          <h1>Watch Live</h1>
-          <p>Follow the session as it happens.</p>
-        </div>
-      </div>
-
       <div className="content">
+        <SessionSetupBar onFindRace={(filters) => console.log('Find race:', filters)} />
+
         <div className="watch-live-grid">
           <div className="watch-live-primary">
             <PlaybackVideo iframeRef={iframeRef} state={state} loading={loading} />
-            <RaceStateBoard leaderboard={leaderboard} />
+            <PlaybackStatusBar state={state} />
           </div>
 
-          <Masterboard leaderboard={leaderboard} error={error} />
+          <div className="watch-live-sidebar">
+            <Masterboard leaderboard={leaderboard} error={error} />
+            <TrackNotesCard trackData={state?.session} />
+          </div>
         </div>
 
+        <BattleRadar leaderboard={leaderboard} />
+
         <LiveTicker events={tickerEvents} error={error} />
+
+        <WatchLiveFooter />
       </div>
     </div>
   );

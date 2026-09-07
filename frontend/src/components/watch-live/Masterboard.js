@@ -1,5 +1,24 @@
 // Renders the synchronized leaderboard and tyre strategy.
 function Masterboard({ leaderboard, error }) {
+  // Show simplified empty state if no data
+  if (leaderboard.length === 0) {
+    return (
+      <div className="card masterboard-card">
+        <div className="card-head">
+          <div>
+            <div className="card-title leaderboard-title">Masterboard</div>
+            <div className="card-title-sub">Current race order, speed, strategy, and momentum</div>
+          </div>
+          <span className="pill pill-gray">Playback time</span>
+        </div>
+
+        <div className="masterboard-empty-state">
+          Find a race above, load its telemetry, then sync the clock.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="card masterboard-card">
       <div className="card-head">
@@ -23,11 +42,7 @@ function Masterboard({ leaderboard, error }) {
           </tr>
         </thead>
         <tbody>
-          {leaderboard.length === 0 ? (
-            <tr>
-              <td colSpan="7" className="watch-live-empty-cell">{error ?? 'No playback data available.'}</td>
-            </tr>
-          ) : leaderboard.map((row) => (
+          {leaderboard.map((row) => (
             <tr key={row.driverNumber}>
               <td className="mono position-cell">{row.position}</td>
               <td><div className="driver-meta"><span>{row.driverName ?? `Driver ${row.driverNumber}`}</span></div></td>
