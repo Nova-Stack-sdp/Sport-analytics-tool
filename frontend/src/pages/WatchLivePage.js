@@ -5,6 +5,7 @@ import PlaybackVideo from '../components/watch-live/PlaybackVideo';
 import SessionSetupBar from '../components/watch-live/SessionSetupBar';
 import PlaybackStatusBar from '../components/watch-live/PlaybackStatusBar';
 import BattleRadar from '../components/watch-live/BattleRadar';
+import RacePulse from '../components/watch-live/RacePulse';
 import WatchLiveFooter from '../components/watch-live/WatchLiveFooter';
 import { deriveWatchLiveAnalytics } from '../features/watch-live/deriveAnalytics';
 import { useWatchLivePlayback } from '../hooks/useWatchLivePlayback';
@@ -35,6 +36,8 @@ function WatchLivePage() {
             <Masterboard leaderboard={leaderboard} error={error} />
           </div>
         </div>
+
+        <RacePulse leaderboard={leaderboard} />
 
         <BattleRadar leaderboard={leaderboard} />
 

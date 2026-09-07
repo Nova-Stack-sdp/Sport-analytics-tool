@@ -394,12 +394,14 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
     ? latestByDriver(idx.positionIndex, timestamp)
     : latestByDriver(buildDriverIndex(chunk.resources.position ?? []), timestamp);
   const positionsByDriver = new Map();
+  const gridByDriver = new Map();
   if (Array.isArray(bundle.starting_grid) && bundle.starting_grid.length > 0) {
     for (const entry of bundle.starting_grid) {
       positionsByDriver.set(entry.driver_number, {
         driver_number: entry.driver_number,
         position: entry.position,
       });
+      gridByDriver.set(entry.driver_number, entry.position);
     }
   }
   for (const [driverNumber, record] of livePositions) {
@@ -423,27 +425,57 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
       .sort((a, b) => a._startMs - b._startMs)
   );
   const latestLapsByDriver = new Map();
+  // Also keep the previous lap per driver so we can derive last-lap time
+  // from the gap between consecutive lap starts.
+  const previousLapsByDriver = new Map();
   for (const lap of allLaps) {
     if (lap._startMs <= timestamp) {
+      const current = latestLapsByDriver.get(lap.driver_number);
+      if (current && lap._startMs > current._startMs) {
+        previousLapsByDriver.set(lap.driver_number, current);
+      }
       latestLapsByDriver.set(lap.driver_number, lap);
     }
   }
   const weather = latestRecord(chunk.resources.weather, timestamp);
 
-  const leaderboard = [...positionsByDriver.values()]
-    .sort((left, right) => left.position - right.position)
-    .map((position) => {
-      const driverLap = latestLapsByDriver.get(position.driver_number);
-      const lapSpeed = driverLap?.st_speed ?? driverLap?.i2_speed ?? driverLap?.i1_speed ?? null;
-      const carSpeed = carDataByDriver.get(position.driver_number)?.speed ?? null;
-      return {
-        position: position.position,
-        ...(driversByNumber.get(position.driver_number) ?? { driverNumber: position.driver_number, driverName: null, teamName: null }),
-        tyreCompound: stintsByDriver.get(position.driver_number)?.compound ?? null,
-        stintNumber: stintsByDriver.get(position.driver_number)?.stint_number ?? null,
-        speedKph: lapSpeed ?? carSpeed,
-      };
-    });
+  // Build the leaderboard sorted by position, then compute per-driver
+  // metrics that depend on neighbours (gap) or historical data (lap time,
+  // grid delta).
+  const sorted = [...positionsByDriver.values()]
+    .sort((left, right) => left.position - right.position);
+  const leaderboard = sorted.map((position, index) => {
+    const driverLap = latestLapsByDriver.get(position.driver_number);
+    const prevLap = previousLapsByDriver.get(position.driver_number);
+    const lapSpeed = driverLap?.st_speed ?? driverLap?.i2_speed ?? driverLap?.i1_speed ?? null;
+    const carSpeed = carDataByDriver.get(position.driver_number)?.speed ?? null;
+    // Last lap time = gap between consecutive lap start timestamps.
+    const lastLapTime = (driverLap && prevLap)
+      ? (driverLap._startMs - prevLap._startMs) / 1000
+      : null;
+    // Gap to car ahead = difference in latest lap start times.
+    let gapToAhead = null;
+    if (index > 0) {
+      const ahead = sorted[index - 1];
+      const aheadLap = latestLapsByDriver.get(ahead.driver_number);
+      if (driverLap && aheadLap) {
+        gapToAhead = (driverLap._startMs - aheadLap._startMs) / 1000;
+      }
+    }
+    const gridDelta = gridByDriver.has(position.driver_number)
+      ? gridByDriver.get(position.driver_number) - position.position
+      : null;
+    return {
+      position: position.position,
+      ...(driversByNumber.get(position.driver_number) ?? { driverNumber: position.driver_number, driverName: null, teamName: null }),
+      tyreCompound: stintsByDriver.get(position.driver_number)?.compound ?? null,
+      stintNumber: stintsByDriver.get(position.driver_number)?.stint_number ?? null,
+      speedKph: lapSpeed ?? carSpeed,
+      lastLapTime,
+      gapToAhead,
+      gridDelta,
+    };
+  });
 
   const currentLap = Math.max(0, ...allLaps
     .filter((lap) => {
