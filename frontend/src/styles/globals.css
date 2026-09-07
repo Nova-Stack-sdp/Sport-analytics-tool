@@ -513,6 +513,9 @@ footer{border-top:1px solid var(--border-soft);padding:44px 0 30px;background:va
 .replay-dot-default{fill:var(--text-tertiary);}
 .replay-dot-sc{fill:#F59E0B;stroke:#fff;}
 .replay-session-label{font-size:11.5px;color:var(--text-tertiary);margin-bottom:10px;font-family:var(--font-mono);}
+.replay-track-fallback-note{color:var(--text-tertiary);opacity:0.75;}
+.replay-finished{display:flex;flex-direction:column;align-items:flex-start;gap:14px;padding:32px 20px;}
+.replay-winner{font-size:22px;font-weight:800;}
 .replay-dot-label{fill:var(--text-primary);font-size:9px;font-weight:700;font-family:var(--font-mono);}
 .replay-sc-label{fill:#F59E0B;}
 .replay-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;}

@@ -33,11 +33,9 @@ async function fetchOpenF1JsonOnce(upstreamUrl) {
   return { status: upstreamResponse.status, payload };
 }
 
-// Retries on 429 with backoff. Our own pacing (paceBundleRequests) is
-// already close to OpenF1's 3-req/sec ceiling by design, so occasional
-// jitter tipping over it is expected, not exceptional — this absorbs that
-// without surfacing a hard failure to the whole fetch chain over one
-// transient rate-limit hit.
+// Retries on 429 with backoff. Sized around the stricter 30/minute limit
+// (see paceBundleRequests) rather than the 3/sec one — a short 1-3s backoff
+// doesn't help if the actual constraint is a per-minute quota.
 const MAX_RATE_LIMIT_RETRIES = 3;
 
 async function fetchOpenF1Json(upstreamUrl, attempt = 0) {
@@ -45,7 +43,7 @@ async function fetchOpenF1Json(upstreamUrl, attempt = 0) {
   if (result.status !== 429 || attempt >= MAX_RATE_LIMIT_RETRIES) {
     return result;
   }
-  const backoffMs = 1000 * (attempt + 1);
+  const backoffMs = 15000 * (attempt + 1);
   await new Promise((resolve) => setTimeout(resolve, backoffMs));
   return fetchOpenF1Json(upstreamUrl, attempt + 1);
 }
@@ -68,10 +66,16 @@ async function fetchRequiredResource(resource, params) {
 }
 
 async function paceBundleRequests() {
-  // The public OpenF1 tier allows three requests per second. Tests use mocked
-  // responses and do not need the delay.
+  // OpenF1's documented limit is 3 requests/second, but live testing showed
+  // a stricter 30-requests/minute cap actually applies too. A full fetch is
+  // ~32 requests (session + 9 metadata resources + ~9 car_data chunks + ~9
+  // location chunks + grid lookups) — at the old 350ms pacing (built only
+  // around 3/sec), all of them land within ~11 seconds, comfortably inside
+  // one 60-second window and blowing straight through 30/minute even with
+  // zero concurrency. 2100ms keeps us under both limits with margin.
+  // Tests use mocked responses and do not need the delay.
   if (process.env.NODE_ENV !== 'test') {
-    await new Promise((resolve) => setTimeout(resolve, 350));
+    await new Promise((resolve) => setTimeout(resolve, 2100));
   }
 }
 
