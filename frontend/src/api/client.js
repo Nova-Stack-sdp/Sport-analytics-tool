@@ -16,7 +16,9 @@ const API_BASE_URL =
 async function request(path) {
   const res = await fetch(`${API_BASE_URL}${path}`);
   if (!res.ok) {
-    throw new Error(`Request to ${path} failed with status ${res.status}`);
+    const error = new Error(`Request to ${path} failed with status ${res.status}`);
+    error.status = res.status;
+    throw error;
   }
   return res.json();
 }

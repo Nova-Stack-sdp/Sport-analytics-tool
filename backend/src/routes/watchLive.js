@@ -4,19 +4,56 @@ import { fetchBarcelonaRaceRaw } from './openf1.js';
 // Maps replay playback time to cached Barcelona OpenF1 state.
 export const watchLiveRouter = Router();
 
-// Fetched once and cached — the Barcelona 2026 race this feature simulates
-// as "live" doesn't change, so there's no need to re-fetch it per request.
+// The DB row key for the persisted bundle cache (see ExternalApiCache in
+// schema.prisma). Bumped if the bundle's *shape* ever changes in a way that
+// would make an old cached payload stale/incompatible.
+const BARCELONA_CACHE_KEY = 'openf1:barcelona-2026-race:v1';
+
+// In-memory cache on top of the DB cache — avoids a DB round-trip on every
+// single request within the same running process, while the DB layer
+// avoids re-fetching from OpenF1 (which takes ~2 minutes) after a restart.
 let Barcelona_openf1Data = null;
 let Barcelona_openf1Chunks = null;
 const Barcelona_snapshotCache = new Map();
 const MAX_BUFFER_SECONDS = 20;
 
 async function getBarcelonaOpenF1Data() {
-  if (!Barcelona_openf1Data) {
-    Barcelona_openf1Data = await fetchBarcelonaRaceRaw();
-    Barcelona_openf1Chunks = buildBarcelonaOpenF1Chunks(Barcelona_openf1Data);
+  if (Barcelona_openf1Data) {
+    return { bundle: Barcelona_openf1Data, chunks: Barcelona_openf1Chunks };
   }
 
+  // Imported lazily, not at module top-level: buildBarcelonaOpenF1Chunks and
+  // createBarcelonaWatchLiveState are imported directly by existing tests
+  // that never call this function and never need a database connection.
+  // lib/prisma.js throws at import time if DATABASE_URL isn't set, which it
+  // isn't in the test environment — a static top-level import here would
+  // break those tests even though they don't touch the DB.
+  const { prisma } = await import('../lib/prisma.js');
+
+  const cached = await prisma.externalApiCache.findUnique({
+    where: { key: BARCELONA_CACHE_KEY },
+  });
+
+  if (cached) {
+    Barcelona_openf1Data = cached.payload;
+  } else {
+    Barcelona_openf1Data = await fetchBarcelonaRaceRaw();
+    // Persist so the next cold start (server restart/redeploy) doesn't have
+    // to redo the ~2-minute fetch chain against OpenF1 again. Best-effort —
+    // if this write fails, the in-memory cache above still works for the
+    // lifetime of this process, we just lose the durability across restarts.
+    try {
+      await prisma.externalApiCache.upsert({
+        where: { key: BARCELONA_CACHE_KEY },
+        create: { key: BARCELONA_CACHE_KEY, payload: Barcelona_openf1Data },
+        update: { payload: Barcelona_openf1Data, fetchedAt: new Date() },
+      });
+    } catch (err) {
+      console.error('Failed to persist Barcelona OpenF1 cache to DB:', err);
+    }
+  }
+
+  Barcelona_openf1Chunks = buildBarcelonaOpenF1Chunks(Barcelona_openf1Data);
   return { bundle: Barcelona_openf1Data, chunks: Barcelona_openf1Chunks };
 }
 
