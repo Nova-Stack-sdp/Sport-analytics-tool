@@ -327,17 +327,23 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
   const driversByNumber = new Map(
     (bundle.drivers ?? []).map((driver) => [driver.driver_number, normalizeDriver(driver)])
   );
-  // OpenF1 position records don't exist until the race is officially under
-  // way. Before that, fall back to the starting grid so the masterboard
-  // shows all drivers as soon as the user hits play.
-  let positionsByDriver = latestRecordsByDriver(chunk.resources.position, timestamp);
-  if (positionsByDriver.size === 0 && Array.isArray(bundle.starting_grid) && bundle.starting_grid.length > 0) {
-    positionsByDriver = new Map(
-      bundle.starting_grid.map((entry) => [
-        entry.driver_number,
-        { driver_number: entry.driver_number, position: entry.position },
-      ])
-    );
+  // Merge live position data with the starting grid so the masterboard always
+  // shows all drivers. Grid positions act as a base layer — live position
+  // records override them as they become available. Without this, the
+  // leaderboard drops to only the drivers that have live records during the
+  // early race transition, and the Battle Radar picks wrong midfield positions.
+  const livePositions = latestRecordsByDriver(chunk.resources.position, timestamp);
+  const positionsByDriver = new Map();
+  if (Array.isArray(bundle.starting_grid) && bundle.starting_grid.length > 0) {
+    for (const entry of bundle.starting_grid) {
+      positionsByDriver.set(entry.driver_number, {
+        driver_number: entry.driver_number,
+        position: entry.position,
+      });
+    }
+  }
+  for (const [driverNumber, record] of livePositions) {
+    positionsByDriver.set(driverNumber, record);
   }
   const stintsByDriver = latestRecordsByDriver(chunk.resources.stints, timestamp);
   // Selects each driver's latest telemetry sample at playback time.
