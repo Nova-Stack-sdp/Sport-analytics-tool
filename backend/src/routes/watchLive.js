@@ -347,8 +347,6 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
     positionsByDriver.set(driverNumber, record);
   }
   const stintsByDriver = latestRecordsByDriver(chunk.resources.stints, timestamp);
-  // Selects each driver's latest telemetry sample at playback time.
-  const carDataByDriver = latestRecordsByDriver(chunk.resources.car_data, timestamp);
   // Scan all chunks for completed laps — a lap may have started in an earlier
   // chunk and finished in the current one, so looking at only the current
   // chunk's laps can miss it.
@@ -357,17 +355,32 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
     const lapEnd = Date.parse(lap.date_start) + (lap.lap_duration ?? 0) * 1000;
     return Number.isFinite(lapEnd) && lapEnd <= timestamp;
   });
+  // OpenF1 car_data is not available for every session. Fall back to speed
+  // traps embedded in lap records (st_speed at start/finish, i1/i2 at sector
+  // boundaries). Pick the latest available trap per driver so the value
+  // reflects their most recent on-track speed.
+  const latestLapsByDriver = new Map();
+  for (const lap of allLapRecords) {
+    const lapStart = Date.parse(lap.date_start);
+    if (Number.isFinite(lapStart) && lapStart <= timestamp) {
+      latestLapsByDriver.set(lap.driver_number, lap);
+    }
+  }
   const weather = latestRecord(chunk.resources.weather, timestamp);
 
   const leaderboard = [...positionsByDriver.values()]
     .sort((left, right) => left.position - right.position)
-    .map((position) => ({
-      position: position.position,
-      ...(driversByNumber.get(position.driver_number) ?? { driverNumber: position.driver_number, driverName: null, teamName: null }),
-      tyreCompound: stintsByDriver.get(position.driver_number)?.compound ?? null,
-      stintNumber: stintsByDriver.get(position.driver_number)?.stint_number ?? null,
-      speedKph: carDataByDriver.get(position.driver_number)?.speed ?? null,
-    }));
+    .map((position) => {
+      const driverLap = latestLapsByDriver.get(position.driver_number);
+      const lapSpeed = driverLap?.st_speed ?? driverLap?.i2_speed ?? driverLap?.i1_speed ?? null;
+      return {
+        position: position.position,
+        ...(driversByNumber.get(position.driver_number) ?? { driverNumber: position.driver_number, driverName: null, teamName: null }),
+        tyreCompound: stintsByDriver.get(position.driver_number)?.compound ?? null,
+        stintNumber: stintsByDriver.get(position.driver_number)?.stint_number ?? null,
+        speedKph: lapSpeed,
+      };
+    });
 
   const totalLaps = Math.max(0, ...(bundle.laps ?? [])
     .map((lap) => lap.lap_number)
