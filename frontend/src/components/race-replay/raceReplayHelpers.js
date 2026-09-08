@@ -65,7 +65,7 @@ export function progressForRank(rank, totalDrivers, sharedPhase) {
 // rendered track appears mirrored or rotated once tested against real data,
 // the fix is flipping the sign in toSvg's y calculation, not the overall
 // approach.
-export function buildTrackGeometry(points, viewBoxWidth, viewBoxHeight, padding = 30) {
+export function buildTrackGeometry(points, targetWidth, padding = 30) {
   if (!Array.isArray(points) || points.length < 3) return null;
 
   const xs = points.map((p) => p.x);
@@ -77,10 +77,13 @@ export function buildTrackGeometry(points, viewBoxWidth, viewBoxHeight, padding 
   const worldWidth = maxX - minX || 1;
   const worldHeight = maxY - minY || 1;
 
-  const scale = Math.min(
-    (viewBoxWidth - padding * 2) / worldWidth,
-    (viewBoxHeight - padding * 2) / worldHeight
-  );
+  // Height is derived from the data's own aspect ratio, not a fixed guess —
+  // a fixed width/height pair assumes every track is wider than tall,
+  // which real telemetry (here, actually taller than wide) violates,
+  // leaving the shape cramped into part of the box instead of filling it.
+  const scale = (targetWidth - padding * 2) / worldWidth;
+  const svgWidth = targetWidth;
+  const svgHeight = worldHeight * scale + padding * 2;
 
   const toSvg = (x, y) => ({
     x: padding + (x - minX) * scale,
@@ -99,7 +102,7 @@ export function buildTrackGeometry(points, viewBoxWidth, viewBoxHeight, padding 
   }
   const totalLength = cumulative[cumulative.length - 1] || 1;
 
-  return { points, svgPoints, toSvg, pathD, cumulative, totalLength };
+  return { points, svgPoints, toSvg, pathD, cumulative, totalLength, svgWidth, svgHeight };
 }
 
 // Finds how far around the track (as a 0-1 fraction) a real-world (x,y)
@@ -143,3 +146,41 @@ export function svgPointAtArcLengthFraction(geometry, fraction) {
 // actual track length — closer to the source project's SC_OFFSET_METERS
 // than the old lap-fraction guess, now that we know the real track length.
 export const SAFETY_CAR_LEAD_METERS = 150;
+
+// Ported from the reference tool's build_track_from_example_lap(): instead
+// of stroking the centerline with one thick line (which blobs over any
+// tight curve, however detailed the underlying points are), compute the
+// track's actual left/right edges by offsetting the centerline
+// perpendicular to itself by half the track width, and draw those two
+// edges as separate thin lines. This is what actually makes their track
+// render look like a road — the rendering technique matters as much as
+// the data source, and applies equally to real telemetry or an
+// illustrative centerline.
+//
+// Uses a circular (wrap-around) finite difference for the tangent at each
+// point, appropriate for a closed loop — np.gradient's default one-sided
+// edge handling assumes an open array, which isn't quite right here.
+export function computeTrackBoundaries(svgPoints, halfWidth) {
+  const n = svgPoints.length;
+  if (n < 3) return { innerPoints: [], outerPoints: [] };
+
+  const innerPoints = [];
+  const outerPoints = [];
+
+  for (let i = 0; i < n; i += 1) {
+    const prev = svgPoints[(i - 1 + n) % n];
+    const next = svgPoints[(i + 1) % n];
+    const dx = (next.x - prev.x) / 2;
+    const dy = (next.y - prev.y) / 2;
+    const len = Math.hypot(dx, dy) || 1;
+    // Perpendicular to the tangent (dx, dy) is (-dy, dx).
+    const nx = -dy / len;
+    const ny = dx / len;
+
+    const point = svgPoints[i];
+    outerPoints.push({ x: point.x + nx * halfWidth, y: point.y + ny * halfWidth });
+    innerPoints.push({ x: point.x - nx * halfWidth, y: point.y - ny * halfWidth });
+  }
+
+  return { innerPoints, outerPoints };
+}

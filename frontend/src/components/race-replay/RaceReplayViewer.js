@@ -1,40 +1,37 @@
-import { useMemo, useRef, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { useRaceReplaySnapshots } from './useRaceReplaySnapshots';
 import {
   teamClassFor,
   isSafetyCarActive,
   progressForRank,
   buildTrackGeometry,
+  computeTrackBoundaries,
   nearestArcLengthFraction,
   svgPointAtArcLengthFraction,
   SAFETY_CAR_LEAD_METERS,
 } from './raceReplayHelpers';
 
 const VIEWBOX_WIDTH = 400;
-const VIEWBOX_HEIGHT = 260;
+const TRACK_HALF_WIDTH = 9; // in SVG units, post-normalization
 
-// Fallback path used only until the real track shape loads (or if it's
-// ever unavailable for a session with no location telemetry).
-const FALLBACK_PATH_D = 'M 70 60 L 280 45 L 370 90 L 390 140 L 360 170 L 300 195 L 150 210 L 110 190 L 90 210 L 60 180 L 50 120 Z';
+// Illustrative centerline used only until real track-shape telemetry
+// loads (or if it's ever unavailable for a session with no location
+// data). Three deliberate reversal-spikes — a genuine in-then-out or
+// out-then-in direction change is what reads as a distinct feature once
+// rendered; a wide smooth bulge in one direction just looks like a bigger
+// oval, however far it curves out.
+const FALLBACK_POINTS = [
+  { x: 60, y: 70 }, { x: 180, y: 50 }, { x: 210, y: 20 }, { x: 240, y: 50 },
+  { x: 330, y: 60 }, { x: 350, y: 120 }, { x: 320, y: 140 }, { x: 350, y: 160 },
+  { x: 330, y: 220 }, { x: 200, y: 235 }, { x: 140, y: 220 }, { x: 110, y: 190 },
+  { x: 90, y: 210 }, { x: 60, y: 180 }, { x: 50, y: 130 },
+];
 
-function pointAtProgress(pathEl, progress) {
-  if (!pathEl || typeof pathEl.getTotalLength !== 'function') return { x: 0, y: 0 };
-  const length = pathEl.getTotalLength();
-  return pathEl.getPointAtLength(((progress % 1) + 1) % 1 * length);
-}
-
-function tangentAtProgress(pathEl, progress) {
-  const a = pointAtProgress(pathEl, progress);
-  const b = pointAtProgress(pathEl, progress + 0.01);
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const len = Math.hypot(dx, dy) || 1;
-  return { point: a, nx: -dy / len, ny: dx / len };
+function polylinePoints(points) {
+  return points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
 }
 
 function RaceReplayViewer() {
-  const pathRef = useRef(null);
-  const [, forceRender] = useState(0);
   const [showSafetyCar, setShowSafetyCar] = useState(true);
 
   const {
@@ -53,19 +50,20 @@ function RaceReplayViewer() {
     trackShapeError,
   } = useRaceReplaySnapshots();
 
-  // The <path> ref isn't attached until after the first paint — only
-  // matters for the fallback-path case, which reads pathRef via the DOM.
-  useEffect(() => {
-    forceRender((n) => n + 1);
-  }, []);
+  const usingRealTrack = Boolean(trackShape?.points);
 
-  // Real geometry from actual telemetry, once /track-shape resolves.
+  // Both the real telemetry case and the illustrative fallback go through
+  // the exact same geometry pipeline now — the only difference is which
+  // point source feeds in.
   const geometry = useMemo(() => {
-    if (!trackShape?.points) return null;
-    return buildTrackGeometry(trackShape.points, VIEWBOX_WIDTH, VIEWBOX_HEIGHT, 30);
-  }, [trackShape]);
+    const sourcePoints = usingRealTrack ? trackShape.points : FALLBACK_POINTS;
+    return buildTrackGeometry(sourcePoints, VIEWBOX_WIDTH, 30);
+  }, [usingRealTrack, trackShape]);
 
-  const usingRealTrack = Boolean(geometry);
+  const boundaries = useMemo(() => {
+    if (!geometry) return null;
+    return computeTrackBoundaries(geometry.svgPoints, TRACK_HALF_WIDTH);
+  }, [geometry]);
 
   if (atEnd) {
     const leaderboard = snapshot?.leaderboard ?? [];
@@ -119,7 +117,7 @@ function RaceReplayViewer() {
     );
   }
 
-  if (!snapshot) return null;
+  if (!snapshot || !geometry || !boundaries) return null;
 
   const leaderboard = snapshot.leaderboard ?? [];
   const scActive = showSafetyCar && isSafetyCarActive(snapshot.recentRaceControl);
@@ -131,31 +129,24 @@ function RaceReplayViewer() {
 
   // Resolves each driver to an SVG point: real telemetry position when
   // available, falling back to the rank-based estimate otherwise (either
-  // because the real track shape hasn't loaded, or this specific driver
-  // has no location record yet at this tick).
+  // because real track shape isn't available, or this specific driver
+  // has no location record yet at this tick). Both paths place the point
+  // on the SAME geometry now, real or illustrative.
   function svgPositionFor(driver, rank) {
-    if (usingRealTrack) {
-      if (Number.isFinite(driver?.x) && Number.isFinite(driver?.y)) {
-        const fraction = nearestArcLengthFraction(geometry, driver.x, driver.y);
-        return svgPointAtArcLengthFraction(geometry, fraction);
-      }
-      // No real position yet for this driver — still place them on the
-      // real track outline, just at an estimated fraction around it.
-      return svgPointAtArcLengthFraction(geometry, progressForRank(rank, totalDrivers, sharedPhase));
+    if (usingRealTrack && Number.isFinite(driver?.x) && Number.isFinite(driver?.y)) {
+      const fraction = nearestArcLengthFraction(geometry, driver.x, driver.y);
+      return svgPointAtArcLengthFraction(geometry, fraction);
     }
-    return pointAtProgress(pathRef.current, progressForRank(rank, totalDrivers, sharedPhase));
+    return svgPointAtArcLengthFraction(geometry, progressForRank(rank, totalDrivers, sharedPhase));
   }
 
-  const finishLine = usingRealTrack
-    ? (() => {
-        const a = svgPointAtArcLengthFraction(geometry, 0);
-        const b = svgPointAtArcLengthFraction(geometry, 0.01);
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        const len = Math.hypot(dx, dy) || 1;
-        return { point: a, nx: -dy / len, ny: dx / len };
-      })()
-    : tangentAtProgress(pathRef.current, 0);
+  const finishA = svgPointAtArcLengthFraction(geometry, 0);
+  const finishB = svgPointAtArcLengthFraction(geometry, 0.01);
+  const finishDx = finishB.x - finishA.x;
+  const finishDy = finishB.y - finishA.y;
+  const finishLen = Math.hypot(finishDx, finishDy) || 1;
+  const finishNx = -finishDy / finishLen;
+  const finishNy = finishDx / finishLen;
 
   let safetyCarPoint = null;
   if (scActive && totalDrivers > 0) {
@@ -165,7 +156,7 @@ function RaceReplayViewer() {
       const offsetFraction = SAFETY_CAR_LEAD_METERS / geometry.totalLength;
       safetyCarPoint = svgPointAtArcLengthFraction(geometry, leaderFraction + offsetFraction);
     } else {
-      safetyCarPoint = svgPositionFor(null, -0.6);
+      safetyCarPoint = svgPointAtArcLengthFraction(geometry, progressForRank(-0.6, totalDrivers, sharedPhase));
     }
   }
 
@@ -181,24 +172,21 @@ function RaceReplayViewer() {
           )}
         </div>
 
-        <svg viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`} className="replay-track-svg" role="img" aria-label="Track with driver positions">
-          <path
-            ref={pathRef}
-            d={usingRealTrack ? geometry.pathD : FALLBACK_PATH_D}
-            fill="none"
-            stroke="var(--border)"
-            strokeWidth={usingRealTrack ? 10 : 14}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+        <svg viewBox={`0 0 ${geometry.svgWidth} ${geometry.svgHeight}`} className="replay-track-svg" role="img" aria-label="Track with driver positions">
+          {/* Two thin boundary lines (the track's left/right edges) instead of
+              one thick centerline stroke — a thick stroke blobs over any
+              tight curve regardless of how detailed the underlying points
+              are; two thin offset lines preserve detail naturally. */}
+          <polygon points={polylinePoints(boundaries.outerPoints)} fill="none" stroke="var(--border)" strokeWidth="2.5" strokeLinejoin="round" />
+          <polygon points={polylinePoints(boundaries.innerPoints)} fill="none" stroke="var(--border)" strokeWidth="2.5" strokeLinejoin="round" />
           <line
-            x1={finishLine.point.x - finishLine.nx * 9}
-            y1={finishLine.point.y - finishLine.ny * 9}
-            x2={finishLine.point.x + finishLine.nx * 9}
-            y2={finishLine.point.y + finishLine.ny * 9}
+            x1={finishA.x - finishNx * TRACK_HALF_WIDTH}
+            y1={finishA.y - finishNy * TRACK_HALF_WIDTH}
+            x2={finishA.x + finishNx * TRACK_HALF_WIDTH}
+            y2={finishA.y + finishNy * TRACK_HALF_WIDTH}
             stroke="#fff"
-            strokeWidth="3"
-            strokeDasharray="2.5 2.5"
+            strokeWidth="2"
+            strokeDasharray="2 2"
           />
           {leaderboard.map((driver, rank) => {
             const { x, y } = svgPositionFor(driver, rank);
