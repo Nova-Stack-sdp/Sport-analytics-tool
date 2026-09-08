@@ -147,6 +147,29 @@ export function svgPointAtArcLengthFraction(geometry, fraction) {
 // than the old lap-fraction guess, now that we know the real track length.
 export const SAFETY_CAR_LEAD_METERS = 150;
 
+// Signed shortest distance from `from` to `to` around a 0-1 loop — e.g.
+// shortestArcDelta(0.9, 0.1) is +0.2 (short way forward through the wrap),
+// not -0.8 (the long way around). Needed because naive subtraction on a
+// looping fraction picks the wrong direction near the 0/1 seam.
+export function shortestArcDelta(from, to) {
+  let delta = (to - from) % 1;
+  if (delta > 0.5) delta -= 1;
+  if (delta < -0.5) delta += 1;
+  return delta;
+}
+
+// Moves `from` toward `to` around the loop, capped at maxStep. This is
+// what turns a rank-swap's instant target-slot jump into gradual motion:
+// call it once per tick with the same maxStep, and a driver whose target
+// suddenly jumps across the track takes several ticks to arrive, always
+// moving forward along the loop rather than teleporting.
+export function stepTowardArc(from, to, maxStep) {
+  const delta = shortestArcDelta(from, to);
+  if (Math.abs(delta) <= maxStep) return ((to % 1) + 1) % 1;
+  const stepped = from + Math.sign(delta) * maxStep;
+  return ((stepped % 1) + 1) % 1;
+}
+
 // Ported from the reference tool's build_track_from_example_lap(): instead
 // of stroking the centerline with one thick line (which blobs over any
 // tight curve, however detailed the underlying points are), compute the

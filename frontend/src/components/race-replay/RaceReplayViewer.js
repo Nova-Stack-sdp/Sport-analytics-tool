@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useRaceReplaySnapshots } from './useRaceReplaySnapshots';
 import {
   teamClassFor,
@@ -8,11 +8,22 @@ import {
   computeTrackBoundaries,
   nearestArcLengthFraction,
   svgPointAtArcLengthFraction,
+  shortestArcDelta,
+  stepTowardArc,
   SAFETY_CAR_LEAD_METERS,
 } from './raceReplayHelpers';
 
 const VIEWBOX_WIDTH = 400;
 const TRACK_HALF_WIDTH = 9; // in SVG units, post-normalization
+// Max fraction of the track a dot can advance in one tick. Without this
+// cap, a rank swap (two drivers trading positions) makes both dots'
+// target slots swap instantly — the CSS transition then interpolates a
+// straight screen-space line between old and new slots, which cuts
+// across the track's interior instead of following the curve, and reads
+// as an abrupt "pause and jump back." Capping the step means a big rank
+// change takes a few ticks to resolve, moving forward along the track the
+// whole time — visually, a gradual overtake instead of a teleport.
+const MAX_ARC_STEP_PER_TICK = 0.02;
 
 // Illustrative centerline used only until real track-shape telemetry
 // loads (or if it's ever unavailable for a session with no location
@@ -33,6 +44,11 @@ function polylinePoints(points) {
 
 function RaceReplayViewer() {
   const [showSafetyCar, setShowSafetyCar] = useState(true);
+  // Persists each driver's current (smoothed) arc-length fraction across
+  // ticks, keyed by driver number. A plain ref, not state — updating it
+  // doesn't need to trigger its own re-render, it just needs to survive
+  // between the re-renders that new snapshots already cause.
+  const smoothedFractionsRef = useRef(new Map());
 
   const {
     snapshot,
@@ -127,17 +143,23 @@ function RaceReplayViewer() {
   // never has two moves queued up faster than it can animate between them.
   const transitionSeconds = (1 / speed).toFixed(2);
 
-  // Resolves each driver to an SVG point: real telemetry position when
-  // available, falling back to the rank-based estimate otherwise (either
-  // because real track shape isn't available, or this specific driver
-  // has no location record yet at this tick). Both paths place the point
-  // on the SAME geometry now, real or illustrative.
+  // Resolves each driver to an SVG point. Real telemetry position (when
+  // available) is used directly — it's a genuine measurement, no need to
+  // smooth it. The rank-based estimate is different: its target slot can
+  // jump discontinuously when ranks swap, so it's smoothed via a capped
+  // per-tick step instead of applied directly — see MAX_ARC_STEP_PER_TICK.
   function svgPositionFor(driver, rank) {
     if (usingRealTrack && Number.isFinite(driver?.x) && Number.isFinite(driver?.y)) {
       const fraction = nearestArcLengthFraction(geometry, driver.x, driver.y);
       return svgPointAtArcLengthFraction(geometry, fraction);
     }
-    return svgPointAtArcLengthFraction(geometry, progressForRank(rank, totalDrivers, sharedPhase));
+
+    const targetFraction = progressForRank(rank, totalDrivers, sharedPhase);
+    const key = driver?.driverNumber ?? 'safety-car';
+    const previousFraction = smoothedFractionsRef.current.get(key) ?? targetFraction;
+    const nextFraction = stepTowardArc(previousFraction, targetFraction, MAX_ARC_STEP_PER_TICK);
+    smoothedFractionsRef.current.set(key, nextFraction);
+    return svgPointAtArcLengthFraction(geometry, nextFraction);
   }
 
   const finishA = svgPointAtArcLengthFraction(geometry, 0);
@@ -156,7 +178,11 @@ function RaceReplayViewer() {
       const offsetFraction = SAFETY_CAR_LEAD_METERS / geometry.totalLength;
       safetyCarPoint = svgPointAtArcLengthFraction(geometry, leaderFraction + offsetFraction);
     } else {
-      safetyCarPoint = svgPointAtArcLengthFraction(geometry, progressForRank(-0.6, totalDrivers, sharedPhase));
+      const targetFraction = progressForRank(-0.6, totalDrivers, sharedPhase);
+      const previousFraction = smoothedFractionsRef.current.get('safety-car') ?? targetFraction;
+      const nextFraction = stepTowardArc(previousFraction, targetFraction, MAX_ARC_STEP_PER_TICK);
+      smoothedFractionsRef.current.set('safety-car', nextFraction);
+      safetyCarPoint = svgPointAtArcLengthFraction(geometry, nextFraction);
     }
   }
 

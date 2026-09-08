@@ -3,6 +3,8 @@ import {
   nearestArcLengthFraction,
   svgPointAtArcLengthFraction,
   computeTrackBoundaries,
+  shortestArcDelta,
+  stepTowardArc,
 } from './raceReplayHelpers';
 
 // A synthetic circle stands in for real track telemetry — lets us verify
@@ -129,5 +131,51 @@ describe('computeTrackBoundaries', () => {
 
   test('returns empty arrays for too few points instead of crashing', () => {
     expect(computeTrackBoundaries([{ x: 0, y: 0 }], 5)).toEqual({ innerPoints: [], outerPoints: [] });
+  });
+});
+
+describe('shortestArcDelta', () => {
+  test('picks the short way forward through the wraparound seam', () => {
+    // From 0.9 to 0.1: going forward through 1.0/0.0 is only 0.2 away,
+    // versus 0.8 going backward the other way around the loop.
+    expect(shortestArcDelta(0.9, 0.1)).toBeCloseTo(0.2, 5);
+  });
+
+  test('picks the short way backward through the wraparound seam', () => {
+    expect(shortestArcDelta(0.1, 0.9)).toBeCloseTo(-0.2, 5);
+  });
+
+  test('simple forward move with no wraparound involved', () => {
+    expect(shortestArcDelta(0.2, 0.5)).toBeCloseTo(0.3, 5);
+  });
+});
+
+describe('stepTowardArc', () => {
+  test('reaches the target directly when it is within maxStep', () => {
+    expect(stepTowardArc(0.2, 0.25, 0.1)).toBeCloseTo(0.25, 5);
+  });
+
+  test('moves only maxStep toward a distant target instead of jumping there', () => {
+    // Target is 0.5 away (0.2 -> 0.7); capped at 0.05 per call, so after one
+    // call it should have advanced by exactly 0.05, not landed on 0.7.
+    const result = stepTowardArc(0.2, 0.7, 0.05);
+    expect(result).toBeCloseTo(0.25, 5);
+  });
+
+  test('repeated calls eventually converge on a distant target without ever overshooting', () => {
+    let current = 0.1;
+    const target = 0.8;
+    const maxStep = 0.05;
+    for (let i = 0; i < 50; i += 1) {
+      current = stepTowardArc(current, target, maxStep);
+    }
+    expect(current).toBeCloseTo(target, 5);
+  });
+
+  test('steps in the correct direction across the wraparound seam, not the long way around', () => {
+    // From 0.95 toward 0.05 — short way is forward through the seam (+0.1),
+    // so after a small step we should be just past 0, not drifting toward 0.5.
+    const result = stepTowardArc(0.95, 0.05, 0.03);
+    expect(result).toBeCloseTo(0.98, 5);
   });
 });
