@@ -163,10 +163,26 @@ export function shortestArcDelta(from, to) {
 // call it once per tick with the same maxStep, and a driver whose target
 // suddenly jumps across the track takes several ticks to arrive, always
 // moving forward along the loop rather than teleporting.
+// Forward-only distance from `from` to `to` around a 0-1 loop — always in
+// [0, 1). This is deliberately NOT the shortest path (which could go
+// either direction around the loop) — for a car on a track, only forward
+// motion is physically meaningful. Going "backward" is never correct,
+// even when it happens to be numerically shorter.
+export function forwardArcDistance(from, to) {
+  return ((to - from) % 1 + 1) % 1;
+}
+
+// Moves `from` toward `to`, always forward, capped at maxStep per call.
+// This is what turns a rank-swap's instant target-slot jump into gradual
+// motion: call it once per tick with the same maxStep, and a driver whose
+// target suddenly jumps takes several ticks to arrive, always advancing
+// forward along the loop, never reversing and never getting stuck (unlike
+// an earlier version of this function that tried to take the "shortest"
+// path and could end up needing to go backward with nowhere to go).
 export function stepTowardArc(from, to, maxStep) {
-  const delta = shortestArcDelta(from, to);
-  if (Math.abs(delta) <= maxStep) return ((to % 1) + 1) % 1;
-  const stepped = from + Math.sign(delta) * maxStep;
+  const distance = forwardArcDistance(from, to);
+  const step = Math.min(distance, maxStep);
+  const stepped = from + step;
   return ((stepped % 1) + 1) % 1;
 }
 

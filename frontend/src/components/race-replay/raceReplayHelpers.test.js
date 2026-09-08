@@ -4,6 +4,7 @@ import {
   svgPointAtArcLengthFraction,
   computeTrackBoundaries,
   shortestArcDelta,
+  forwardArcDistance,
   stepTowardArc,
 } from './raceReplayHelpers';
 
@@ -150,6 +151,22 @@ describe('shortestArcDelta', () => {
   });
 });
 
+describe('forwardArcDistance', () => {
+  test('simple forward gap with no wraparound', () => {
+    expect(forwardArcDistance(0.2, 0.5)).toBeCloseTo(0.3, 5);
+  });
+
+  test('wraps forward through the seam rather than reporting a negative distance', () => {
+    expect(forwardArcDistance(0.95, 0.05)).toBeCloseTo(0.1, 5);
+  });
+
+  test('a "behind" target is reported as almost a full lap forward, not a negative/backward value', () => {
+    // 0.4 is numerically behind 0.5, but there's no backward direction on
+    // a track — reaching it means travelling forward almost the whole loop.
+    expect(forwardArcDistance(0.5, 0.4)).toBeCloseTo(0.9, 5);
+  });
+});
+
 describe('stepTowardArc', () => {
   test('reaches the target directly when it is within maxStep', () => {
     expect(stepTowardArc(0.2, 0.25, 0.1)).toBeCloseTo(0.25, 5);
@@ -177,5 +194,21 @@ describe('stepTowardArc', () => {
     // so after a small step we should be just past 0, not drifting toward 0.5.
     const result = stepTowardArc(0.95, 0.05, 0.03);
     expect(result).toBeCloseTo(0.98, 5);
+  });
+
+  test('always advances forward, never backward, even when the target is numerically behind', () => {
+    // Every intermediate value across many small steps must be reachable
+    // by forward motion only from the previous one — i.e. never regress.
+    let current = 0.5;
+    const target = 0.4; // "behind" in raw numeric terms
+    const maxStep = 0.05;
+    for (let i = 0; i < 5; i += 1) {
+      const next = stepTowardArc(current, target, maxStep);
+      // Forward distance travelled this step must be positive and <= maxStep.
+      const travelled = forwardArcDistance(current, next);
+      expect(travelled).toBeGreaterThan(0);
+      expect(travelled).toBeLessThanOrEqual(maxStep + 1e-9);
+      current = next;
+    }
   });
 });
