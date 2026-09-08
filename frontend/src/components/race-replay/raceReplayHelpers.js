@@ -172,6 +172,21 @@ export function forwardArcDistance(from, to) {
   return ((to - from) % 1 + 1) % 1;
 }
 
+// Interpolates between two arc-length fractions along the FORWARD path
+// between them, parameterized by t in [0, 1]. This is what makes
+// frame-by-frame animation actually follow the track: computing (x,y)
+// fresh from this interpolated fraction at every frame guarantees the
+// point always lies exactly on the curve. Interpolating raw (x,y)
+// coordinates directly (e.g. via a CSS transform transition) instead
+// draws a straight screen-space line between the two points, which cuts
+// across the inside of any corner sharper than that line.
+export function interpolateFractionAlongArc(startFraction, endFraction, t) {
+  const clampedT = Math.max(0, Math.min(1, t));
+  const distance = forwardArcDistance(startFraction, endFraction);
+  const interpolated = startFraction + distance * clampedT;
+  return ((interpolated % 1) + 1) % 1;
+}
+
 // Moves `from` toward `to`, always forward, capped at maxStep per call.
 // This is what turns a rank-swap's instant target-slot jump into gradual
 // motion: call it once per tick with the same maxStep, and a driver whose

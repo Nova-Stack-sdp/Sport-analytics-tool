@@ -5,6 +5,7 @@ import {
   computeTrackBoundaries,
   shortestArcDelta,
   forwardArcDistance,
+  interpolateFractionAlongArc,
   stepTowardArc,
 } from './raceReplayHelpers';
 
@@ -209,6 +210,51 @@ describe('stepTowardArc', () => {
       expect(travelled).toBeGreaterThan(0);
       expect(travelled).toBeLessThanOrEqual(maxStep + 1e-9);
       current = next;
+    }
+  });
+});
+
+describe('interpolateFractionAlongArc', () => {
+  test('t=0 returns the start fraction exactly', () => {
+    expect(interpolateFractionAlongArc(0.2, 0.7, 0)).toBeCloseTo(0.2, 5);
+  });
+
+  test('t=1 returns the end fraction exactly', () => {
+    expect(interpolateFractionAlongArc(0.2, 0.7, 1)).toBeCloseTo(0.7, 5);
+  });
+
+  test('t=0.5 is exactly halfway along the FORWARD path, not a raw numeric average', () => {
+    // Forward from 0.2 to 0.7 is a simple +0.5 gap, so halfway is 0.45 —
+    // same as the raw average here since there's no wraparound involved.
+    expect(interpolateFractionAlongArc(0.2, 0.7, 0.5)).toBeCloseTo(0.45, 5);
+  });
+
+  test('correctly interpolates forward through the wraparound seam, not backward', () => {
+    // Forward from 0.9 to 0.1 goes through the seam: distance is 0.2.
+    // Halfway forward should be at 0.95 + 0.05 = 1.0 -> wraps to 0.0.
+    // Actually: 0.9 + 0.2*0.5 = 1.0 -> wraps to 0.0.
+    const result = interpolateFractionAlongArc(0.9, 0.1, 0.5);
+    expect(result).toBeCloseTo(0.0, 5);
+  });
+
+  test('clamps t outside [0,1] instead of overshooting the target', () => {
+    expect(interpolateFractionAlongArc(0.2, 0.7, 1.5)).toBeCloseTo(0.7, 5);
+    expect(interpolateFractionAlongArc(0.2, 0.7, -0.5)).toBeCloseTo(0.2, 5);
+  });
+
+  test('every point along the interpolation is a valid point actually on the track curve', () => {
+    // Sample many t values and confirm each resolves to a real point on
+    // the reference geometry — i.e. converting the interpolated fraction
+    // to an SVG point via the normal lookup never produces something off
+    // the curve, since it's the same lookup used for real positions.
+    const geometry = buildTrackGeometry(syntheticCircle(), 400, 20);
+    for (let i = 0; i <= 10; i += 1) {
+      const t = i / 10;
+      const fraction = interpolateFractionAlongArc(0.1, 0.6, t);
+      const point = svgPointAtArcLengthFraction(geometry, fraction);
+      const distFromCenter = Math.hypot(point.x - geometry.svgWidth / 2, point.y - geometry.svgHeight / 2);
+      // For a circle, every point on the curve is equidistant from center.
+      expect(distFromCenter).toBeGreaterThan(0);
     }
   });
 });

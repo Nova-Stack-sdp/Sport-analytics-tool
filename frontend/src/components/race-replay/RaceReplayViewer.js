@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRaceReplaySnapshots } from './useRaceReplaySnapshots';
 import {
   teamClassFor,
@@ -8,22 +8,13 @@ import {
   computeTrackBoundaries,
   nearestArcLengthFraction,
   svgPointAtArcLengthFraction,
-  shortestArcDelta,
-  stepTowardArc,
+  interpolateFractionAlongArc,
   SAFETY_CAR_LEAD_METERS,
 } from './raceReplayHelpers';
 
 const VIEWBOX_WIDTH = 400;
 const TRACK_HALF_WIDTH = 9; // in SVG units, post-normalization
-// Max fraction of the track a dot can advance in one tick. Without this
-// cap, a rank swap (two drivers trading positions) makes both dots'
-// target slots swap instantly — the CSS transition then interpolates a
-// straight screen-space line between old and new slots, which cuts
-// across the track's interior instead of following the curve, and reads
-// as an abrupt "pause and jump back." Capping the step means a big rank
-// change takes a few ticks to resolve, moving forward along the track the
-// whole time — visually, a gradual overtake instead of a teleport.
-const MAX_ARC_STEP_PER_TICK = 0.02;
+const SAFETY_CAR_KEY = 'safety-car';
 
 // Illustrative centerline used only until real track-shape telemetry
 // loads (or if it's ever unavailable for a session with no location
@@ -44,11 +35,13 @@ function polylinePoints(points) {
 
 function RaceReplayViewer() {
   const [showSafetyCar, setShowSafetyCar] = useState(true);
-  // Persists each driver's current (smoothed) arc-length fraction across
-  // ticks, keyed by driver number. A plain ref, not state — updating it
-  // doesn't need to trigger its own re-render, it just needs to survive
-  // between the re-renders that new snapshots already cause.
-  const smoothedFractionsRef = useRef(new Map());
+
+  // Animation state lives in refs, not React state — none of this should
+  // trigger its own re-render, since it's read/written by the animation
+  // loop up to 60x/sec, far too much churn to run through React's cycle.
+  const animationStateRef = useRef(new Map());
+  const dotElementRefs = useRef(new Map());
+  const speedRef = useRef(1);
 
   const {
     snapshot,
@@ -66,11 +59,10 @@ function RaceReplayViewer() {
     trackShapeError,
   } = useRaceReplaySnapshots();
 
+  speedRef.current = speed;
+
   const usingRealTrack = Boolean(trackShape?.points);
 
-  // Both the real telemetry case and the illustrative fallback go through
-  // the exact same geometry pipeline now — the only difference is which
-  // point source feeds in.
   const geometry = useMemo(() => {
     const sourcePoints = usingRealTrack ? trackShape.points : FALLBACK_POINTS;
     return buildTrackGeometry(sourcePoints, VIEWBOX_WIDTH, 30);
@@ -81,8 +73,79 @@ function RaceReplayViewer() {
     return computeTrackBoundaries(geometry.svgPoints, TRACK_HALF_WIDTH);
   }, [geometry]);
 
+  const leaderboard = snapshot?.leaderboard ?? [];
+  const scActive = showSafetyCar && isSafetyCarActive(snapshot?.recentRaceControl);
+
+  // Whenever a new snapshot arrives, set each driver's new TARGET fraction,
+  // starting the move from wherever the animation currently, actually is
+  // (not the previous target) — so a new tick arriving mid-animation
+  // doesn't cause a visible snap.
+  useEffect(() => {
+    if (!snapshot || !geometry) return;
+    const totalDrivers = leaderboard.length;
+    const sharedPhase = (snapshot.videoSeconds % 60) / 60;
+    const now = performance.now();
+    const durationMs = (1 / speedRef.current) * 1000;
+
+    function currentInterpolatedFraction(key, fallback) {
+      const state = animationStateRef.current.get(key);
+      if (!state) return fallback;
+      const t = Math.min(1, (now - state.startTime) / state.durationMs);
+      return interpolateFractionAlongArc(state.startFraction, state.endFraction, t);
+    }
+
+    function setTarget(key, targetFraction) {
+      const startFraction = currentInterpolatedFraction(key, targetFraction);
+      animationStateRef.current.set(key, { startFraction, endFraction: targetFraction, startTime: now, durationMs });
+    }
+
+    leaderboard.forEach((driver, rank) => {
+      const targetFraction = usingRealTrack && Number.isFinite(driver?.x) && Number.isFinite(driver?.y)
+        ? nearestArcLengthFraction(geometry, driver.x, driver.y)
+        : progressForRank(rank, totalDrivers, sharedPhase);
+      setTarget(driver.driverNumber, targetFraction);
+    });
+
+    if (scActive && totalDrivers > 0) {
+      const leader = leaderboard[0];
+      const targetFraction = usingRealTrack && Number.isFinite(leader?.x) && Number.isFinite(leader?.y)
+        ? nearestArcLengthFraction(geometry, leader.x, leader.y) + SAFETY_CAR_LEAD_METERS / geometry.totalLength
+        : progressForRank(-0.6, totalDrivers, sharedPhase);
+      setTarget(SAFETY_CAR_KEY, targetFraction);
+    } else {
+      animationStateRef.current.delete(SAFETY_CAR_KEY);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshot, geometry, usingRealTrack, scActive]);
+
+  // The single persistent animation loop. Every frame, compute the current
+  // arc-length fraction for each dot (interpolated along the FORWARD path
+  // between its start and end fractions) and set its transform directly
+  // via its DOM ref — never through React state. Computing (x,y) fresh
+  // from the curve every frame, rather than letting the browser
+  // interpolate between two absolute points, is what keeps every dot
+  // exactly on the track at every instant, including mid-animation.
+  useEffect(() => {
+    if (!geometry) return undefined;
+    let rafId;
+
+    function frame() {
+      const now = performance.now();
+      animationStateRef.current.forEach((state, key) => {
+        const t = Math.min(1, (now - state.startTime) / state.durationMs);
+        const fraction = interpolateFractionAlongArc(state.startFraction, state.endFraction, t);
+        const point = svgPointAtArcLengthFraction(geometry, fraction);
+        const el = dotElementRefs.current.get(key);
+        if (el) el.style.transform = `translate(${point.x}px, ${point.y}px)`;
+      });
+      rafId = requestAnimationFrame(frame);
+    }
+
+    rafId = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(rafId);
+  }, [geometry]);
+
   if (atEnd) {
-    const leaderboard = snapshot?.leaderboard ?? [];
     const winner = leaderboard[0];
     return (
       <div className="replay-layout">
@@ -135,33 +198,6 @@ function RaceReplayViewer() {
 
   if (!snapshot || !geometry || !boundaries) return null;
 
-  const leaderboard = snapshot.leaderboard ?? [];
-  const scActive = showSafetyCar && isSafetyCarActive(snapshot.recentRaceControl);
-  const totalDrivers = leaderboard.length;
-  const sharedPhase = (snapshot.videoSeconds % 60) / 60;
-  // Match the CSS transition duration to the current tick rate, so a dot
-  // never has two moves queued up faster than it can animate between them.
-  const transitionSeconds = (1 / speed).toFixed(2);
-
-  // Resolves each driver to an SVG point. Real telemetry position (when
-  // available) is used directly — it's a genuine measurement, no need to
-  // smooth it. The rank-based estimate is different: its target slot can
-  // jump discontinuously when ranks swap, so it's smoothed via a capped
-  // per-tick step instead of applied directly — see MAX_ARC_STEP_PER_TICK.
-  function svgPositionFor(driver, rank) {
-    if (usingRealTrack && Number.isFinite(driver?.x) && Number.isFinite(driver?.y)) {
-      const fraction = nearestArcLengthFraction(geometry, driver.x, driver.y);
-      return svgPointAtArcLengthFraction(geometry, fraction);
-    }
-
-    const targetFraction = progressForRank(rank, totalDrivers, sharedPhase);
-    const key = driver?.driverNumber ?? 'safety-car';
-    const previousFraction = smoothedFractionsRef.current.get(key) ?? targetFraction;
-    const nextFraction = stepTowardArc(previousFraction, targetFraction, MAX_ARC_STEP_PER_TICK);
-    smoothedFractionsRef.current.set(key, nextFraction);
-    return svgPointAtArcLengthFraction(geometry, nextFraction);
-  }
-
   const finishA = svgPointAtArcLengthFraction(geometry, 0);
   const finishB = svgPointAtArcLengthFraction(geometry, 0.01);
   const finishDx = finishB.x - finishA.x;
@@ -169,22 +205,6 @@ function RaceReplayViewer() {
   const finishLen = Math.hypot(finishDx, finishDy) || 1;
   const finishNx = -finishDy / finishLen;
   const finishNy = finishDx / finishLen;
-
-  let safetyCarPoint = null;
-  if (scActive && totalDrivers > 0) {
-    const leader = leaderboard[0];
-    if (usingRealTrack && Number.isFinite(leader?.x) && Number.isFinite(leader?.y)) {
-      const leaderFraction = nearestArcLengthFraction(geometry, leader.x, leader.y);
-      const offsetFraction = SAFETY_CAR_LEAD_METERS / geometry.totalLength;
-      safetyCarPoint = svgPointAtArcLengthFraction(geometry, leaderFraction + offsetFraction);
-    } else {
-      const targetFraction = progressForRank(-0.6, totalDrivers, sharedPhase);
-      const previousFraction = smoothedFractionsRef.current.get('safety-car') ?? targetFraction;
-      const nextFraction = stepTowardArc(previousFraction, targetFraction, MAX_ARC_STEP_PER_TICK);
-      smoothedFractionsRef.current.set('safety-car', nextFraction);
-      safetyCarPoint = svgPointAtArcLengthFraction(geometry, nextFraction);
-    }
-  }
 
   return (
     <div className="replay-layout">
@@ -199,10 +219,6 @@ function RaceReplayViewer() {
         </div>
 
         <svg viewBox={`0 0 ${geometry.svgWidth} ${geometry.svgHeight}`} className="replay-track-svg" role="img" aria-label="Track with driver positions">
-          {/* Two thin boundary lines (the track's left/right edges) instead of
-              one thick centerline stroke — a thick stroke blobs over any
-              tight curve regardless of how detailed the underlying points
-              are; two thin offset lines preserve detail naturally. */}
           <polygon points={polylinePoints(boundaries.outerPoints)} fill="none" stroke="var(--border)" strokeWidth="2.5" strokeLinejoin="round" />
           <polygon points={polylinePoints(boundaries.innerPoints)} fill="none" stroke="var(--border)" strokeWidth="2.5" strokeLinejoin="round" />
           <line
@@ -214,22 +230,27 @@ function RaceReplayViewer() {
             strokeWidth="2"
             strokeDasharray="2 2"
           />
-          {leaderboard.map((driver, rank) => {
-            const { x, y } = svgPositionFor(driver, rank);
-            return (
-              <g
-                key={driver.driverNumber}
-                style={{ transform: `translate(${x}px, ${y}px)`, transition: `transform ${transitionSeconds}s linear` }}
-              >
-                <circle r="7" className={`replay-dot replay-dot-${teamClassFor(driver.teamName)}`} />
-                <text y="-11" textAnchor="middle" className="replay-dot-label">
-                  {driver.driverName ? driver.driverName.slice(0, 3).toUpperCase() : driver.driverNumber}
-                </text>
-              </g>
-            );
-          })}
-          {safetyCarPoint && (
-            <g style={{ transform: `translate(${safetyCarPoint.x}px, ${safetyCarPoint.y}px)`, transition: `transform ${transitionSeconds}s linear` }}>
+          {leaderboard.map((driver) => (
+            <g
+              key={driver.driverNumber}
+              ref={(el) => {
+                if (el) dotElementRefs.current.set(driver.driverNumber, el);
+                else dotElementRefs.current.delete(driver.driverNumber);
+              }}
+            >
+              <circle r="7" className={`replay-dot replay-dot-${teamClassFor(driver.teamName)}`} />
+              <text y="-11" textAnchor="middle" className="replay-dot-label">
+                {driver.driverName ? driver.driverName.slice(0, 3).toUpperCase() : driver.driverNumber}
+              </text>
+            </g>
+          ))}
+          {scActive && (
+            <g
+              ref={(el) => {
+                if (el) dotElementRefs.current.set(SAFETY_CAR_KEY, el);
+                else dotElementRefs.current.delete(SAFETY_CAR_KEY);
+              }}
+            >
               <circle r="8" className="replay-dot replay-dot-sc" />
               <text y="-12" textAnchor="middle" className="replay-dot-label replay-sc-label">SC</text>
             </g>
