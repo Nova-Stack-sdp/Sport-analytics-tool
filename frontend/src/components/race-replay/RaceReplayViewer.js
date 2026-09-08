@@ -15,7 +15,7 @@ const VIEWBOX_HEIGHT = 260;
 
 // Fallback path used only until the real track shape loads (or if it's
 // ever unavailable for a session with no location telemetry).
-const FALLBACK_PATH_D = 'M 100 230 L 300 230 L 330 190 L 300 150 L 335 110 L 300 80 L 330 50 L 275 25 L 225 45 L 175 20 L 130 60 L 85 95 L 60 135 L 65 180 L 95 210 Z';
+const FALLBACK_PATH_D = 'M 70 60 L 280 45 L 370 90 L 390 140 L 360 170 L 300 195 L 150 210 L 110 190 L 90 210 L 60 180 L 50 120 Z';
 
 function pointAtProgress(pathEl, progress) {
   if (!pathEl || typeof pathEl.getTotalLength !== 'function') return { x: 0, y: 0 };
@@ -176,7 +176,7 @@ function RaceReplayViewer() {
           {snapshot.session?.meetingName ?? 'Session'} · {snapshot.session?.sessionName ?? ''} · Lap {snapshot.session?.currentLap ?? '—'} / {snapshot.session?.totalLaps ?? '—'}
           {!usingRealTrack && (
             <span className="replay-track-fallback-note">
-              {' '}· illustrative track ({trackShapeError ? 'real shape unavailable' : 'loading real shape…'})
+              {' '}· illustrative track ({trackShapeError ? 'no location telemetry available for this session' : 'checking for real telemetry…'})
             </span>
           )}
         </div>
