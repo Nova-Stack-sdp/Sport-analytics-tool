@@ -269,11 +269,17 @@ export function mapBarcelonaVideoTime(videoSeconds) {
     throw new TypeError('videoSeconds must be a finite number');
   }
 
-  const finalChunk = Barcelona_video_chunks.at(-1);
-  const chunk = Barcelona_video_chunks.find((candidate) => {
-    const includesEnd = candidate.id === finalChunk.id;
-    return videoSeconds >= candidate.videoStartSeconds
-      && (videoSeconds < candidate.videoEndSeconds || (includesEnd && videoSeconds <= candidate.videoEndSeconds));
+  // Each chunk is end-inclusive, start-exclusive — an exact boundary second
+  // (e.g. 923, shared between opening-stint's end and first-strategy-cycle's
+  // start) belongs to the chunk it's ENDING, not the one it's starting.
+  // The first chunk is the one exception: it must include its own start
+  // (0), since there's no earlier chunk for that instant to belong to.
+  const chunk = Barcelona_video_chunks.find((candidate, index) => {
+    const isFirstChunk = index === 0;
+    const pastStart = isFirstChunk
+      ? videoSeconds >= candidate.videoStartSeconds
+      : videoSeconds > candidate.videoStartSeconds;
+    return pastStart && videoSeconds <= candidate.videoEndSeconds;
   });
   if (!chunk) return null;
 
@@ -300,22 +306,34 @@ const TIME_SERIES_RESOURCE_KEYS = [
   'weather',
 ];
 
-function recordsWithinTimestampRange(records, startTimestamp, endTimestamp, includesEnd) {
+
+// Every OpenF1 resource uses a `date` field to timestamp each record,
+// EXCEPT /laps, which uses `date_start` instead. Using the wrong field
+// name here meant Date.parse(undefined) => NaN for every lap record,
+// silently filtering all of them out of every chunk — the currentLap
+// fix in createBarcelonaWatchLiveState (reading date_start) never had a
+// chance to run correctly, because chunk.resources.laps was always empty
+// by the time it got there.
+const DATE_FIELD_BY_RESOURCE = {
+  laps: 'date_start',
+};
+
+function recordsWithinTimestampRange(records, startTimestamp, endTimestamp, isFirstChunk, dateField = 'date') {
   const startMilliseconds = Date.parse(startTimestamp);
   const endMilliseconds = Date.parse(endTimestamp);
 
   return records.filter((record) => {
-    const timestamp = Date.parse(record.date);
-    return Number.isFinite(timestamp)
-      && timestamp >= startMilliseconds
-      && (timestamp < endMilliseconds || (includesEnd && timestamp <= endMilliseconds));
+    const timestamp = Date.parse(record[dateField]);
+    const pastStart = isFirstChunk ? timestamp >= startMilliseconds : timestamp > startMilliseconds;
+    return Number.isFinite(timestamp) && pastStart && timestamp <= endMilliseconds;
   });
 }
 
 export function buildBarcelonaOpenF1Chunks(bundle) {
-  return Barcelona_video_chunks.map((chunk) => {
+  return Barcelona_video_chunks.map((chunk, chunkIndex) => {
     const start = mapBarcelonaVideoTime(chunk.videoStartSeconds);
     const end = mapBarcelonaVideoTime(chunk.videoEndSeconds);
+    const isFirstChunk = chunkIndex === 0;
     const isFinalChunk = chunk.id === Barcelona_video_chunks.at(-1).id;
     const resources = Object.fromEntries(
       TIME_SERIES_RESOURCE_KEYS.map((resourceKey) => [
@@ -324,7 +342,8 @@ export function buildBarcelonaOpenF1Chunks(bundle) {
           Array.isArray(bundle[resourceKey]) ? bundle[resourceKey] : [],
           start.openF1Timestamp,
           end.openF1Timestamp,
-          isFinalChunk
+          isFirstChunk,
+          DATE_FIELD_BY_RESOURCE[resourceKey] ?? 'date'
         ),
       ])
     );
@@ -582,12 +601,44 @@ function deriveTrackShape(bundle) {
 watchLiveRouter.get('/track-shape', async (req, res, next) => {
   try {
     const { bundle } = await getBarcelonaOpenF1Data();
-    const shape = deriveTrackShape(bundle);
-    if (!shape) {
-      return res.status(404).json({ error: 'No location telemetry available to derive a track shape' });
+    const liveShape = deriveTrackShape(bundle);
+    if (liveShape) {
+      return res.json({ ...liveShape, source: 'openf1-live' });
     }
-    return res.json(shape);
+
+    // OpenF1 has no /location data for this specific session (confirmed
+    // via direct DB query — location count was 0). The physical circuit
+    // hasn't changed though, so fall back to a real track shape generated
+    // once, offline, from FastF1 telemetry for an actual past race at the
+    // same circuit (2024 Spanish GP) — see
+    // scripts/generate_track_shape.py for how this file was produced.
+    // This is real telemetry-derived geometry, not an illustrative guess,
+    // just sourced from a different (real) session than the one replayed.
+    const staticShape = await readStaticTrackShape();
+    if (staticShape) {
+      return res.json({ ...staticShape, source: 'fastf1-static-fallback' });
+    }
+
+    return res.status(404).json({ error: 'No location telemetry available to derive a track shape' });
   } catch (err) {
     return next(err);
   }
 });
+
+let Barcelona_staticTrackShapeCache = null;
+
+async function readStaticTrackShape() {
+  if (Barcelona_staticTrackShapeCache) return Barcelona_staticTrackShapeCache;
+  try {
+    const { readFile } = await import('node:fs/promises');
+    const { fileURLToPath } = await import('node:url');
+    const path = await import('node:path');
+    const dataPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'data', 'barcelona-track-shape.json');
+    const raw = await readFile(dataPath, 'utf-8');
+    Barcelona_staticTrackShapeCache = JSON.parse(raw);
+    return Barcelona_staticTrackShapeCache;
+  } catch (err) {
+    console.error('Failed to read static track shape fallback:', err);
+    return null;
+  }
+}
