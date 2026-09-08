@@ -9,12 +9,23 @@ import {
   nearestArcLengthFraction,
   svgPointAtArcLengthFraction,
   interpolateFractionAlongArc,
+  shortestArcDelta,
+  speedMultiplierForCorrection,
   SAFETY_CAR_LEAD_METERS,
 } from './raceReplayHelpers';
 
 const VIEWBOX_WIDTH = 400;
 const TRACK_HALF_WIDTH = 9; // in SVG units, post-normalization
 const SAFETY_CAR_KEY = 'safety-car';
+// One lap every 60 ticks — matches the existing sharedPhase assumption
+// used to derive rank-based "ideal" positions.
+const BASE_LAP_INCREMENT = 1 / 60;
+// How strongly a positional discrepancy affects pace. Tuned so a typical
+// single-rank gap (~0.0275 for 20 drivers) produces a modest ~15-20%
+// speed change, not a dramatic one.
+const CORRECTION_GAIN = 6;
+const MIN_SPEED_MULTIPLIER = 0.6;
+const MAX_SPEED_MULTIPLIER = 1.6;
 
 // Illustrative centerline used only until real track-shape telemetry
 // loads (or if it's ever unavailable for a session with no location
@@ -42,6 +53,15 @@ function RaceReplayViewer() {
   const animationStateRef = useRef(new Map());
   const dotElementRefs = useRef(new Map());
   const speedRef = useRef(1);
+  // Each driver's total accumulated distance around the track, in laps —
+  // grows indefinitely, never wraps or resets. This is what guarantees
+  // forward-only, realistically-paced motion: instead of computing a
+  // fixed rank-based target position to jump/animate toward each tick
+  // (which can require nearly a full lap of "catch-up" in one tick when
+  // a driver loses rank), each driver's distance increases by a bounded,
+  // modestly-adjusted pace every tick, and rank-correctness emerges
+  // gradually over several ticks as faster/slower paces compound.
+  const cumulativeDistanceRef = useRef(new Map());
 
   const {
     snapshot,
@@ -76,10 +96,13 @@ function RaceReplayViewer() {
   const leaderboard = snapshot?.leaderboard ?? [];
   const scActive = showSafetyCar && isSafetyCarActive(snapshot?.recentRaceControl);
 
-  // Whenever a new snapshot arrives, set each driver's new TARGET fraction,
-  // starting the move from wherever the animation currently, actually is
-  // (not the previous target) — so a new tick arriving mid-animation
-  // doesn't cause a visible snap.
+  // Whenever a new snapshot arrives, advance each driver's accumulated
+  // distance by one tick's worth of pace (bounded, always positive — see
+  // BASE_LAP_INCREMENT/speedMultiplierForCorrection above), then hand the
+  // resulting fraction to the animation state as the end of a fresh move,
+  // starting from wherever the animation currently, actually is (not the
+  // previous target) — so a new tick arriving mid-animation doesn't cause
+  // a visible snap.
   useEffect(() => {
     if (!snapshot || !geometry) return;
     const totalDrivers = leaderboard.length;
@@ -99,21 +122,44 @@ function RaceReplayViewer() {
       animationStateRef.current.set(key, { startFraction, endFraction: targetFraction, startTime: now, durationMs });
     }
 
+    // Advances this driver's accumulated distance by one bounded, paced
+    // step toward their rank-implied ideal position, and returns the
+    // resulting fraction. Never jumps directly to idealFraction.
+    function advancePacedFraction(key, idealFraction) {
+      const prevCumulative = cumulativeDistanceRef.current.get(key) ?? idealFraction;
+      const prevFraction = ((prevCumulative % 1) + 1) % 1;
+      const signedDelta = shortestArcDelta(prevFraction, idealFraction);
+      const speedMultiplier = speedMultiplierForCorrection(signedDelta, CORRECTION_GAIN, MIN_SPEED_MULTIPLIER, MAX_SPEED_MULTIPLIER);
+      const nextCumulative = prevCumulative + BASE_LAP_INCREMENT * speedMultiplier;
+      cumulativeDistanceRef.current.set(key, nextCumulative);
+      return ((nextCumulative % 1) + 1) % 1;
+    }
+
     leaderboard.forEach((driver, rank) => {
-      const targetFraction = usingRealTrack && Number.isFinite(driver?.x) && Number.isFinite(driver?.y)
-        ? nearestArcLengthFraction(geometry, driver.x, driver.y)
-        : progressForRank(rank, totalDrivers, sharedPhase);
+      let targetFraction;
+      if (usingRealTrack && Number.isFinite(driver?.x) && Number.isFinite(driver?.y)) {
+        // Real measured position — apply directly, no pacing needed.
+        targetFraction = nearestArcLengthFraction(geometry, driver.x, driver.y);
+      } else {
+        const idealFraction = progressForRank(rank, totalDrivers, sharedPhase);
+        targetFraction = advancePacedFraction(driver.driverNumber, idealFraction);
+      }
       setTarget(driver.driverNumber, targetFraction);
     });
 
     if (scActive && totalDrivers > 0) {
       const leader = leaderboard[0];
-      const targetFraction = usingRealTrack && Number.isFinite(leader?.x) && Number.isFinite(leader?.y)
-        ? nearestArcLengthFraction(geometry, leader.x, leader.y) + SAFETY_CAR_LEAD_METERS / geometry.totalLength
-        : progressForRank(-0.6, totalDrivers, sharedPhase);
+      let targetFraction;
+      if (usingRealTrack && Number.isFinite(leader?.x) && Number.isFinite(leader?.y)) {
+        targetFraction = nearestArcLengthFraction(geometry, leader.x, leader.y) + SAFETY_CAR_LEAD_METERS / geometry.totalLength;
+      } else {
+        const idealFraction = progressForRank(-0.6, totalDrivers, sharedPhase);
+        targetFraction = advancePacedFraction(SAFETY_CAR_KEY, idealFraction);
+      }
       setTarget(SAFETY_CAR_KEY, targetFraction);
     } else {
       animationStateRef.current.delete(SAFETY_CAR_KEY);
+      cumulativeDistanceRef.current.delete(SAFETY_CAR_KEY);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [snapshot, geometry, usingRealTrack, scActive]);

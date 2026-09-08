@@ -147,6 +147,20 @@ export function svgPointAtArcLengthFraction(geometry, fraction) {
 // than the old lap-fraction guess, now that we know the real track length.
 export const SAFETY_CAR_LEAD_METERS = 150;
 
+// Converts a signed positional discrepancy (how far ahead/behind a driver
+// is from where their current rank says they should be) into a bounded
+// speed multiplier, clamped to [minMultiplier, maxMultiplier] regardless
+// of how large the discrepancy is. This is deliberately NOT a direct
+// position correction — a driver who needs to gain several positions
+// just goes a bit faster than base pace for a while, converging over
+// several ticks, rather than sprinting the distance in one tick (which
+// is what happens if you instead treat the rank-based ideal position as
+// a hard target to jump/animate to directly).
+export function speedMultiplierForCorrection(signedDelta, gain, minMultiplier, maxMultiplier) {
+  const raw = 1 + signedDelta * gain;
+  return Math.max(minMultiplier, Math.min(maxMultiplier, raw));
+}
+
 // Signed shortest distance from `from` to `to` around a 0-1 loop — e.g.
 // shortestArcDelta(0.9, 0.1) is +0.2 (short way forward through the wrap),
 // not -0.8 (the long way around). Needed because naive subtraction on a

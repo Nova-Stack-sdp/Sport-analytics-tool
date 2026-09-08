@@ -7,6 +7,7 @@ import {
   forwardArcDistance,
   interpolateFractionAlongArc,
   stepTowardArc,
+  speedMultiplierForCorrection,
 } from './raceReplayHelpers';
 
 // A synthetic circle stands in for real track telemetry — lets us verify
@@ -255,6 +256,44 @@ describe('interpolateFractionAlongArc', () => {
       const distFromCenter = Math.hypot(point.x - geometry.svgWidth / 2, point.y - geometry.svgHeight / 2);
       // For a circle, every point on the curve is equidistant from center.
       expect(distFromCenter).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('speedMultiplierForCorrection', () => {
+  test('returns 1x (base pace) when there is no discrepancy', () => {
+    expect(speedMultiplierForCorrection(0, 6, 0.6, 1.6)).toBeCloseTo(1, 5);
+  });
+
+  test('speeds up modestly for a typical single-rank-sized discrepancy', () => {
+    // A one-rank gap for ~20 drivers is roughly 0.0275 of the lap.
+    const result = speedMultiplierForCorrection(0.0275, 6, 0.6, 1.6);
+    expect(result).toBeGreaterThan(1);
+    expect(result).toBeLessThan(1.3);
+  });
+
+  test('slows down modestly for a negative (ahead of schedule) discrepancy', () => {
+    const result = speedMultiplierForCorrection(-0.0275, 6, 0.6, 1.6);
+    expect(result).toBeLessThan(1);
+    expect(result).toBeGreaterThan(0.7);
+  });
+
+  test('clamps to maxMultiplier for a large discrepancy instead of an extreme speed', () => {
+    // A large discrepancy (e.g. from several rank changes at once) must
+    // never translate into an unrealistic sprint.
+    const result = speedMultiplierForCorrection(0.5, 6, 0.6, 1.6);
+    expect(result).toBe(1.6);
+  });
+
+  test('clamps to minMultiplier for a large negative discrepancy', () => {
+    const result = speedMultiplierForCorrection(-0.5, 6, 0.6, 1.6);
+    expect(result).toBe(0.6);
+  });
+
+  test('the resulting multiplier is always positive, guaranteeing forward-only motion', () => {
+    for (const delta of [-0.9, -0.5, -0.1, 0, 0.1, 0.5, 0.9]) {
+      const result = speedMultiplierForCorrection(delta, 6, 0.6, 1.6);
+      expect(result).toBeGreaterThan(0);
     }
   });
 });
