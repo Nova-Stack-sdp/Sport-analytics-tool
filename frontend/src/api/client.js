@@ -100,3 +100,48 @@ export function getTimeTravelAsOf({ sessionId, entryId, date }) {
   const params = new URLSearchParams({ sessionId, entryId, date });
   return request(`/api/timetravel/asof?${params.toString()}`);
 }
+
+export function getPopularVideos() {
+  return request('/api/videos/popular');
+}
+
+export function getLiveVideo() {
+  return request('/api/watch-live');
+}
+
+export function getTeams({ limit, offset } = {}) {
+  const params = new URLSearchParams();
+  if (limit != null) params.set('limit', String(limit));
+  if (offset != null) params.set('offset', String(offset));
+  const query = params.toString();
+  return request(`/api/teams${query ? `?${query}` : ''}`);
+}
+
+export function getTeam(id) {
+  return request(`/api/teams/${id}`);
+}
+
+export function getDrivers({ limit, offset } = {}) {
+  const params = new URLSearchParams();
+  if (limit != null) params.set('limit', String(limit));
+  if (offset != null) params.set('offset', String(offset));
+  const query = params.toString();
+  return request(`/api/drivers${query ? `?${query}` : ''}`);
+}
+
+export function getDriver(id) {
+  return request(`/api/drivers/${id}`);
+}
+
+// Remote headshots/logos are routed through the backend's caching image proxy
+// so the browser reuses one immutable, cached copy per asset.
+export function getCachedImageUrl(source) {
+  return `${API_BASE_URL}/api/images?source=${encodeURIComponent(source)}`;
+}
+
+// Fetches one replay state or a short playback buffer.
+export function getWatchLiveState({ videoSeconds, bufferSeconds } = {}) {
+  const params = new URLSearchParams({ videoSeconds: String(videoSeconds) });
+  if (bufferSeconds != null) params.set('bufferSeconds', String(bufferSeconds));
+  return request(`/api/watch-live/state?${params.toString()}`);
+}

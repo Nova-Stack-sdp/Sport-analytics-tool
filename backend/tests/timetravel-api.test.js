@@ -41,6 +41,26 @@ describe('GET /api/timetravel/context', () => {
     expect(res.body.checkpoints).toHaveLength(2);
     expect(res.body.entries).toEqual([{ entryId: 'e1', driverId: 'd1', name: 'Max VERSTAPPEN' }]);
   });
+
+  test('returns empty context when no sessions exist', async () => {
+    mockPrisma.session.findMany.mockResolvedValue([]);
+
+    const app = createApp();
+    const res = await request(app).get('/api/timetravel/context');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ availableSessions: [], session: null, checkpoints: [], entries: [] });
+  });
+
+  test('returns 404 when the requested session does not exist', async () => {
+    mockPrisma.session.findMany.mockResolvedValue([]);
+    mockPrisma.session.findUnique.mockResolvedValue(null);
+
+    const app = createApp();
+    const res = await request(app).get('/api/timetravel/context?sessionId=missing');
+
+    expect(res.status).toBe(404);
+  });
 });
 
 describe('GET /api/timetravel/changelog', () => {
@@ -84,10 +104,6 @@ describe('GET /api/timetravel/changelog', () => {
 
 describe('GET /api/timetravel/asof', () => {
   test('includes an event whose own submission was submitted exactly at the cutoff', async () => {
-    // Regression test: ingestedAt and submittedAt can round to different
-    // milliseconds after serialization even when written in the same
-    // transaction — the filter must key off submittedAt on both sides so
-    // an event isn't excluded from its own checkpoint.
     mockPrisma.event.findMany.mockResolvedValue([
       {
         eventType: 'classification',
@@ -124,15 +140,12 @@ describe('GET /api/timetravel/asof', () => {
 
     const app = createApp();
 
-    // As of a date before the correction landed: only the original event
-    // should be live, so points should read 25.
     const resBefore = await request(app).get(
       '/api/timetravel/asof?sessionId=s1&entryId=e1&date=2026-08-16T00:00:00.000Z'
     );
     expect(resBefore.status).toBe(200);
     expect(resBefore.body.stats.points).toBe(25);
 
-    // As of a date after the correction: the corrected value should show.
     const resAfter = await request(app).get(
       '/api/timetravel/asof?sessionId=s1&entryId=e1&date=2026-08-20T00:00:00.000Z'
     );
@@ -143,5 +156,49 @@ describe('GET /api/timetravel/asof', () => {
     const app = createApp();
     const res = await request(app).get('/api/timetravel/asof?sessionId=s1&entryId=e1&date=not-a-date');
     expect(res.status).toBe(400);
+  });
+
+  test('returns 400 when required params are missing', async () => {
+    const app = createApp();
+    const resSession = await request(app).get('/api/timetravel/asof?entryId=e1&date=2026-08-16T00:00:00.000Z');
+    expect(resSession.status).toBe(400);
+
+    const resEntry = await request(app).get('/api/timetravel/asof?sessionId=s1&date=2026-08-16T00:00:00.000Z');
+    expect(resEntry.status).toBe(400);
+
+    const resDate = await request(app).get('/api/timetravel/asof?sessionId=s1&entryId=e1');
+    expect(resDate.status).toBe(400);
+  });
+});
+
+describe('GET /api/timetravel error handling', () => {
+  test('returns 500 when context query fails', async () => {
+    mockPrisma.session.findMany.mockRejectedValue(new Error('connection refused'));
+
+    const app = createApp();
+    const res = await request(app).get('/api/timetravel/context');
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: 'Internal server error' });
+  });
+
+  test('returns 500 when changelog query fails', async () => {
+    mockPrisma.entry.findUnique.mockRejectedValue(new Error('connection refused'));
+
+    const app = createApp();
+    const res = await request(app).get('/api/timetravel/changelog?entryId=e1');
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: 'Internal server error' });
+  });
+
+  test('returns 500 when asof query fails', async () => {
+    mockPrisma.event.findMany.mockRejectedValue(new Error('connection refused'));
+
+    const app = createApp();
+    const res = await request(app).get('/api/timetravel/asof?sessionId=s1&entryId=e1&date=2026-08-16T00:00:00.000Z');
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: 'Internal server error' });
   });
 });

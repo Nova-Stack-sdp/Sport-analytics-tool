@@ -6,6 +6,12 @@ import { overviewRouter } from './routes/overview.js';
 import { statisticsRouter } from './routes/statistics.js';
 import { fixturesRouter } from './routes/fixtures.js';
 import { timeTravelRouter } from './routes/timetravel.js';
+import { videosRouter } from './routes/videos.js';
+import { teamsRouter } from './routes/teams.js';
+import { driversRouter } from './routes/drivers.js';
+import { openF1Router } from './routes/openf1.js';
+import { watchLiveRouter } from './routes/watchLive.js';
+import { imagesRouter } from './routes/images.js';
 
 export function createApp() {
   const app = express();
@@ -45,6 +51,12 @@ export function createApp() {
   app.use('/api/statistics', statisticsRouter);
   app.use('/api/fixtures', fixturesRouter);
   app.use('/api/timetravel', timeTravelRouter);
+  app.use('/api/videos', videosRouter);
+  app.use('/api/teams', teamsRouter);
+  app.use('/api/drivers', driversRouter);
+  app.use('/api/openf1', openF1Router);
+  app.use('/api/watch-live', watchLiveRouter);
+  app.use('/api/images', imagesRouter);
 
   // 404 for anything else under /api
   app.use('/api', (req, res) => {

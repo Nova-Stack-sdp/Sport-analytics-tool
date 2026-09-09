@@ -1,27 +1,30 @@
-import { useState } from 'react';
-import { BrowserRouter, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { BrowserRouter } from 'react-router-dom';
 import TopNav from './components/TopNavigation';
 import AppRoutes from './navigation/AppRoutes';
 import { AuthProvider } from './context/AuthContext';
 
-// The welcome page ("/") is a full-screen landing view with its own bottom
-// nav, so the persistent top nav is hidden there and shown everywhere else.
-function AppShell({ theme, onToggleTheme }) {
-  const location = useLocation();
-  const isWelcomePage = location.pathname === '/';
+const THEME_STORAGE_KEY = 'f1-analytics-theme';
 
+function AppShell({ theme, onToggleTheme }) {
   return (
     <>
-      {!isWelcomePage && (
-        <TopNav theme={theme} onToggleTheme={onToggleTheme} />
-      )}
+      <TopNav theme={theme} onToggleTheme={onToggleTheme} />
       <AppRoutes />
     </>
   );
 }
 
 function App() {
-  const [theme, setTheme] = useState('dark'); // defaults dark, matching the mockup and docs site
+  const [theme, setTheme] = useState(() => {
+    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+    return savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : 'dark';
+  });
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  }, [theme]);
 
   return (
     <div className="app-shell" data-theme={theme}>
@@ -29,7 +32,7 @@ function App() {
         <AuthProvider>
           <AppShell
             theme={theme}
-            onToggleTheme={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+            onToggleTheme={() => setTheme((currentTheme) => (currentTheme === 'dark' ? 'light' : 'dark'))}
           />
         </AuthProvider>
       </BrowserRouter>

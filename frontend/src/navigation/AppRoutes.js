@@ -8,9 +8,14 @@ import TimeTravelPage from '../pages/TimeTravelPage';
 import DatasetsPage from '../pages/DatasetsPage';
 import DeveloperPage from '../pages/DeveloperPage';
 import AdminPage from '../pages/AdminPage';
+import WatchLivePage from '../pages/WatchLivePage';
 import SignInPage from '../pages/SignInPage';
 import SignUpPage from '../pages/SignUpPage';
 import ForgotPasswordPage from '../pages/ForgotPasswordPage';
+import TeamsPage from '../pages/TeamsPage';
+import TeamDetailPage from '../pages/TeamDetailPage';
+import DriversPage from '../pages/DriversPage';
+import DriverDetailPage from '../pages/DriverDetailPage';
 import RequireAuth from '../components/RequireAuth';
 
 function AppRoutes() {
@@ -29,6 +34,12 @@ function AppRoutes() {
       <Route path="/datasets" element={<RequireAuth><DatasetsPage /></RequireAuth>} />
       <Route path="/developer" element={<RequireAuth><DeveloperPage /></RequireAuth>} />
       <Route path="/admin" element={<RequireAuth><AdminPage /></RequireAuth>} />
+
+      <Route path="/teams" element={<TeamsPage />} />
+      <Route path="/team/:id" element={<TeamDetailPage />} />
+      <Route path="/drivers" element={<DriversPage />} />
+      <Route path="/driver/:id" element={<DriverDetailPage />} />
+      <Route path="/watch-live" element={<WatchLivePage />} />
     </Routes>
   );
 }

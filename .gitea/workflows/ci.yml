@@ -1,3 +1,4 @@
+
 name: Sport Analytics CI
 
 on:
@@ -9,12 +10,53 @@ on:
       - main
 
 jobs:
+
   frontend-test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Build frontend
+        run: docker compose build frontend
+
       - name: Run frontend tests
-        run: docker compose run --rm frontend
+        run: |
+          docker compose run --rm \
+            -v "${{ github.workspace }}/frontend/coverage:/app/coverage" \
+            frontend \
+            npm test -- --coverage --watchAll=false
+
+      - name: Upload frontend coverage
+        uses: codecov/codecov-action@v4
+        with:
+          token: 8d404320-08be-4d89-8672-31835467d45d
+          files: ./frontend/coverage/lcov.info
+          flags: frontend
+          fail_ci_if_error: true
+
+  backend-test:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build backend
+        run: docker compose build backend
+
+      - name: Run backend tests
+        run: |
+          docker compose run --rm \
+            -v "${{ github.workspace }}/backend/coverage:/app/coverage" \
+            backend \
+            npm test -- --coverage
+
+      - name: Upload backend coverage
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./backend/coverage/lcov.info
+          flags: backend
+          fail_ci_if_error: true
