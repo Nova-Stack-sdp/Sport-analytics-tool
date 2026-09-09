@@ -67,6 +67,22 @@ const CAR_DATA_CHUNK_MINUTES = 10;
 async function fetchCarDataChunked(sessionKey, sessionStart, sessionEnd) {
   const startMs = Date.parse(sessionStart);
   const endMs = Date.parse(sessionEnd);
+
+  // Live sessions (or stripped test payloads) can lack a usable time window —
+  // ask for the whole session in one request and let OpenF1's own size limits
+  // apply rather than silently returning no car data at all.
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
+    await paceBundleRequests();
+    const result = await fetchOpenF1Json(
+      buildResourceUrl('car_data', { session_key: sessionKey })
+    );
+    if (result.status === 404) return [];
+    if (result.status !== 200) {
+      throw new OpenF1PassthroughError(result.status, result.payload);
+    }
+    return result.payload;
+  }
+
   const chunkMs = CAR_DATA_CHUNK_MINUTES * 60 * 1000;
   const allRecords = [];
 
