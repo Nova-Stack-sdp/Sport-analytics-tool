@@ -2,11 +2,11 @@ FROM node:24-alpine
 
 WORKDIR /app
 
-RUN apk add --no-cache openssl
+RUN for i in 1 2 3; do apk add --no-cache openssl && break || sleep 5; done
 
 COPY package*.json ./
-RUN npm install -g npm@latest
-RUN npm ci --ignore-scripts --no-audit --no-fund
+RUN npm config set fetch-retries 5 fetch-retry-mintimeout 5000 \
+  && npm ci --ignore-scripts --no-audit --no-fund
 
 COPY prisma ./prisma
 COPY prisma.config.ts ./

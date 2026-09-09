@@ -88,7 +88,7 @@ function WelcomePage() {
       <Faq />
       <Footer />
     </div>
-  );
+  )
 }
 
 export default WelcomePage;

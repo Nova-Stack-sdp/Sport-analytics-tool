@@ -18,7 +18,7 @@ function Footer() {
           <div>
             <div className="footer-brand-mark">
               <div className="brand-badge">F1</div>
-              <div className="footer-brand-name">Nova Stack</div>
+              <div className="footer-brand-name">F1Lytics</div>
             </div>
             <p className="footer-tagline">Live Formula 1 analytics, derived from race event data.</p>
           </div>
@@ -50,7 +50,7 @@ function Footer() {
           </div>
         </div>
         <div className="footer-bottom">
-          <p className="footer-copy">© 2026 Nova Stack. Data sourced via the OpenF1 API.</p>
+          <p className="footer-copy">© 2026 F1Lytics. Data sourced via the OpenF1 API.</p>
           <div className="footer-live"><span className="dot" />2026 season · live</div>
         </div>
       </div>
