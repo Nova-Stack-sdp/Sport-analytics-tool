@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
+import { apiSportsOrEmpty } from '../lib/apiSports.js';
 
 export const driversRouter = Router();
 
-const API_SPORTS_BASE = 'https://v1.formula-1.api-sports.io';
 const F1_COLORS = {
   'Red Bull Racing': '#3671C6',
   'Oracle Red Bull Racing': '#3671C6',
@@ -29,20 +29,6 @@ const F1_COLORS = {
 
 function teamColor(name) {
   return F1_COLORS[name] || '#CE0D14';
-}
-
-async function apiSports(path) {
-  const key = process.env.API_SPORTS_KEY;
-  if (!key) throw new Error('API_SPORTS_KEY is not configured');
-  const res = await fetch(`${API_SPORTS_BASE}${path}`, {
-    headers: {
-      'x-rapidapi-key': key,
-      'x-rapidapi-host': 'v1.formula-1.api-sports.io',
-    },
-  });
-  if (!res.ok) throw new Error(`API-Sports ${path} -> ${res.status}`);
-  const data = await res.json();
-  return data.response || [];
 }
 
 const OPENF1_BASE = 'https://api.openf1.org/v1';
@@ -107,6 +93,10 @@ function openF1TeamColor(color) {
   return color.startsWith('#') ? color : `#${color}`;
 }
 
+function apiDriverForNumber(apiDrivers, driverNumber) {
+  return apiDrivers.find((driver) => Number(driver.number) === driverNumber) || null;
+}
+
 async function getCurrentSeason() {
   const latestMeeting = await prisma.meeting.findFirst({ orderBy: { season: 'desc' } });
   return latestMeeting?.season ?? new Date().getFullYear();
@@ -160,6 +150,7 @@ driversRouter.get('/', async (req, res, next) => {
       careerStats = loaded;
     }
 
+    const apiDrivers = await apiSportsOrEmpty('/drivers');
     const enriched = [];
     for (const cs of careerStats) {
       const driverWithEntries = cs.driver?.entries
@@ -172,12 +163,7 @@ driversRouter.get('/', async (req, res, next) => {
         .filter((e) => e.session.meeting.season === season)
         .slice(-1)[0]?.team;
 
-      let apiDriver = null;
-      try {
-        [apiDriver] = await apiSports(`/drivers?number=${driverWithEntries.driverNumber}`);
-      } catch (err) {
-        // API-Sports can be flaky per call; don't let one driver break the list.
-      }
+      const apiDriver = apiDriverForNumber(apiDrivers, driverWithEntries.driverNumber);
 
       enriched.push({
         id: driverWithEntries.id,
@@ -229,9 +215,8 @@ driversRouter.get('/:id', async (req, res, next) => {
           .then(([profile]) => profile || null)
           .catch(() => null)
         : Promise.resolve(null),
-      apiSports(`/drivers?number=${driver.driverNumber}`)
-        .then(([profile]) => profile || null)
-        .catch(() => null),
+      apiSportsOrEmpty('/drivers')
+        .then((profiles) => apiDriverForNumber(profiles, driver.driverNumber)),
     ]);
 
     const results = await Promise.all(trackedEntries.map(async (entry) => {
