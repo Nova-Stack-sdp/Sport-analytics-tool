@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth } from '../firebase';
+import { establishSession } from '../api/client';
 import '../styles/auth.css';
 
 const initialForm = {
@@ -61,7 +62,10 @@ function SignUpPage() {
         displayName: `${form.firstName} ${form.lastName}`,
       });
       // Firebase signs the account in immediately on creation, so there's
-      // no separate "now go sign in" step.
+      // no separate "now go sign in" step.  Exchange the token for a
+      // backend cookie before navigating.
+      const idToken = await credential.user.getIdToken();
+      await establishSession(idToken);
       navigate('/overview', { replace: true });
     } catch (error) {
       setStatus('error');

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { signInWithPopup, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth, googleProvider, githubProvider } from '../firebase';
+import { establishSession } from '../api/client';
 import '../styles/auth.css';
 
 function friendlyAuthError(error) {
@@ -58,6 +59,8 @@ function SignInPage() {
       // Also creates the account automatically if this Google user is new —
       // that's why sign-up doesn't need its own Google button.
       await signInWithPopup(auth, googleProvider);
+      const idToken = await auth.currentUser.getIdToken();
+      await establishSession(idToken);
       navigate('/overview', { replace: true });
     } catch (error) {
       const friendly = friendlyAuthError(error);
@@ -76,6 +79,8 @@ function SignInPage() {
     try {
       // Also creates the account automatically if this GitHub user is new.
       await signInWithPopup(auth, githubProvider);
+      const idToken = await auth.currentUser.getIdToken();
+      await establishSession(idToken);
       navigate('/overview', { replace: true });
     } catch (error) {
       const friendly = friendlyAuthError(error);
@@ -105,6 +110,8 @@ function SignInPage() {
     setMessage('');
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      const idToken = await auth.currentUser.getIdToken();
+      await establishSession(idToken);
       navigate('/overview', { replace: true });
     } catch (error) {
       setStatus('error');
