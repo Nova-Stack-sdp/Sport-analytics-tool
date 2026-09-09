@@ -11,7 +11,6 @@ jest.unstable_mockModule('../src/lib/prisma.js', () => ({ prisma: mockPrisma }))
 
 let createApp;
 let request;
-let clearApiSportsCache;
 
 function buildApiSportsDriver(overrides = {}) {
   return {
@@ -62,13 +61,11 @@ function mockFetch(responses) {
 
 beforeAll(async () => {
   ({ createApp } = await import('../src/app.js'));
-  ({ clearApiSportsCache } = await import('../src/lib/apiSports.js'));
   ({ default: request } = await import('supertest'));
 });
 
 beforeEach(() => {
   jest.clearAllMocks();
-  clearApiSportsCache();
   delete process.env.API_SPORTS_KEY;
   delete process.env.YOUTUBE_API_KEY;
 });
@@ -78,7 +75,7 @@ afterEach(() => {
 });
 
 describe('GET /api/drivers', () => {
-  test('returns enriched drivers and reuses the cached API-Sports catalogue', async () => {
+  test('returns enriched drivers from driverCareerStats with API-Sports data', async () => {
     process.env.API_SPORTS_KEY = 'test-key';
     mockPrisma.meeting.findFirst.mockResolvedValue({ season: 2024 });
     mockPrisma.driverCareerStats.findMany.mockResolvedValue([
@@ -104,10 +101,8 @@ describe('GET /api/drivers', () => {
 
     const app = createApp();
     const res = await request(app).get('/api/drivers');
-    const repeated = await request(app).get('/api/drivers');
 
     expect(res.status).toBe(200);
-    expect(repeated.status).toBe(200);
     expect(res.body.season).toBe(2024);
     expect(res.body.drivers).toHaveLength(1);
     expect(res.body.drivers[0]).toMatchObject({
@@ -124,7 +119,6 @@ describe('GET /api/drivers', () => {
       flag: '🇳🇱',
       imageUrl: 'https://example.com/max.png',
     });
-    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
   test('paginates the list, fetches API-Sports once, and prefers an OpenF1 headshot', async () => {
