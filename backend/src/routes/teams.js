@@ -94,6 +94,15 @@ function initials(name) {
     .toUpperCase();
 }
 
+function parsePagination(query) {
+  const offset = Math.max(0, Number.parseInt(query.offset, 10) || 0);
+  const parsedLimit = Number.parseInt(query.limit, 10);
+  const limit = Number.isFinite(parsedLimit) && parsedLimit > 0
+    ? Math.min(parsedLimit, 500)
+    : 100;
+  return { offset, limit };
+}
+
 function openF1TeamColor(color) {
   if (!color) return null;
   return color.startsWith('#') ? color : `#${color}`;
@@ -279,7 +288,16 @@ teamsRouter.get('/', async (req, res, next) => {
       })
       .sort((a, b) => b.points - a.points || b.wins - a.wins || a.name.localeCompare(b.name));
 
-    res.json({ season, teams: enriched });
+    const { offset, limit } = parsePagination(req.query);
+    const page = enriched.slice(offset, offset + limit);
+    res.json({
+      season,
+      teams: page,
+      total: enriched.length,
+      offset,
+      limit,
+      hasMore: offset + page.length < enriched.length,
+    });
   } catch (err) {
     next(err);
   }

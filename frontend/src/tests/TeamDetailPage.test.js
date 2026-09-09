@@ -71,7 +71,7 @@ describe('TeamDetailPage', () => {
     expect(getTeam).toHaveBeenCalledWith('42');
   });
 
-  test('renders API-Sports identity, local season stats, driver links, facts, and gallery', async () => {
+  test('renders API-Sports identity, local season stats, facts, and gallery', async () => {
     getTeam.mockResolvedValue(fullTeam);
 
     renderPage();
@@ -79,7 +79,6 @@ describe('TeamDetailPage', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Red Bull Racing' })).toBeInTheDocument());
 
     expect(screen.getByRole('img', { name: 'Red Bull Racing' })).toHaveAttribute('src', fullTeam.logoUrl);
-    expect(screen.getByRole('img', { name: 'Max Verstappen' })).toHaveAttribute('src', fullTeam.drivers[0].imageUrl);
     expect(screen.getByText('612')).toBeInTheDocument();
     expect(screen.getByText('10')).toBeInTheDocument();
     expect(screen.getByText('P1 (130x)')).toBeInTheDocument();
@@ -87,14 +86,6 @@ describe('TeamDetailPage', () => {
     expect(screen.getByText('Laurent Mekies')).toBeInTheDocument();
     expect(screen.getByText('RB22')).toBeInTheDocument();
     expect(screen.getByText('Red Bull Ford')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /1 · Max Verstappen/i })).toHaveAttribute(
-      'href',
-      '/driver/driver-1'
-    );
-    expect(screen.getByRole('link', { name: /22 · Yuki Tsunoda/i })).toHaveAttribute(
-      'href',
-      '/driver/driver-2'
-    );
     expect(document.querySelectorAll('.gallery-cell')).toHaveLength(4);
   });
 

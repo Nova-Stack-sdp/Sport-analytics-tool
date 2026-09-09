@@ -23,7 +23,7 @@ function HeroBanner() {
     <div className="hero-banner">
       <div className="hero-content">
         <div className="hero-eyebrow">Live · Round 6</div>
-        <h1 className="hero-title">NOVA STACK</h1>
+        <h1 className="hero-title">F1 lytics</h1>
         <p className="hero-body">
           Every statistic on this page — lap times, pit stops, sector splits, penalties — is derived from race event data, not typed in by hand.
         </p>

@@ -1,4 +1,28 @@
 // Battle Radar - full-width section showing current race dynamics.
+// Shows each driver's gap to the car ahead and the pace advantage needed
+// to close it — the real number that matters for an overtake.
+function overtakeAdvice(entry) {
+  if (entry.position === 1) return 'In clear air — setting the pace';
+  if (entry.gapToAhead == null || entry.gapToAhead <= 0) return 'Collecting telemetry\u2026';
+
+  if (entry.lastLapTime != null && entry.aheadLastLapTime != null) {
+    const paceAdv = entry.aheadLastLapTime - entry.lastLapTime;
+    if (paceAdv > 0.1) {
+      const lapsToCatch = Math.ceil(entry.gapToAhead / paceAdv);
+      if (entry.gapToAhead < 1.0) {
+        return `Right behind — ${paceAdv.toFixed(1)}s faster per lap`;
+      }
+      return `${paceAdv.toFixed(1)}s faster per lap — ~${lapsToCatch} laps to catch`;
+    }
+    if (paceAdv < -0.1) {
+      return `Losing ${Math.abs(paceAdv).toFixed(1)}s per lap — gap widening`;
+    }
+    return 'Matching pace — gap steady';
+  }
+
+  return `Need +${entry.gapToAhead.toFixed(1)}s/lap advantage to catch`;
+}
+
 function BattleRadar({ leaderboard }) {
   if (leaderboard.length === 0) {
     return (
@@ -17,9 +41,21 @@ function BattleRadar({ leaderboard }) {
     );
   }
 
+  // Build a lookup for the driver ahead so each entry knows the car in front's pace.
+  const driverByPosition = new Map(leaderboard.map((d) => [d.position, d]));
+
   const totalDrivers = leaderboard.length;
   const entriesAtPositions = (positions) => positions
-    .map((position) => leaderboard.find((entry) => entry.position === position))
+    .map((position) => {
+      const entry = leaderboard.find((e) => e.position === position);
+      if (!entry) return null;
+      const ahead = position > 1 ? driverByPosition.get(position - 1) : null;
+      return {
+        ...entry,
+        aheadDriverName: ahead?.driverName ?? null,
+        aheadLastLapTime: ahead?.lastLapTime ?? null,
+      };
+    })
     .filter(Boolean);
 
   const columns = [
@@ -37,7 +73,7 @@ function BattleRadar({ leaderboard }) {
       <div className="card-head">
         <div>
           <div className="card-title">Battle Radar</div>
-          <div className="card-title-sub">Front, midfield, and back action</div>
+          <div className="card-title-sub">Gap to car ahead and pace needed to overtake</div>
         </div>
         <span className="pill pill-blue">Race dynamics</span>
       </div>
@@ -58,14 +94,20 @@ function BattleRadar({ leaderboard }) {
                   <strong>P{entry.position}</strong>
                 </div>
                 <div className="radar-metric-row">
-                  <span>Momentum</span>
-                  <strong>{entry.positionChange == null ? '--' : entry.positionChange === 0 ? '0m/s' : `${entry.positionChange > 0 ? '+' : ''}${entry.positionChange}`}</strong>
+                  <span>Gap to{entry.aheadDriverName ? ` ${entry.aheadDriverName.split(' ').pop()}` : ' ahead'}</span>
+                  <strong className={entry.gapToAhead != null && entry.gapToAhead > 0 ? 'radar-gap' : ''}>
+                    {entry.position === 1
+                      ? 'LEADER'
+                      : entry.gapToAhead != null && entry.gapToAhead > 0
+                        ? `+${entry.gapToAhead.toFixed(1)}s`
+                        : '--'}
+                  </strong>
                 </div>
                 <div className="radar-metric-row">
                   <span>Tyre</span>
                   <strong>{entry.tyreCompound ?? '--'}</strong>
                 </div>
-                <div className="radar-advice">{entry.momentum}</div>
+                <div className="radar-advice">{overtakeAdvice(entry)}</div>
               </div>
             ))}
           </div>

@@ -12,7 +12,7 @@ describe('Barcelona Watch Live speed', () => {
       session: [{ session_name: 'Race' }],
       meeting: [{ meeting_name: 'Barcelona-Catalunya Grand Prix' }],
       drivers: [{ driver_number: 44, full_name: 'Lewis Hamilton', team_name: 'Ferrari' }],
-      laps: [{ date: '2026-06-14T13:19:06.289Z', lap_number: 11 }],
+      laps: [{ date: '2026-06-14T13:19:06.289Z', lap_number: 11, lap_duration: 80 }],
       pit: [],
       stints: [{ date: '2026-06-14T13:19:06.289Z', driver_number: 44, compound: 'HARD', stint_number: 2 }],
       position: [{ date: '2026-06-14T13:19:06.289Z', driver_number: 44, position: 1 }],

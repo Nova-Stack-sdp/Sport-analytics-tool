@@ -7,9 +7,9 @@ function PlaybackStatusBar({ state }) {
     return `${minutes}:${String(totalSeconds % 60).padStart(2, '0')}`;
   };
 
-  const raceClock = formatRaceClock(state?.currentSeconds);
+  const raceClock = formatRaceClock(state?.videoSeconds);
   const lapInfo = state?.session?.currentLap ? `Lap ${state.session.currentLap}/${state.session.totalLaps}` : '-- Lap';
-  const intensityPercent = state ? Math.round(((state.currentSeconds || 0) / (state.session?.totalLaps ? state.session.totalLaps * 60 : 1)) * 100) : 0;
+  const intensityPercent = state ? Math.round(((state.videoSeconds || 0) / (state.session?.totalLaps ? state.session.totalLaps * 60 : 1)) * 100) : 0;
 
   return (
     <div className="playback-status-bar">

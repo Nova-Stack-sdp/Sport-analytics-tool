@@ -1,17 +1,58 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getDrivers } from '../api/client';
+import { getCachedImageUrl, getDrivers } from '../api/client';
+
+const INITIAL_PAGE_SIZE = 2;
+const PREFETCH_PAGE_SIZE = 100;
+
+// Runs background work as soon as the browser is idle, with a timer fallback
+// for environments (older browsers, jsdom) without requestIdleCallback. The
+// cancel handle is captured up front so cleanup still works if the global
+// disappears before unmount (as happens between test hooks).
+function scheduleIdle(callback) {
+  if (typeof window.requestIdleCallback === 'function') {
+    const cancel = window.cancelIdleCallback;
+    const handle = window.requestIdleCallback(callback);
+    return () => {
+      if (typeof cancel === 'function') cancel(handle);
+    };
+  }
+  const timer = setTimeout(callback, 200);
+  return () => clearTimeout(timer);
+}
+
+// Tries the OpenF1 headshot first, then the API-Sports fallback, and finally
+// gives up on images and shows the bare race number.
+function DriverPhoto({ driver }) {
+  const [attempt, setAttempt] = useState(0);
+  const sources = [driver.imageUrl, driver.fallbackImageUrl].filter(Boolean);
+
+  if (attempt >= sources.length) {
+    return <span className="driver-num">{driver.number}</span>;
+  }
+
+  return (
+    <img
+      src={getCachedImageUrl(sources[attempt])}
+      alt={driver.name}
+      onError={() => setAttempt((current) => current + 1)}
+    />
+  );
+}
 
 function DriversPage() {
-  const [data, setData] = useState(null);
+  const [firstPage, setFirstPage] = useState(null);
+  const [remaining, setRemaining] = useState(null);
+  const [revealed, setRevealed] = useState(false);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const prefetchStartedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
-    getDrivers()
+    getDrivers({ limit: INITIAL_PAGE_SIZE, offset: 0 })
       .then((result) => {
-        if (!cancelled) setData(result);
+        if (!cancelled) setFirstPage(result);
       })
       .catch((err) => {
         if (!cancelled) setError(err.message);
@@ -21,6 +62,37 @@ function DriversPage() {
       });
     return () => { cancelled = true; };
   }, []);
+
+  const hasMore = Boolean(firstPage?.hasMore)
+    || (firstPage?.total != null && firstPage.drivers.length < firstPage.total);
+
+  // Prefetch the rest of the grid while the user scans the first cards, so
+  // "View more" reveals instantly instead of triggering a fresh request.
+  useEffect(() => {
+    if (loading || error || !firstPage || !hasMore || prefetchStartedRef.current) {
+      return undefined;
+    }
+    prefetchStartedRef.current = true;
+    let cancelled = false;
+    const cancelIdle = scheduleIdle(() => {
+      getDrivers({ limit: PREFETCH_PAGE_SIZE, offset: firstPage.drivers.length })
+        .then((result) => {
+          if (!cancelled) setRemaining(result);
+        })
+        .catch(() => {
+          // Best-effort: View more simply stays disabled if this fails.
+        });
+    });
+    return () => {
+      cancelled = true;
+      cancelIdle();
+    };
+  }, [loading, error, firstPage, hasMore]);
+
+  const drivers = revealed
+    ? [...(firstPage?.drivers ?? []), ...(remaining?.drivers ?? [])]
+    : (firstPage?.drivers ?? []);
+  const canReveal = Boolean(remaining?.drivers?.length);
 
   return (
     <div className="page page-drivers">
@@ -39,12 +111,12 @@ function DriversPage() {
             <div><b>Couldn't load drivers:</b> {error}</div>
           </div>
         )}
-        {!loading && !error && data?.drivers?.length === 0 && (
+        {!loading && !error && drivers.length === 0 && (
           <p className="secondary">No drivers available yet.</p>
         )}
-        {!loading && !error && data?.drivers?.length > 0 && (
+        {!loading && !error && drivers.length > 0 && (
           <div className="driver-grid">
-            {data.drivers.map((driver, index) => (
+            {drivers.map((driver, index) => (
               <Link
                 key={driver.id}
                 to={`/driver/${driver.id}`}
@@ -53,11 +125,7 @@ function DriversPage() {
               >
                 <div className="driver-photo">
                   <span className="driver-rank">{index + 1}</span>
-                  {driver.imageUrl ? (
-                    <img src={driver.imageUrl} alt={driver.name} />
-                  ) : (
-                    <span className="driver-num">{driver.number}</span>
-                  )}
+                  <DriverPhoto driver={driver} />
                 </div>
                 <div className="driver-strip">
                   <div>
@@ -68,6 +136,16 @@ function DriversPage() {
                 </div>
               </Link>
             ))}
+            {hasMore && !revealed && (
+              <button
+                type="button"
+                className="view-more-btn"
+                disabled={!canReveal}
+                onClick={() => setRevealed(true)}
+              >
+                View more
+              </button>
+            )}
           </div>
         )}
       </div>

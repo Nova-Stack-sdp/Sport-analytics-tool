@@ -1,0 +1,1420 @@
+
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Code coverage report for src/routes/watchLive.js</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../prettify.css" />
+    <link rel="stylesheet" href="../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+    
+<body>
+<div class='wrapper'>
+    <div class='pad1'>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">src/routes</a> watchLive.js</h1>
+        <div class='clearfix'>
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">74.33% </span>
+                <span class="quiet">Statements</span>
+                <span class='fraction'>84/113</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">53.26% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>49/92</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">86.66% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>26/30</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">74.76% </span>
+                <span class="quiet">Lines</span>
+                <span class='fraction'>80/107</span>
+            </div>
+        
+            
+        </div>
+        <p class="quiet">
+            Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em> for the previous block.
+        </p>
+        <template id="filterTemplate">
+            <div class="quiet">
+                Filter:
+                <input type="search" id="fileSearch">
+            </div>
+        </template>
+    </div>
+    <div class='status-line medium'></div>
+    <pre><table class="coverage">
+<tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
+<a name='L2'></a><a href='#L2'>2</a>
+<a name='L3'></a><a href='#L3'>3</a>
+<a name='L4'></a><a href='#L4'>4</a>
+<a name='L5'></a><a href='#L5'>5</a>
+<a name='L6'></a><a href='#L6'>6</a>
+<a name='L7'></a><a href='#L7'>7</a>
+<a name='L8'></a><a href='#L8'>8</a>
+<a name='L9'></a><a href='#L9'>9</a>
+<a name='L10'></a><a href='#L10'>10</a>
+<a name='L11'></a><a href='#L11'>11</a>
+<a name='L12'></a><a href='#L12'>12</a>
+<a name='L13'></a><a href='#L13'>13</a>
+<a name='L14'></a><a href='#L14'>14</a>
+<a name='L15'></a><a href='#L15'>15</a>
+<a name='L16'></a><a href='#L16'>16</a>
+<a name='L17'></a><a href='#L17'>17</a>
+<a name='L18'></a><a href='#L18'>18</a>
+<a name='L19'></a><a href='#L19'>19</a>
+<a name='L20'></a><a href='#L20'>20</a>
+<a name='L21'></a><a href='#L21'>21</a>
+<a name='L22'></a><a href='#L22'>22</a>
+<a name='L23'></a><a href='#L23'>23</a>
+<a name='L24'></a><a href='#L24'>24</a>
+<a name='L25'></a><a href='#L25'>25</a>
+<a name='L26'></a><a href='#L26'>26</a>
+<a name='L27'></a><a href='#L27'>27</a>
+<a name='L28'></a><a href='#L28'>28</a>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a>
+<a name='L33'></a><a href='#L33'>33</a>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a>
+<a name='L38'></a><a href='#L38'>38</a>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a>
+<a name='L46'></a><a href='#L46'>46</a>
+<a name='L47'></a><a href='#L47'>47</a>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a>
+<a name='L64'></a><a href='#L64'>64</a>
+<a name='L65'></a><a href='#L65'>65</a>
+<a name='L66'></a><a href='#L66'>66</a>
+<a name='L67'></a><a href='#L67'>67</a>
+<a name='L68'></a><a href='#L68'>68</a>
+<a name='L69'></a><a href='#L69'>69</a>
+<a name='L70'></a><a href='#L70'>70</a>
+<a name='L71'></a><a href='#L71'>71</a>
+<a name='L72'></a><a href='#L72'>72</a>
+<a name='L73'></a><a href='#L73'>73</a>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a>
+<a name='L78'></a><a href='#L78'>78</a>
+<a name='L79'></a><a href='#L79'>79</a>
+<a name='L80'></a><a href='#L80'>80</a>
+<a name='L81'></a><a href='#L81'>81</a>
+<a name='L82'></a><a href='#L82'>82</a>
+<a name='L83'></a><a href='#L83'>83</a>
+<a name='L84'></a><a href='#L84'>84</a>
+<a name='L85'></a><a href='#L85'>85</a>
+<a name='L86'></a><a href='#L86'>86</a>
+<a name='L87'></a><a href='#L87'>87</a>
+<a name='L88'></a><a href='#L88'>88</a>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a>
+<a name='L98'></a><a href='#L98'>98</a>
+<a name='L99'></a><a href='#L99'>99</a>
+<a name='L100'></a><a href='#L100'>100</a>
+<a name='L101'></a><a href='#L101'>101</a>
+<a name='L102'></a><a href='#L102'>102</a>
+<a name='L103'></a><a href='#L103'>103</a>
+<a name='L104'></a><a href='#L104'>104</a>
+<a name='L105'></a><a href='#L105'>105</a>
+<a name='L106'></a><a href='#L106'>106</a>
+<a name='L107'></a><a href='#L107'>107</a>
+<a name='L108'></a><a href='#L108'>108</a>
+<a name='L109'></a><a href='#L109'>109</a>
+<a name='L110'></a><a href='#L110'>110</a>
+<a name='L111'></a><a href='#L111'>111</a>
+<a name='L112'></a><a href='#L112'>112</a>
+<a name='L113'></a><a href='#L113'>113</a>
+<a name='L114'></a><a href='#L114'>114</a>
+<a name='L115'></a><a href='#L115'>115</a>
+<a name='L116'></a><a href='#L116'>116</a>
+<a name='L117'></a><a href='#L117'>117</a>
+<a name='L118'></a><a href='#L118'>118</a>
+<a name='L119'></a><a href='#L119'>119</a>
+<a name='L120'></a><a href='#L120'>120</a>
+<a name='L121'></a><a href='#L121'>121</a>
+<a name='L122'></a><a href='#L122'>122</a>
+<a name='L123'></a><a href='#L123'>123</a>
+<a name='L124'></a><a href='#L124'>124</a>
+<a name='L125'></a><a href='#L125'>125</a>
+<a name='L126'></a><a href='#L126'>126</a>
+<a name='L127'></a><a href='#L127'>127</a>
+<a name='L128'></a><a href='#L128'>128</a>
+<a name='L129'></a><a href='#L129'>129</a>
+<a name='L130'></a><a href='#L130'>130</a>
+<a name='L131'></a><a href='#L131'>131</a>
+<a name='L132'></a><a href='#L132'>132</a>
+<a name='L133'></a><a href='#L133'>133</a>
+<a name='L134'></a><a href='#L134'>134</a>
+<a name='L135'></a><a href='#L135'>135</a>
+<a name='L136'></a><a href='#L136'>136</a>
+<a name='L137'></a><a href='#L137'>137</a>
+<a name='L138'></a><a href='#L138'>138</a>
+<a name='L139'></a><a href='#L139'>139</a>
+<a name='L140'></a><a href='#L140'>140</a>
+<a name='L141'></a><a href='#L141'>141</a>
+<a name='L142'></a><a href='#L142'>142</a>
+<a name='L143'></a><a href='#L143'>143</a>
+<a name='L144'></a><a href='#L144'>144</a>
+<a name='L145'></a><a href='#L145'>145</a>
+<a name='L146'></a><a href='#L146'>146</a>
+<a name='L147'></a><a href='#L147'>147</a>
+<a name='L148'></a><a href='#L148'>148</a>
+<a name='L149'></a><a href='#L149'>149</a>
+<a name='L150'></a><a href='#L150'>150</a>
+<a name='L151'></a><a href='#L151'>151</a>
+<a name='L152'></a><a href='#L152'>152</a>
+<a name='L153'></a><a href='#L153'>153</a>
+<a name='L154'></a><a href='#L154'>154</a>
+<a name='L155'></a><a href='#L155'>155</a>
+<a name='L156'></a><a href='#L156'>156</a>
+<a name='L157'></a><a href='#L157'>157</a>
+<a name='L158'></a><a href='#L158'>158</a>
+<a name='L159'></a><a href='#L159'>159</a>
+<a name='L160'></a><a href='#L160'>160</a>
+<a name='L161'></a><a href='#L161'>161</a>
+<a name='L162'></a><a href='#L162'>162</a>
+<a name='L163'></a><a href='#L163'>163</a>
+<a name='L164'></a><a href='#L164'>164</a>
+<a name='L165'></a><a href='#L165'>165</a>
+<a name='L166'></a><a href='#L166'>166</a>
+<a name='L167'></a><a href='#L167'>167</a>
+<a name='L168'></a><a href='#L168'>168</a>
+<a name='L169'></a><a href='#L169'>169</a>
+<a name='L170'></a><a href='#L170'>170</a>
+<a name='L171'></a><a href='#L171'>171</a>
+<a name='L172'></a><a href='#L172'>172</a>
+<a name='L173'></a><a href='#L173'>173</a>
+<a name='L174'></a><a href='#L174'>174</a>
+<a name='L175'></a><a href='#L175'>175</a>
+<a name='L176'></a><a href='#L176'>176</a>
+<a name='L177'></a><a href='#L177'>177</a>
+<a name='L178'></a><a href='#L178'>178</a>
+<a name='L179'></a><a href='#L179'>179</a>
+<a name='L180'></a><a href='#L180'>180</a>
+<a name='L181'></a><a href='#L181'>181</a>
+<a name='L182'></a><a href='#L182'>182</a>
+<a name='L183'></a><a href='#L183'>183</a>
+<a name='L184'></a><a href='#L184'>184</a>
+<a name='L185'></a><a href='#L185'>185</a>
+<a name='L186'></a><a href='#L186'>186</a>
+<a name='L187'></a><a href='#L187'>187</a>
+<a name='L188'></a><a href='#L188'>188</a>
+<a name='L189'></a><a href='#L189'>189</a>
+<a name='L190'></a><a href='#L190'>190</a>
+<a name='L191'></a><a href='#L191'>191</a>
+<a name='L192'></a><a href='#L192'>192</a>
+<a name='L193'></a><a href='#L193'>193</a>
+<a name='L194'></a><a href='#L194'>194</a>
+<a name='L195'></a><a href='#L195'>195</a>
+<a name='L196'></a><a href='#L196'>196</a>
+<a name='L197'></a><a href='#L197'>197</a>
+<a name='L198'></a><a href='#L198'>198</a>
+<a name='L199'></a><a href='#L199'>199</a>
+<a name='L200'></a><a href='#L200'>200</a>
+<a name='L201'></a><a href='#L201'>201</a>
+<a name='L202'></a><a href='#L202'>202</a>
+<a name='L203'></a><a href='#L203'>203</a>
+<a name='L204'></a><a href='#L204'>204</a>
+<a name='L205'></a><a href='#L205'>205</a>
+<a name='L206'></a><a href='#L206'>206</a>
+<a name='L207'></a><a href='#L207'>207</a>
+<a name='L208'></a><a href='#L208'>208</a>
+<a name='L209'></a><a href='#L209'>209</a>
+<a name='L210'></a><a href='#L210'>210</a>
+<a name='L211'></a><a href='#L211'>211</a>
+<a name='L212'></a><a href='#L212'>212</a>
+<a name='L213'></a><a href='#L213'>213</a>
+<a name='L214'></a><a href='#L214'>214</a>
+<a name='L215'></a><a href='#L215'>215</a>
+<a name='L216'></a><a href='#L216'>216</a>
+<a name='L217'></a><a href='#L217'>217</a>
+<a name='L218'></a><a href='#L218'>218</a>
+<a name='L219'></a><a href='#L219'>219</a>
+<a name='L220'></a><a href='#L220'>220</a>
+<a name='L221'></a><a href='#L221'>221</a>
+<a name='L222'></a><a href='#L222'>222</a>
+<a name='L223'></a><a href='#L223'>223</a>
+<a name='L224'></a><a href='#L224'>224</a>
+<a name='L225'></a><a href='#L225'>225</a>
+<a name='L226'></a><a href='#L226'>226</a>
+<a name='L227'></a><a href='#L227'>227</a>
+<a name='L228'></a><a href='#L228'>228</a>
+<a name='L229'></a><a href='#L229'>229</a>
+<a name='L230'></a><a href='#L230'>230</a>
+<a name='L231'></a><a href='#L231'>231</a>
+<a name='L232'></a><a href='#L232'>232</a>
+<a name='L233'></a><a href='#L233'>233</a>
+<a name='L234'></a><a href='#L234'>234</a>
+<a name='L235'></a><a href='#L235'>235</a>
+<a name='L236'></a><a href='#L236'>236</a>
+<a name='L237'></a><a href='#L237'>237</a>
+<a name='L238'></a><a href='#L238'>238</a>
+<a name='L239'></a><a href='#L239'>239</a>
+<a name='L240'></a><a href='#L240'>240</a>
+<a name='L241'></a><a href='#L241'>241</a>
+<a name='L242'></a><a href='#L242'>242</a>
+<a name='L243'></a><a href='#L243'>243</a>
+<a name='L244'></a><a href='#L244'>244</a>
+<a name='L245'></a><a href='#L245'>245</a>
+<a name='L246'></a><a href='#L246'>246</a>
+<a name='L247'></a><a href='#L247'>247</a>
+<a name='L248'></a><a href='#L248'>248</a>
+<a name='L249'></a><a href='#L249'>249</a>
+<a name='L250'></a><a href='#L250'>250</a>
+<a name='L251'></a><a href='#L251'>251</a>
+<a name='L252'></a><a href='#L252'>252</a>
+<a name='L253'></a><a href='#L253'>253</a>
+<a name='L254'></a><a href='#L254'>254</a>
+<a name='L255'></a><a href='#L255'>255</a>
+<a name='L256'></a><a href='#L256'>256</a>
+<a name='L257'></a><a href='#L257'>257</a>
+<a name='L258'></a><a href='#L258'>258</a>
+<a name='L259'></a><a href='#L259'>259</a>
+<a name='L260'></a><a href='#L260'>260</a>
+<a name='L261'></a><a href='#L261'>261</a>
+<a name='L262'></a><a href='#L262'>262</a>
+<a name='L263'></a><a href='#L263'>263</a>
+<a name='L264'></a><a href='#L264'>264</a>
+<a name='L265'></a><a href='#L265'>265</a>
+<a name='L266'></a><a href='#L266'>266</a>
+<a name='L267'></a><a href='#L267'>267</a>
+<a name='L268'></a><a href='#L268'>268</a>
+<a name='L269'></a><a href='#L269'>269</a>
+<a name='L270'></a><a href='#L270'>270</a>
+<a name='L271'></a><a href='#L271'>271</a>
+<a name='L272'></a><a href='#L272'>272</a>
+<a name='L273'></a><a href='#L273'>273</a>
+<a name='L274'></a><a href='#L274'>274</a>
+<a name='L275'></a><a href='#L275'>275</a>
+<a name='L276'></a><a href='#L276'>276</a>
+<a name='L277'></a><a href='#L277'>277</a>
+<a name='L278'></a><a href='#L278'>278</a>
+<a name='L279'></a><a href='#L279'>279</a>
+<a name='L280'></a><a href='#L280'>280</a>
+<a name='L281'></a><a href='#L281'>281</a>
+<a name='L282'></a><a href='#L282'>282</a>
+<a name='L283'></a><a href='#L283'>283</a>
+<a name='L284'></a><a href='#L284'>284</a>
+<a name='L285'></a><a href='#L285'>285</a>
+<a name='L286'></a><a href='#L286'>286</a>
+<a name='L287'></a><a href='#L287'>287</a>
+<a name='L288'></a><a href='#L288'>288</a>
+<a name='L289'></a><a href='#L289'>289</a>
+<a name='L290'></a><a href='#L290'>290</a>
+<a name='L291'></a><a href='#L291'>291</a>
+<a name='L292'></a><a href='#L292'>292</a>
+<a name='L293'></a><a href='#L293'>293</a>
+<a name='L294'></a><a href='#L294'>294</a>
+<a name='L295'></a><a href='#L295'>295</a>
+<a name='L296'></a><a href='#L296'>296</a>
+<a name='L297'></a><a href='#L297'>297</a>
+<a name='L298'></a><a href='#L298'>298</a>
+<a name='L299'></a><a href='#L299'>299</a>
+<a name='L300'></a><a href='#L300'>300</a>
+<a name='L301'></a><a href='#L301'>301</a>
+<a name='L302'></a><a href='#L302'>302</a>
+<a name='L303'></a><a href='#L303'>303</a>
+<a name='L304'></a><a href='#L304'>304</a>
+<a name='L305'></a><a href='#L305'>305</a>
+<a name='L306'></a><a href='#L306'>306</a>
+<a name='L307'></a><a href='#L307'>307</a>
+<a name='L308'></a><a href='#L308'>308</a>
+<a name='L309'></a><a href='#L309'>309</a>
+<a name='L310'></a><a href='#L310'>310</a>
+<a name='L311'></a><a href='#L311'>311</a>
+<a name='L312'></a><a href='#L312'>312</a>
+<a name='L313'></a><a href='#L313'>313</a>
+<a name='L314'></a><a href='#L314'>314</a>
+<a name='L315'></a><a href='#L315'>315</a>
+<a name='L316'></a><a href='#L316'>316</a>
+<a name='L317'></a><a href='#L317'>317</a>
+<a name='L318'></a><a href='#L318'>318</a>
+<a name='L319'></a><a href='#L319'>319</a>
+<a name='L320'></a><a href='#L320'>320</a>
+<a name='L321'></a><a href='#L321'>321</a>
+<a name='L322'></a><a href='#L322'>322</a>
+<a name='L323'></a><a href='#L323'>323</a>
+<a name='L324'></a><a href='#L324'>324</a>
+<a name='L325'></a><a href='#L325'>325</a>
+<a name='L326'></a><a href='#L326'>326</a>
+<a name='L327'></a><a href='#L327'>327</a>
+<a name='L328'></a><a href='#L328'>328</a>
+<a name='L329'></a><a href='#L329'>329</a>
+<a name='L330'></a><a href='#L330'>330</a>
+<a name='L331'></a><a href='#L331'>331</a>
+<a name='L332'></a><a href='#L332'>332</a>
+<a name='L333'></a><a href='#L333'>333</a>
+<a name='L334'></a><a href='#L334'>334</a>
+<a name='L335'></a><a href='#L335'>335</a>
+<a name='L336'></a><a href='#L336'>336</a>
+<a name='L337'></a><a href='#L337'>337</a>
+<a name='L338'></a><a href='#L338'>338</a>
+<a name='L339'></a><a href='#L339'>339</a>
+<a name='L340'></a><a href='#L340'>340</a>
+<a name='L341'></a><a href='#L341'>341</a>
+<a name='L342'></a><a href='#L342'>342</a>
+<a name='L343'></a><a href='#L343'>343</a>
+<a name='L344'></a><a href='#L344'>344</a>
+<a name='L345'></a><a href='#L345'>345</a>
+<a name='L346'></a><a href='#L346'>346</a>
+<a name='L347'></a><a href='#L347'>347</a>
+<a name='L348'></a><a href='#L348'>348</a>
+<a name='L349'></a><a href='#L349'>349</a>
+<a name='L350'></a><a href='#L350'>350</a>
+<a name='L351'></a><a href='#L351'>351</a>
+<a name='L352'></a><a href='#L352'>352</a>
+<a name='L353'></a><a href='#L353'>353</a>
+<a name='L354'></a><a href='#L354'>354</a>
+<a name='L355'></a><a href='#L355'>355</a>
+<a name='L356'></a><a href='#L356'>356</a>
+<a name='L357'></a><a href='#L357'>357</a>
+<a name='L358'></a><a href='#L358'>358</a>
+<a name='L359'></a><a href='#L359'>359</a>
+<a name='L360'></a><a href='#L360'>360</a>
+<a name='L361'></a><a href='#L361'>361</a>
+<a name='L362'></a><a href='#L362'>362</a>
+<a name='L363'></a><a href='#L363'>363</a>
+<a name='L364'></a><a href='#L364'>364</a>
+<a name='L365'></a><a href='#L365'>365</a>
+<a name='L366'></a><a href='#L366'>366</a>
+<a name='L367'></a><a href='#L367'>367</a>
+<a name='L368'></a><a href='#L368'>368</a>
+<a name='L369'></a><a href='#L369'>369</a>
+<a name='L370'></a><a href='#L370'>370</a>
+<a name='L371'></a><a href='#L371'>371</a>
+<a name='L372'></a><a href='#L372'>372</a>
+<a name='L373'></a><a href='#L373'>373</a>
+<a name='L374'></a><a href='#L374'>374</a>
+<a name='L375'></a><a href='#L375'>375</a>
+<a name='L376'></a><a href='#L376'>376</a>
+<a name='L377'></a><a href='#L377'>377</a>
+<a name='L378'></a><a href='#L378'>378</a>
+<a name='L379'></a><a href='#L379'>379</a>
+<a name='L380'></a><a href='#L380'>380</a>
+<a name='L381'></a><a href='#L381'>381</a>
+<a name='L382'></a><a href='#L382'>382</a>
+<a name='L383'></a><a href='#L383'>383</a>
+<a name='L384'></a><a href='#L384'>384</a>
+<a name='L385'></a><a href='#L385'>385</a>
+<a name='L386'></a><a href='#L386'>386</a>
+<a name='L387'></a><a href='#L387'>387</a>
+<a name='L388'></a><a href='#L388'>388</a>
+<a name='L389'></a><a href='#L389'>389</a>
+<a name='L390'></a><a href='#L390'>390</a>
+<a name='L391'></a><a href='#L391'>391</a>
+<a name='L392'></a><a href='#L392'>392</a>
+<a name='L393'></a><a href='#L393'>393</a>
+<a name='L394'></a><a href='#L394'>394</a>
+<a name='L395'></a><a href='#L395'>395</a>
+<a name='L396'></a><a href='#L396'>396</a>
+<a name='L397'></a><a href='#L397'>397</a>
+<a name='L398'></a><a href='#L398'>398</a>
+<a name='L399'></a><a href='#L399'>399</a>
+<a name='L400'></a><a href='#L400'>400</a>
+<a name='L401'></a><a href='#L401'>401</a>
+<a name='L402'></a><a href='#L402'>402</a>
+<a name='L403'></a><a href='#L403'>403</a>
+<a name='L404'></a><a href='#L404'>404</a>
+<a name='L405'></a><a href='#L405'>405</a>
+<a name='L406'></a><a href='#L406'>406</a>
+<a name='L407'></a><a href='#L407'>407</a>
+<a name='L408'></a><a href='#L408'>408</a>
+<a name='L409'></a><a href='#L409'>409</a>
+<a name='L410'></a><a href='#L410'>410</a>
+<a name='L411'></a><a href='#L411'>411</a>
+<a name='L412'></a><a href='#L412'>412</a>
+<a name='L413'></a><a href='#L413'>413</a>
+<a name='L414'></a><a href='#L414'>414</a>
+<a name='L415'></a><a href='#L415'>415</a>
+<a name='L416'></a><a href='#L416'>416</a>
+<a name='L417'></a><a href='#L417'>417</a>
+<a name='L418'></a><a href='#L418'>418</a>
+<a name='L419'></a><a href='#L419'>419</a>
+<a name='L420'></a><a href='#L420'>420</a>
+<a name='L421'></a><a href='#L421'>421</a>
+<a name='L422'></a><a href='#L422'>422</a>
+<a name='L423'></a><a href='#L423'>423</a>
+<a name='L424'></a><a href='#L424'>424</a>
+<a name='L425'></a><a href='#L425'>425</a>
+<a name='L426'></a><a href='#L426'>426</a>
+<a name='L427'></a><a href='#L427'>427</a>
+<a name='L428'></a><a href='#L428'>428</a>
+<a name='L429'></a><a href='#L429'>429</a>
+<a name='L430'></a><a href='#L430'>430</a>
+<a name='L431'></a><a href='#L431'>431</a>
+<a name='L432'></a><a href='#L432'>432</a>
+<a name='L433'></a><a href='#L433'>433</a>
+<a name='L434'></a><a href='#L434'>434</a>
+<a name='L435'></a><a href='#L435'>435</a>
+<a name='L436'></a><a href='#L436'>436</a>
+<a name='L437'></a><a href='#L437'>437</a>
+<a name='L438'></a><a href='#L438'>438</a>
+<a name='L439'></a><a href='#L439'>439</a>
+<a name='L440'></a><a href='#L440'>440</a>
+<a name='L441'></a><a href='#L441'>441</a>
+<a name='L442'></a><a href='#L442'>442</a>
+<a name='L443'></a><a href='#L443'>443</a>
+<a name='L444'></a><a href='#L444'>444</a>
+<a name='L445'></a><a href='#L445'>445</a>
+<a name='L446'></a><a href='#L446'>446</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">40x</span>
+<span class="cline-any cline-yes">40x</span>
+<span class="cline-any cline-yes">40x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">40x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">40x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">40x</span>
+<span class="cline-any cline-yes">40x</span>
+<span class="cline-any cline-yes">106x</span>
+<span class="cline-any cline-yes">106x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">40x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">40x</span>
+<span class="cline-any cline-yes">51x</span>
+<span class="cline-any cline-yes">40x</span>
+<span class="cline-any cline-yes">40x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">40x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">112x</span>
+<span class="cline-any cline-yes">112x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">112x</span>
+<span class="cline-any cline-yes">52x</span>
+<span class="cline-any cline-yes">52x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-yes">112x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1808x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">210x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Router } from 'express';
+import { fetchBarcelonaRaceRaw } from './openf1.js';
+&nbsp;
+// Maps replay playback time to cached Barcelona OpenF1 state.
+export const watchLiveRouter = Router();
+&nbsp;
+// Fetched once and cached — the Barcelona 2026 race this feature simulates
+// as "live" doesn't change, so there's no need to re-fetch it per request.
+let Barcelona_openf1Data = null;
+let Barcelona_openf1Chunks = null;
+const Barcelona_snapshotCache = new Map();
+const MAX_BUFFER_SECONDS = 20;
+&nbsp;
+async function <span class="fstat-no" title="function not covered" >getBarcelonaOpenF1Data(</span>) {
+<span class="cstat-no" title="statement not covered" >  if (!Barcelona_openf1Data) {</span>
+<span class="cstat-no" title="statement not covered" >    Barcelona_openf1Data = await fetchBarcelonaRaceRaw();</span>
+<span class="cstat-no" title="statement not covered" >    Barcelona_openf1Chunks = buildBarcelonaOpenF1Chunks(Barcelona_openf1Data);</span>
+  }
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  return { bundle: Barcelona_openf1Data, chunks: Barcelona_openf1Chunks };</span>
+}
+&nbsp;
+watchLiveRouter.get('/', <span class="fstat-no" title="function not covered" >as</span>ync (req, res, next) =&gt; {
+<span class="cstat-no" title="statement not covered" >  try {</span>
+    const { bundle } = <span class="cstat-no" title="statement not covered" >await getBarcelonaOpenF1Data();</span>
+<span class="cstat-no" title="statement not covered" >    res.json(bundle);</span>
+  } catch (err) {
+<span class="cstat-no" title="statement not covered" >    next(err);</span>
+  }
+});
+&nbsp;
+// Transcript-derived video anchors. OpenF1 timestamps are intentionally not
+// assigned here; the mapping layer will link these video times to race data.
+export const Barcelona_video_anchors = [
+  { startSeconds: 0, endSeconds: 0, category: 'event', description: 'Grid formation; George Russell on pole, front row.' },
+  { startSeconds: 14, endSeconds: 14, category: 'event', description: 'Lights out; race start, Barcelona.' },
+  { startSeconds: 20, endSeconds: 20, category: 'event', description: 'Russell gets a good start and cuts across to keep Hamilton behind.' },
+  { startSeconds: 29, endSeconds: 29, category: 'event', description: 'Verstappen splits Norris and Antonelli heading into Turn 1.' },
+  { startSeconds: 41, endSeconds: 41, category: 'event', description: 'Piastri looks down the inside of Verstappen at Turn 4; no move made.' },
+  { startSeconds: 70, endSeconds: 70, category: 'event', description: 'Order after opening exchanges: Russell, Hamilton, Antonelli, Norris, Verstappen, Piastri.' },
+  { startSeconds: 79, endSeconds: 79, category: 'event', description: 'Hajar has a poor start and drops to the mid-pack.' },
+  { startSeconds: 99, endSeconds: 99, category: 'event', description: 'Hajar runs wide and picks up gravel; Bortoleto also runs wide.' },
+  { startSeconds: 103, endSeconds: 103, category: 'event', description: 'End of lap 1 partial order: Lindblad 10th, Hulkenberg 9th, Colapinto 11th.' },
+  { startSeconds: 109, endSeconds: 116, category: 'gap', description: 'Russell is already past the 1-second overtake-mode reference gap to Hamilton.' },
+  { startSeconds: 109, endSeconds: 116, category: 'threshold', description: 'Overtake-mode reference gap is 1 second.' },
+  { startSeconds: 132, endSeconds: 132, category: 'event', description: 'Ocon overtakes teammate Bearman around the outside; Ocon on softs, Bearman on mediums.' },
+  { startSeconds: 148, endSeconds: 148, category: 'gap', description: 'Russell to Hamilton gap is over 1.5 seconds.' },
+  { startSeconds: 205, endSeconds: 205, category: 'event', description: 'Sainz defends from a fast-recovering Hajar.' },
+  { startSeconds: 242, endSeconds: 242, category: 'event', description: 'Alonso, starting from the pit lane, catches Stroll.' },
+  { startSeconds: 251, endSeconds: 251, category: 'event', description: 'Lindblad and Hulkenberg noted by race control for leaving the track and gaining an advantage.' },
+  { startSeconds: 258, endSeconds: 266, category: 'gap', description: 'Russell to Hamilton gap extends to 2 seconds.' },
+  { startSeconds: 266, endSeconds: 266, category: 'lap_time', description: 'Verstappen lap time: 2:27, described as not a great lap.' },
+  { startSeconds: 436, endSeconds: 436, category: 'event', description: 'Gasly gains positions as cars ahead go off track; incident under investigation.' },
+  { startSeconds: 444, endSeconds: 444, category: 'event', description: 'Lindblad says he was pushed off the track.' },
+  { startSeconds: 470, endSeconds: 470, category: 'event', description: 'Investigation opened into Hajar and Gasly for leaving the track and gaining an advantage.' },
+  { startSeconds: 474, endSeconds: 481, category: 'event', description: 'Stroll heads to the pits with brake smoke and is confirmed retired.' },
+  { startSeconds: 516, endSeconds: 522, category: 'gap', description: 'Russell to Hamilton gap is holding around 3 seconds.' },
+  { startSeconds: 516, endSeconds: 516, category: 'race_distance', description: 'Lap 7 of 66.' },
+  { startSeconds: 529, endSeconds: 538, category: 'event', description: 'Leclerc runs very close to the back of Piastri and nearly makes contact.' },
+  { startSeconds: 553, endSeconds: 553, category: 'event', description: 'Antonelli had a long brake-pedal or brake-fluid issue before the race start.' },
+  { startSeconds: 605, endSeconds: 629, category: 'event', description: 'Leclerc overtakes Piastri around the outside of Turn 3.' },
+  { startSeconds: 687, endSeconds: 687, category: 'race_distance', description: 'Crossing into lap 9 of 66.' },
+  { startSeconds: 752, endSeconds: 770, category: 'gap', description: 'Lawson is in low 1:25s, Russell low 1:23s; Piastri to Lawson is roughly a full pit stop, with Lawson about 22.3 seconds behind Russell.' },
+  { startSeconds: 772, endSeconds: 782, category: 'rate', description: 'Undercut described as worth at least 2 seconds gained by pitting first.' },
+  { startSeconds: 791, endSeconds: 799, category: 'gap', description: 'Russell to Hamilton gap is 3.4 to 3.5 seconds.' },
+  { startSeconds: 808, endSeconds: 820, category: 'lap_time', description: 'Russell 1:23.1 versus Hamilton 1:23.4, about 0.3 seconds per lap.' },
+  { startSeconds: 852, endSeconds: 860, category: 'gap', description: 'Piastri is 3 seconds behind Leclerc.' },
+  { startSeconds: 883, endSeconds: 900, category: 'gap', description: 'Russell to Hamilton gap stabilizes at 3.5 seconds.' },
+  { startSeconds: 919, endSeconds: 927, category: 'gap', description: 'Antonelli is 5.5 seconds behind Russell.' },
+  { startSeconds: 919, endSeconds: 927, category: 'event', description: 'Hamilton pits first among the leaders and switches to hard tyres.' },
+  { startSeconds: 960, endSeconds: 960, category: 'event', description: 'Lawson pits and drops out of the top 10.' },
+  { startSeconds: 970, endSeconds: 979, category: 'pit_stop', description: 'Ferrari stop for Hamilton: approximately 2.5 seconds.' },
+  { startSeconds: 984, endSeconds: 984, category: 'event', description: 'Alonso overtakes Bottas at Turn 1.' },
+  { startSeconds: 1007, endSeconds: 1024, category: 'event', description: 'Russell pits; stop approximately 2.4 seconds.' },
+  { startSeconds: 1024, endSeconds: 1032, category: 'pit_stop', description: 'Verstappen pits; Red Bull stop approximately 2.5 seconds.' },
+  { startSeconds: 1040, endSeconds: 1040, category: 'event', description: 'Hamilton emerges 6th; Verstappen emerges into traffic.' },
+  { startSeconds: 1094, endSeconds: 1104, category: 'event', description: 'Norris is told to box and pits.' },
+  { startSeconds: 1154, endSeconds: 1154, category: 'event', description: 'Antonelli becomes the race leader as front-runners cycle through stops.' },
+  { startSeconds: 1183, endSeconds: 1192, category: 'event', description: 'Antonelli pits.' },
+  { startSeconds: 1199, endSeconds: 1199, category: 'event', description: 'Leclerc inherits the lead and has yet to stop.' },
+  { startSeconds: 1217, endSeconds: 1228, category: 'event', description: 'Leclerc is told to pit again shortly after.' },
+  { startSeconds: 1237, endSeconds: 1251, category: 'rate', description: 'Tyre change costs 0.6 seconds on the out-lap, followed by roughly 0.1 seconds per lap of stint degradation.' },
+  { startSeconds: 1237, endSeconds: 1251, category: 'event', description: 'Verstappen is the only front-runner on a second fresh set of mediums; others are on hards.' },
+  { startSeconds: 1260, endSeconds: 1277, category: 'event', description: 'Leclerc is told to stay out; he has an extra new soft set from his qualifying crash.' },
+  { startSeconds: 1311, endSeconds: 1329, category: 'event', description: 'Bottas is told to retire the Cadillac; second retirement.' },
+  { startSeconds: 1384, endSeconds: 1391, category: 'event', description: 'Sainz is under investigation for a start-line procedure infringement.' },
+  { startSeconds: 1405, endSeconds: 1411, category: 'event', description: 'Both Williams cars are under investigation for a start-line procedure infringement.' },
+  { startSeconds: 1459, endSeconds: 1468, category: 'event', description: 'Williams reportedly had non-compliant grid equipment; a 15-second final warning is issued.' },
+  { startSeconds: 1468, endSeconds: 1479, category: 'event', description: 'Hajar/Gasly and Lindblad/Hulkenberg Turn-1 track-limits investigations are annulled; no further action.' },
+  { startSeconds: 1494, endSeconds: 1511, category: 'event', description: 'Hajar pit-stop sequence drops Hulkenberg behind him.' },
+  { startSeconds: 1528, endSeconds: 1539, category: 'event', description: 'Hajar overtakes Bearman for 9th.' },
+  { startSeconds: 1557, endSeconds: 1568, category: 'event', description: 'Lawson passes Bearman at Turn 13.' },
+  { startSeconds: 1568, endSeconds: 1582, category: 'pit_stop', description: 'Bearman pits after staying on worn medium tyres too long; this is described as costing at least 10 seconds, about half a pit stop.' },
+  { startSeconds: 1593, endSeconds: 1593, category: 'pit_stop', description: 'Bearman stop: 3.6 seconds.' },
+  { startSeconds: 1610, endSeconds: 1610, category: 'race_distance', description: 'Lap 26 of 66 referenced.' },
+  { startSeconds: 1648, endSeconds: 1671, category: 'event', description: 'Alpine team orders: Colapinto lets Gasly through.' },
+  { startSeconds: 1769, endSeconds: 1777, category: 'lap_time', description: 'Antonelli last lap 1:22.0, half a second quicker than Russell.' },
+  { startSeconds: 1798, endSeconds: 1804, category: 'event', description: 'Russell is told the next seven laps are critical.' },
+  { startSeconds: 1804, endSeconds: 1825, category: 'gap', description: 'Antonelli gap falls from 6.4 seconds to under 4 seconds behind Hamilton.' },
+  { startSeconds: 1842, endSeconds: 1850, category: 'gap', description: 'Russell to Hamilton gap is 2.2 seconds after Hamilton has pitted once.' },
+  { startSeconds: 1881, endSeconds: 1890, category: 'event', description: 'Antonelli receives his first track-limits warning.' },
+  { startSeconds: 1905, endSeconds: 1913, category: 'lap_time', description: 'Leclerc 1:22.8, 0.8 seconds quicker than Verstappen.' },
+  { startSeconds: 1921, endSeconds: 1932, category: 'event', description: 'Lindblad pits.' },
+  { startSeconds: 1932, endSeconds: 1941, category: 'rate', description: 'Lindblad is predicted to catch Verstappen in five laps if the current pace continues.' },
+  { startSeconds: 1956, endSeconds: 1966, category: 'gap', description: 'Russell to Antonelli gap is 4.9 seconds; Hamilton is down to 2 seconds in traffic.' },
+  { startSeconds: 1995, endSeconds: 2004, category: 'event', description: 'Hulkenberg attacks Lawson for 9th; Lawson defends.' },
+  { startSeconds: 2020, endSeconds: 2025, category: 'event', description: 'Gasly joins the Lawson/Hulkenberg fight for 9th.' },
+  { startSeconds: 2042, endSeconds: 2052, category: 'event', description: 'Lawson is warned by radio that his defensive move was late and dangerous.' },
+  { startSeconds: 2129, endSeconds: 2141, category: 'lap_time', description: 'Russell about 1:23.0 versus Hamilton about 1:23.2.' },
+  { startSeconds: 2148, endSeconds: 2153, category: 'event', description: 'Hulkenberg is warned for moving in the braking zone.' },
+  { startSeconds: 2208, endSeconds: 2215, category: 'event', description: 'Lindblad passes Ocon for 15th.' },
+  { startSeconds: 2233, endSeconds: 2256, category: 'event', description: 'A three-stop strategy window is discussed; Hamilton makes his second stop.' },
+  { startSeconds: 2268, endSeconds: 2277, category: 'event', description: 'Hamilton dives into the pits and locks up under braking.' },
+  { startSeconds: 2287, endSeconds: 2287, category: 'gap', description: 'Russell is 3.9 seconds ahead of Antonelli.' },
+  { startSeconds: 2345, endSeconds: 2354, category: 'gap', description: 'Hamilton to Antonelli real-time gap is approximately 1.7 seconds.' },
+  { startSeconds: 2378, endSeconds: 2387, category: 'gap', description: 'Antonelli is 3.9 seconds behind Russell.' },
+  { startSeconds: 2378, endSeconds: 2387, category: 'event', description: 'Mercedes are running 1-2, Antonelli then Russell; Hamilton has already stopped.' },
+  { startSeconds: 2387, endSeconds: 2397, category: 'lap_time', description: 'Antonelli is 0.7 seconds faster than Russell through the first two sectors.' },
+  { startSeconds: 2420, endSeconds: 2429, category: 'event', description: 'Hamilton overtakes Piastri around the outside, with Perez in a Cadillac between them.' },
+  { startSeconds: 2441, endSeconds: 2449, category: 'event', description: 'Antonelli is shown a black-and-white flag for track limits; a 5-second penalty is at risk.' },
+  { startSeconds: 2454, endSeconds: 2463, category: 'lap_time', description: 'Hamilton sets a 1:20.6 fastest lap, 2.6 seconds faster than Russell; Hamilton to Russell gap is under 21 seconds.' },
+  { startSeconds: 2474, endSeconds: 2481, category: 'event', description: 'Hamilton moves up to 6th and Piastri drops to 7th.' },
+  { startSeconds: 2494, endSeconds: 2494, category: 'event', description: 'Verstappen has a slow pit stop and emerges 7th.' },
+  { startSeconds: 2536, endSeconds: 2543, category: 'event', description: 'Hulkenberg pits and appears to retire with an engine failure; third retirement.' },
+  { startSeconds: 2568, endSeconds: 2583, category: 'gap', description: 'Antonelli is several tenths faster per lap, then almost a second faster for one lap; he closes to about 0.5 seconds behind Russell while blocked by a Williams.' },
+  { startSeconds: 2596, endSeconds: 2603, category: 'lap_time', description: 'Leclerc 1:20.9 versus Hamilton 1:20.7.' },
+  { startSeconds: 2618, endSeconds: 2622, category: 'gap', description: 'Hamilton to Russell gap falls to 10.7 seconds, from about 25 seconds when Hamilton exited the pits.' },
+  { startSeconds: 2656, endSeconds: 2677, category: 'event', description: 'Leclerc is told to let Hamilton through because they are on different strategies.' },
+  { startSeconds: 2673, endSeconds: 2673, category: 'gap', description: 'Antonelli closes to 0.3 seconds behind Russell.' },
+  { startSeconds: 2674, endSeconds: 2688, category: 'gap', description: 'Hamilton is 9.4 seconds behind Russell; last laps: Hamilton 1:21.0, Russell 1:23.4, Antonelli 1:23.7.' },
+  { startSeconds: 2674, endSeconds: 2688, category: 'rate', description: 'Hamilton is described as taking 2 to 2.5 seconds per lap out of the gap.' },
+  { startSeconds: 2681, endSeconds: 2691, category: 'event', description: 'Russell defends the inside from Antonelli into Turn 1.' },
+  { startSeconds: 2698, endSeconds: 2710, category: 'event', description: 'Antonelli nearly passes Russell at Turn 4 and tucks back in behind.' },
+  { startSeconds: 2743, endSeconds: 2758, category: 'event', description: 'Antonelli receives another track-limits warning; one more infringement means a penalty.' },
+  { startSeconds: 2854, endSeconds: 2862, category: 'gap', description: 'Norris is 3.9 seconds behind the lead group.' },
+  { startSeconds: 2886, endSeconds: 2894, category: 'gap', description: 'Norris gap is 4.3 seconds and described as healthy.' },
+  { startSeconds: 2908, endSeconds: 2917, category: 'gap', description: 'Hamilton to Antonelli gap is 4.8 seconds.' },
+  { startSeconds: 2919, endSeconds: 2934, category: 'event', description: 'Russell final stop is signalled; Mercedes tell both drivers not to fight with Ferrari closing.' },
+  { startSeconds: 2956, endSeconds: 2971, category: 'event', description: 'Norris pits for hard tyres; Russell is told to box this lap.' },
+  { startSeconds: 2979, endSeconds: 2979, category: 'race_distance', description: '30 laps to go, against a 66-lap race distance.' },
+  { startSeconds: 3010, endSeconds: 3028, category: 'pit_stop', description: 'Russell stop: 2.8 seconds; he emerges ahead of Norris.' },
+  { startSeconds: 3063, endSeconds: 3069, category: 'event', description: 'Antonelli is told to cover Norris; pit call imminent.' },
+  { startSeconds: 3096, endSeconds: 3105, category: 'event', description: 'Hamilton takes the race lead while Russell and Antonelli are mid pit-cycle.' },
+  { startSeconds: 3113, endSeconds: 3113, category: 'pit_stop', description: 'Antonelli stop: 2.8 seconds.' },
+  { startSeconds: 3121, endSeconds: 3128, category: 'event', description: 'Russell exits the pits just ahead of Norris.' },
+  { startSeconds: 3138, endSeconds: 3150, category: 'event', description: 'Antonelli exits the pits and narrowly holds position ahead of Norris.' },
+  { startSeconds: 3168, endSeconds: 3168, category: 'event', description: 'Transcript excerpt ends with Hamilton leading.' },
+];
+&nbsp;
+// Each boundary is a strategy reset confirmed by an OpenF1 pit record. The
+// early grid-to-lights transition needs its own calibration point because the
+// broadcast compresses the pre-race sequence.
+export const Barcelona_video_chunks = [
+  {
+    id: 'opening-stint',
+    videoStartSeconds: 0,
+    videoEndSeconds: 923,
+    calibrationAnchors: [
+      { videoSeconds: 0, openF1Timestamp: '2026-06-14T13:00:00.000Z', source: 'scheduled-session-start' },
+      { videoSeconds: 14, openF1Timestamp: '2026-06-14T13:03:27.854Z', source: 'session-started' },
+      { videoSeconds: 923, openF1Timestamp: '2026-06-14T13:19:06.289Z', source: 'hamilton-first-pit-stop' },
+    ],
+  },
+  {
+    id: 'first-strategy-cycle',
+    videoStartSeconds: 923,
+    videoEndSeconds: 2244.5,
+    calibrationAnchors: [
+      { videoSeconds: 923, openF1Timestamp: '2026-06-14T13:19:06.289Z', source: 'hamilton-first-pit-stop' },
+      { videoSeconds: 2244.5, openF1Timestamp: '2026-06-14T13:41:28.951Z', source: 'hamilton-second-pit-stop' },
+    ],
+  },
+  {
+    id: 'second-strategy-cycle',
+    videoStartSeconds: 2244.5,
+    videoEndSeconds: 3019,
+    calibrationAnchors: [
+      { videoSeconds: 2244.5, openF1Timestamp: '2026-06-14T13:41:28.951Z', source: 'hamilton-second-pit-stop' },
+      { videoSeconds: 3019, openF1Timestamp: '2026-06-14T13:53:54.451Z', source: 'russell-final-pit-stop' },
+    ],
+  },
+  {
+    id: 'final-pit-cycle',
+    videoStartSeconds: 3019,
+    videoEndSeconds: 3168,
+    calibrationAnchors: [
+      { videoSeconds: 3019, openF1Timestamp: '2026-06-14T13:53:54.451Z', source: 'russell-final-pit-stop' },
+      { videoSeconds: 3144, openF1Timestamp: '2026-06-14T13:55:16.919Z', source: 'antonelli-final-pit-stop' },
+      {
+        videoSeconds: 3168,
+        openF1Timestamp: '2026-06-14T13:55:32.753Z',
+        source: 'antonelli-final-pit-stop-rate',
+        estimated: true,
+      },
+    ],
+  },
+];
+&nbsp;
+function interpolateTimestamp(videoSeconds, startAnchor, endAnchor) {
+  const startMilliseconds = Date.parse(startAnchor.openF1Timestamp);
+  const endMilliseconds = Date.parse(endAnchor.openF1Timestamp);
+  const progress = (videoSeconds - startAnchor.videoSeconds)
+    / (endAnchor.videoSeconds - startAnchor.videoSeconds);
+&nbsp;
+  return new Date(startMilliseconds + ((endMilliseconds - startMilliseconds) * progress)).toISOString();
+}
+&nbsp;
+export function mapBarcelonaVideoTime(videoSeconds) {
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (!Number.isFinite(videoSeconds)) {
+<span class="cstat-no" title="statement not covered" >    throw new TypeError('videoSeconds must be a finite number');</span>
+  }
+&nbsp;
+  const finalChunk = Barcelona_video_chunks.at(-1);
+  const chunk = Barcelona_video_chunks.find((candidate) =&gt; {
+    const includesEnd = candidate.id === finalChunk.id;
+    return videoSeconds &gt;= candidate.videoStartSeconds
+      &amp;&amp; (videoSeconds &lt; candidate.videoEndSeconds || (includesEnd &amp;&amp; videoSeconds &lt;= candidate.videoEndSeconds));
+  });
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (!chunk) <span class="cstat-no" title="statement not covered" >return null;</span>
+&nbsp;
+  const anchors = chunk.calibrationAnchors;
+  const endAnchorIndex = anchors.findIndex((anchor) =&gt; videoSeconds &lt;= anchor.videoSeconds);
+  const endAnchor = anchors[Math.max(endAnchorIndex, 1)];
+  const startAnchor = anchors[anchors.indexOf(endAnchor) - 1];
+&nbsp;
+  return {
+    chunkId: chunk.id,
+    openF1Timestamp: interpolateTimestamp(videoSeconds, startAnchor, endAnchor),
+    estimated: Boolean(startAnchor.estimated || endAnchor.estimated),
+  };
+}
+&nbsp;
+const TIME_SERIES_RESOURCE_KEYS = [
+  'laps',
+  'pit',
+  'stints',
+  'position',
+  'car_data',
+  'race_control',
+  'weather',
+];
+&nbsp;
+function recordsWithinTimestampRange(records, startTimestamp, endTimestamp, includesEnd) {
+  const startMilliseconds = Date.parse(startTimestamp);
+  const endMilliseconds = Date.parse(endTimestamp);
+&nbsp;
+  return records.filter((record) =&gt; {
+    const timestamp = Date.parse(record.date);
+    return Number.isFinite(timestamp)
+      &amp;&amp; timestamp &gt;= startMilliseconds
+      &amp;&amp; (timestamp &lt; endMilliseconds || (includesEnd &amp;&amp; timestamp &lt;= endMilliseconds));
+  });
+}
+&nbsp;
+export function buildBarcelonaOpenF1Chunks(bundle) {
+  return Barcelona_video_chunks.map((chunk) =&gt; {
+    const start = mapBarcelonaVideoTime(chunk.videoStartSeconds);
+    const end = mapBarcelonaVideoTime(chunk.videoEndSeconds);
+    const isFinalChunk = chunk.id === Barcelona_video_chunks.at(-1).id;
+    const resources = Object.fromEntries(
+      TIME_SERIES_RESOURCE_KEYS.map((resourceKey) =&gt; [
+        resourceKey,
+        recordsWithinTimestampRange(
+          Array.isArray(bundle[resourceKey]) ? bundle[resourceKey] : [],
+          start.openF1Timestamp,
+          end.openF1Timestamp,
+          isFinalChunk
+        ),
+      ])
+    );
+&nbsp;
+    return {
+      id: chunk.id,
+      videoStartSeconds: chunk.videoStartSeconds,
+      videoEndSeconds: chunk.videoEndSeconds,
+      openF1StartTimestamp: start.openF1Timestamp,
+      openF1EndTimestamp: end.openF1Timestamp,
+      estimated: Boolean(start.estimated || end.estimated),
+      videoAnchors: Barcelona_video_anchors.filter((anchor) =&gt;
+        anchor.startSeconds &gt;= chunk.videoStartSeconds
+        &amp;&amp; (anchor.startSeconds &lt; chunk.videoEndSeconds || isFinalChunk)
+      ),
+      resources,
+    };
+  });
+}
+&nbsp;
+function latestRecordsByDriver(records, timestamp) {
+  const latestRecords = new Map();
+  for (const record of records) {
+    <span class="missing-if-branch" title="else path not taken" >E</span>if (Date.parse(record.date) &lt;= timestamp) {
+      latestRecords.set(record.driver_number, record);
+    }
+  }
+  return latestRecords;
+}
+&nbsp;
+function latestRecord(records, timestamp) {
+  return records.reduce((latest, record) =&gt; (
+    Date.parse(record.date) &lt;= timestamp ? record : <span class="branch-1 cbranch-no" title="branch not covered" >latest</span>
+  ), null);
+}
+&nbsp;
+function normalizeDriver(driver) {
+  return {
+    driverNumber: driver.driver_number,
+    driverName: driver.full_name ?? <span class="branch-1 cbranch-no" title="branch not covered" >driver.name_acronym </span>?? <span class="branch-2 cbranch-no" title="branch not covered" >null,</span>
+    teamName: driver.team_name ?? <span class="branch-1 cbranch-no" title="branch not covered" >null,</span>
+  };
+}
+&nbsp;
+export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
+  const mapping = mapBarcelonaVideoTime(videoSeconds);
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (!mapping) <span class="cstat-no" title="statement not covered" >return null;</span>
+&nbsp;
+  const chunk = chunks.find((candidate) =&gt; candidate.id === mapping.chunkId);
+  const timestamp = Date.parse(mapping.openF1Timestamp);
+  const driversByNumber = new Map(
+    (bundle.drivers ?? <span class="branch-1 cbranch-no" title="branch not covered" >[])</span>.map((driver) =&gt; [driver.driver_number, normalizeDriver(driver)])
+  );
+  const positionsByDriver = latestRecordsByDriver(chunk.resources.position, timestamp);
+  const stintsByDriver = latestRecordsByDriver(chunk.resources.stints, timestamp);
+  // Selects each driver's latest telemetry sample at playback time.
+  const carDataByDriver = latestRecordsByDriver(chunk.resources.car_data, timestamp);
+  const lapsAtTimestamp = chunk.resources.laps.filter((lap) =&gt; Date.parse(lap.date) &lt;= timestamp);
+  const weather = latestRecord(chunk.resources.weather, timestamp);
+&nbsp;
+  const leaderboard = [...positionsByDriver.values()]
+    .sort(<span class="fstat-no" title="function not covered" >(l</span>eft, right) =&gt; <span class="cstat-no" title="statement not covered" >left.position - right.position)</span>
+    .map((position) =&gt; ({
+      position: position.position,
+      ...(driversByNumber.get(position.driver_number) ?? <span class="branch-1 cbranch-no" title="branch not covered" >{ driverNumber: position.driver_number, driverName: null, teamName: null })</span>,
+      tyreCompound: stintsByDriver.get(position.driver_number)?.compound ?? <span class="branch-1 cbranch-no" title="branch not covered" >null,</span>
+      stintNumber: stintsByDriver.get(position.driver_number)?.stint_number ?? <span class="branch-1 cbranch-no" title="branch not covered" >null,</span>
+      speedKph: carDataByDriver.get(position.driver_number)?.speed ?? null,
+    }));
+&nbsp;
+  const totalLaps = Math.max(0, ...(bundle.laps ?? <span class="branch-1 cbranch-no" title="branch not covered" >[])</span>
+    .map((lap) =&gt; lap.lap_number)
+    .filter(Number.isFinite));
+  const currentLap = Math.max(0, ...lapsAtTimestamp
+    .map((lap) =&gt; lap.lap_number)
+    .filter(Number.isFinite));
+&nbsp;
+  return {
+    videoSeconds,
+    mapping,
+    session: {
+      sessionKey: bundle.session_key,
+      sessionName: bundle.session?.[0]?.session_name ?? null,
+      meetingName: bundle.meeting?.[0]?.meeting_name ?? null,
+      currentLap,
+      totalLaps,
+    },
+    leaderboard,
+    weather: weather ? {
+      airTemperature: weather.air_temperature ?? <span class="branch-1 cbranch-no" title="branch not covered" >null,</span>
+      trackTemperature: weather.track_temperature ?? <span class="branch-1 cbranch-no" title="branch not covered" >null,</span>
+      humidity: weather.humidity ?? <span class="branch-1 cbranch-no" title="branch not covered" >null,</span>
+      rainfall: weather.rainfall ?? <span class="branch-1 cbranch-no" title="branch not covered" >null,</span>
+      windSpeed: weather.wind_speed ?? <span class="branch-1 cbranch-no" title="branch not covered" >null,</span>
+    } : null,
+    recentRaceControl: chunk.resources.race_control
+      .filter((event) =&gt; Date.parse(event.date) &lt;= timestamp)
+      .slice(-5)
+      .map((event) =&gt; ({
+        date: event.date,
+        lapNumber: event.lap_number ?? <span class="branch-1 cbranch-no" title="branch not covered" >null,</span>
+        category: event.category ?? <span class="branch-1 cbranch-no" title="branch not covered" >null,</span>
+        flag: event.flag ?? <span class="branch-1 cbranch-no" title="branch not covered" >null,</span>
+        message: event.message ?? <span class="branch-1 cbranch-no" title="branch not covered" >null,</span>
+      })),
+    recentAnchors: chunk.videoAnchors
+      .filter((anchor) =&gt; anchor.startSeconds &lt;= videoSeconds)
+      .slice(-5),
+  };
+}
+&nbsp;
+export function getBarcelonaCachedState(videoSeconds, bundle, chunks, cache = <span class="branch-0 cbranch-no" title="branch not covered" >Barcelona_snapshotCache)</span> {
+  const snapshotSecond = Math.floor(videoSeconds);
+  let snapshot = cache.get(snapshotSecond);
+&nbsp;
+  if (!snapshot) {
+    snapshot = createBarcelonaWatchLiveState(snapshotSecond, bundle, chunks);
+    cache.set(snapshotSecond, snapshot);
+  }
+&nbsp;
+  return snapshot;
+}
+&nbsp;
+export function createBarcelonaWatchLiveBuffer(videoSeconds, bufferSeconds, bundle, chunks, cache) {
+  const bufferStartSeconds = Math.floor(videoSeconds);
+  const finalVideoSecond = Barcelona_video_chunks.at(-1).videoEndSeconds;
+  const bufferEndSeconds = Math.min(bufferStartSeconds + bufferSeconds, finalVideoSecond);
+  const snapshots = [];
+&nbsp;
+  for (let second = bufferStartSeconds; second &lt;= bufferEndSeconds; second += 1) {
+    snapshots.push(getBarcelonaCachedState(second, bundle, chunks, cache));
+  }
+&nbsp;
+  return {
+    requestedVideoSeconds: videoSeconds,
+    bufferStartSeconds,
+    bufferEndSeconds,
+    snapshots,
+  };
+}
+&nbsp;
+watchLiveRouter.get('/state', <span class="fstat-no" title="function not covered" >as</span>ync (req, res, next) =&gt; {
+  const value = <span class="cstat-no" title="statement not covered" >req.query.videoSeconds;</span>
+  const videoSeconds = <span class="cstat-no" title="statement not covered" >typeof value === 'string' &amp;&amp; value.trim() !== '' ? Number(value) : Number.NaN;</span>
+<span class="cstat-no" title="statement not covered" >  if (!Number.isFinite(videoSeconds)) {</span>
+<span class="cstat-no" title="statement not covered" >    return res.status(400).json({ error: 'videoSeconds must be a finite number' });</span>
+  }
+&nbsp;
+  const mapping = <span class="cstat-no" title="statement not covered" >mapBarcelonaVideoTime(videoSeconds);</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  if (!mapping) {</span>
+<span class="cstat-no" title="statement not covered" >    return res.status(400).json({</span>
+      error: `videoSeconds must be between 0 and ${Barcelona_video_chunks.at(-1).videoEndSeconds}`,
+    });
+  }
+&nbsp;
+  const requestedBufferSeconds = <span class="cstat-no" title="statement not covered" >req.query.bufferSeconds;</span>
+  const bufferSeconds = <span class="cstat-no" title="statement not covered" >requestedBufferSeconds == null</span>
+    ? null
+    : Number(requestedBufferSeconds);
+<span class="cstat-no" title="statement not covered" >  if (bufferSeconds != null &amp;&amp; (!Number.isInteger(bufferSeconds)</span>
+    || bufferSeconds &lt; 1 || bufferSeconds &gt; MAX_BUFFER_SECONDS)) {
+<span class="cstat-no" title="statement not covered" >    return res.status(400).json({</span>
+      error: `bufferSeconds must be an integer between 1 and ${MAX_BUFFER_SECONDS}`,
+    });
+  }
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  try {</span>
+    const { bundle, chunks } = <span class="cstat-no" title="statement not covered" >await getBarcelonaOpenF1Data();</span>
+<span class="cstat-no" title="statement not covered" >    if (bufferSeconds != null) {</span>
+<span class="cstat-no" title="statement not covered" >      return res.json(createBarcelonaWatchLiveBuffer(videoSeconds, bufferSeconds, bundle, chunks));</span>
+    }
+&nbsp;
+<span class="cstat-no" title="statement not covered" >    return res.json(getBarcelonaCachedState(videoSeconds, bundle, chunks));</span>
+  } catch (err) {
+<span class="cstat-no" title="statement not covered" >    return next(err);</span>
+  }
+});
+&nbsp;</pre></td></tr></table></pre>
+
+                <div class='push'></div><!-- for sticky footer -->
+            </div><!-- /wrapper -->
+            <div class='footer quiet pad2 space-top1 center small'>
+                Code coverage generated by
+                <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
+                at 2026-09-09T03:36:26.030Z
+            </div>
+        <script src="../../prettify.js"></script>
+        <script>
+            window.onload = function () {
+                prettyPrint();
+            };
+        </script>
+        <script src="../../sorter.js"></script>
+        <script src="../../block-navigation.js"></script>
+    </body>
+</html>
+    
