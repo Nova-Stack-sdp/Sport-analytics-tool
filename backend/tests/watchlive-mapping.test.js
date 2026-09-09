@@ -54,7 +54,7 @@ describe('Barcelona video mapping', () => {
       session: [{ session_name: 'Race' }],
       meeting: [{ meeting_name: 'Barcelona-Catalunya Grand Prix' }],
       drivers: [{ driver_number: 44, full_name: 'Lewis Hamilton', team_name: 'Ferrari' }],
-      laps: [{ date: '2026-06-14T13:19:06.289Z', lap_number: 11 }],
+      laps: [{ date: '2026-06-14T13:19:06.289Z', lap_number: 11, lap_duration: 80 }],
       pit: [],
       stints: [{ date: '2026-06-14T13:19:06.289Z', driver_number: 44, compound: 'HARD', stint_number: 2 }],
       position: [{ date: '2026-06-14T13:19:06.289Z', driver_number: 44, position: 1 }],
@@ -64,7 +64,7 @@ describe('Barcelona video mapping', () => {
     const chunks = buildBarcelonaOpenF1Chunks(bundle);
 
     expect(createBarcelonaWatchLiveState(923, bundle, chunks)).toMatchObject({
-      mapping: { chunkId: 'first-strategy-cycle', openF1Timestamp: '2026-06-14T13:19:06.289Z' },
+      mapping: { chunkId: 'opening-stint', openF1Timestamp: '2026-06-14T13:19:06.289Z' },
       session: { sessionKey: 11307, currentLap: 11, totalLaps: 11 },
       leaderboard: [{ position: 1, driverNumber: 44, driverName: 'Lewis Hamilton', teamName: 'Ferrari', tyreCompound: 'HARD', stintNumber: 2 }],
       weather: { airTemperature: 28, trackTemperature: 42, humidity: 48, rainfall: 0, windSpeed: 2 },

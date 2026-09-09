@@ -8,6 +8,7 @@ export const watchLiveRouter = Router();
 // as "live" doesn't change, so there's no need to re-fetch it per request.
 let Barcelona_openf1Data = null;
 let Barcelona_openf1Chunks = null;
+let Barcelona_precomputed = null;
 const Barcelona_snapshotCache = new Map();
 const MAX_BUFFER_SECONDS = 20;
 
@@ -15,9 +16,76 @@ async function getBarcelonaOpenF1Data() {
   if (!Barcelona_openf1Data) {
     Barcelona_openf1Data = await fetchBarcelonaRaceRaw();
     Barcelona_openf1Chunks = buildBarcelonaOpenF1Chunks(Barcelona_openf1Data);
+    Barcelona_precomputed = buildPrecomputedIndex(Barcelona_openf1Data, Barcelona_openf1Chunks);
   }
 
   return { bundle: Barcelona_openf1Data, chunks: Barcelona_openf1Chunks };
+}
+
+// Builds a one-time lookup index from the cached OpenF1 bundle so each
+// snapshot computation avoids re-parsing timestamps, re-flattening laps,
+// and re-scanning driver records. Called once after the initial fetch.
+function buildPrecomputedIndex(bundle, chunks) {
+  const driversByNumber = new Map(
+    (bundle.drivers ?? []).map((d) => [d.driver_number, normalizeDriver(d)])
+  );
+
+  // Groups time-series records by driver with pre-parsed timestamps so
+  // latestByDriver can use a single comparison per record.
+  function indexByDriver(records, dateField) {
+    const index = new Map();
+    for (const record of records) {
+      const dateValue = record[dateField] ?? record.date;
+      const ms = Date.parse(dateValue);
+      if (!Number.isFinite(ms)) continue;
+      const driver = record.driver_number;
+      if (!index.has(driver)) index.set(driver, []);
+      index.get(driver).push({ ...record, _ms: ms });
+    }
+    return index;
+  }
+
+  const positionIndex = indexByDriver(bundle.position ?? [], 'date');
+  const stintIndex = indexByDriver(bundle.stints ?? [], 'date');
+  const carDataIndex = indexByDriver(bundle.car_data ?? [], 'date');
+
+  // Pre-flatten laps from all chunks with pre-parsed start timestamps.
+  // OpenF1 lap records use date_start; tests may use date.
+  const allLaps = chunks.flatMap((c) => (c.resources.laps ?? []).map((lap) => ({
+    ...lap,
+    _startMs: Date.parse(lap.date_start ?? lap.date),
+  }))).filter((lap) => Number.isFinite(lap._startMs))
+    .sort((a, b) => a._startMs - b._startMs);
+
+  // Pre-group laps by driver (sorted by start time) so createBarcelonaWatchLiveState
+  // can binary-search per driver instead of linearly scanning all laps every call.
+  const lapsByDriver = new Map();
+  for (const lap of allLaps) {
+    const driver = lap.driver_number;
+    if (!lapsByDriver.has(driver)) lapsByDriver.set(driver, []);
+    lapsByDriver.get(driver).push(lap);
+  }
+
+  // Precompute sorted lap end times for O(log n) currentLap lookups.
+  const completedLapEnds = allLaps
+    .filter((lap) => Number.isFinite(lap.lap_duration) && lap.lap_duration > 0)
+    .map((lap) => ({ endMs: lap._startMs + lap.lap_duration * 1000, lap_number: lap.lap_number }))
+    .sort((a, b) => a.endMs - b.endMs);
+
+  const totalLaps = Math.max(0, ...(bundle.laps ?? [])
+    .map((lap) => lap.lap_number)
+    .filter(Number.isFinite));
+
+  return { driversByNumber, positionIndex, stintIndex, carDataIndex, allLaps, lapsByDriver, completedLapEnds, totalLaps };
+}
+
+// Triggers the one-time OpenF1 fetch in the background so the cache is warm
+// by the time a user hits the watch-live page. Called from server.js at
+// startup — failures are logged but never fatal.
+export function prewarmBarcelonaCache() {
+  getBarcelonaOpenF1Data().catch((err) => {
+    console.warn('Barcelona OpenF1 cache pre-warm failed:', err.message);
+  });
 }
 
 watchLiveRouter.get('/', async (req, res, next) => {
@@ -210,12 +278,14 @@ export function mapBarcelonaVideoTime(videoSeconds) {
     throw new TypeError('videoSeconds must be a finite number');
   }
 
-  const finalChunk = Barcelona_video_chunks.at(-1);
-  const chunk = Barcelona_video_chunks.find((candidate) => {
-    const includesEnd = candidate.id === finalChunk.id;
-    return videoSeconds >= candidate.videoStartSeconds
-      && (videoSeconds < candidate.videoEndSeconds || (includesEnd && videoSeconds <= candidate.videoEndSeconds));
-  });
+  if (videoSeconds < 0) return null;
+
+  // Inclusive end boundary (<=): at shared boundaries like videoSeconds=923,
+  // the earlier chunk wins because its end matches before the next chunk starts.
+  const chunk = Barcelona_video_chunks.find((candidate) => (
+    videoSeconds >= candidate.videoStartSeconds
+    && videoSeconds <= candidate.videoEndSeconds
+  ));
   if (!chunk) return null;
 
   const anchors = chunk.calibrationAnchors;
@@ -245,7 +315,8 @@ function recordsWithinTimestampRange(records, startTimestamp, endTimestamp, incl
   const endMilliseconds = Date.parse(endTimestamp);
 
   return records.filter((record) => {
-    const timestamp = Date.parse(record.date);
+    // Most OpenF1 resources use `date`; laps use `date_start`.
+    const timestamp = Date.parse(record.date ?? record.date_start);
     return Number.isFinite(timestamp)
       && timestamp >= startMilliseconds
       && (timestamp < endMilliseconds || (includesEnd && timestamp <= endMilliseconds));
@@ -285,14 +356,28 @@ export function buildBarcelonaOpenF1Chunks(bundle) {
   });
 }
 
-function latestRecordsByDriver(records, timestamp) {
-  const latestRecords = new Map();
-  for (const record of records) {
-    if (Date.parse(record.date) <= timestamp) {
-      latestRecords.set(record.driver_number, record);
+function latestByDriver(driverRecords, timestamp) {
+  const latest = new Map();
+  for (const [driverNumber, records] of driverRecords) {
+    for (const record of records) {
+      if (record._ms <= timestamp) latest.set(driverNumber, record);
     }
   }
-  return latestRecords;
+  return latest;
+}
+
+// Builds a pre-parsed, per-driver index from a flat record array.
+// Used by the on-the-fly fallback path when no precomputed index exists.
+function buildDriverIndex(records, dateField = 'date') {
+  const index = new Map();
+  for (const record of records) {
+    const ms = Date.parse(record[dateField] ?? record.date);
+    if (!Number.isFinite(ms)) continue;
+    const driver = record.driver_number;
+    if (!index.has(driver)) index.set(driver, []);
+    index.get(driver).push({ ...record, _ms: ms });
+  }
+  return index;
 }
 
 function latestRecord(records, timestamp) {
@@ -313,32 +398,160 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
   const mapping = mapBarcelonaVideoTime(videoSeconds);
   if (!mapping) return null;
 
-  const chunk = chunks.find((candidate) => candidate.id === mapping.chunkId);
+  const chunkIdx = chunks.findIndex((candidate) => candidate.id === mapping.chunkId);
+  const chunk = chunks[chunkIdx];
+  const idx = Barcelona_precomputed;
   const timestamp = Date.parse(mapping.openF1Timestamp);
-  const driversByNumber = new Map(
+
+  // At chunk boundaries, map() returns the earlier chunk (inclusive end)
+  // but recordsWithinTimestampRange uses exclusive end (<), so records at
+  // the exact boundary timestamp live in the next chunk. Fall back to the
+  // adjacent chunk's resources when the mapped chunk is empty at the boundary.
+  const nextChunk = chunkIdx + 1 < chunks.length ? chunks[chunkIdx + 1] : null;
+  const chunkMsEnd = Date.parse(chunk.openF1EndTimestamp);
+  const atBoundary = nextChunk && Number.isFinite(chunkMsEnd) && timestamp === chunkMsEnd;
+  function resourceRecords(key) {
+    const records = chunk.resources[key] ?? [];
+    if (records.length > 0 || !atBoundary) return records;
+    return nextChunk.resources[key] ?? [];
+  }
+  const driversByNumber = idx?.driversByNumber ?? new Map(
     (bundle.drivers ?? []).map((driver) => [driver.driver_number, normalizeDriver(driver)])
   );
-  const positionsByDriver = latestRecordsByDriver(chunk.resources.position, timestamp);
-  const stintsByDriver = latestRecordsByDriver(chunk.resources.stints, timestamp);
-  // Selects each driver's latest telemetry sample at playback time.
-  const carDataByDriver = latestRecordsByDriver(chunk.resources.car_data, timestamp);
-  const lapsAtTimestamp = chunk.resources.laps.filter((lap) => Date.parse(lap.date) <= timestamp);
-  const weather = latestRecord(chunk.resources.weather, timestamp);
+  // Merge live position data with the starting grid so the masterboard always
+  // shows all drivers. Grid positions act as a base layer — live position
+  // records override them as they become available.
+  const livePositions = idx
+    ? latestByDriver(idx.positionIndex, timestamp)
+    : latestByDriver(buildDriverIndex(resourceRecords('position')), timestamp);
+  const positionsByDriver = new Map();
+  const gridByDriver = new Map();
+  if (Array.isArray(bundle.starting_grid) && bundle.starting_grid.length > 0) {
+    for (const entry of bundle.starting_grid) {
+      positionsByDriver.set(entry.driver_number, {
+        driver_number: entry.driver_number,
+        position: entry.position,
+      });
+      gridByDriver.set(entry.driver_number, entry.position);
+    }
+  }
+  for (const [driverNumber, record] of livePositions) {
+    positionsByDriver.set(driverNumber, record);
+  }
+  const stintsByDriver = idx
+    ? latestByDriver(idx.stintIndex, timestamp)
+    : latestByDriver(buildDriverIndex(resourceRecords('stints')), timestamp);
+  // car_data may be available for some sessions; use the precomputed index
+  // when available, otherwise build it on the fly.
+  const carDataByDriver = idx
+    ? latestByDriver(idx.carDataIndex, timestamp)
+    : latestByDriver(buildDriverIndex(resourceRecords('car_data')), timestamp);
+  // Binary-search the precomputed per-driver lap index to find the latest
+  // lap at or before the current timestamp, plus the previous lap (for
+  // lastLapTime). O(log n) per driver instead of O(n) over all laps.
+  const lapsByDriver = idx?.lapsByDriver ?? null;
+  const allLaps = idx?.allLaps ?? chunks.flatMap((c) =>
+    (c.resources.laps ?? []).map((lap) => ({ ...lap, _startMs: Date.parse(lap.date_start ?? lap.date) }))
+      .filter((lap) => Number.isFinite(lap._startMs))
+      .sort((a, b) => a._startMs - b._startMs)
+  );
+  const latestLapsByDriver = new Map();
+  const previousLapsByDriver = new Map();
+  if (lapsByDriver) {
+    for (const [driverNum, driverLaps] of lapsByDriver) {
+      let lo = 0;
+      let hi = driverLaps.length - 1;
+      while (lo <= hi) {
+        const mid = (lo + hi) >> 1;
+        if (driverLaps[mid]._startMs <= timestamp) lo = mid + 1;
+        else hi = mid - 1;
+      }
+      if (hi >= 0) {
+        const latestLap = driverLaps[hi];
+        // Only count laps where lap_duration is populated (lap completed).
+        // This prevents pit-stop laps from creating phantom gaps.
+        if (Number.isFinite(latestLap.lap_duration) && latestLap.lap_duration > 0) {
+          latestLapsByDriver.set(driverNum, latestLap);
+          if (hi > 0) previousLapsByDriver.set(driverNum, driverLaps[hi - 1]);
+        }
+      }
+    }
+  } else {
+    for (const lap of allLaps) {
+      if (lap._startMs <= timestamp
+        && Number.isFinite(lap.lap_duration) && lap.lap_duration > 0) {
+        const current = latestLapsByDriver.get(lap.driver_number);
+        if (current && lap._startMs > current._startMs) {
+          previousLapsByDriver.set(lap.driver_number, current);
+        }
+        latestLapsByDriver.set(lap.driver_number, lap);
+      }
+    }
+  }
+  const weather = latestRecord(resourceRecords('weather'), timestamp);
 
-  const leaderboard = [...positionsByDriver.values()]
-    .sort((left, right) => left.position - right.position)
-    .map((position) => ({
+  // Build the leaderboard sorted by position, then compute per-driver
+  // metrics that depend on neighbours (gap) or historical data (lap time,
+  // grid delta).
+  const sorted = [...positionsByDriver.values()]
+    .sort((left, right) => left.position - right.position);
+  const leaderboard = sorted.map((position, index) => {
+    const driverLap = latestLapsByDriver.get(position.driver_number);
+    const prevLap = previousLapsByDriver.get(position.driver_number);
+    const lapSpeed = driverLap?.st_speed ?? driverLap?.i2_speed ?? driverLap?.i1_speed ?? null;
+    const carSpeed = carDataByDriver.get(position.driver_number)?.speed ?? null;
+    // Last lap time = gap between consecutive lap start timestamps.
+    const lastLapTime = (driverLap && prevLap)
+      ? (driverLap._startMs - prevLap._startMs) / 1000
+      : null;
+    // Gap to car ahead = difference in latest lap start times.
+    let gapToAhead = null;
+    if (index > 0) {
+      const ahead = sorted[index - 1];
+      const aheadLap = latestLapsByDriver.get(ahead.driver_number);
+      if (driverLap && aheadLap) {
+        gapToAhead = (driverLap._startMs - aheadLap._startMs) / 1000;
+      }
+    }
+    const gridDelta = gridByDriver.has(position.driver_number)
+      ? gridByDriver.get(position.driver_number) - position.position
+      : null;
+    return {
       position: position.position,
       ...(driversByNumber.get(position.driver_number) ?? { driverNumber: position.driver_number, driverName: null, teamName: null }),
       tyreCompound: stintsByDriver.get(position.driver_number)?.compound ?? null,
       stintNumber: stintsByDriver.get(position.driver_number)?.stint_number ?? null,
-      speedKph: carDataByDriver.get(position.driver_number)?.speed ?? null,
-    }));
+      speedKph: lapSpeed ?? carSpeed,
+      lastLapTime,
+      gapToAhead,
+      gridDelta,
+    };
+  });
 
-  const totalLaps = Math.max(0, ...(bundle.laps ?? [])
-    .map((lap) => lap.lap_number)
-    .filter(Number.isFinite));
-  const currentLap = Math.max(0, ...lapsAtTimestamp
+  // currentLap via binary search on precomputed completed-lap end times.
+  const completedLapEnds = idx?.completedLapEnds ?? [];
+  let currentLap = 0;
+  if (completedLapEnds.length > 0) {
+    let lo = 0;
+    let hi = completedLapEnds.length - 1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (completedLapEnds[mid].endMs <= timestamp) lo = mid + 1;
+      else hi = mid - 1;
+    }
+    for (let i = 0; i < lo; i++) {
+      if (completedLapEnds[i].lap_number > currentLap) {
+        currentLap = completedLapEnds[i].lap_number;
+      }
+    }
+  } else {
+    // Fallback: highest started lap number (no completion check).
+    currentLap = Math.max(0, ...allLaps
+      .filter((lap) => Number.isFinite(lap._startMs) && lap._startMs <= timestamp)
+      .map((lap) => lap.lap_number)
+      .filter(Number.isFinite));
+  }
+  const totalLaps = idx?.totalLaps ?? Math.max(0, ...(bundle.laps ?? [])
     .map((lap) => lap.lap_number)
     .filter(Number.isFinite));
 
@@ -360,7 +573,7 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
       rainfall: weather.rainfall ?? null,
       windSpeed: weather.wind_speed ?? null,
     } : null,
-    recentRaceControl: chunk.resources.race_control
+    recentRaceControl: resourceRecords('race_control')
       .filter((event) => Date.parse(event.date) <= timestamp)
       .slice(-5)
       .map((event) => ({
