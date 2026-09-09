@@ -14,11 +14,8 @@ function errorMessage(errors) {
   return String(errors);
 }
 
-async function fetchApiSports(path) {
-  const key = process.env.API_SPORTS_KEY;
-  if (!key) throw new Error('API_SPORTS_KEY is not configured');
-
-  const response = await fetch(`${API_SPORTS_BASE}${path}`, {
+async function fetchApiSports(path, key, fetchClient) {
+  const response = await fetchClient(`${API_SPORTS_BASE}${path}`, {
     headers: { 'x-apisports-key': key },
   });
   if (!response.ok) throw new Error(`API-Sports ${path} -> ${response.status}`);
@@ -31,21 +28,34 @@ async function fetchApiSports(path) {
 }
 
 export async function apiSports(path) {
+  const apiKey = process.env.API_SPORTS_KEY;
+  if (!apiKey) throw new Error('API_SPORTS_KEY is not configured');
+
+  const fetchClient = globalThis.fetch;
   const now = Date.now();
-  const cached = responseCache.get(path);
+  const storedResponse = responseCache.get(path);
+  const cached = storedResponse?.apiKey === apiKey && storedResponse?.fetchClient === fetchClient
+    ? storedResponse
+    : null;
   if (cached && now - cached.storedAt < SUCCESS_TTL_MS) return cached.value;
 
-  const failure = failureCache.get(path);
+  const storedFailure = failureCache.get(path);
+  const failure = storedFailure?.apiKey === apiKey && storedFailure?.fetchClient === fetchClient
+    ? storedFailure
+    : null;
   if (failure && now < failure.retryAt) {
     if (cached) return cached.value;
     throw failure.error;
   }
 
-  if (inFlightRequests.has(path)) return inFlightRequests.get(path);
+  const inFlight = inFlightRequests.get(path);
+  if (inFlight?.apiKey === apiKey && inFlight?.fetchClient === fetchClient) {
+    return inFlight.promise;
+  }
 
-  const request = fetchApiSports(path)
+  const request = fetchApiSports(path, apiKey, fetchClient)
     .then((value) => {
-      responseCache.set(path, { value, storedAt: Date.now() });
+      responseCache.set(path, { value, storedAt: Date.now(), apiKey, fetchClient });
       failureCache.delete(path);
       return value;
     })
@@ -53,13 +63,17 @@ export async function apiSports(path) {
       failureCache.set(path, {
         error,
         retryAt: Date.now() + FAILURE_TTL_MS,
+        apiKey,
+        fetchClient,
       });
       if (cached) return cached.value;
       throw error;
     })
-    .finally(() => inFlightRequests.delete(path));
+    .finally(() => {
+      if (inFlightRequests.get(path)?.promise === request) inFlightRequests.delete(path);
+    });
 
-  inFlightRequests.set(path, request);
+  inFlightRequests.set(path, { promise: request, apiKey, fetchClient });
   return request;
 }
 
