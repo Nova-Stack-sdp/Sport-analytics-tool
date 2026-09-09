@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
 import { useAuth } from '../context/AuthContext';
+import { clearSession } from '../api/client';
 
 const NAV_ITEMS = [
   { to: '/overview', label: 'Overview' },
@@ -24,12 +25,16 @@ function initialsFor(user) {
 }
 
 function TopNav({ theme, onToggleTheme }) {
-  const { user } = useAuth();
+  const { user, signOut: clearAuth } = useAuth();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
-    await signOut(auth);
-    navigate('/sign-in', { replace: true });
+    // Clear both auth layers: Firebase client session and the backend
+    // httpOnly cookie.  Clear the context immediately so the UI
+    // updates before the redirect.
+    clearAuth();
+    await Promise.all([signOut(auth), clearSession()]);
+    navigate('/', { replace: true });
   };
 
   return (
