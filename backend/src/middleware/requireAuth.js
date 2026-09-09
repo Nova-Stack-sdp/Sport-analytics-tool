@@ -2,19 +2,18 @@
  * requireAuth — Express middleware that verifies a Firebase ID token on
  * incoming requests.
  *
- * The frontend uses Firebase Authentication directly (see
- * frontend/src/firebase.js) rather than a custom backend auth endpoint —
- * this middleware is the backend's half of that: it doesn't issue or
- * manage sessions itself, it just verifies the ID token Firebase already
- * issued to the client and attaches the decoded user to req.user.
+ * Supports two token transport methods (checked in order):
+ *   1. Authorization header:  Authorization: Bearer <firebase-id-token>
+ *   2. httpOnly cookie:       __session=<firebase-id-token>
  *
- * Usage (once wired into a route):
+ * The frontend exchanges the Firebase ID token for an httpOnly cookie
+ * via POST /api/auth/session.  Subsequent requests carry the cookie
+ * automatically, so protected routes just add this middleware and the
+ * token is verified transparently.
+ *
+ * Usage:
  *   import { requireAuth } from '../middleware/requireAuth.js';
  *   router.get('/admin-only', requireAuth, handler);
- *
- * The client sends the token as:
- *   Authorization: Bearer <firebase-id-token>
- * (get it client-side via `await auth.currentUser.getIdToken()`).
  *
  * Requires FIREBASE_SERVICE_ACCOUNT to be set on the backend — a JSON
  * service account key (Firebase Console -> Project settings -> Service
@@ -25,7 +24,7 @@ import admin from 'firebase-admin';
 
 let adminApp;
 
-function getAdminApp() {
+export function getAdminApp() {
   if (adminApp) return adminApp;
 
   if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
@@ -41,11 +40,35 @@ function getAdminApp() {
   return adminApp;
 }
 
-export async function requireAuth(req, res, next) {
-  const header = req.headers.authorization || '';
-  const [scheme, token] = header.split(' ');
+// Cookie name — must match the name used in routes/auth.js.
+const COOKIE_NAME = '__session';
 
-  if (scheme !== 'Bearer' || !token) {
+/**
+ * Extract the Firebase ID token from the request.
+ * Prefers the Authorization header (explicit Bearer token), falls back
+ * to the httpOnly cookie set by POST /api/auth/session.
+ */
+function extractToken(req) {
+  // 1. Authorization header
+  const header = req.headers.authorization || '';
+  const [scheme, bearerToken] = header.split(' ');
+  if (scheme === 'Bearer' && bearerToken) {
+    return bearerToken;
+  }
+
+  // 2. httpOnly cookie
+  const cookieToken = req.cookies?.[COOKIE_NAME];
+  if (cookieToken) {
+    return cookieToken;
+  }
+
+  return null;
+}
+
+export async function requireAuth(req, res, next) {
+  const token = extractToken(req);
+
+  if (!token) {
     return res.status(401).json({ error: 'Missing or malformed Authorization header' });
   }
 

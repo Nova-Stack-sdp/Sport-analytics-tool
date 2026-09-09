@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import { authRouter } from './routes/auth.js';
 import { overviewRouter } from './routes/overview.js';
 import { statisticsRouter } from './routes/statistics.js';
 import { fixturesRouter } from './routes/fixtures.js';
@@ -11,19 +13,24 @@ export function createApp() {
   // FRONTEND_ORIGIN should be set on Northflank to the exact Netlify URL,
   // e.g. "https://sport-analytics-tool.netlify.app". Comma-separate if you
   // need more than one (a preview URL + the production domain, say).
-  // Falls back to "*" so local/dev work out of the box, but that fallback
-  // should never be relied on in production.
-  const allowedOrigins = (process.env.FRONTEND_ORIGIN || '*')
+  // Defaults to localhost:3000 for local dev.  The wildcard fallback is
+  // removed — credentials: true is incompatible with Access-Control-Allow-
+  // Origin: *, so we must always resolve to a specific origin.
+  const allowedOrigins = (process.env.FRONTEND_ORIGIN || 'http://localhost:3000')
     .split(',')
     .map((o) => o.trim())
     .filter(Boolean);
 
   app.use(
     cors({
-      origin: allowedOrigins.includes('*') ? '*' : allowedOrigins,
+      origin: allowedOrigins,
+      credentials: true,
     })
   );
   app.use(express.json());
+  // cookie-parser is required so requireAuth can read the httpOnly
+  // __session cookie set by POST /api/auth/session.
+  app.use(cookieParser());
 
   // Northflank's health check and a plain "is this alive" endpoint.
   app.get('/', (req, res) => {
@@ -33,6 +40,7 @@ export function createApp() {
     res.json({ status: 'ok' });
   });
 
+  app.use('/api/auth', authRouter);
   app.use('/api/overview', overviewRouter);
   app.use('/api/statistics', statisticsRouter);
   app.use('/api/fixtures', fixturesRouter);
