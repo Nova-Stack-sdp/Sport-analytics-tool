@@ -52,7 +52,7 @@ function sleep(ms) {
 async function fetchOpenF1(path, params = {}) {
   const query = new URLSearchParams(params).toString();
   const url = `${OPENF1_BASE}/${path}${query ? `?${query}` : ''}`;
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
   if (res.status === 429) {
     // Rate limited — wait and retry once before giving up.
     console.warn(`Rate limited on ${url}, waiting 3s and retrying...`);
@@ -493,7 +493,7 @@ async function syncSession(sessionKeyRaw) {
     }
 
     return submission;
-  });
+  }, { maxWait: 15000, timeout: 30000 });
 
     console.log(`Submission ${result.id} created — status: ${result.status}, events written: ${events.length}`);
 
