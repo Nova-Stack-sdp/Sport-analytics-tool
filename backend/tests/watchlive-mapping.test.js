@@ -27,9 +27,9 @@ describe('Barcelona video mapping', () => {
   test('partitions date-bearing OpenF1 resources without mutating the raw bundle', () => {
     const bundle = {
       laps: [
-        { date_start: '2026-06-14T13:03:27.854Z', lap_number: 1 },
-        { date_start: '2026-06-14T13:41:28.951Z', lap_number: 27 },
-        { date_start: '2026-06-14T13:55:32.753Z', lap_number: 38 },
+        { date: '2026-06-14T13:03:27.854Z', lap_number: 1 },
+        { date: '2026-06-14T13:41:28.951Z', lap_number: 27 },
+        { date: '2026-06-14T13:55:32.753Z', lap_number: 38 },
       ],
       pit: [{ date: '2026-06-14T13:19:06.289Z', driver_number: 44 }],
       stints: [],
@@ -41,9 +41,9 @@ describe('Barcelona video mapping', () => {
     const chunks = buildBarcelonaOpenF1Chunks(bundle);
 
     expect(chunks).toHaveLength(4);
-    expect(chunks[0].resources.laps).toEqual([{ date_start: '2026-06-14T13:03:27.854Z', lap_number: 1 }]);
-    expect(chunks[0].resources.pit).toEqual([{ date: '2026-06-14T13:19:06.289Z', driver_number: 44 }]);
-    expect(chunks[3].resources.laps).toEqual([{ date_start: '2026-06-14T13:55:32.753Z', lap_number: 38 }]);
+    expect(chunks[0].resources.laps).toEqual([{ date: '2026-06-14T13:03:27.854Z', lap_number: 1 }]);
+    expect(chunks[1].resources.pit).toEqual([{ date: '2026-06-14T13:19:06.289Z', driver_number: 44 }]);
+    expect(chunks[3].resources.laps).toEqual([{ date: '2026-06-14T13:55:32.753Z', lap_number: 38 }]);
     expect(chunks.flatMap((chunk) => chunk.resources.laps)).toHaveLength(3);
     expect(bundle.laps).toHaveLength(3);
   });
@@ -54,7 +54,7 @@ describe('Barcelona video mapping', () => {
       session: [{ session_name: 'Race' }],
       meeting: [{ meeting_name: 'Barcelona-Catalunya Grand Prix' }],
       drivers: [{ driver_number: 44, full_name: 'Lewis Hamilton', team_name: 'Ferrari' }],
-      laps: [{ date_start: '2026-06-14T13:19:06.289Z', lap_number: 11 }],
+      laps: [{ date: '2026-06-14T13:19:06.289Z', lap_number: 11, lap_duration: 80 }],
       pit: [],
       stints: [{ date: '2026-06-14T13:19:06.289Z', driver_number: 44, compound: 'HARD', stint_number: 2 }],
       position: [{ date: '2026-06-14T13:19:06.289Z', driver_number: 44, position: 1 }],

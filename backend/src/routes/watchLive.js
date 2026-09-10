@@ -11,27 +11,30 @@ const BARCELONA_CACHE_KEY = 'openf1:barcelona-2026-race:v2';
 
 // In-memory cache on top of the DB cache — avoids a DB round-trip on every
 // single request within the same running process, while the DB layer
-// avoids re-fetching from OpenF1 (which takes ~2 minutes) after a restart.
+// avoids re-fetching from OpenF1 (which takes well over a minute) after a
+// restart.
 let Barcelona_openf1Data = null;
 let Barcelona_openf1Chunks = null;
+let Barcelona_precomputed = null;
 // Tracks an in-progress fetch so concurrent callers await the SAME promise
 // instead of each independently kicking off their own full fetch sequence
 // against OpenF1. Without this, every request that arrives before the
 // first fetch finishes starts a brand new multi-request sequence — a
-// classic cache-stampede bug, and exactly what was tripping OpenF1's real
-// rate limits (30/min, 3/sec): a dozen overlapping fetch sequences instead
-// of one paced one.
+// classic cache-stampede bug that reliably trips OpenF1's rate limits
+// (30/min, 3/sec): a dozen overlapping fetch sequences instead of one
+// paced one.
 let Barcelona_fetchPromise = null;
 const Barcelona_snapshotCache = new Map();
 const MAX_BUFFER_SECONDS = 20;
 
 async function fetchAndCacheBarcelonaData() {
-  // Imported lazily, not at module top-level: buildBarcelonaOpenF1Chunks and
-  // createBarcelonaWatchLiveState are imported directly by existing tests
-  // that never call this function and never need a database connection.
-  // lib/prisma.js throws at import time if DATABASE_URL isn't set, which it
-  // isn't in the test environment — a static top-level import here would
-  // break those tests even though they don't touch the DB.
+  // Imported lazily, not at module top-level: several exports from this
+  // file (buildBarcelonaOpenF1Chunks, createBarcelonaWatchLiveState, etc.)
+  // are imported directly by tests that never call this function and
+  // never need a database connection. lib/prisma.js throws at import time
+  // if DATABASE_URL isn't set, which it isn't in the test environment — a
+  // static top-level import here would break those tests even though
+  // they don't touch the DB.
   const { prisma } = await import('../lib/prisma.js');
 
   const cached = await prisma.externalApiCache.findUnique({
@@ -42,7 +45,7 @@ async function fetchAndCacheBarcelonaData() {
 
   const fresh = await fetchBarcelonaRaceRaw();
   // Persist so the next cold start (server restart/redeploy) doesn't have
-  // to redo the ~2-minute fetch chain against OpenF1 again. Best-effort —
+  // to redo the expensive fetch chain against OpenF1 again. Best-effort —
   // if this write fails, the in-memory cache above still works for the
   // lifetime of this process, we just lose the durability across restarts.
   try {
@@ -76,7 +79,83 @@ async function getBarcelonaOpenF1Data() {
   }
 
   Barcelona_openf1Chunks = buildBarcelonaOpenF1Chunks(Barcelona_openf1Data);
+  Barcelona_precomputed = buildPrecomputedIndex(Barcelona_openf1Data, Barcelona_openf1Chunks);
   return { bundle: Barcelona_openf1Data, chunks: Barcelona_openf1Chunks };
+}
+
+// Builds a one-time lookup index from the cached OpenF1 bundle so each
+// snapshot computation avoids re-parsing timestamps, re-flattening laps,
+// and re-scanning driver records. Called once after the initial fetch.
+function buildPrecomputedIndex(bundle, chunks) {
+  const driversByNumber = new Map(
+    (bundle.drivers ?? []).map((d) => [d.driver_number, normalizeDriver(d)])
+  );
+
+  // Groups time-series records by driver with pre-parsed timestamps so
+  // latestByDriver can use a single comparison per record.
+  function indexByDriver(records, dateField) {
+    const index = new Map();
+    for (const record of records) {
+      const dateValue = record[dateField] ?? record.date;
+      const ms = Date.parse(dateValue);
+      if (!Number.isFinite(ms)) continue;
+      const driver = record.driver_number;
+      if (!index.has(driver)) index.set(driver, []);
+      index.get(driver).push({ ...record, _ms: ms });
+    }
+    return index;
+  }
+
+  const positionIndex = indexByDriver(bundle.position ?? [], 'date');
+  const stintIndex = indexByDriver(bundle.stints ?? [], 'date');
+  const carDataIndex = indexByDriver(bundle.car_data ?? [], 'date');
+  // Real x,y,z position telemetry — used to enrich the leaderboard with
+  // real track position when available, and by deriveTrackShape below to
+  // trace an accurate track outline. Most sessions won't have this (it's
+  // a heavier resource OpenF1 doesn't always retain), so downstream code
+  // always treats missing x/y as an expected case, not an error.
+  const locationIndex = indexByDriver(bundle.location ?? [], 'date');
+
+  // Pre-flatten laps from all chunks with pre-parsed start timestamps.
+  // OpenF1 lap records use date_start; tests may use date.
+  const allLaps = chunks.flatMap((c) => (c.resources.laps ?? []).map((lap) => ({
+    ...lap,
+    _startMs: Date.parse(lap.date_start ?? lap.date),
+  }))).filter((lap) => Number.isFinite(lap._startMs))
+    .sort((a, b) => a._startMs - b._startMs);
+
+  // Pre-group laps by driver (sorted by start time) so createBarcelonaWatchLiveState
+  // can binary-search per driver instead of linearly scanning all laps every call.
+  const lapsByDriver = new Map();
+  for (const lap of allLaps) {
+    const driver = lap.driver_number;
+    if (!lapsByDriver.has(driver)) lapsByDriver.set(driver, []);
+    lapsByDriver.get(driver).push(lap);
+  }
+
+  // Precompute sorted lap end times for O(log n) currentLap lookups.
+  const completedLapEnds = allLaps
+    .filter((lap) => Number.isFinite(lap.lap_duration) && lap.lap_duration > 0)
+    .map((lap) => ({ endMs: lap._startMs + lap.lap_duration * 1000, lap_number: lap.lap_number }))
+    .sort((a, b) => a.endMs - b.endMs);
+
+  const totalLaps = Math.max(0, ...(bundle.laps ?? [])
+    .map((lap) => lap.lap_number)
+    .filter(Number.isFinite));
+
+  return {
+    driversByNumber, positionIndex, stintIndex, carDataIndex, locationIndex,
+    allLaps, lapsByDriver, completedLapEnds, totalLaps,
+  };
+}
+
+// Triggers the one-time OpenF1 fetch in the background so the cache is warm
+// by the time a user hits the watch-live page. Called from server.js at
+// startup — failures are logged but never fatal.
+export function prewarmBarcelonaCache() {
+  getBarcelonaOpenF1Data().catch((err) => {
+    console.warn('Barcelona OpenF1 cache pre-warm failed:', err.message);
+  });
 }
 
 watchLiveRouter.get('/', async (req, res, next) => {
@@ -269,18 +348,14 @@ export function mapBarcelonaVideoTime(videoSeconds) {
     throw new TypeError('videoSeconds must be a finite number');
   }
 
-  // Each chunk is end-inclusive, start-exclusive — an exact boundary second
-  // (e.g. 923, shared between opening-stint's end and first-strategy-cycle's
-  // start) belongs to the chunk it's ENDING, not the one it's starting.
-  // The first chunk is the one exception: it must include its own start
-  // (0), since there's no earlier chunk for that instant to belong to.
-  const chunk = Barcelona_video_chunks.find((candidate, index) => {
-    const isFirstChunk = index === 0;
-    const pastStart = isFirstChunk
-      ? videoSeconds >= candidate.videoStartSeconds
-      : videoSeconds > candidate.videoStartSeconds;
-    return pastStart && videoSeconds <= candidate.videoEndSeconds;
-  });
+  if (videoSeconds < 0) return null;
+
+  // Inclusive end boundary (<=): at shared boundaries like videoSeconds=923,
+  // the earlier chunk wins because its end matches before the next chunk starts.
+  const chunk = Barcelona_video_chunks.find((candidate) => (
+    videoSeconds >= candidate.videoStartSeconds
+    && videoSeconds <= candidate.videoEndSeconds
+  ));
   if (!chunk) return null;
 
   const anchors = chunk.calibrationAnchors;
@@ -301,39 +376,33 @@ const TIME_SERIES_RESOURCE_KEYS = [
   'stints',
   'position',
   'car_data',
+  // Real x,y,z telemetry — not every session has it (this one doesn't),
+  // but when present it's used both to enrich the leaderboard with real
+  // track position and, separately, by deriveTrackShape to trace an
+  // accurate outline. Included here so it gets the same time-windowed
+  // chunk slicing as every other time-series resource.
   'location',
   'race_control',
   'weather',
 ];
 
-
-// Every OpenF1 resource uses a `date` field to timestamp each record,
-// EXCEPT /laps, which uses `date_start` instead. Using the wrong field
-// name here meant Date.parse(undefined) => NaN for every lap record,
-// silently filtering all of them out of every chunk — the currentLap
-// fix in createBarcelonaWatchLiveState (reading date_start) never had a
-// chance to run correctly, because chunk.resources.laps was always empty
-// by the time it got there.
-const DATE_FIELD_BY_RESOURCE = {
-  laps: 'date_start',
-};
-
-function recordsWithinTimestampRange(records, startTimestamp, endTimestamp, isFirstChunk, dateField = 'date') {
+function recordsWithinTimestampRange(records, startTimestamp, endTimestamp, includesEnd) {
   const startMilliseconds = Date.parse(startTimestamp);
   const endMilliseconds = Date.parse(endTimestamp);
 
   return records.filter((record) => {
-    const timestamp = Date.parse(record[dateField]);
-    const pastStart = isFirstChunk ? timestamp >= startMilliseconds : timestamp > startMilliseconds;
-    return Number.isFinite(timestamp) && pastStart && timestamp <= endMilliseconds;
+    // Most OpenF1 resources use `date`; laps use `date_start`.
+    const timestamp = Date.parse(record.date ?? record.date_start);
+    return Number.isFinite(timestamp)
+      && timestamp >= startMilliseconds
+      && (timestamp < endMilliseconds || (includesEnd && timestamp <= endMilliseconds));
   });
 }
 
 export function buildBarcelonaOpenF1Chunks(bundle) {
-  return Barcelona_video_chunks.map((chunk, chunkIndex) => {
+  return Barcelona_video_chunks.map((chunk) => {
     const start = mapBarcelonaVideoTime(chunk.videoStartSeconds);
     const end = mapBarcelonaVideoTime(chunk.videoEndSeconds);
-    const isFirstChunk = chunkIndex === 0;
     const isFinalChunk = chunk.id === Barcelona_video_chunks.at(-1).id;
     const resources = Object.fromEntries(
       TIME_SERIES_RESOURCE_KEYS.map((resourceKey) => [
@@ -342,8 +411,7 @@ export function buildBarcelonaOpenF1Chunks(bundle) {
           Array.isArray(bundle[resourceKey]) ? bundle[resourceKey] : [],
           start.openF1Timestamp,
           end.openF1Timestamp,
-          isFirstChunk,
-          DATE_FIELD_BY_RESOURCE[resourceKey] ?? 'date'
+          isFinalChunk
         ),
       ])
     );
@@ -364,14 +432,28 @@ export function buildBarcelonaOpenF1Chunks(bundle) {
   });
 }
 
-function latestRecordsByDriver(records, timestamp) {
-  const latestRecords = new Map();
-  for (const record of records) {
-    if (Date.parse(record.date) <= timestamp) {
-      latestRecords.set(record.driver_number, record);
+function latestByDriver(driverRecords, timestamp) {
+  const latest = new Map();
+  for (const [driverNumber, records] of driverRecords) {
+    for (const record of records) {
+      if (record._ms <= timestamp) latest.set(driverNumber, record);
     }
   }
-  return latestRecords;
+  return latest;
+}
+
+// Builds a pre-parsed, per-driver index from a flat record array.
+// Used by the on-the-fly fallback path when no precomputed index exists.
+function buildDriverIndex(records, dateField = 'date') {
+  const index = new Map();
+  for (const record of records) {
+    const ms = Date.parse(record[dateField] ?? record.date);
+    if (!Number.isFinite(ms)) continue;
+    const driver = record.driver_number;
+    if (!index.has(driver)) index.set(driver, []);
+    index.get(driver).push({ ...record, _ms: ms });
+  }
+  return index;
 }
 
 function latestRecord(records, timestamp) {
@@ -392,43 +474,172 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
   const mapping = mapBarcelonaVideoTime(videoSeconds);
   if (!mapping) return null;
 
-  const chunk = chunks.find((candidate) => candidate.id === mapping.chunkId);
+  const chunkIdx = chunks.findIndex((candidate) => candidate.id === mapping.chunkId);
+  const chunk = chunks[chunkIdx];
+  const idx = Barcelona_precomputed;
   const timestamp = Date.parse(mapping.openF1Timestamp);
-  const driversByNumber = new Map(
+
+  // At chunk boundaries, map() returns the earlier chunk (inclusive end)
+  // but recordsWithinTimestampRange uses exclusive end (<), so records at
+  // the exact boundary timestamp live in the next chunk. Fall back to the
+  // adjacent chunk's resources when the mapped chunk is empty at the boundary.
+  const nextChunk = chunkIdx + 1 < chunks.length ? chunks[chunkIdx + 1] : null;
+  const chunkMsEnd = Date.parse(chunk.openF1EndTimestamp);
+  const atBoundary = nextChunk && Number.isFinite(chunkMsEnd) && timestamp === chunkMsEnd;
+  function resourceRecords(key) {
+    const records = chunk.resources[key] ?? [];
+    if (records.length > 0 || !atBoundary) return records;
+    return nextChunk.resources[key] ?? [];
+  }
+  const driversByNumber = idx?.driversByNumber ?? new Map(
     (bundle.drivers ?? []).map((driver) => [driver.driver_number, normalizeDriver(driver)])
   );
-  const positionsByDriver = latestRecordsByDriver(chunk.resources.position, timestamp);
-  const stintsByDriver = latestRecordsByDriver(chunk.resources.stints, timestamp);
-  // Selects each driver's latest telemetry sample at playback time.
-  const carDataByDriver = latestRecordsByDriver(chunk.resources.car_data, timestamp);
-  const locationByDriver = latestRecordsByDriver(chunk.resources.location, timestamp);
-  // NOTE: OpenF1's /laps resource uses `date_start`, not `date` like most
-  // other resources (pit, position, stints, race_control, weather,
-  // car_data, location all use `date`). Using the wrong field name here
-  // meant Date.parse(undefined) => NaN => this filter was always empty,
-  // which is why currentLap was stuck at 0 regardless of playback position
-  // while totalLaps (which doesn't need a date) displayed correctly.
-  const lapsAtTimestamp = chunk.resources.laps.filter((lap) => Date.parse(lap.date_start) <= timestamp);
-  const weather = latestRecord(chunk.resources.weather, timestamp);
+  // Merge live position data with the starting grid so the masterboard always
+  // shows all drivers. Grid positions act as a base layer — live position
+  // records override them as they become available.
+  const livePositions = idx
+    ? latestByDriver(idx.positionIndex, timestamp)
+    : latestByDriver(buildDriverIndex(resourceRecords('position')), timestamp);
+  const positionsByDriver = new Map();
+  const gridByDriver = new Map();
+  if (Array.isArray(bundle.starting_grid) && bundle.starting_grid.length > 0) {
+    for (const entry of bundle.starting_grid) {
+      positionsByDriver.set(entry.driver_number, {
+        driver_number: entry.driver_number,
+        position: entry.position,
+      });
+      gridByDriver.set(entry.driver_number, entry.position);
+    }
+  }
+  for (const [driverNumber, record] of livePositions) {
+    positionsByDriver.set(driverNumber, record);
+  }
+  const stintsByDriver = idx
+    ? latestByDriver(idx.stintIndex, timestamp)
+    : latestByDriver(buildDriverIndex(resourceRecords('stints')), timestamp);
+  // car_data may be available for some sessions; use the precomputed index
+  // when available, otherwise build it on the fly.
+  const carDataByDriver = idx
+    ? latestByDriver(idx.carDataIndex, timestamp)
+    : latestByDriver(buildDriverIndex(resourceRecords('car_data')), timestamp);
+  // Real x,y,z position, when this session actually has /location data
+  // (most don't). Missing for a given driver just means no real-position
+  // enrichment for them — callers already treat x/y as possibly absent.
+  const locationByDriver = idx
+    ? latestByDriver(idx.locationIndex, timestamp)
+    : latestByDriver(buildDriverIndex(resourceRecords('location')), timestamp);
+  // Binary-search the precomputed per-driver lap index to find the latest
+  // lap at or before the current timestamp, plus the previous lap (for
+  // lastLapTime). O(log n) per driver instead of O(n) over all laps.
+  const lapsByDriver = idx?.lapsByDriver ?? null;
+  const allLaps = idx?.allLaps ?? chunks.flatMap((c) =>
+    (c.resources.laps ?? []).map((lap) => ({ ...lap, _startMs: Date.parse(lap.date_start ?? lap.date) }))
+      .filter((lap) => Number.isFinite(lap._startMs))
+      .sort((a, b) => a._startMs - b._startMs)
+  );
+  const latestLapsByDriver = new Map();
+  const previousLapsByDriver = new Map();
+  if (lapsByDriver) {
+    for (const [driverNum, driverLaps] of lapsByDriver) {
+      let lo = 0;
+      let hi = driverLaps.length - 1;
+      while (lo <= hi) {
+        const mid = (lo + hi) >> 1;
+        if (driverLaps[mid]._startMs <= timestamp) lo = mid + 1;
+        else hi = mid - 1;
+      }
+      if (hi >= 0) {
+        const latestLap = driverLaps[hi];
+        // Only count laps where lap_duration is populated (lap completed).
+        // This prevents pit-stop laps from creating phantom gaps.
+        if (Number.isFinite(latestLap.lap_duration) && latestLap.lap_duration > 0) {
+          latestLapsByDriver.set(driverNum, latestLap);
+          if (hi > 0) previousLapsByDriver.set(driverNum, driverLaps[hi - 1]);
+        }
+      }
+    }
+  } else {
+    for (const lap of allLaps) {
+      if (lap._startMs <= timestamp
+        && Number.isFinite(lap.lap_duration) && lap.lap_duration > 0) {
+        const current = latestLapsByDriver.get(lap.driver_number);
+        if (current && lap._startMs > current._startMs) {
+          previousLapsByDriver.set(lap.driver_number, current);
+        }
+        latestLapsByDriver.set(lap.driver_number, lap);
+      }
+    }
+  }
+  const weather = latestRecord(resourceRecords('weather'), timestamp);
 
-  const leaderboard = [...positionsByDriver.values()]
-    .sort((left, right) => left.position - right.position)
-    .map((position) => ({
+  // Build the leaderboard sorted by position, then compute per-driver
+  // metrics that depend on neighbours (gap) or historical data (lap time,
+  // grid delta).
+  const sorted = [...positionsByDriver.values()]
+    .sort((left, right) => left.position - right.position);
+  const leaderboard = sorted.map((position, index) => {
+    const driverLap = latestLapsByDriver.get(position.driver_number);
+    const prevLap = previousLapsByDriver.get(position.driver_number);
+    const lapSpeed = driverLap?.st_speed ?? driverLap?.i2_speed ?? driverLap?.i1_speed ?? null;
+    const carSpeed = carDataByDriver.get(position.driver_number)?.speed ?? null;
+    // Last lap time = gap between consecutive lap start timestamps.
+    const lastLapTime = (driverLap && prevLap)
+      ? (driverLap._startMs - prevLap._startMs) / 1000
+      : null;
+    // Gap to car ahead = difference in latest lap start times.
+    let gapToAhead = null;
+    if (index > 0) {
+      const ahead = sorted[index - 1];
+      const aheadLap = latestLapsByDriver.get(ahead.driver_number);
+      if (driverLap && aheadLap) {
+        gapToAhead = (driverLap._startMs - aheadLap._startMs) / 1000;
+      }
+    }
+    const gridDelta = gridByDriver.has(position.driver_number)
+      ? gridByDriver.get(position.driver_number) - position.position
+      : null;
+    const location = locationByDriver.get(position.driver_number);
+    return {
       position: position.position,
       ...(driversByNumber.get(position.driver_number) ?? { driverNumber: position.driver_number, driverName: null, teamName: null }),
       tyreCompound: stintsByDriver.get(position.driver_number)?.compound ?? null,
       stintNumber: stintsByDriver.get(position.driver_number)?.stint_number ?? null,
-      speedKph: carDataByDriver.get(position.driver_number)?.speed ?? null,
-      // Real x,y,z from OpenF1's /location — null if no location record has
-      // arrived yet for this driver at this point in the session.
-      x: locationByDriver.get(position.driver_number)?.x ?? null,
-      y: locationByDriver.get(position.driver_number)?.y ?? null,
-    }));
+      speedKph: lapSpeed ?? carSpeed,
+      lastLapTime,
+      gapToAhead,
+      gridDelta,
+      // Real x,y — null when this session has no /location data for this
+      // driver at this point in time (the common case). Consumers treat
+      // this as "no real position available," not an error.
+      x: location?.x ?? null,
+      y: location?.y ?? null,
+    };
+  });
 
-  const totalLaps = Math.max(0, ...(bundle.laps ?? [])
-    .map((lap) => lap.lap_number)
-    .filter(Number.isFinite));
-  const currentLap = Math.max(0, ...lapsAtTimestamp
+  // currentLap via binary search on precomputed completed-lap end times.
+  const completedLapEnds = idx?.completedLapEnds ?? [];
+  let currentLap = 0;
+  if (completedLapEnds.length > 0) {
+    let lo = 0;
+    let hi = completedLapEnds.length - 1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (completedLapEnds[mid].endMs <= timestamp) lo = mid + 1;
+      else hi = mid - 1;
+    }
+    for (let i = 0; i < lo; i++) {
+      if (completedLapEnds[i].lap_number > currentLap) {
+        currentLap = completedLapEnds[i].lap_number;
+      }
+    }
+  } else {
+    // Fallback: highest started lap number (no completion check).
+    currentLap = Math.max(0, ...allLaps
+      .filter((lap) => Number.isFinite(lap._startMs) && lap._startMs <= timestamp)
+      .map((lap) => lap.lap_number)
+      .filter(Number.isFinite));
+  }
+  const totalLaps = idx?.totalLaps ?? Math.max(0, ...(bundle.laps ?? [])
     .map((lap) => lap.lap_number)
     .filter(Number.isFinite));
 
@@ -450,7 +661,7 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
       rainfall: weather.rainfall ?? null,
       windSpeed: weather.wind_speed ?? null,
     } : null,
-    recentRaceControl: chunk.resources.race_control
+    recentRaceControl: resourceRecords('race_control')
       .filter((event) => Date.parse(event.date) <= timestamp)
       .slice(-5)
       .map((event) => ({
@@ -495,45 +706,6 @@ export function createBarcelonaWatchLiveBuffer(videoSeconds, bufferSeconds, bund
     snapshots,
   };
 }
-
-watchLiveRouter.get('/state', async (req, res, next) => {
-  const value = req.query.videoSeconds;
-  const videoSeconds = typeof value === 'string' && value.trim() !== '' ? Number(value) : Number.NaN;
-  if (!Number.isFinite(videoSeconds)) {
-    return res.status(400).json({ error: 'videoSeconds must be a finite number' });
-  }
-
-  const mapping = mapBarcelonaVideoTime(videoSeconds);
-
-  if (!mapping) {
-    return res.status(400).json({
-      error: `videoSeconds must be between 0 and ${Barcelona_video_chunks.at(-1).videoEndSeconds}`,
-      maxVideoSeconds: Barcelona_video_chunks.at(-1).videoEndSeconds,
-    });
-  }
-
-  const requestedBufferSeconds = req.query.bufferSeconds;
-  const bufferSeconds = requestedBufferSeconds == null
-    ? null
-    : Number(requestedBufferSeconds);
-  if (bufferSeconds != null && (!Number.isInteger(bufferSeconds)
-    || bufferSeconds < 1 || bufferSeconds > MAX_BUFFER_SECONDS)) {
-    return res.status(400).json({
-      error: `bufferSeconds must be an integer between 1 and ${MAX_BUFFER_SECONDS}`,
-    });
-  }
-
-  try {
-    const { bundle, chunks } = await getBarcelonaOpenF1Data();
-    if (bufferSeconds != null) {
-      return res.json(createBarcelonaWatchLiveBuffer(videoSeconds, bufferSeconds, bundle, chunks));
-    }
-
-    return res.json(getBarcelonaCachedState(videoSeconds, bundle, chunks));
-  } catch (err) {
-    return next(err);
-  }
-});
 
 // Derives an accurate track outline from real location telemetry, the same
 // technique the reference F1 Race Replay tool uses via FastF1: pick one
@@ -598,35 +770,14 @@ function deriveTrackShape(bundle) {
   return Barcelona_trackShapeCache;
 }
 
-watchLiveRouter.get('/track-shape', async (req, res, next) => {
-  try {
-    const { bundle } = await getBarcelonaOpenF1Data();
-    const liveShape = deriveTrackShape(bundle);
-    if (liveShape) {
-      return res.json({ ...liveShape, source: 'openf1-live' });
-    }
-
-    // OpenF1 has no /location data for this specific session (confirmed
-    // via direct DB query — location count was 0). The physical circuit
-    // hasn't changed though, so fall back to a real track shape generated
-    // once, offline, from FastF1 telemetry for an actual past race at the
-    // same circuit (2024 Spanish GP) — see
-    // scripts/generate_track_shape.py for how this file was produced.
-    // This is real telemetry-derived geometry, not an illustrative guess,
-    // just sourced from a different (real) session than the one replayed.
-    const staticShape = await readStaticTrackShape();
-    if (staticShape) {
-      return res.json({ ...staticShape, source: 'fastf1-static-fallback' });
-    }
-
-    return res.status(404).json({ error: 'No location telemetry available to derive a track shape' });
-  } catch (err) {
-    return next(err);
-  }
-});
-
 let Barcelona_staticTrackShapeCache = null;
 
+// Static fallback for sessions with no live /location data (this one has
+// none — confirmed via a direct DB query). The physical circuit hasn't
+// changed, so this is real telemetry from an actual 2024 Spanish GP lap,
+// generated once offline via scripts/generate_track_shape.py using FastF1
+// (which has no data at all for the fictional session itself, only for
+// real past seasons at the same circuit).
 async function readStaticTrackShape() {
   if (Barcelona_staticTrackShapeCache) return Barcelona_staticTrackShapeCache;
   try {
@@ -642,3 +793,61 @@ async function readStaticTrackShape() {
     return null;
   }
 }
+
+watchLiveRouter.get('/track-shape', async (req, res, next) => {
+  try {
+    const { bundle } = await getBarcelonaOpenF1Data();
+    const liveShape = deriveTrackShape(bundle);
+    if (liveShape) {
+      return res.json({ ...liveShape, source: 'openf1-live' });
+    }
+
+    const staticShape = await readStaticTrackShape();
+    if (staticShape) {
+      return res.json({ ...staticShape, source: 'fastf1-static-fallback' });
+    }
+
+    return res.status(404).json({ error: 'No location telemetry available to derive a track shape' });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+watchLiveRouter.get('/state', async (req, res, next) => {
+  const value = req.query.videoSeconds;
+  const videoSeconds = typeof value === 'string' && value.trim() !== '' ? Number(value) : Number.NaN;
+  if (!Number.isFinite(videoSeconds)) {
+    return res.status(400).json({ error: 'videoSeconds must be a finite number' });
+  }
+
+  const mapping = mapBarcelonaVideoTime(videoSeconds);
+
+  if (!mapping) {
+    return res.status(400).json({
+      error: `videoSeconds must be between 0 and ${Barcelona_video_chunks.at(-1).videoEndSeconds}`,
+      maxVideoSeconds: Barcelona_video_chunks.at(-1).videoEndSeconds,
+    });
+  }
+
+  const requestedBufferSeconds = req.query.bufferSeconds;
+  const bufferSeconds = requestedBufferSeconds == null
+    ? null
+    : Number(requestedBufferSeconds);
+  if (bufferSeconds != null && (!Number.isInteger(bufferSeconds)
+    || bufferSeconds < 1 || bufferSeconds > MAX_BUFFER_SECONDS)) {
+    return res.status(400).json({
+      error: `bufferSeconds must be an integer between 1 and ${MAX_BUFFER_SECONDS}`,
+    });
+  }
+
+  try {
+    const { bundle, chunks } = await getBarcelonaOpenF1Data();
+    if (bufferSeconds != null) {
+      return res.json(createBarcelonaWatchLiveBuffer(videoSeconds, bufferSeconds, bundle, chunks));
+    }
+
+    return res.json(getBarcelonaCachedState(videoSeconds, bundle, chunks));
+  } catch (err) {
+    return next(err);
+  }
+});
