@@ -4,21 +4,82 @@ import { fetchBarcelonaRaceRaw } from './openf1.js';
 // Maps replay playback time to cached Barcelona OpenF1 state.
 export const watchLiveRouter = Router();
 
-// Fetched once and cached — the Barcelona 2026 race this feature simulates
-// as "live" doesn't change, so there's no need to re-fetch it per request.
+// The DB row key for the persisted bundle cache (see ExternalApiCache in
+// schema.prisma). Bumped if the bundle's *shape* ever changes in a way that
+// would make an old cached payload stale/incompatible.
+const BARCELONA_CACHE_KEY = 'openf1:barcelona-2026-race:v2';
+
+// In-memory cache on top of the DB cache — avoids a DB round-trip on every
+// single request within the same running process, while the DB layer
+// avoids re-fetching from OpenF1 (which takes well over a minute) after a
+// restart.
 let Barcelona_openf1Data = null;
 let Barcelona_openf1Chunks = null;
 let Barcelona_precomputed = null;
+// Tracks an in-progress fetch so concurrent callers await the SAME promise
+// instead of each independently kicking off their own full fetch sequence
+// against OpenF1. Without this, every request that arrives before the
+// first fetch finishes starts a brand new multi-request sequence — a
+// classic cache-stampede bug that reliably trips OpenF1's rate limits
+// (30/min, 3/sec): a dozen overlapping fetch sequences instead of one
+// paced one.
+let Barcelona_fetchPromise = null;
 const Barcelona_snapshotCache = new Map();
 const MAX_BUFFER_SECONDS = 20;
 
+async function fetchAndCacheBarcelonaData() {
+  // Imported lazily, not at module top-level: several exports from this
+  // file (buildBarcelonaOpenF1Chunks, createBarcelonaWatchLiveState, etc.)
+  // are imported directly by tests that never call this function and
+  // never need a database connection. lib/prisma.js throws at import time
+  // if DATABASE_URL isn't set, which it isn't in the test environment — a
+  // static top-level import here would break those tests even though
+  // they don't touch the DB.
+  const { prisma } = await import('../lib/prisma.js');
+
+  const cached = await prisma.externalApiCache.findUnique({
+    where: { key: BARCELONA_CACHE_KEY },
+  });
+
+  if (cached) return cached.payload;
+
+  const fresh = await fetchBarcelonaRaceRaw();
+  // Persist so the next cold start (server restart/redeploy) doesn't have
+  // to redo the expensive fetch chain against OpenF1 again. Best-effort —
+  // if this write fails, the in-memory cache above still works for the
+  // lifetime of this process, we just lose the durability across restarts.
+  try {
+    await prisma.externalApiCache.upsert({
+      where: { key: BARCELONA_CACHE_KEY },
+      create: { key: BARCELONA_CACHE_KEY, payload: fresh },
+      update: { payload: fresh, fetchedAt: new Date() },
+    });
+  } catch (err) {
+    console.error('Failed to persist Barcelona OpenF1 cache to DB:', err);
+  }
+  return fresh;
+}
+
 async function getBarcelonaOpenF1Data() {
-  if (!Barcelona_openf1Data) {
-    Barcelona_openf1Data = await fetchBarcelonaRaceRaw();
-    Barcelona_openf1Chunks = buildBarcelonaOpenF1Chunks(Barcelona_openf1Data);
-    Barcelona_precomputed = buildPrecomputedIndex(Barcelona_openf1Data, Barcelona_openf1Chunks);
+  if (Barcelona_openf1Data) {
+    return { bundle: Barcelona_openf1Data, chunks: Barcelona_openf1Chunks };
   }
 
+  if (!Barcelona_fetchPromise) {
+    Barcelona_fetchPromise = fetchAndCacheBarcelonaData();
+  }
+
+  try {
+    Barcelona_openf1Data = await Barcelona_fetchPromise;
+  } catch (err) {
+    // Let the next request retry from scratch instead of staying stuck
+    // pointing at a rejected promise forever.
+    Barcelona_fetchPromise = null;
+    throw err;
+  }
+
+  Barcelona_openf1Chunks = buildBarcelonaOpenF1Chunks(Barcelona_openf1Data);
+  Barcelona_precomputed = buildPrecomputedIndex(Barcelona_openf1Data, Barcelona_openf1Chunks);
   return { bundle: Barcelona_openf1Data, chunks: Barcelona_openf1Chunks };
 }
 
@@ -48,6 +109,12 @@ function buildPrecomputedIndex(bundle, chunks) {
   const positionIndex = indexByDriver(bundle.position ?? [], 'date');
   const stintIndex = indexByDriver(bundle.stints ?? [], 'date');
   const carDataIndex = indexByDriver(bundle.car_data ?? [], 'date');
+  // Real x,y,z position telemetry — used to enrich the leaderboard with
+  // real track position when available, and by deriveTrackShape below to
+  // trace an accurate track outline. Most sessions won't have this (it's
+  // a heavier resource OpenF1 doesn't always retain), so downstream code
+  // always treats missing x/y as an expected case, not an error.
+  const locationIndex = indexByDriver(bundle.location ?? [], 'date');
 
   // Pre-flatten laps from all chunks with pre-parsed start timestamps.
   // OpenF1 lap records use date_start; tests may use date.
@@ -76,7 +143,10 @@ function buildPrecomputedIndex(bundle, chunks) {
     .map((lap) => lap.lap_number)
     .filter(Number.isFinite));
 
-  return { driversByNumber, positionIndex, stintIndex, carDataIndex, allLaps, lapsByDriver, completedLapEnds, totalLaps };
+  return {
+    driversByNumber, positionIndex, stintIndex, carDataIndex, locationIndex,
+    allLaps, lapsByDriver, completedLapEnds, totalLaps,
+  };
 }
 
 // Triggers the one-time OpenF1 fetch in the background so the cache is warm
@@ -306,6 +376,12 @@ const TIME_SERIES_RESOURCE_KEYS = [
   'stints',
   'position',
   'car_data',
+  // Real x,y,z telemetry — not every session has it (this one doesn't),
+  // but when present it's used both to enrich the leaderboard with real
+  // track position and, separately, by deriveTrackShape to trace an
+  // accurate outline. Included here so it gets the same time-windowed
+  // chunk slicing as every other time-series resource.
+  'location',
   'race_control',
   'weather',
 ];
@@ -446,6 +522,12 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
   const carDataByDriver = idx
     ? latestByDriver(idx.carDataIndex, timestamp)
     : latestByDriver(buildDriverIndex(resourceRecords('car_data')), timestamp);
+  // Real x,y,z position, when this session actually has /location data
+  // (most don't). Missing for a given driver just means no real-position
+  // enrichment for them — callers already treat x/y as possibly absent.
+  const locationByDriver = idx
+    ? latestByDriver(idx.locationIndex, timestamp)
+    : latestByDriver(buildDriverIndex(resourceRecords('location')), timestamp);
   // Binary-search the precomputed per-driver lap index to find the latest
   // lap at or before the current timestamp, plus the previous lap (for
   // lastLapTime). O(log n) per driver instead of O(n) over all laps.
@@ -516,6 +598,7 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
     const gridDelta = gridByDriver.has(position.driver_number)
       ? gridByDriver.get(position.driver_number) - position.position
       : null;
+    const location = locationByDriver.get(position.driver_number);
     return {
       position: position.position,
       ...(driversByNumber.get(position.driver_number) ?? { driverNumber: position.driver_number, driverName: null, teamName: null }),
@@ -525,6 +608,11 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
       lastLapTime,
       gapToAhead,
       gridDelta,
+      // Real x,y — null when this session has no /location data for this
+      // driver at this point in time (the common case). Consumers treat
+      // this as "no real position available," not an error.
+      x: location?.x ?? null,
+      y: location?.y ?? null,
     };
   });
 
@@ -619,6 +707,112 @@ export function createBarcelonaWatchLiveBuffer(videoSeconds, bufferSeconds, bund
   };
 }
 
+// Derives an accurate track outline from real location telemetry, the same
+// technique the reference F1 Race Replay tool uses via FastF1: pick one
+// clean, representative lap and trace the x,y points a car actually drove.
+// This works for any circuit with no per-track manual design — it's why
+// neither that tool nor this one needs a hand-drawn map per circuit.
+let Barcelona_trackShapeCache = null;
+
+function deriveTrackShape(bundle) {
+  if (Barcelona_trackShapeCache) return Barcelona_trackShapeCache;
+
+  const locationRecords = bundle.location ?? [];
+  if (locationRecords.length === 0) return null;
+
+  // Prefer the driver with the most location records — a clean run with
+  // fewer gaps in telemetry coverage than a driver who retired early or
+  // spent time in the garage.
+  const countsByDriver = new Map();
+  for (const record of locationRecords) {
+    countsByDriver.set(record.driver_number, (countsByDriver.get(record.driver_number) ?? 0) + 1);
+  }
+  const [referenceDriver] = [...countsByDriver.entries()].sort((a, b) => b[1] - a[1])[0] ?? [null];
+  if (referenceDriver == null) return null;
+
+  // Prefer a single representative lap over the whole session — avoids
+  // pit lane excursions and formation-lap oddities cluttering the outline.
+  // Picks a lap roughly a third of the way through the race: early enough
+  // that tyre wear/fuel load haven't caused an unusual line, late enough
+  // to be clear of first-lap incidents.
+  const driverLaps = (bundle.laps ?? [])
+    .filter((lap) => lap.driver_number === referenceDriver && lap.lap_number && lap.date_start)
+    .sort((a, b) => a.lap_number - b.lap_number);
+
+  let windowStartMs = null;
+  let windowEndMs = null;
+  if (driverLaps.length > 2) {
+    const sampleIndex = Math.floor(driverLaps.length / 3);
+    windowStartMs = Date.parse(driverLaps[sampleIndex].date_start);
+    windowEndMs = driverLaps[sampleIndex + 1]
+      ? Date.parse(driverLaps[sampleIndex + 1].date_start)
+      : windowStartMs + 2 * 60 * 1000;
+  }
+
+  const candidatePoints = locationRecords
+    .filter((record) => record.driver_number === referenceDriver)
+    .filter((record) => {
+      if (windowStartMs == null) return true;
+      const t = Date.parse(record.date);
+      return t >= windowStartMs && t <= windowEndMs;
+    })
+    .map((record) => ({ x: record.x, y: record.y }))
+    .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+
+  if (candidatePoints.length < 10) return null;
+
+  // Downsample to a manageable point count for a smooth-but-light SVG path.
+  const TARGET_POINTS = 200;
+  const step = Math.max(1, Math.floor(candidatePoints.length / TARGET_POINTS));
+  const points = candidatePoints.filter((_, i) => i % step === 0);
+
+  Barcelona_trackShapeCache = { points, sourceDriverNumber: referenceDriver };
+  return Barcelona_trackShapeCache;
+}
+
+let Barcelona_staticTrackShapeCache = null;
+
+// Static fallback for sessions with no live /location data (this one has
+// none — confirmed via a direct DB query). The physical circuit hasn't
+// changed, so this is real telemetry from an actual 2024 Spanish GP lap,
+// generated once offline via scripts/generate_track_shape.py using FastF1
+// (which has no data at all for the fictional session itself, only for
+// real past seasons at the same circuit).
+async function readStaticTrackShape() {
+  if (Barcelona_staticTrackShapeCache) return Barcelona_staticTrackShapeCache;
+  try {
+    const { readFile } = await import('node:fs/promises');
+    const { fileURLToPath } = await import('node:url');
+    const path = await import('node:path');
+    const dataPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'data', 'barcelona-track-shape.json');
+    const raw = await readFile(dataPath, 'utf-8');
+    Barcelona_staticTrackShapeCache = JSON.parse(raw);
+    return Barcelona_staticTrackShapeCache;
+  } catch (err) {
+    console.error('Failed to read static track shape fallback:', err);
+    return null;
+  }
+}
+
+watchLiveRouter.get('/track-shape', async (req, res, next) => {
+  try {
+    const { bundle } = await getBarcelonaOpenF1Data();
+    const liveShape = deriveTrackShape(bundle);
+    if (liveShape) {
+      return res.json({ ...liveShape, source: 'openf1-live' });
+    }
+
+    const staticShape = await readStaticTrackShape();
+    if (staticShape) {
+      return res.json({ ...staticShape, source: 'fastf1-static-fallback' });
+    }
+
+    return res.status(404).json({ error: 'No location telemetry available to derive a track shape' });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 watchLiveRouter.get('/state', async (req, res, next) => {
   const value = req.query.videoSeconds;
   const videoSeconds = typeof value === 'string' && value.trim() !== '' ? Number(value) : Number.NaN;
@@ -631,6 +825,7 @@ watchLiveRouter.get('/state', async (req, res, next) => {
   if (!mapping) {
     return res.status(400).json({
       error: `videoSeconds must be between 0 and ${Barcelona_video_chunks.at(-1).videoEndSeconds}`,
+      maxVideoSeconds: Barcelona_video_chunks.at(-1).videoEndSeconds,
     });
   }
 

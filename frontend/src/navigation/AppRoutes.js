@@ -16,6 +16,7 @@ import TeamsPage from '../pages/TeamsPage';
 import TeamDetailPage from '../pages/TeamDetailPage';
 import DriversPage from '../pages/DriversPage';
 import DriverDetailPage from '../pages/DriverDetailPage';
+import RaceReplayPage from '../pages/RaceReplayPage';
 import RequireAuth from '../components/RequireAuth';
 
 function AppRoutes() {
@@ -40,6 +41,7 @@ function AppRoutes() {
       <Route path="/drivers" element={<DriversPage />} />
       <Route path="/driver/:id" element={<DriverDetailPage />} />
       <Route path="/watch-live" element={<WatchLivePage />} />
+      <Route path="/replay" element={<RaceReplayPage />} />
     </Routes>
   );
 }

@@ -16,7 +16,15 @@ const API_BASE_URL =
 async function request(path) {
   const res = await fetch(`${API_BASE_URL}${path}`);
   if (!res.ok) {
-    throw new Error(`Request to ${path} failed with status ${res.status}`);
+    const error = new Error(`Request to ${path} failed with status ${res.status}`);
+    error.status = res.status;
+    try {
+      error.body = await res.json();
+    } catch {
+      // Response wasn't JSON — leave error.body undefined, error.status is
+      // still meaningful on its own.
+    }
+    throw error;
   }
   return res.json();
 }
@@ -102,4 +110,10 @@ export function getWatchLiveState({ videoSeconds, bufferSeconds } = {}) {
   const params = new URLSearchParams({ videoSeconds: String(videoSeconds) });
   if (bufferSeconds != null) params.set('bufferSeconds', String(bufferSeconds));
   return request(`/api/watch-live/state?${params.toString()}`);
+}
+
+// Real track outline derived from one driver's actual location telemetry —
+// see deriveTrackShape() in the backend for how this is picked.
+export function getTrackShape() {
+  return request('/api/watch-live/track-shape');
 }
