@@ -121,11 +121,21 @@ function flagEmoji(countryCode) {
     .join('');
 }
 
+function parsePagination(query) {
+  const offset = Math.max(0, Number.parseInt(query.offset, 10) || 0);
+  const parsedLimit = Number.parseInt(query.limit, 10);
+  const limit = Number.isFinite(parsedLimit) && parsedLimit > 0
+    ? Math.min(parsedLimit, 500)
+    : 100;
+  return { offset, limit };
+}
+
 driversRouter.get('/', async (req, res, next) => {
   try {
     const season = await getCurrentSeason();
     let careerStats = await prisma.driverCareerStats.findMany({
       where: { season },
+      include: { driver: { include: { entries: { include: { team: true, session: { include: { meeting: true } } } } } } },
       orderBy: { points: 'desc' },
     });
 
@@ -151,52 +161,73 @@ driversRouter.get('/', async (req, res, next) => {
         }
       }
       careerStats = Array.from(seen.values());
-    } else {
-      const loaded = await prisma.driverCareerStats.findMany({
-        where: { season },
-        include: { driver: { include: { entries: { include: { team: true, session: { include: { meeting: true } } } } } } },
-        orderBy: { points: 'desc' },
-      });
-      careerStats = loaded;
     }
 
-    const enriched = [];
-    for (const cs of careerStats) {
-      const driverWithEntries = cs.driver?.entries
-        ? cs.driver
-        : await prisma.driver.findUnique({
-            where: { id: cs.driverId },
-            include: { entries: { include: { team: true, session: { include: { meeting: true } } } } },
-          });
-      const team = (driverWithEntries?.entries ?? [])
-        .filter((e) => e.session.meeting.season === season)
-        .slice(-1)[0]?.team;
+    // Enrichment sources are fetched once per request instead of once per
+    // driver: one API-Sports batch call matched by car number, and one OpenF1
+    // call for the latest synced session (fresh headshots and team colours).
+    let apiDrivers = [];
+    try {
+      apiDrivers = await apiSports('/drivers');
+    } catch (err) {
+      // API-Sports enriches visual data only; a failure must not hide the standings.
+    }
+    const apiByNumber = new Map(
+      apiDrivers.filter((d) => Number.isFinite(d?.number)).map((d) => [d.number, d])
+    );
 
-      let apiDriver = null;
+    const latestOpenF1Entry = careerStats
+      .flatMap((cs) => cs.driver?.entries ?? [])
+      .filter((e) => e.session?.openf1Key != null && e.session?.startTime)
+      .sort((a, b) => new Date(b.session.startTime) - new Date(a.session.startTime))[0];
+    let openF1ByNumber = new Map();
+    if (latestOpenF1Entry) {
       try {
-        [apiDriver] = await apiSports(`/drivers?number=${driverWithEntries.driverNumber}`);
+        const profiles = await openF1('drivers', { session_key: latestOpenF1Entry.session.openf1Key });
+        openF1ByNumber = new Map(
+          profiles.filter((p) => Number.isFinite(p?.driver_number)).map((p) => [p.driver_number, p])
+        );
       } catch (err) {
-        // API-Sports can be flaky per call; don't let one driver break the list.
+        // OpenF1 headshots are best-effort; API-Sports/local data still renders.
       }
+    }
 
-      enriched.push({
-        id: driverWithEntries.id,
+    const enriched = careerStats.map((cs) => {
+      const driver = cs.driver;
+      const profile = driver ? openF1ByNumber.get(driver.driverNumber) ?? null : null;
+      const apiDriver = driver ? apiByNumber.get(driver.driverNumber) ?? null : null;
+      const team = (driver?.entries ?? [])
+        .filter((e) => e.session?.meeting?.season === season)
+        .slice(-1)[0]?.team;
+      const apiTeamName = apiDriver?.teams?.[0]?.team?.name || null;
+      return {
+        id: driver?.id ?? cs.driverId,
         apiId: apiDriver ? String(apiDriver.id) : null,
-        name: driverWithEntries.name,
-        number: driverWithEntries.driverNumber,
+        name: profile?.full_name || driver?.name || null,
+        number: driver?.driverNumber ?? null,
         points: cs.points,
         wins: cs.wins,
         podiums: cs.podiums,
-        teamName: team?.name ?? (apiDriver?.teams?.[0]?.team?.name || 'Unknown'),
-        teamColor: teamColor(apiDriver?.teams?.[0]?.team?.name || team?.name || ''),
+        teamName: team?.name || apiTeamName || profile?.team_name || 'Unknown',
+        teamColor: openF1TeamColor(profile?.team_colour) || teamColor(apiTeamName || team?.name || ''),
         nationality: apiDriver?.nationality || 'Unknown',
-        countryCode: apiDriver?.country?.code || null,
-        flag: flagEmoji(apiDriver?.country?.code || ''),
-        imageUrl: apiDriver?.image || null,
-      });
-    }
+        countryCode: apiDriver?.country?.code || profile?.country_code || null,
+        flag: flagEmoji(apiDriver?.country?.code || profile?.country_code || ''),
+        imageUrl: profile?.headshot_url || apiDriver?.image || null,
+        fallbackImageUrl: apiDriver?.image || null,
+      };
+    });
 
-    res.json({ season, drivers: enriched });
+    const { offset, limit } = parsePagination(req.query);
+    const page = enriched.slice(offset, offset + limit);
+    res.json({
+      season,
+      drivers: page,
+      total: enriched.length,
+      offset,
+      limit,
+      hasMore: offset + page.length < enriched.length,
+    });
   } catch (err) {
     next(err);
   }

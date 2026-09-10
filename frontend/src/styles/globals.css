@@ -391,6 +391,10 @@ section.faq-section{padding-top:0;}
 .driver-team{font-size:10.5px;color:var(--text-tertiary);margin-top:2px;}
 .flag{font-size:12px;}
 
+.view-more-btn{grid-column:1/-1;justify-self:center;margin-top:6px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text-primary);font-weight:800;font-size:12px;padding:11px 26px;cursor:pointer;transition:border-color .15s ease,transform .12s ease;}
+.view-more-btn:hover:not(:disabled){border-color:var(--accent);transform:translateY(-1px);}
+.view-more-btn:disabled{opacity:.45;cursor:default;}
+
 @media (max-width:900px){.driver-grid{grid-template-columns:repeat(2,1fr);}}
 
 /* Driver detail */

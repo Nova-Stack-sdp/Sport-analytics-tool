@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 const FAQS = [
   {
-    q: 'What is Nova Stack?',
+    q: 'What is F1Lytics?',
     a: 'A live analytics platform for Formula 1 — every stat is derived from real race event data rather than entered by hand.',
   },
   {

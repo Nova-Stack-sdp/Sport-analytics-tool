@@ -75,20 +75,34 @@ export function getLiveVideo() {
   return request('/api/watch-live');
 }
 
-export function getTeams() {
-  return request('/api/teams');
+export function getTeams({ limit, offset } = {}) {
+  const params = new URLSearchParams();
+  if (limit != null) params.set('limit', String(limit));
+  if (offset != null) params.set('offset', String(offset));
+  const query = params.toString();
+  return request(`/api/teams${query ? `?${query}` : ''}`);
 }
 
 export function getTeam(id) {
   return request(`/api/teams/${id}`);
 }
 
-export function getDrivers() {
-  return request('/api/drivers');
+export function getDrivers({ limit, offset } = {}) {
+  const params = new URLSearchParams();
+  if (limit != null) params.set('limit', String(limit));
+  if (offset != null) params.set('offset', String(offset));
+  const query = params.toString();
+  return request(`/api/drivers${query ? `?${query}` : ''}`);
 }
 
 export function getDriver(id) {
   return request(`/api/drivers/${id}`);
+}
+
+// Remote headshots/logos are routed through the backend's caching image proxy
+// so the browser reuses one immutable, cached copy per asset.
+export function getCachedImageUrl(source) {
+  return `${API_BASE_URL}/api/images?source=${encodeURIComponent(source)}`;
 }
 
 // Fetches one replay state or a short playback buffer.

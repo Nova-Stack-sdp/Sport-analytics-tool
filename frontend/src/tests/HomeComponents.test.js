@@ -39,7 +39,7 @@ describe('home-page components', () => {
 
   test('expands and collapses FAQ answers independently', () => {
     render(<Faq />);
-    const question = screen.getByRole('button', { name: /What is Nova Stack/i });
+    const question = screen.getByRole('button', { name: /What is F1Lytics/i });
     expect(question).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(question);
     expect(question).toHaveAttribute('aria-expanded', 'true');
