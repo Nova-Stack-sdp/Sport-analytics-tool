@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
+import { apiSportsOrEmpty } from '../lib/apiSports.js';
 
 export const driversRouter = Router();
 
-const API_SPORTS_BASE = 'https://v1.formula-1.api-sports.io';
 const F1_COLORS = {
   'Red Bull Racing': '#3671C6',
   'Oracle Red Bull Racing': '#3671C6',
@@ -29,20 +29,6 @@ const F1_COLORS = {
 
 function teamColor(name) {
   return F1_COLORS[name] || '#CE0D14';
-}
-
-async function apiSports(path) {
-  const key = process.env.API_SPORTS_KEY;
-  if (!key) throw new Error('API_SPORTS_KEY is not configured');
-  const res = await fetch(`${API_SPORTS_BASE}${path}`, {
-    headers: {
-      'x-rapidapi-key': key,
-      'x-rapidapi-host': 'v1.formula-1.api-sports.io',
-    },
-  });
-  if (!res.ok) throw new Error(`API-Sports ${path} -> ${res.status}`);
-  const data = await res.json();
-  return data.response || [];
 }
 
 const OPENF1_BASE = 'https://api.openf1.org/v1';
@@ -107,6 +93,10 @@ function openF1TeamColor(color) {
   return color.startsWith('#') ? color : `#${color}`;
 }
 
+function apiDriverForNumber(apiDrivers, driverNumber) {
+  return apiDrivers.find((driver) => Number(driver.number) === driverNumber) || null;
+}
+
 async function getCurrentSeason() {
   const latestMeeting = await prisma.meeting.findFirst({ orderBy: { season: 'desc' } });
   return latestMeeting?.season ?? new Date().getFullYear();
@@ -163,17 +153,14 @@ driversRouter.get('/', async (req, res, next) => {
       careerStats = Array.from(seen.values());
     }
 
+    const apiDrivers = await apiSportsOrEmpty('/drivers');
     // Enrichment sources are fetched once per request instead of once per
     // driver: one API-Sports batch call matched by car number, and one OpenF1
     // call for the latest synced session (fresh headshots and team colours).
-    let apiDrivers = [];
-    try {
-      apiDrivers = await apiSports('/drivers');
-    } catch (err) {
-      // API-Sports enriches visual data only; a failure must not hide the standings.
-    }
     const apiByNumber = new Map(
-      apiDrivers.filter((d) => Number.isFinite(d?.number)).map((d) => [d.number, d])
+      apiDrivers
+        .filter((driver) => Number.isFinite(Number(driver?.number)))
+        .map((driver) => [Number(driver.number), driver])
     );
 
     const latestOpenF1Entry = careerStats
@@ -260,9 +247,8 @@ driversRouter.get('/:id', async (req, res, next) => {
           .then(([profile]) => profile || null)
           .catch(() => null)
         : Promise.resolve(null),
-      apiSports(`/drivers?number=${driver.driverNumber}`)
-        .then(([profile]) => profile || null)
-        .catch(() => null),
+      apiSportsOrEmpty('/drivers')
+        .then((profiles) => apiDriverForNumber(profiles, driver.driverNumber)),
     ]);
 
     const results = await Promise.all(trackedEntries.map(async (entry) => {
