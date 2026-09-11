@@ -275,6 +275,19 @@ export async function fetchBarcelonaRaceRaw() {
   return bundle;
 }
 
+// Interval telemetry is loaded separately by Watch Live so the public raw
+// race endpoint keeps its existing response contract.
+export async function fetchBarcelonaRaceIntervals() {
+  await paceBundleRequests();
+  const result = await fetchRequiredResource('intervals', {
+    session_key: BARCELONA_2026_RACE_SESSION_KEY,
+  });
+  if (!Array.isArray(result) && result.status !== 200) {
+    throw new OpenF1PassthroughError(result.status, result.payload);
+  }
+  return Array.isArray(result) ? result : result.payload;
+}
+
 // One raw bundle containing the OpenF1 records consumed by the existing sync
 // adapter. Records are not normalized, derived, or written to the database.
 openF1Router.get('/races/barcelona-2026/raw', async (req, res) => {

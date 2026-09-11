@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { fetchBarcelonaRaceRaw } from './openf1.js';
+import { fetchBarcelonaRaceIntervals, fetchBarcelonaRaceRaw } from './openf1.js';
 
 // Maps replay playback time to cached Barcelona OpenF1 state.
 export const watchLiveRouter = Router();
@@ -7,7 +7,7 @@ export const watchLiveRouter = Router();
 // The DB row key for the persisted bundle cache (see ExternalApiCache in
 // schema.prisma). Bumped if the bundle's *shape* ever changes in a way that
 // would make an old cached payload stale/incompatible.
-const BARCELONA_CACHE_KEY = 'openf1:barcelona-2026-race:v2';
+const BARCELONA_CACHE_KEY = 'openf1:barcelona-2026-race:v3';
 
 // In-memory cache on top of the DB cache — avoids a DB round-trip on every
 // single request within the same running process, while the DB layer
@@ -26,6 +26,8 @@ let Barcelona_precomputed = null;
 let Barcelona_fetchPromise = null;
 const Barcelona_snapshotCache = new Map();
 const MAX_BUFFER_SECONDS = 20;
+const GAP_REFERENCE_BUCKET_MS = 2_000;
+const MAX_INTERVAL_SAMPLE_AGE_MS = 6_000;
 
 async function fetchAndCacheBarcelonaData() {
   // Imported lazily, not at module top-level: several exports from this
@@ -43,7 +45,14 @@ async function fetchAndCacheBarcelonaData() {
 
   if (cached) return cached.payload;
 
-  const fresh = await fetchBarcelonaRaceRaw();
+  const raw = await fetchBarcelonaRaceRaw();
+  let intervals = [];
+  try {
+    intervals = await fetchBarcelonaRaceIntervals();
+  } catch (err) {
+    console.warn('Barcelona OpenF1 interval fetch failed:', err.message);
+  }
+  const fresh = { ...raw, intervals };
   // Persist so the next cold start (server restart/redeploy) doesn't have
   // to redo the expensive fetch chain against OpenF1 again. Best-effort —
   // if this write fails, the in-memory cache above still works for the
@@ -103,6 +112,9 @@ function buildPrecomputedIndex(bundle, chunks) {
       if (!index.has(driver)) index.set(driver, []);
       index.get(driver).push({ ...record, _ms: ms });
     }
+    for (const driverRecords of index.values()) {
+      driverRecords.sort((left, right) => left._ms - right._ms);
+    }
     return index;
   }
 
@@ -115,6 +127,7 @@ function buildPrecomputedIndex(bundle, chunks) {
   // a heavier resource OpenF1 doesn't always retain), so downstream code
   // always treats missing x/y as an expected case, not an error.
   const locationIndex = indexByDriver(bundle.location ?? [], 'date');
+  const intervalIndex = indexByDriver(bundle.intervals ?? [], 'date');
 
   // Pre-flatten laps from all chunks with pre-parsed start timestamps.
   // OpenF1 lap records use date_start; tests may use date.
@@ -144,7 +157,7 @@ function buildPrecomputedIndex(bundle, chunks) {
     .filter(Number.isFinite));
 
   return {
-    driversByNumber, positionIndex, stintIndex, carDataIndex, locationIndex,
+    driversByNumber, positionIndex, stintIndex, carDataIndex, locationIndex, intervalIndex,
     allLaps, lapsByDriver, completedLapEnds, totalLaps,
   };
 }
@@ -375,6 +388,7 @@ const TIME_SERIES_RESOURCE_KEYS = [
   'pit',
   'stints',
   'position',
+  'intervals',
   'car_data',
   // Real x,y,z telemetry — not every session has it (this one doesn't),
   // but when present it's used both to enrich the leaderboard with real
@@ -453,7 +467,52 @@ function buildDriverIndex(records, dateField = 'date') {
     if (!index.has(driver)) index.set(driver, []);
     index.get(driver).push({ ...record, _ms: ms });
   }
+  for (const driverRecords of index.values()) {
+    driverRecords.sort((left, right) => left._ms - right._ms);
+  }
   return index;
+}
+
+function numericGapToLeader(record) {
+  if (record?.gap_to_leader == null) return null;
+  const value = Number(record.gap_to_leader);
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+// Resolve a driver's gap to the leader at one shared race timestamp. For a
+// completed replay we interpolate between the surrounding OpenF1 interval
+// samples. During a live edge, the latest preceding sample is accepted only
+// while it is fresh enough; otherwise the UI receives null and displays "--".
+function gapToLeaderAtReference(records, referenceTimestamp, isLeader = false) {
+  if (isLeader) return 0;
+  if (!records?.length || !Number.isFinite(referenceTimestamp)) return null;
+
+  let lo = 0;
+  let hi = records.length - 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (records[mid]._ms <= referenceTimestamp) lo = mid + 1;
+    else hi = mid - 1;
+  }
+
+  const before = hi >= 0 ? records[hi] : null;
+  const after = lo < records.length ? records[lo] : null;
+  const beforeValue = numericGapToLeader(before);
+  const afterValue = numericGapToLeader(after);
+  const beforeAge = before ? referenceTimestamp - before._ms : Number.POSITIVE_INFINITY;
+  const afterAge = after ? after._ms - referenceTimestamp : Number.POSITIVE_INFINITY;
+
+  if (beforeValue != null && afterValue != null
+    && beforeAge <= MAX_INTERVAL_SAMPLE_AGE_MS
+    && afterAge <= MAX_INTERVAL_SAMPLE_AGE_MS
+    && after._ms > before._ms) {
+    const progress = beforeAge / (after._ms - before._ms);
+    return beforeValue + (afterValue - beforeValue) * progress;
+  }
+
+  return beforeValue != null && beforeAge <= MAX_INTERVAL_SAMPLE_AGE_MS
+    ? beforeValue
+    : null;
 }
 
 function latestRecord(records, timestamp) {
@@ -528,6 +587,10 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
   const locationByDriver = idx
     ? latestByDriver(idx.locationIndex, timestamp)
     : latestByDriver(buildDriverIndex(resourceRecords('location')), timestamp);
+  const intervalIndex = idx?.intervalIndex
+    ?? buildDriverIndex(resourceRecords('intervals'));
+  const gapReferenceTimestamp = Math.floor(timestamp / GAP_REFERENCE_BUCKET_MS)
+    * GAP_REFERENCE_BUCKET_MS;
   // Binary-search the precomputed per-driver lap index to find the latest
   // lap at or before the current timestamp, plus the previous lap (for
   // lastLapTime). O(log n) per driver instead of O(n) over all laps.
@@ -586,13 +649,26 @@ export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
     const lastLapTime = (driverLap && prevLap)
       ? (driverLap._startMs - prevLap._startMs) / 1000
       : null;
-    // Gap to car ahead = difference in latest lap start times.
+    // Calculate both cars' gaps to the leader at the same two-second timing
+    // reference, then subtract them. Missing, lapped, stale, or inconsistent
+    // telemetry produces null so the frontend displays "--".
     let gapToAhead = null;
     if (index > 0) {
       const ahead = sorted[index - 1];
-      const aheadLap = latestLapsByDriver.get(ahead.driver_number);
-      if (driverLap && aheadLap) {
-        gapToAhead = (driverLap._startMs - aheadLap._startMs) / 1000;
+      const driverGapToLeader = gapToLeaderAtReference(
+        intervalIndex.get(position.driver_number),
+        gapReferenceTimestamp,
+      );
+      const aheadGapToLeader = gapToLeaderAtReference(
+        intervalIndex.get(ahead.driver_number),
+        gapReferenceTimestamp,
+        index === 1,
+      );
+      if (driverGapToLeader != null && aheadGapToLeader != null) {
+        const candidateGap = driverGapToLeader - aheadGapToLeader;
+        if (Number.isFinite(candidateGap) && candidateGap >= 0) {
+          gapToAhead = Number(candidateGap.toFixed(3));
+        }
       }
     }
     const gridDelta = gridByDriver.has(position.driver_number)
