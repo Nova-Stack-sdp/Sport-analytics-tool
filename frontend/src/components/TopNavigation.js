@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { to: '/drivers', label: 'Drivers' },
   { to: '/submissions', label: 'Submissions', requiresAuth: true },
   { to: '/timetravel', label: 'Time-Travel' },
+  { to: '/replay', label: 'Race Replay' },
   { to: '/datasets', label: 'Datasets', requiresAuth: true },
   { to: '/developer', label: 'Developer', requiresAuth: true },
   { to: '/admin', label: 'Admin', requiresAuth: true },

@@ -13,7 +13,7 @@ function buildResourceUrl(resource, params = {}) {
   return upstreamUrl;
 }
 
-async function fetchOpenF1Json(upstreamUrl) {
+async function fetchOpenF1JsonOnce(upstreamUrl) {
   const upstreamResponse = await fetch(upstreamUrl, {
     headers: { accept: 'application/json' },
     signal: AbortSignal.timeout(10_000),
@@ -31,6 +31,21 @@ async function fetchOpenF1Json(upstreamUrl) {
   }
 
   return { status: upstreamResponse.status, payload };
+}
+
+// Retries on 429 with backoff. Sized around the stricter 30/minute limit
+// (see paceBundleRequests) rather than the 3/sec one — a short 1-3s backoff
+// doesn't help if the actual constraint is a per-minute quota.
+const MAX_RATE_LIMIT_RETRIES = 3;
+
+async function fetchOpenF1Json(upstreamUrl, attempt = 0) {
+  const result = await fetchOpenF1JsonOnce(upstreamUrl);
+  if (result.status !== 429 || attempt >= MAX_RATE_LIMIT_RETRIES) {
+    return result;
+  }
+  const backoffMs = 15000 * (attempt + 1);
+  await new Promise((resolve) => setTimeout(resolve, backoffMs));
+  return fetchOpenF1Json(upstreamUrl, attempt + 1);
 }
 
 function sendOpenF1Failure(res, error) {
@@ -51,10 +66,16 @@ async function fetchRequiredResource(resource, params) {
 }
 
 async function paceBundleRequests() {
-  // The public OpenF1 tier allows three requests per second. Tests use mocked
-  // responses and do not need the delay.
+  // OpenF1's documented limit is 3 requests/second, but live testing showed
+  // a stricter 30-requests/minute cap actually applies too. A full fetch is
+  // ~32 requests (session + 9 metadata resources + ~9 car_data chunks + ~9
+  // location chunks + grid lookups) — at the old 350ms pacing (built only
+  // around 3/sec), all of them land within ~11 seconds, comfortably inside
+  // one 60-second window and blowing straight through 30/minute even with
+  // zero concurrency. 2100ms keeps us under both limits with margin.
+  // Tests use mocked responses and do not need the delay.
   if (process.env.NODE_ENV !== 'test') {
-    await new Promise((resolve) => setTimeout(resolve, 350));
+    await new Promise((resolve) => setTimeout(resolve, 2100));
   }
 }
 
@@ -91,6 +112,38 @@ async function fetchCarDataChunked(sessionKey, sessionStart, sessionEnd) {
     const windowEnd = Math.min(windowStart + chunkMs + 1000, endMs + 1000);
     await paceBundleRequests();
     const url = buildResourceUrl('car_data', {
+      session_key: sessionKey,
+      date_start: new Date(windowStart).toISOString(),
+      date_end: new Date(windowEnd).toISOString(),
+    });
+    const result = await fetchOpenF1Json(url);
+    if (result.status === 404) continue;
+    if (result.status !== 200) {
+      throw new OpenF1PassthroughError(result.status, result.payload);
+    }
+    allRecords.push(...result.payload);
+  }
+
+  return allRecords;
+}
+
+// Real x,y,z car position telemetry — the same kind of data FastF1-based
+// tools (e.g. F1 Race Replay) use to derive an accurate track shape and
+// real car positions, rather than an estimated/illustrative layout. Same
+// 422-avoidance chunking as car_data, since /location is similarly
+// high-frequency (~3.7Hz per driver).
+const LOCATION_CHUNK_MINUTES = 10;
+
+async function fetchLocationDataChunked(sessionKey, sessionStart, sessionEnd) {
+  const startMs = Date.parse(sessionStart);
+  const endMs = Date.parse(sessionEnd);
+  const chunkMs = LOCATION_CHUNK_MINUTES * 60 * 1000;
+  const allRecords = [];
+
+  for (let windowStart = startMs; windowStart < endMs; windowStart += chunkMs) {
+    const windowEnd = Math.min(windowStart + chunkMs + 1000, endMs + 1000);
+    await paceBundleRequests();
+    const url = buildResourceUrl('location', {
       session_key: sessionKey,
       date_start: new Date(windowStart).toISOString(),
       date_end: new Date(windowEnd).toISOString(),
@@ -170,6 +223,19 @@ export async function fetchBarcelonaRaceRaw() {
   // rejection from OpenF1's free tier.
   await paceBundleRequests();
   bundle.car_data = await fetchCarDataChunked(
+    sessionKey,
+    session.date_start,
+    session.date_end
+  );
+
+  // Real x,y,z position telemetry — needed to derive an accurate track
+  // shape and real car positions (see deriveTrackShape in watchLive.js).
+  // NOTE: this roughly doubles the cold-fetch time and cached payload size
+  // versus car_data alone, since /location is comparably high-frequency.
+  // Acceptable because the persisted cache (ExternalApiCache) means this
+  // cost is paid once, not on every server restart.
+  await paceBundleRequests();
+  bundle.location = await fetchLocationDataChunked(
     sessionKey,
     session.date_start,
     session.date_end

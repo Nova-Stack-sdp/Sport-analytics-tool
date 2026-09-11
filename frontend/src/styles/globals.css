@@ -498,3 +498,34 @@ footer{border-top:1px solid var(--border-soft);padding:44px 0 30px;background:va
   .page{padding:0 16px;}
   section{padding:44px 0;}
 }
+
+/* Race Replay page */
+.replay-layout{display:grid;grid-template-columns:1.6fr 1fr;gap:18px;}
+.replay-track-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow-soft);}
+.replay-track-svg{width:100%;height:auto;background:radial-gradient(circle at 50% 50%, rgba(255,255,255,0.03), transparent 70%);border-radius:8px;}
+.replay-dot{stroke:#fff;stroke-width:1.5;}
+.replay-dot-redbull{fill:#1D4ED8;}
+.replay-dot-mercedes{fill:#2DD4BF;}
+.replay-dot-ferrari{fill:#DC2626;}
+.replay-dot-mclaren{fill:#FF8000;}
+.replay-dot-astonmartin{fill:#006F62;}
+.replay-dot-alpine{fill:#2293D1;}
+.replay-dot-williams{fill:#00A0DE;}
+.replay-dot-haas{fill:#B6BABD;}
+.replay-dot-sauber{fill:#52C41A;}
+.replay-dot-racingbulls{fill:#6692FF;}
+.replay-dot-default{fill:var(--text-tertiary);}
+.replay-dot-sc{fill:#F59E0B;stroke:#fff;}
+.replay-session-label{font-size:11.5px;color:var(--text-tertiary);margin-bottom:10px;font-family:var(--font-mono);}
+.replay-track-fallback-note{color:var(--text-tertiary);opacity:0.75;}
+.replay-finished{display:flex;flex-direction:column;align-items:flex-start;gap:14px;padding:32px 20px;}
+.replay-winner{font-size:22px;font-weight:800;}
+.replay-dot-label{fill:var(--text-primary);font-size:9px;font-weight:700;font-family:var(--font-mono);}
+.replay-sc-label{fill:#F59E0B;}
+.replay-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;}
+.replay-sc-toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);margin-left:auto;cursor:pointer;}
+.replay-leaderboard table{margin-top:4px;}
+
+@media (max-width: 900px){
+  .replay-layout{grid-template-columns:1fr;}
+}
