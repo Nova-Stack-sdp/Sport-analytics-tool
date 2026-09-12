@@ -12,7 +12,10 @@ import {
  * the old one is skipped. This is the only place that filter needs to be
  * applied; everything downstream just sees the current truth.
  */
-const LIVE = { supersededBy: null };
+const LIVE = {
+  supersededBy: null,
+  sourceSubmission: { status: { in: ["accepted", "partially_accepted"] } },
+};
 
 /** Recompute driver_session_stats for every entry in one session. */
 export async function deriveSessionStats(prisma, sessionId) {
