@@ -1,5 +1,6 @@
 FROM node:24-alpine
 
+
 WORKDIR /app
 
 RUN for i in 1 2 3; do apk add --no-cache openssl && break || sleep 5; done
