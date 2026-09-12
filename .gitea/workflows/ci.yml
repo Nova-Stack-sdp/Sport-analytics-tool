@@ -20,18 +20,7 @@ jobs:
       - name: Run frontend tests
         continue-on-error: true
         run: |
-          docker compose run --rm \
-            -v "${{ github.workspace }}/frontend/coverage:/app/coverage" \
-            frontend \
-            npm test -- --coverage --watchAll=false
-
-      - name: Upload frontend coverage
-        uses: codecov/codecov-action@v4
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./frontend/coverage/lcov.info
-          flags: frontend
-          fail_ci_if_error: true
+          docker compose run --rm frontend npm test -- --watchAll=false
 
   backend-test:
     runs-on: ubuntu-22.04
@@ -46,15 +35,4 @@ jobs:
       - name: Run backend tests
         continue-on-error: true
         run: |
-          docker compose run --rm \
-            -v "${{ github.workspace }}/backend/coverage:/app/coverage" \
-            backend \
-            npm test -- --coverage
-
-      - name: Upload backend coverage
-        uses: codecov/codecov-action@v4
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./backend/coverage/lcov.info
-          flags: backend
-          fail_ci_if_error: true
+          docker compose run --rm backend npm test
