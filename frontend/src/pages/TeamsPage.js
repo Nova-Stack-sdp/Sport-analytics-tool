@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getCachedImageUrl, getTeams } from '../api/client';
 
-const INITIAL_PAGE_SIZE = 2;
+const INITIAL_PAGE_SIZE = 8;
 const PREFETCH_PAGE_SIZE = 100;
 
 // Runs background work as soon as the browser is idle, with a timer fallback

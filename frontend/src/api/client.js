@@ -105,6 +105,12 @@ export function getCachedImageUrl(source) {
   return `${API_BASE_URL}/api/images?source=${encodeURIComponent(source)}`;
 }
 
+// A driver's headshot once it's been persisted server-side (Firestore) —
+// same URL forever for a given driver, no source param needed.
+export function getDriverImageUrl(driverId) {
+  return `${API_BASE_URL}/api/drivers/${driverId}/image`;
+}
+
 // Fetches one replay state or a short playback buffer.
 export function getWatchLiveState({ videoSeconds, bufferSeconds } = {}) {
   const params = new URLSearchParams({ videoSeconds: String(videoSeconds) });

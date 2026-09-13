@@ -22,24 +22,7 @@
  * string in the env var. Never commit the key file itself.
  */
 import admin from 'firebase-admin';
-
-let adminApp;
-
-function getAdminApp() {
-  if (adminApp) return adminApp;
-
-  if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
-    throw new Error(
-      'FIREBASE_SERVICE_ACCOUNT is not set — check your environment configuration.'
-    );
-  }
-
-  const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-  adminApp = admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
-  return adminApp;
-}
+import { getAdminApp } from '../lib/firebaseAdmin.js';
 
 export async function requireAuth(req, res, next) {
   const header = req.headers.authorization || '';

@@ -10,6 +10,7 @@
   --text-primary:#000000;
   --text-secondary:#3D3D3D;
   --text-tertiary:#6B6B6B;
+  --text-faint:#A6A6A6;
   --accent:#CE0D14;
   --accent-dark:#9D0D0D;
   --accent-soft:rgba(206,13,20,0.14);
@@ -43,6 +44,7 @@
   --text-primary:#FFFFFF;
   --text-secondary:#C7C7C7;
   --text-tertiary:#8A8A8A;
+  --text-faint:#5C5C5C;
   --accent:#CE0D14;
   --accent-dark:#9D0D0D;
   --accent-soft:rgba(206,13,20,0.2);
@@ -408,8 +410,8 @@ section.faq-section{padding-top:0;}
 .dd-meta{display:flex;gap:26px;margin-bottom:18px;flex-wrap:wrap;}
 .dd-meta div{font-size:10px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;}
 .dd-meta strong{display:block;font-size:14px;font-weight:700;color:var(--text-primary);}
-.dd-barrow{display:flex;gap:22px;background:#0B0B0F;border:1px solid var(--border-soft);border-radius:10px;padding:14px 18px;flex-wrap:wrap;}
-.dd-bar-label{font-size:9.5px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;}
+.dd-barrow{display:flex;gap:22px;background:#686874;border:1px solid var(--border-soft);border-radius:10px;padding:14px 18px;flex-wrap:wrap;}
+.dd-bar-label{font-size:9.5px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;}
 .dd-bar-val{font-size:13px;font-weight:700;color:var(--text-primary);}
 .dd-cards{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin:26px 0;}
 .dd-card{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow-soft);}

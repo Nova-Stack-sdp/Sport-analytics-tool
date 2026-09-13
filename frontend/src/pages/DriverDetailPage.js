@@ -1,6 +1,29 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { getDriver } from '../api/client';
+import { getCachedImageUrl, getDriver, getDriverImageUrl } from '../api/client';
+
+// Prefers the Firestore-cached headshot (populated by this very page load
+// the first time it's opened — see the backend's /api/drivers/:id route);
+// falls back to the live source, then a plain badge if both fail.
+function DriverPhoto({ driver }) {
+  const [attempt, setAttempt] = useState(0);
+  const srcs = [
+    driver.cachedImageUrl ? getDriverImageUrl(driver.id) : null,
+    driver.imageUrl ? getCachedImageUrl(driver.imageUrl) : null,
+  ].filter(Boolean);
+
+  if (attempt >= srcs.length) {
+    return <span>{driver.number}</span>;
+  }
+
+  return (
+    <img
+      src={srcs[attempt]}
+      alt={driver.name}
+      onError={() => setAttempt((current) => current + 1)}
+    />
+  );
+}
 
 function position(value) {
   return value != null ? `P${value}` : '—';
@@ -52,11 +75,7 @@ function DriverDetailPage() {
         <div className="tag">Driver profile</div>
         <div className="dd-hero" style={{ '--tc': driver.teamColor }}>
           <div className="dd-photo">
-            {driver.imageUrl ? (
-              <img src={driver.imageUrl} alt={driver.name} />
-            ) : (
-              <span>{driver.number}</span>
-            )}
+            <DriverPhoto driver={driver} />
           </div>
           <div>
             <div className="dd-team">{driver.teamName}</div>

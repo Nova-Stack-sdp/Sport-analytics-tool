@@ -57,7 +57,7 @@ describe('TeamsPage', () => {
     renderPage();
 
     expect(screen.getByText('Loading teams…')).toBeInTheDocument();
-    expect(getTeams).toHaveBeenCalledWith({ limit: 2, offset: 0 });
+    expect(getTeams).toHaveBeenCalledWith({ limit: 8, offset: 0 });
   });
 
   test('renders the initial team cards with cached logos, fallback initials, and detail links', async () => {

@@ -1,9 +1,13 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import DriverDetailPage from '../pages/DriverDetailPage';
-import { getDriver } from '../api/client';
+import { getCachedImageUrl, getDriver, getDriverImageUrl } from '../api/client';
 
-jest.mock('../api/client', () => ({ getDriver: jest.fn() }));
+jest.mock('../api/client', () => ({
+  getDriver: jest.fn(),
+  getCachedImageUrl: jest.fn((source) => `https://cache.test/?source=${encodeURIComponent(source)}`),
+  getDriverImageUrl: jest.fn((id) => `https://cache.test/drivers/${id}/image`),
+}));
 
 const fullDriver = {
   id: 'driver-1',
@@ -70,6 +74,11 @@ function renderPage(id = 'driver-1') {
 }
 
 describe('DriverDetailPage', () => {
+  beforeEach(() => {
+    getCachedImageUrl.mockImplementation((source) => `https://cache.test/?source=${encodeURIComponent(source)}`);
+    getDriverImageUrl.mockImplementation((id) => `https://cache.test/drivers/${id}/image`);
+  });
+
   afterEach(() => jest.clearAllMocks());
 
   test('shows loading and requests the driver from the route', () => {
@@ -84,7 +93,10 @@ describe('DriverDetailPage', () => {
     renderPage();
 
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Max Verstappen' })).toBeInTheDocument());
-    expect(screen.getByRole('img', { name: 'Max Verstappen' })).toHaveAttribute('src', fullDriver.imageUrl);
+    expect(screen.getByRole('img', { name: 'Max Verstappen' })).toHaveAttribute(
+      'src',
+      `https://cache.test/?source=${encodeURIComponent(fullDriver.imageUrl)}`
+    );
     expect(screen.getByText('M VERSTAPPEN · VER')).toBeInTheDocument();
     expect(screen.getByText('🇳🇱 Dutch')).toBeInTheDocument();
     expect(screen.getAllByText('232.5')).toHaveLength(2);
@@ -97,6 +109,30 @@ describe('DriverDetailPage', () => {
     expect(screen.getAllByText('P1').length).toBeGreaterThan(1);
     expect(screen.getAllByText('—').length).toBeGreaterThan(1);
     expect(screen.getByText('0.5')).toBeInTheDocument();
+  });
+
+  test('prefers the Firestore-cached image over the live source when one exists', async () => {
+    getDriver.mockResolvedValue({ ...fullDriver, cachedImageUrl: `/api/drivers/${fullDriver.id}/image` });
+    renderPage();
+
+    expect(await screen.findByRole('img', { name: 'Max Verstappen' })).toHaveAttribute(
+      'src',
+      `https://cache.test/drivers/${fullDriver.id}/image`
+    );
+  });
+
+  test('falls back to the live source, then a number badge, if images fail to load', async () => {
+    getDriver.mockResolvedValue({ ...fullDriver, cachedImageUrl: `/api/drivers/${fullDriver.id}/image` });
+    renderPage();
+
+    const cachedImage = await screen.findByRole('img', { name: 'Max Verstappen' });
+    fireEvent.error(cachedImage);
+    const liveImage = await screen.findByRole('img', { name: 'Max Verstappen' });
+    expect(liveImage).toHaveAttribute('src', `https://cache.test/?source=${encodeURIComponent(fullDriver.imageUrl)}`);
+
+    fireEvent.error(liveImage);
+    await waitFor(() => expect(screen.queryByRole('img', { name: 'Max Verstappen' })).not.toBeInTheDocument());
+    expect(screen.getAllByText('1').length).toBeGreaterThan(0);
   });
 
   test('renders number portrait and safe fallbacks when optional fields are absent', async () => {

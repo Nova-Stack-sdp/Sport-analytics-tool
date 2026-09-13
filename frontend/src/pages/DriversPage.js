@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getCachedImageUrl, getDrivers } from '../api/client';
+import { getCachedImageUrl, getDriverImageUrl, getDrivers } from '../api/client';
 
-const INITIAL_PAGE_SIZE = 2;
+const INITIAL_PAGE_SIZE = 8;
 const PREFETCH_PAGE_SIZE = 100;
 
 // Runs background work as soon as the browser is idle, with a timer fallback
@@ -25,15 +25,23 @@ function scheduleIdle(callback) {
 // gives up on images and shows the bare race number.
 function DriverPhoto({ driver }) {
   const [attempt, setAttempt] = useState(0);
-  const sources = [driver.imageUrl, driver.fallbackImageUrl].filter(Boolean);
 
-  if (attempt >= sources.length) {
+  // The Firestore-cached copy (once a driver's detail page has been opened
+  // at least once) is tried first and served directly — no proxying needed,
+  // it's already ours and immutable. Anything after that falls back to the
+  // live OpenF1/API-Sports URLs via the caching image proxy, same as before.
+  const srcs = [
+    driver.cachedImageUrl ? getDriverImageUrl(driver.id) : null,
+    ...[driver.imageUrl, driver.fallbackImageUrl].filter(Boolean).map((url) => getCachedImageUrl(url)),
+  ].filter(Boolean);
+
+  if (attempt >= srcs.length) {
     return <span className="driver-num">{driver.number}</span>;
   }
 
   return (
     <img
-      src={getCachedImageUrl(sources[attempt])}
+      src={srcs[attempt]}
       alt={driver.name}
       onError={() => setAttempt((current) => current + 1)}
     />

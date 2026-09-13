@@ -1,6 +1,11 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { apiSportsOrEmpty } from '../lib/apiSports.js';
+import {
+  getCachedDriverImage,
+  getCachedDriverImageFlags,
+  ensureDriverImageCached,
+} from '../lib/driverImageCache.js';
 
 export const driversRouter = Router();
 
@@ -207,9 +212,20 @@ driversRouter.get('/', async (req, res, next) => {
 
     const { offset, limit } = parsePagination(req.query);
     const page = enriched.slice(offset, offset + limit);
+
+    // Only the page actually being returned needs a cache check — the grid
+    // never renders more than that. Caching itself only happens from the
+    // driver detail route (on first click); this just reports what's
+    // already there so the grid can use it.
+    const cachedFlags = await getCachedDriverImageFlags(page.map((driver) => driver.id));
+    const pageWithCache = page.map((driver) => ({
+      ...driver,
+      cachedImageUrl: cachedFlags.has(driver.id) ? `/api/drivers/${driver.id}/image` : null,
+    }));
+
     res.json({
       season,
-      drivers: page,
+      drivers: pageWithCache,
       total: enriched.length,
       offset,
       limit,
@@ -218,6 +234,20 @@ driversRouter.get('/', async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+// Serves a driver's cached headshot straight out of Firestore. 404 until
+// the driver's detail page has been opened at least once (that's what
+// populates the cache) — the frontend falls back to the raw OpenF1/
+// API-Sports URL until then.
+driversRouter.get('/:id/image', async (req, res) => {
+  const cached = await getCachedDriverImage(req.params.id);
+  if (!cached) {
+    return res.status(404).json({ error: 'No cached image for this driver yet' });
+  }
+  res.set('Content-Type', cached.contentType);
+  res.set('Cache-Control', 'public, max-age=31536000, immutable');
+  res.send(Buffer.from(cached.base64, 'base64'));
 });
 
 driversRouter.get('/:id', async (req, res, next) => {
@@ -290,6 +320,14 @@ driversRouter.get('/:id', async (req, res, next) => {
         .sort((a, b) => new Date(b.session.startTime) - new Date(a.session.startTime))[0]?.team;
     const countryCode = openF1Profile?.country_code || apiDriver?.country?.code || null;
     const resolvedTeamName = openF1Profile?.team_name || currentTeam?.name || apiDriver?.teams?.[0]?.team?.name || 'Unknown';
+    const rawImageUrl = openF1Profile?.headshot_url || apiDriver?.image || null;
+
+    // First time this driver's page is opened, pull the headshot down and
+    // store it in Firestore; every visit after that (here and on the
+    // drivers grid) is served from the cache instead of hitting OpenF1/
+    // API-Sports again. Best-effort — a caching failure just means the raw
+    // imageUrl below is used instead.
+    const cached = await ensureDriverImageCached(driver.id, rawImageUrl);
 
     res.json({
       id: driver.id,
@@ -305,7 +343,8 @@ driversRouter.get('/:id', async (req, res, next) => {
       flag: flagEmoji(countryCode || ''),
       birthdate: apiDriver?.birthdate || null,
       birthplace: apiDriver?.birthplace || null,
-      imageUrl: openF1Profile?.headshot_url || apiDriver?.image || null,
+      imageUrl: rawImageUrl,
+      cachedImageUrl: cached ? `/api/drivers/${driver.id}/image` : null,
       teamName: resolvedTeamName,
       teamColor: openF1TeamColor(openF1Profile?.team_colour) || teamColor(resolvedTeamName),
       grandsPrixEntered: apiDriver?.grands_prix_entered || trackedHistoryStats.starts,

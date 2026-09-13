@@ -1,10 +1,11 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import DriversPage from '../pages/DriversPage';
-import { getCachedImageUrl, getDrivers } from '../api/client';
+import { getCachedImageUrl, getDriverImageUrl, getDrivers } from '../api/client';
 
 jest.mock('../api/client', () => ({
   getCachedImageUrl: jest.fn((source) => `https://cache.test/?source=${encodeURIComponent(source)}`),
+  getDriverImageUrl: jest.fn((id) => `https://cache.test/drivers/${id}/image`),
   getDrivers: jest.fn(),
 }));
 
@@ -43,6 +44,7 @@ describe('DriversPage', () => {
 
   beforeEach(() => {
     getCachedImageUrl.mockImplementation((source) => `https://cache.test/?source=${encodeURIComponent(source)}`);
+    getDriverImageUrl.mockImplementation((id) => `https://cache.test/drivers/${id}/image`);
     window.requestIdleCallback = undefined;
     window.cancelIdleCallback = undefined;
   });
@@ -59,7 +61,7 @@ describe('DriversPage', () => {
     renderPage();
 
     expect(screen.getByText('Loading drivers…')).toBeInTheDocument();
-    expect(getDrivers).toHaveBeenCalledWith({ limit: 2, offset: 0 });
+    expect(getDrivers).toHaveBeenCalledWith({ limit: 8, offset: 0 });
   });
 
   test('renders the initial driver cards with cached photos, number fallbacks, flags, and profile links', async () => {
@@ -140,6 +142,32 @@ describe('DriversPage', () => {
     fireEvent.error(screen.getByRole('img', { name: 'Max Verstappen' }));
     await waitFor(() => expect(screen.queryByRole('img', { name: 'Max Verstappen' })).not.toBeInTheDocument());
     expect(screen.getAllByText('1')).toHaveLength(2);
+  });
+
+  test('prefers the Firestore-cached image over the live source when one exists', async () => {
+    const driver = { ...drivers[0], cachedImageUrl: `/api/drivers/${drivers[0].id}/image` };
+    getDrivers.mockResolvedValue({ season: 2026, drivers: [driver], total: 1, hasMore: false });
+
+    renderPage();
+
+    expect(await screen.findByRole('img', { name: 'Max Verstappen' })).toHaveAttribute(
+      'src',
+      `https://cache.test/drivers/${driver.id}/image`
+    );
+  });
+
+  test('falls back to the live source if the cached image fails to load', async () => {
+    const driver = { ...drivers[0], cachedImageUrl: `/api/drivers/${drivers[0].id}/image` };
+    getDrivers.mockResolvedValue({ season: 2026, drivers: [driver], total: 1, hasMore: false });
+
+    renderPage();
+
+    const image = await screen.findByRole('img', { name: 'Max Verstappen' });
+    fireEvent.error(image);
+    expect(await screen.findByRole('img', { name: 'Max Verstappen' })).toHaveAttribute(
+      'src',
+      `https://cache.test/?source=${encodeURIComponent(driver.imageUrl)}`
+    );
   });
 
   test('shows the empty state when the API returns no drivers', async () => {
