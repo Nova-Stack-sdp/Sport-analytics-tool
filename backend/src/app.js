@@ -10,6 +10,7 @@ import { driversRouter } from './routes/drivers.js';
 import { openF1Router } from './routes/openf1.js';
 import { watchLiveRouter } from './routes/watchLive.js';
 import { imagesRouter } from './routes/images.js';
+import { submissionsRouter } from './routes/submissions.js';
 
 export function createApp() {
   const app = express();
@@ -29,7 +30,7 @@ export function createApp() {
       origin: allowedOrigins.includes('*') ? '*' : allowedOrigins,
     })
   );
-  app.use(express.json());
+  app.use(express.json({ limit: '20mb' }));
 
   // Northflank's health check and a plain "is this alive" endpoint.
   app.get('/', (req, res) => {
@@ -49,6 +50,7 @@ export function createApp() {
   app.use('/api/openf1', openF1Router);
   app.use('/api/watch-live', watchLiveRouter);
   app.use('/api/images', imagesRouter);
+  app.use('/api/submissions', submissionsRouter);
 
   // 404 for anything else under /api
   app.use('/api', (req, res) => {
