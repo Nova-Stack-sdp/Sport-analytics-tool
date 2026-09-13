@@ -32,6 +32,7 @@ import pkg from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import 'dotenv/config';
 import { runDerivationForSession } from '../derivation/index.js';
+import { mapLap, mapPitStop, mapTyreStint, mapPositionChanges, mapRaceControlRecord, mapWeather, mapGridPosition, mapClassification } from '../validation/event-records.js';
 
 const { PrismaClient, SubmissionSource, SubmissionStatus, EventType } = pkg;
 
@@ -89,23 +90,6 @@ function mapSessionType(sessionName) {
     return 'Q';
   }
   return mapped;
-}
-
-function mapFlag(flag) {
-  if (!flag) return null;
-  const map = {
-    GREEN: 'green',
-    CLEAR: 'green',
-    YELLOW: 'yellow',
-    'DOUBLE YELLOW': 'yellow',
-    RED: 'red',
-    'SAFETY CAR': 'safety_car',
-    'VIRTUAL SAFETY CAR': 'vsc',
-    CHEQUERED: 'chequered',
-    BLUE: 'blue',
-    'BLACK AND WHITE': 'black_and_white',
-  };
-  return map[flag.toUpperCase()] ?? null;
 }
 
 /**
@@ -246,201 +230,50 @@ async function collectEvents(sessionKey, entryByDriverNumber, gridSessionKey) {
 
   const entryFor = (driverNumber) => entryByDriverNumber.get(driverNumber) ?? null;
 
-  // lap_completed
   const laps = await fetchOpenF1('laps', { session_key: sessionKey });
   for (const l of laps) {
-    if (!entryFor(l.driver_number)) {
-      reject('lap_completed', l, `unknown driver_number ${l.driver_number}`);
-      continue;
-    }
-    if (l.lap_duration != null && l.lap_duration <= 0) {
-      reject('lap_completed', l, 'lap_duration is not positive');
-      continue;
-    }
-    events.push({
-      eventType: EventType.lap_completed,
-      entryId: entryFor(l.driver_number),
-      lapNumber: l.lap_number,
-      occurredAt: new Date(l.date_start),
-      payload: {
-        lap_time_ms: l.lap_duration != null ? Math.round(l.lap_duration * 1000) : null,
-        sector1_ms: l.duration_sector_1 != null ? Math.round(l.duration_sector_1 * 1000) : null,
-        sector2_ms: l.duration_sector_2 != null ? Math.round(l.duration_sector_2 * 1000) : null,
-        sector3_ms: l.duration_sector_3 != null ? Math.round(l.duration_sector_3 * 1000) : null,
-        // Not available from /laps — see file header note.
-        position: null,
-        is_pit_out_lap: l.is_pit_out_lap ?? false,
-      },
-    });
+    const event = mapLap(l, entryFor, reject);
+    if (event) events.push(event);
   }
 
-  // pit_stop
   const pits = await fetchOpenF1('pit', { session_key: sessionKey });
   for (const p of pits) {
-    if (!entryFor(p.driver_number)) {
-      reject('pit_stop', p, `unknown driver_number ${p.driver_number}`);
-      continue;
-    }
-    if (p.pit_duration != null && p.pit_duration < 0) {
-      reject('pit_stop', p, 'pit_duration is negative');
-      continue;
-    }
-    const entryTime = new Date(p.date);
-    const durationMs = p.pit_duration != null ? Math.round(p.pit_duration * 1000) : null;
-    events.push({
-      eventType: EventType.pit_stop,
-      entryId: entryFor(p.driver_number),
-      lapNumber: p.lap_number,
-      occurredAt: entryTime,
-      payload: {
-        pit_duration_ms: durationMs,
-        entry_time: entryTime.toISOString(),
-        // Approximated — OpenF1 doesn't give entry/exit separately.
-        exit_time: durationMs != null ? new Date(entryTime.getTime() + durationMs).toISOString() : null,
-      },
-    });
+    const event = mapPitStop(p, entryFor, reject);
+    if (event) events.push(event);
   }
 
-  // tyre_stint
   const stints = await fetchOpenF1('stints', { session_key: sessionKey });
   for (const s of stints) {
-    if (!entryFor(s.driver_number)) {
-      reject('tyre_stint', s, `unknown driver_number ${s.driver_number}`);
-      continue;
-    }
-    events.push({
-      eventType: EventType.tyre_stint,
-      entryId: entryFor(s.driver_number),
-      lapNumber: s.lap_start,
-      occurredAt: new Date(), // stints have no timestamp; ordered by lap range instead
-      payload: {
-        compound: s.compound,
-        stint_number: s.stint_number,
-        start_lap: s.lap_start,
-        end_lap: s.lap_end,
-        tyre_age_at_start: s.tyre_age_at_start,
-      },
-    });
+    const event = mapTyreStint(s, entryFor, reject);
+    if (event) events.push(event);
   }
 
-  // position_change — only emit when a driver's position actually changes
   const positions = await fetchOpenF1('position', { session_key: sessionKey });
-  const byDriver = new Map();
-  for (const p of positions) {
-    if (!byDriver.has(p.driver_number)) byDriver.set(p.driver_number, []);
-    byDriver.get(p.driver_number).push(p);
-  }
-  for (const [driverNumber, records] of byDriver) {
-    if (!entryFor(driverNumber)) {
-      reject('position_change', records[0], `unknown driver_number ${driverNumber}`);
-      continue;
-    }
-    records.sort((a, b) => new Date(a.date) - new Date(b.date));
-    let prev = null;
-    for (const r of records) {
-      if (prev !== null && prev !== r.position) {
-        events.push({
-          eventType: EventType.position_change,
-          entryId: entryFor(driverNumber),
-          lapNumber: null,
-          occurredAt: new Date(r.date),
-          payload: {
-            from_position: prev,
-            to_position: r.position,
-            // Not distinguished by OpenF1 — see file header note.
-            cause: 'on_track',
-          },
-        });
-      }
-      prev = r.position;
-    }
-  }
+  events.push(...mapPositionChanges(positions, entryFor, reject));
 
-  // flag_event + race_control_message
   const raceControl = await fetchOpenF1('race_control', { session_key: sessionKey });
   for (const rc of raceControl) {
-    if (rc.category === 'Flag') {
-      const flag = mapFlag(rc.flag);
-      if (!flag) {
-        reject('flag_event', rc, `unrecognized flag value "${rc.flag}"`);
-        continue;
-      }
-      events.push({
-        eventType: EventType.flag_event,
-        entryId: null,
-        lapNumber: rc.lap_number,
-        occurredAt: new Date(rc.date),
-        payload: { flag, start_lap: rc.lap_number, end_lap: null },
-      });
-    } else {
-      events.push({
-        eventType: EventType.race_control_message,
-        entryId: null,
-        lapNumber: rc.lap_number,
-        occurredAt: new Date(rc.date),
-        payload: { category: rc.category, message_text: rc.message, lap_number: rc.lap_number },
-      });
-    }
+    const event = mapRaceControlRecord(rc, reject);
+    if (event) events.push(event);
   }
 
-  // weather_snapshot
   const weather = await fetchOpenF1('weather', { session_key: sessionKey });
   for (const w of weather) {
-    events.push({
-      eventType: EventType.weather_snapshot,
-      entryId: null,
-      lapNumber: null,
-      occurredAt: new Date(w.date),
-      payload: {
-        air_temp: w.air_temperature,
-        track_temp: w.track_temperature,
-        humidity: w.humidity,
-        rainfall: w.rainfall,
-        wind_speed: w.wind_speed,
-      },
-    });
+    events.push(mapWeather(w));
   }
 
-  // grid_position — the actual sourced starting position, replacing the old
-  // guess-from-lap-data approach with a real event. Queried against
-  // gridSessionKey (the meeting's qualifying session), not sessionKey — see
-  // resolveGridSessionKey for why.
   const grid = gridSessionKey
     ? await fetchOpenF1('starting_grid', { session_key: gridSessionKey })
     : [];
   for (const g of grid) {
-    if (!entryFor(g.driver_number)) {
-      reject('grid_position', g, `unknown driver_number ${g.driver_number}`);
-      continue;
-    }
-    events.push({
-      eventType: EventType.grid_position,
-      entryId: entryFor(g.driver_number),
-      lapNumber: null,
-      occurredAt: new Date(), // grid is set pre-race, no natural timestamp
-      payload: { position: g.position },
-    });
+    const event = mapGridPosition(g, entryFor, reject);
+    if (event) events.push(event);
   }
 
-  // classification
   const results = await fetchOpenF1('session_result', { session_key: sessionKey });
   for (const r of results) {
-    if (!entryFor(r.driver_number)) {
-      reject('classification', r, `unknown driver_number ${r.driver_number}`);
-      continue;
-    }
-    events.push({
-      eventType: EventType.classification,
-      entryId: entryFor(r.driver_number),
-      lapNumber: null,
-      occurredAt: new Date(),
-      payload: {
-        final_position: r.position ?? null,
-        points: r.points ?? 0,
-        status: r.dsq ? 'dsq' : r.dnf ? 'dnf' : 'finished',
-        reason: r.dnf_reason ?? null,
-      },
-    });
+    const event = mapClassification(r, entryFor, reject);
+    if (event) events.push(event);
   }
 
   return { events, rejections };
