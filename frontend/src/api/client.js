@@ -107,8 +107,12 @@ export function getCachedImageUrl(source) {
 
 // A driver's headshot once it's been persisted server-side (Firestore) —
 // same URL forever for a given driver, no source param needed.
-export function getDriverImageUrl(driverId) {
-  return `${API_BASE_URL}/api/drivers/${driverId}/image`;
+// `version` is the uploaded photo's last-updated time (from the drivers API).
+// It's part of the URL so a replaced photo is never served from a stale
+// browser cache.
+export function getDriverImageUrl(driverId, version) {
+  const url = `${API_BASE_URL}/api/drivers/${driverId}/image`;
+  return version ? `${url}?v=${version}` : url;
 }
 
 // Fetches one replay state or a short playback buffer.

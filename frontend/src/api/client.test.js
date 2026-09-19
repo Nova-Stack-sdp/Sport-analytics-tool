@@ -93,4 +93,12 @@ describe('API client', () => {
       'Request to /api/drivers failed with status 503'
     );
   });
+
+  test('builds versioned driver image URLs so a replaced photo is not stale-cached', () => {
+    delete process.env.REACT_APP_API_URL;
+    const client = loadClient();
+
+    expect(client.getDriverImageUrl('d1')).toBe(`${FALLBACK_API_URL}/api/drivers/d1/image`);
+    expect(client.getDriverImageUrl('d1', 123)).toBe(`${FALLBACK_API_URL}/api/drivers/d1/image?v=123`);
+  });
 });

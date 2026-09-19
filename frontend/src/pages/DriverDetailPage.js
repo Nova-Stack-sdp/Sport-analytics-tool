@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { getCachedImageUrl, getDriver, getDriverImageUrl } from '../api/client';
 
-// Prefers the Firestore-cached headshot (populated by this very page load
-// the first time it's opened — see the backend's /api/drivers/:id route);
-// falls back to the live source, then a plain badge if both fail.
+// Prefers a photo uploaded for this driver (stored in our database), then the
+// Firestore-cached headshot (populated by this very page load the first time
+// it's opened — see the backend's /api/drivers/:id route); falls back to the
+// live source, then a plain badge if all of them fail.
 function DriverPhoto({ driver }) {
   const [attempt, setAttempt] = useState(0);
   const srcs = [
+    driver.uploadedImageVersion ? getDriverImageUrl(driver.id, driver.uploadedImageVersion) : null,
     driver.cachedImageUrl ? getDriverImageUrl(driver.id) : null,
     driver.imageUrl ? getCachedImageUrl(driver.imageUrl) : null,
   ].filter(Boolean);

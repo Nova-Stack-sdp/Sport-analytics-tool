@@ -5,7 +5,7 @@ import { getCachedImageUrl, getDriverImageUrl, getDrivers } from '../api/client'
 
 jest.mock('../api/client', () => ({
   getCachedImageUrl: jest.fn((source) => `https://cache.test/?source=${encodeURIComponent(source)}`),
-  getDriverImageUrl: jest.fn((id) => `https://cache.test/drivers/${id}/image`),
+  getDriverImageUrl: jest.fn((id, version) => `https://cache.test/drivers/${id}/image${version ? `?v=${version}` : ''}`),
   getDrivers: jest.fn(),
 }));
 
@@ -44,7 +44,7 @@ describe('DriversPage', () => {
 
   beforeEach(() => {
     getCachedImageUrl.mockImplementation((source) => `https://cache.test/?source=${encodeURIComponent(source)}`);
-    getDriverImageUrl.mockImplementation((id) => `https://cache.test/drivers/${id}/image`);
+    getDriverImageUrl.mockImplementation((id, version) => `https://cache.test/drivers/${id}/image${version ? `?v=${version}` : ''}`);
     window.requestIdleCallback = undefined;
     window.cancelIdleCallback = undefined;
   });
@@ -211,5 +211,38 @@ describe('DriversPage', () => {
     });
 
     expect(getDrivers).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('DriversPage uploaded photos', () => {
+  beforeEach(() => {
+    // CRA resets mock implementations between tests, so re-establish them.
+    getCachedImageUrl.mockImplementation((source) => `https://cache.test/?source=${encodeURIComponent(source)}`);
+    getDriverImageUrl.mockImplementation((id, version) => `https://cache.test/drivers/${id}/image${version ? `?v=${version}` : ''}`);
+    window.requestIdleCallback = undefined;
+    window.cancelIdleCallback = undefined;
+  });
+
+  test('uses the uploaded photo from the API ahead of the remote headshot', async () => {
+    getDrivers.mockResolvedValue({
+      season: 2026,
+      drivers: [{ ...drivers[0], uploadedImageVersion: 42 }],
+      total: 1,
+      hasMore: false,
+    });
+    renderPage();
+
+    expect(await screen.findByRole('img', { name: 'Max Verstappen' })).toHaveAttribute(
+      'src',
+      'https://cache.test/drivers/driver-1/image?v=42'
+    );
+  });
+
+  test('does not render an upload button', async () => {
+    getDrivers.mockResolvedValue({ season: 2026, drivers, total: 2, hasMore: false });
+    renderPage();
+
+    await screen.findByText('Max Verstappen');
+    expect(screen.queryByRole('button', { name: /upload photo/i })).not.toBeInTheDocument();
   });
 });

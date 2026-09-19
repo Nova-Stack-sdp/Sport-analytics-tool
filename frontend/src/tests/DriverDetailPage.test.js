@@ -6,7 +6,7 @@ import { getCachedImageUrl, getDriver, getDriverImageUrl } from '../api/client';
 jest.mock('../api/client', () => ({
   getDriver: jest.fn(),
   getCachedImageUrl: jest.fn((source) => `https://cache.test/?source=${encodeURIComponent(source)}`),
-  getDriverImageUrl: jest.fn((id) => `https://cache.test/drivers/${id}/image`),
+  getDriverImageUrl: jest.fn((id, version) => `https://cache.test/drivers/${id}/image${version ? `?v=${version}` : ''}`),
 }));
 
 const fullDriver = {
@@ -76,7 +76,7 @@ function renderPage(id = 'driver-1') {
 describe('DriverDetailPage', () => {
   beforeEach(() => {
     getCachedImageUrl.mockImplementation((source) => `https://cache.test/?source=${encodeURIComponent(source)}`);
-    getDriverImageUrl.mockImplementation((id) => `https://cache.test/drivers/${id}/image`);
+    getDriverImageUrl.mockImplementation((id, version) => `https://cache.test/drivers/${id}/image${version ? `?v=${version}` : ''}`);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -109,6 +109,20 @@ describe('DriverDetailPage', () => {
     expect(screen.getAllByText('P1').length).toBeGreaterThan(1);
     expect(screen.getAllByText('—').length).toBeGreaterThan(1);
     expect(screen.getByText('0.5')).toBeInTheDocument();
+  });
+
+  test('shows the uploaded photo ahead of the cached and live images', async () => {
+    getDriver.mockResolvedValue({
+      ...fullDriver,
+      uploadedImageVersion: 99,
+      cachedImageUrl: `/api/drivers/${fullDriver.id}/image`,
+    });
+    renderPage();
+
+    expect(await screen.findByRole('img', { name: 'Max Verstappen' })).toHaveAttribute(
+      'src',
+      `https://cache.test/drivers/${fullDriver.id}/image?v=99`
+    );
   });
 
   test('prefers the Firestore-cached image over the live source when one exists', async () => {

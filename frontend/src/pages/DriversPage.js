@@ -21,16 +21,19 @@ function scheduleIdle(callback) {
   return () => clearTimeout(timer);
 }
 
-// Tries the OpenF1 headshot first, then the API-Sports fallback, and finally
-// gives up on images and shows the bare race number.
-function DriverPhoto({ driver }) {
+// A photo someone uploaded always wins. After that: the Firestore-cached
+// headshot, then the OpenF1 headshot, then the API-Sports fallback, and
+// finally the bare race number.
+function DriverPhoto({ driver, uploadedVersion }) {
   const [attempt, setAttempt] = useState(0);
 
-  // The Firestore-cached copy (once a driver's detail page has been opened
-  // at least once) is tried first and served directly — no proxying needed,
-  // it's already ours and immutable. Anything after that falls back to the
-  // live OpenF1/API-Sports URLs via the caching image proxy, same as before.
+  // The uploaded photo (stored in our own database) is tried first. Next is
+  // the Firestore-cached copy (once a driver's detail page has been opened at
+  // least once), served directly — no proxying needed, it's already ours and
+  // immutable. Anything after that falls back to the live OpenF1/API-Sports
+  // URLs via the caching image proxy, same as before.
   const srcs = [
+    uploadedVersion ? getDriverImageUrl(driver.id, uploadedVersion) : null,
     driver.cachedImageUrl ? getDriverImageUrl(driver.id) : null,
     ...[driver.imageUrl, driver.fallbackImageUrl].filter(Boolean).map((url) => getCachedImageUrl(url)),
   ].filter(Boolean);
@@ -133,7 +136,7 @@ function DriversPage() {
               >
                 <div className="driver-photo">
                   <span className="driver-rank">{index + 1}</span>
-                  <DriverPhoto driver={driver} />
+                  <DriverPhoto driver={driver} uploadedVersion={driver.uploadedImageVersion ?? null} />
                 </div>
                 <div className="driver-strip">
                   <div>
