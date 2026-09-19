@@ -75,7 +75,15 @@ describe('DriversPage', () => {
       'src',
       `https://cache.test/?source=${encodeURIComponent(drivers[0].imageUrl)}`
     );
-    expect(screen.getByText('4')).toBeInTheDocument();
+    // Lando has no working photo, so his number shows as the big fallback and
+    // again in the strip next to the flag.
+    const landoCell = screen.getByRole('link', { name: /Lando Norris/i });
+    expect(landoCell.querySelector('.driver-num')).toHaveTextContent('4');
+    expect(landoCell.querySelector('.driver-strip-num')).toHaveTextContent('4');
+    // Max has a photo, so his number sits behind the driver instead.
+    const maxCell = screen.getByRole('link', { name: /Max Verstappen/i });
+    expect(maxCell.querySelector('.driver-bg-num')).toHaveTextContent('1');
+    expect(maxCell.querySelector('.driver-strip-num')).toHaveTextContent('1');
     expect(screen.getByText('Red Bull Racing')).toBeInTheDocument();
     expect(screen.getByText('McLaren Racing')).toBeInTheDocument();
     expect(screen.getByText('🇳🇱')).toBeInTheDocument();
@@ -141,7 +149,9 @@ describe('DriversPage', () => {
     );
     fireEvent.error(screen.getByRole('img', { name: 'Max Verstappen' }));
     await waitFor(() => expect(screen.queryByRole('img', { name: 'Max Verstappen' })).not.toBeInTheDocument());
-    expect(screen.getAllByText('1')).toHaveLength(2);
+    const cell = screen.getByRole('link', { name: /Max Verstappen/i });
+    expect(cell.querySelector('.driver-num')).toHaveTextContent('1');
+    expect(cell.querySelector('.driver-bg-num')).not.toBeInTheDocument();
   });
 
   test('prefers the Firestore-cached image over the live source when one exists', async () => {
