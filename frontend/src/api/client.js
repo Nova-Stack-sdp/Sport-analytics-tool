@@ -115,6 +115,33 @@ export function getDriverImageUrl(driverId, version) {
   return version ? `${url}?v=${version}` : url;
 }
 
+// Uploads (or replaces) a driver's photo; it's stored in the backend's
+// database next to the driver record. The file is sent as the raw request
+// body, and the caller's Firebase ID token proves they're signed in.
+export async function uploadDriverImage(driverId, file, idToken) {
+  const res = await fetch(`${API_BASE_URL}/api/drivers/${driverId}/image`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      'Content-Type': file.type || 'application/octet-stream',
+    },
+    body: file,
+  });
+
+  let body = null;
+  try {
+    body = await res.json();
+  } catch {
+    // Non-JSON error page — fall through to the generic message below.
+  }
+  if (!res.ok) {
+    const error = new Error(body?.error || `Upload failed with status ${res.status}`);
+    error.status = res.status;
+    throw error;
+  }
+  return body;
+}
+
 // Fetches one replay state or a short playback buffer.
 export function getWatchLiveState({ videoSeconds, bufferSeconds } = {}) {
   const params = new URLSearchParams({ videoSeconds: String(videoSeconds) });

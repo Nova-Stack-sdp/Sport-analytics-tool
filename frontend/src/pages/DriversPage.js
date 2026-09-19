@@ -1,9 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { getCachedImageUrl, getDriverImageUrl, getDrivers } from '../api/client';
+import { Link, useNavigate } from 'react-router-dom';
+import { getCachedImageUrl, getDriverImageUrl, getDrivers, uploadDriverImage } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 
 const INITIAL_PAGE_SIZE = 8;
 const PREFETCH_PAGE_SIZE = 100;
+
+// Mirrors the backend's limits (see driverUploadedImage.js) so obvious
+// problems are caught before the file is sent.
+const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
+const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 // Runs background work as soon as the browser is idle, with a timer fallback
 // for environments (older browsers, jsdom) without requestIdleCallback. The
@@ -51,7 +57,81 @@ function DriverPhoto({ driver, uploadedVersion }) {
   );
 }
 
+// Small button on each card that uploads a photo for that driver. It sits
+// beside the card's link rather than inside it, so clicking it never
+// navigates to the driver's page.
+function DriverPhotoUpload({ driver, onUploaded }) {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const inputRef = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState(null);
+
+  const handleClick = () => {
+    setMessage(null);
+    // Uploading changes shared data, so it needs an account.
+    if (!user) {
+      navigate('/sign-in');
+      return;
+    }
+    inputRef.current?.click();
+  };
+
+  const handleChange = async (event) => {
+    const file = event.target.files?.[0];
+    // Reset so choosing the same file again still fires onChange.
+    event.target.value = '';
+    if (!file) return;
+
+    if (!ACCEPTED_TYPES.includes(file.type)) {
+      setMessage('Use a JPG, PNG or WebP image.');
+      return;
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setMessage('Image is too large (max 2 MB).');
+      return;
+    }
+
+    setBusy(true);
+    setMessage(null);
+    try {
+      const idToken = await user.getIdToken();
+      const result = await uploadDriverImage(driver.id, file, idToken);
+      onUploaded(driver.id, result.uploadedImageVersion);
+    } catch (err) {
+      setMessage(err.message || 'Upload failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="driver-upload">
+      <button
+        type="button"
+        className="driver-upload-btn"
+        onClick={handleClick}
+        disabled={busy}
+        aria-label={`Upload photo for ${driver.name}`}
+      >
+        {busy ? 'Uploading…' : 'Upload photo'}
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={ACCEPTED_TYPES.join(',')}
+        className="driver-upload-input"
+        data-testid={`upload-input-${driver.id}`}
+        onChange={handleChange}
+        hidden
+      />
+      {message && <div className="driver-upload-error" role="alert">{message}</div>}
+    </div>
+  );
+}
+
 function DriversPage() {
+  const [uploadedVersions, setUploadedVersions] = useState({});
   const [firstPage, setFirstPage] = useState(null);
   const [remaining, setRemaining] = useState(null);
   const [revealed, setRevealed] = useState(false);
@@ -105,6 +185,10 @@ function DriversPage() {
     : (firstPage?.drivers ?? []);
   const canReveal = Boolean(remaining?.drivers?.length);
 
+  const handleUploaded = (driverId, version) => {
+    setUploadedVersions((current) => ({ ...current, [driverId]: version }));
+  };
+
   return (
     <div className="page page-drivers">
       <div className="pagehead">
@@ -127,26 +211,32 @@ function DriversPage() {
         )}
         {!loading && !error && drivers.length > 0 && (
           <div className="driver-grid">
-            {drivers.map((driver, index) => (
-              <Link
-                key={driver.id}
-                to={`/driver/${driver.id}`}
-                className="driver-cell"
-                style={{ '--tc': driver.teamColor }}
-              >
-                <div className="driver-photo">
-                  <span className="driver-rank">{index + 1}</span>
-                  <DriverPhoto driver={driver} uploadedVersion={driver.uploadedImageVersion ?? null} />
+            {drivers.map((driver, index) => {
+              // A photo uploaded in this session beats what the API returned.
+              const uploadedVersion = uploadedVersions[driver.id] ?? driver.uploadedImageVersion ?? null;
+              return (
+                <div key={driver.id} className="driver-cell-wrap">
+                  <Link
+                    to={`/driver/${driver.id}`}
+                    className="driver-cell"
+                    style={{ '--tc': driver.teamColor }}
+                  >
+                    <div className="driver-photo">
+                      <span className="driver-rank">{index + 1}</span>
+                      <DriverPhoto key={uploadedVersion ?? 'remote'} driver={driver} uploadedVersion={uploadedVersion} />
+                    </div>
+                    <div className="driver-strip">
+                      <div>
+                        <div className="driver-name">{driver.name}</div>
+                        <div className="driver-team">{driver.teamName}</div>
+                      </div>
+                      <span className="flag">{driver.flag}</span>
+                    </div>
+                  </Link>
+                  <DriverPhotoUpload driver={driver} onUploaded={handleUploaded} />
                 </div>
-                <div className="driver-strip">
-                  <div>
-                    <div className="driver-name">{driver.name}</div>
-                    <div className="driver-team">{driver.teamName}</div>
-                  </div>
-                  <span className="flag">{driver.flag}</span>
-                </div>
-              </Link>
-            ))}
+              );
+            })}
             {hasMore && !revealed && (
               <button
                 type="button"

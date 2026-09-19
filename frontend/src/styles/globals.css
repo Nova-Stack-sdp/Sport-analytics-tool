@@ -384,6 +384,13 @@ section.faq-section{padding-top:0;}
 .driver-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;}
 .driver-cell{text-decoration:none;color:inherit;background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-lg);overflow:hidden;transition:border-color .15s ease,transform .15s ease,box-shadow .15s ease;box-shadow:var(--shadow-soft);}
 .driver-cell:hover{transform:translateY(-3px);border-color:var(--tc,var(--accent));box-shadow:var(--shadow-elevated);}
+.driver-cell-wrap{position:relative;display:flex;}
+.driver-cell-wrap>.driver-cell{flex:1;min-width:0;}
+.driver-upload{position:absolute;top:10px;right:10px;z-index:2;display:flex;flex-direction:column;align-items:flex-end;gap:6px;max-width:calc(100% - 20px);}
+.driver-upload-btn{background:rgba(0,0,0,.72);border:1px solid var(--border-soft);border-radius:999px;color:#fff;font-weight:700;font-size:11px;padding:6px 11px;cursor:pointer;backdrop-filter:blur(4px);transition:border-color .15s ease,background .15s ease;}
+.driver-upload-btn:hover:not(:disabled){border-color:var(--accent);background:rgba(0,0,0,.9);}
+.driver-upload-btn:disabled{opacity:.6;cursor:default;}
+.driver-upload-error{background:#2a0d10;border:1px solid #CE0D14;border-radius:8px;color:#ffd7d9;font-size:11px;font-weight:600;line-height:1.3;padding:6px 9px;text-align:right;}
 .driver-photo{position:relative;aspect-ratio:3/4;background:linear-gradient(160deg,var(--tc,#333) 0%,#0c0c10 78%);display:flex;align-items:flex-end;justify-content:center;overflow:hidden;}
 .driver-photo img{width:100%;height:100%;object-fit:cover;}
 .driver-num{font-size:74px;font-weight:900;color:rgba(255,255,255,.14);line-height:1;padding-bottom:6px;}
