@@ -9,22 +9,31 @@
 
 /* ─── Tokens ──────────────────────────────────────────────────────────────── */
 :root {
-  --black:       #050505;
-  --panel:       #111111;
-  --panel-alt:   #0A0A0A;
-  --panel-edge:  #232323;
+  --panel:       var(--surface);
+  --panel-alt:   var(--bg);
+  --panel-edge:  var(--border);
   --red:         #CE0D14;
   --red-bright:  #FF2033;
   --red-dark:    #8A0A0F;
   --red-glow:    rgba(255, 32, 51, 0.45);
-  --grey-border: #555555;
-  --grey-text:   #A6A6A6;
-  --grey-faint:  #6E6E6E;
-  --white:       #FFFFFF;
+  --grey-border: var(--border);
+  --grey-text:   var(--text-secondary);
+  --grey-faint:  var(--text-tertiary);
+  --white:       var(--text-primary);
 
   --font-display: 'Rajdhani', sans-serif;
   --font-body:    'Inter', sans-serif;
   --font-mono:    'JetBrains Mono', monospace;
+}
+
+.app-shell {
+  --panel:       var(--surface);
+  --panel-alt:   var(--bg);
+  --panel-edge:  var(--border);
+  --grey-border: var(--border);
+  --grey-text:   var(--text-secondary);
+  --grey-faint:  var(--text-tertiary);
+  --white:       var(--text-primary);
 }
 
 /* ─── Animations ─────────────────────────────────────────────────────────── */
@@ -61,7 +70,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--black);
+  background: var(--bg);
   position: relative;
   overflow: hidden;
   padding: 40px 20px;
@@ -81,7 +90,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at center, transparent 0%, transparent 45%, var(--black) 92%);
+  background: radial-gradient(ellipse at center, transparent 0%, transparent 45%, var(--bg) 92%);
   pointer-events: none;
 }
 
@@ -388,7 +397,7 @@
 
 /* ─── Divider ────────────────────────────────────────────────────────────── */
 .signin-divider,
-.auth-divider {
+.signin-divider {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -399,8 +408,7 @@
 
 .signin-divider::before,
 .signin-divider::after,
-.auth-divider::before,
-.auth-divider::after {
+.signin-divider::after {
   content: '';
   flex: 1;
   height: 1px;
@@ -425,59 +433,6 @@
   background: rgba(255, 255, 255, 0.04);
   color: var(--grey-text);
 }
-
-.auth-verifying {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  letter-spacing: 0.04em;
-  color: var(--grey-text);
-  text-align: center;
-}
-
-/* ─── Pending-approval panel ─────────────────────────────────────────────── */
-.auth-pending {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 20px 8px;
-}
-
-.auth-pending-icon {
-  color: var(--red-bright);
-  margin-bottom: 16px;
-}
-
-.auth-pending-title {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 20px;
-  color: var(--white);
-  margin-bottom: 10px;
-}
-
-.auth-pending-body {
-  font-size: 13.5px;
-  color: var(--grey-text);
-  line-height: 1.6;
-  max-width: 320px;
-  margin-bottom: 20px;
-}
-
-.auth-link-button {
-  background: none;
-  border: none;
-  color: var(--red-bright);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  text-decoration: none;
-}
-
-.auth-link-button:hover,
-.auth-link-button:focus-visible { text-decoration: underline; }
 
 /* ─── Footer switch link ─────────────────────────────────────────────────── */
 .auth-switch {
