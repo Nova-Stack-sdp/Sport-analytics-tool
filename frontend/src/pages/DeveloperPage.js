@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 function DeveloperPage() {
   return (
     <div className="page" id="page-developer">
@@ -51,7 +53,7 @@ function DeveloperPage() {
           <div className="endpoint-row"><span className="method get">GET</span><span className="path">/v3/statistics/as-of</span><span className="desc">Historical statistic snapshot</span><span className="pill pill-blue" style={{ justifySelf: 'start' }}>Advanced</span></div>
           <div className="endpoint-row"><span className="method post">POST</span><span className="path">/v3/submissions</span><span className="desc">Submit an event batch</span><span className="secondary">Stable</span></div>
           <div className="endpoint-row"><span className="method post">POST</span><span className="path">/v3/exports</span><span className="desc">Request a filtered dataset export</span><span className="secondary">Stable</span></div>
-          <button className="btn btn-ghost btn-full" style={{ marginTop: 14 }}>View full API documentation</button>
+          <Link to="/developer/api-docs" className="btn btn-ghost btn-full" style={{ marginTop: 14 }}>View full API documentation</Link>
         </div>
 
         <div className="card">

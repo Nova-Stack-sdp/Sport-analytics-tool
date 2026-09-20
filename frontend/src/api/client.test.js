@@ -93,4 +93,37 @@ describe('API client', () => {
       'Request to /api/drivers failed with status 503'
     );
   });
+
+  test('builds versioned driver image URLs so a replaced photo is not stale-cached', () => {
+    delete process.env.REACT_APP_API_URL;
+    const client = loadClient();
+
+    expect(client.getDriverImageUrl('d1')).toBe(`${FALLBACK_API_URL}/api/drivers/d1/image`);
+    expect(client.getDriverImageUrl('d1', 123)).toBe(`${FALLBACK_API_URL}/api/drivers/d1/image?v=123`);
+  });
+
+  test('uploadDriverImage PUTs the raw file with the caller\'s ID token', async () => {
+    delete process.env.REACT_APP_API_URL;
+    global.fetch.mockResolvedValue({ ok: true, status: 201, json: jest.fn().mockResolvedValue({ uploadedImageVersion: 5 }) });
+    const client = loadClient();
+    const file = new File([new Uint8Array(4)], 'max.png', { type: 'image/png' });
+
+    const result = await client.uploadDriverImage('d1', file, 'tok');
+
+    expect(result).toEqual({ uploadedImageVersion: 5 });
+    expect(global.fetch).toHaveBeenCalledWith(`${FALLBACK_API_URL}/api/drivers/d1/image`, {
+      method: 'PUT',
+      headers: { Authorization: 'Bearer tok', 'Content-Type': 'image/png' },
+      body: file,
+    });
+  });
+
+  test('uploadDriverImage surfaces the server\'s error message', async () => {
+    delete process.env.REACT_APP_API_URL;
+    global.fetch.mockResolvedValue({ ok: false, status: 413, json: jest.fn().mockResolvedValue({ error: 'Image is too large (max 2 MB)' }) });
+    const client = loadClient();
+    const file = new File([new Uint8Array(4)], 'max.png', { type: 'image/png' });
+
+    await expect(client.uploadDriverImage('d1', file, 'tok')).rejects.toThrow('Image is too large (max 2 MB)');
+  });
 });

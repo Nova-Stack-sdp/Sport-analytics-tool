@@ -21,24 +21,9 @@
  * string in the env var. Never commit the key file itself.
  */
 import admin from 'firebase-admin';
+import { getAdminApp } from '../lib/firebaseAdmin.js';
 
-let adminApp;
-
-export function getAdminApp() {
-  if (adminApp) return adminApp;
-
-  if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
-    throw new Error(
-      'FIREBASE_SERVICE_ACCOUNT is not set — check your environment configuration.'
-    );
-  }
-
-  const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-  adminApp = admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
-  return adminApp;
-}
+export { getAdminApp } from '../lib/firebaseAdmin.js';
 
 // Cookie name — must match the name used in routes/auth.js.
 const COOKIE_NAME = '__session';

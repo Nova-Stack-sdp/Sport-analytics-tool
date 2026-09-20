@@ -1,10 +1,11 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import DriversPage from '../pages/DriversPage';
-import { getCachedImageUrl, getDrivers } from '../api/client';
+import { getCachedImageUrl, getDriverImageUrl, getDrivers } from '../api/client';
 
 jest.mock('../api/client', () => ({
   getCachedImageUrl: jest.fn((source) => `https://cache.test/?source=${encodeURIComponent(source)}`),
+  getDriverImageUrl: jest.fn((id, version) => `https://cache.test/drivers/${id}/image${version ? `?v=${version}` : ''}`),
   getDrivers: jest.fn(),
 }));
 
@@ -43,6 +44,7 @@ describe('DriversPage', () => {
 
   beforeEach(() => {
     getCachedImageUrl.mockImplementation((source) => `https://cache.test/?source=${encodeURIComponent(source)}`);
+    getDriverImageUrl.mockImplementation((id, version) => `https://cache.test/drivers/${id}/image${version ? `?v=${version}` : ''}`);
     window.requestIdleCallback = undefined;
     window.cancelIdleCallback = undefined;
   });
@@ -59,7 +61,7 @@ describe('DriversPage', () => {
     renderPage();
 
     expect(screen.getByText('Loading drivers…')).toBeInTheDocument();
-    expect(getDrivers).toHaveBeenCalledWith({ limit: 2, offset: 0 });
+    expect(getDrivers).toHaveBeenCalledWith({ limit: 8, offset: 0 });
   });
 
   test('renders the initial driver cards with cached photos, number fallbacks, flags, and profile links', async () => {
@@ -73,7 +75,15 @@ describe('DriversPage', () => {
       'src',
       `https://cache.test/?source=${encodeURIComponent(drivers[0].imageUrl)}`
     );
-    expect(screen.getByText('4')).toBeInTheDocument();
+    // Lando has no working photo, so his number shows as the big fallback and
+    // again in the strip next to the flag.
+    const landoCell = screen.getByRole('link', { name: /Lando Norris/i });
+    expect(landoCell.querySelector('.driver-num')).toHaveTextContent('4');
+    expect(landoCell.querySelector('.driver-strip-num')).toHaveTextContent('4');
+    // Max has a photo, so his number sits behind the driver instead.
+    const maxCell = screen.getByRole('link', { name: /Max Verstappen/i });
+    expect(maxCell.querySelector('.driver-bg-num')).toHaveTextContent('1');
+    expect(maxCell.querySelector('.driver-strip-num')).toHaveTextContent('1');
     expect(screen.getByText('Red Bull Racing')).toBeInTheDocument();
     expect(screen.getByText('McLaren Racing')).toBeInTheDocument();
     expect(screen.getByText('🇳🇱')).toBeInTheDocument();
@@ -139,7 +149,35 @@ describe('DriversPage', () => {
     );
     fireEvent.error(screen.getByRole('img', { name: 'Max Verstappen' }));
     await waitFor(() => expect(screen.queryByRole('img', { name: 'Max Verstappen' })).not.toBeInTheDocument());
-    expect(screen.getAllByText('1')).toHaveLength(2);
+    const cell = screen.getByRole('link', { name: /Max Verstappen/i });
+    expect(cell.querySelector('.driver-num')).toHaveTextContent('1');
+    expect(cell.querySelector('.driver-bg-num')).not.toBeInTheDocument();
+  });
+
+  test('prefers the Firestore-cached image over the live source when one exists', async () => {
+    const driver = { ...drivers[0], cachedImageUrl: `/api/drivers/${drivers[0].id}/image` };
+    getDrivers.mockResolvedValue({ season: 2026, drivers: [driver], total: 1, hasMore: false });
+
+    renderPage();
+
+    expect(await screen.findByRole('img', { name: 'Max Verstappen' })).toHaveAttribute(
+      'src',
+      `https://cache.test/drivers/${driver.id}/image`
+    );
+  });
+
+  test('falls back to the live source if the cached image fails to load', async () => {
+    const driver = { ...drivers[0], cachedImageUrl: `/api/drivers/${drivers[0].id}/image` };
+    getDrivers.mockResolvedValue({ season: 2026, drivers: [driver], total: 1, hasMore: false });
+
+    renderPage();
+
+    const image = await screen.findByRole('img', { name: 'Max Verstappen' });
+    fireEvent.error(image);
+    expect(await screen.findByRole('img', { name: 'Max Verstappen' })).toHaveAttribute(
+      'src',
+      `https://cache.test/?source=${encodeURIComponent(driver.imageUrl)}`
+    );
   });
 
   test('shows the empty state when the API returns no drivers', async () => {
@@ -183,5 +221,38 @@ describe('DriversPage', () => {
     });
 
     expect(getDrivers).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('DriversPage uploaded photos', () => {
+  beforeEach(() => {
+    // CRA resets mock implementations between tests, so re-establish them.
+    getCachedImageUrl.mockImplementation((source) => `https://cache.test/?source=${encodeURIComponent(source)}`);
+    getDriverImageUrl.mockImplementation((id, version) => `https://cache.test/drivers/${id}/image${version ? `?v=${version}` : ''}`);
+    window.requestIdleCallback = undefined;
+    window.cancelIdleCallback = undefined;
+  });
+
+  test('uses the uploaded photo from the API ahead of the remote headshot', async () => {
+    getDrivers.mockResolvedValue({
+      season: 2026,
+      drivers: [{ ...drivers[0], uploadedImageVersion: 42 }],
+      total: 1,
+      hasMore: false,
+    });
+    renderPage();
+
+    expect(await screen.findByRole('img', { name: 'Max Verstappen' })).toHaveAttribute(
+      'src',
+      'https://cache.test/drivers/driver-1/image?v=42'
+    );
+  });
+
+  test('does not render an upload button', async () => {
+    getDrivers.mockResolvedValue({ season: 2026, drivers, total: 2, hasMore: false });
+    renderPage();
+
+    await screen.findByText('Max Verstappen');
+    expect(screen.queryByRole('button', { name: /upload photo/i })).not.toBeInTheDocument();
   });
 });

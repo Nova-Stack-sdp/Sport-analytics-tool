@@ -7,6 +7,7 @@ import SubmissionsPage from '../pages/SubmissionsPage';
 import TimeTravelPage from '../pages/TimeTravelPage';
 import DatasetsPage from '../pages/DatasetsPage';
 import DeveloperPage from '../pages/DeveloperPage';
+import ApiDocsPage from '../pages/ApiDocsPage';
 import AdminPage from '../pages/AdminPage';
 import WatchLivePage from '../pages/WatchLivePage';
 import SignInPage from '../pages/SignInPage';
@@ -34,6 +35,7 @@ function AppRoutes() {
       <Route path="/timetravel" element={<TimeTravelPage />} />
       <Route path="/datasets" element={<RequireAuth><DatasetsPage /></RequireAuth>} />
       <Route path="/developer" element={<RequireAuth><DeveloperPage /></RequireAuth>} />
+      <Route path="/developer/api-docs" element={<RequireAuth><ApiDocsPage /></RequireAuth>} />
       <Route path="/admin" element={<RequireAuth><AdminPage /></RequireAuth>} />
 
       <Route path="/teams" element={<TeamsPage />} />

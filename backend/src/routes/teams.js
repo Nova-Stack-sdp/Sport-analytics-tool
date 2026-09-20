@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
+import { apiSportsOrEmpty } from '../lib/apiSports.js';
 
 export const teamsRouter = Router();
 
-const API_SPORTS_BASE = 'https://v1.formula-1.api-sports.io';
 const OPENF1_BASE = 'https://api.openf1.org/v1';
 const WIKI_API = 'https://commons.wikimedia.org/w/api.php';
 const WIKI_HEADERS = {
@@ -39,21 +39,39 @@ const TEAM_NAME_ALIASES = {
   oracleredbullracing: 'redbull',
   mclaren: 'mclaren',
   mclarenracing: 'mclaren',
+  mclarenmastercardf1team: 'mclaren',
   ferrari: 'ferrari',
   scuderiaferrari: 'ferrari',
+  scuderiaferrarihp: 'ferrari',
   mercedes: 'mercedes',
+  mercedesamgpetronas: 'mercedes',
   mercedesamgpetronasformulaoneteam: 'mercedes',
   astonmartin: 'astonmartin',
+  astonmartinf1team: 'astonmartin',
+  astonmartinaramcoformulaoneteam: 'astonmartin',
   astonmartinaramcocognizantformulaoneteam: 'astonmartin',
   williams: 'williams',
+  williamsf1team: 'williams',
   williamsracing: 'williams',
+  atlassianwilliamsf1team: 'williams',
   haas: 'haas',
   haasf1team: 'haas',
+  tgrhaasf1team: 'haas',
   racingbulls: 'racingbulls',
+  visacashapprb: 'racingbulls',
   visacashapprbf1team: 'racingbulls',
   visacashapprbformulaoneteam: 'racingbulls',
+  visacashappracingbullsformulaoneteam: 'racingbulls',
   alpine: 'alpine',
+  alpinef1team: 'alpine',
   bwtalpinef1team: 'alpine',
+  bwtalpineformulaoneteam: 'alpine',
+  audi: 'audi',
+  audif1team: 'audi',
+  audirevolutf1team: 'audi',
+  cadillac: 'cadillac',
+  cadillacf1team: 'cadillac',
+  cadillacformula1team: 'cadillac',
   kicksauber: 'sauber',
   stakef1teamkicksauber: 'sauber',
 };
@@ -88,32 +106,6 @@ function parsePagination(query) {
 function openF1TeamColor(color) {
   if (!color) return null;
   return color.startsWith('#') ? color : `#${color}`;
-}
-
-async function apiSports(path) {
-  const key = process.env.API_SPORTS_KEY;
-  if (!key) throw new Error('API_SPORTS_KEY is not configured');
-
-  const res = await fetch(`${API_SPORTS_BASE}${path}`, {
-    headers: {
-      'x-rapidapi-key': key,
-      'x-rapidapi-host': 'v1.formula-1.api-sports.io',
-    },
-  });
-  if (!res.ok) throw new Error(`API-Sports ${path} -> ${res.status}`);
-
-  const data = await res.json();
-  return data.response || [];
-}
-
-async function apiSportsOrEmpty(path) {
-  try {
-    return await apiSports(path);
-  } catch (err) {
-    // API-Sports enriches visual/profile data only. Its availability must never
-    // hide the OpenF1-backed constructors and standings.
-    return [];
-  }
 }
 
 async function openF1(path, params) {
@@ -158,17 +150,20 @@ async function fetchResultsBySession(entries) {
   return new Map(records);
 }
 
-async function fetchLatestTeamProfiles(entries) {
+async function fetchLatestOpenF1Profiles(entries) {
   const latestSession = entries
     .filter((entry) => entry.session.openf1Key)
     .sort((a, b) => new Date(b.session.startTime) - new Date(a.session.startTime))[0]?.session;
-  if (!latestSession?.openf1Key) return new Map();
+  if (!latestSession?.openf1Key) return { teams: new Map(), drivers: new Map() };
 
   try {
     const drivers = await openF1('drivers', { session_key: latestSession.openf1Key });
-    return new Map(drivers.map((driver) => [teamKey(driver.team_name), driver]));
+    return {
+      teams: new Map(drivers.map((driver) => [teamKey(driver.team_name), driver])),
+      drivers: new Map(drivers.map((driver) => [Number(driver.driver_number), driver])),
+    };
   } catch (err) {
-    return new Map();
+    return { teams: new Map(), drivers: new Map() };
   }
 }
 
@@ -275,16 +270,21 @@ teamsRouter.get('/', async (req, res, next) => {
     });
 
     const allEntries = teams.flatMap((team) => team.entries);
-    const [apiTeams, resultsBySession, profilesByTeam] = await Promise.all([
+    const [apiTeams, resultsBySession, openF1Profiles] = await Promise.all([
       apiSportsOrEmpty('/teams'),
       fetchResultsBySession(allEntries),
-      fetchLatestTeamProfiles(allEntries),
+      fetchLatestOpenF1Profiles(allEntries),
     ]);
 
     const enriched = teams
       .map((team) => {
         const stats = deriveTeamStats(team.entries, resultsBySession);
-        return serializeTeam(team, stats, apiTeamForName(apiTeams, team.name), profilesByTeam.get(teamKey(team.name)));
+        return serializeTeam(
+          team,
+          stats,
+          apiTeamForName(apiTeams, team.name),
+          openF1Profiles.teams.get(teamKey(team.name)),
+        );
       })
       .sort((a, b) => b.points - a.points || b.wins - a.wins || a.name.localeCompare(b.name));
 
@@ -321,10 +321,11 @@ teamsRouter.get('/:id', async (req, res, next) => {
     });
     if (!team) return res.status(404).json({ error: 'Team not found' });
 
-    const [apiTeams, resultsBySession, profilesByTeam] = await Promise.all([
+    const [apiTeams, apiDrivers, resultsBySession, openF1Profiles] = await Promise.all([
       apiSportsOrEmpty('/teams'),
+      apiSportsOrEmpty('/drivers'),
       fetchResultsBySession(team.entries),
-      fetchLatestTeamProfiles(team.entries),
+      fetchLatestOpenF1Profiles(team.entries),
     ]);
     const apiTeam = apiTeamForName(apiTeams, team.name);
     const stats = deriveTeamStats(team.entries, resultsBySession);
@@ -335,14 +336,16 @@ teamsRouter.get('/:id', async (req, res, next) => {
         number: entry.driver.driverNumber,
       }]),
     ).values());
-    const driversWithImages = await Promise.all(drivers.map(async (driver) => {
-      const [apiDriver] = await apiSportsOrEmpty(`/drivers?number=${driver.number}`);
-      return { ...driver, imageUrl: apiDriver?.image || null };
+    const driversWithImages = drivers.map((driver) => ({
+      ...driver,
+      imageUrl: openF1Profiles.drivers.get(driver.number)?.headshot_url
+        || apiDrivers.find((apiDriver) => Number(apiDriver.number) === driver.number)?.image
+        || null,
     }));
     const gallery = await fetchTeamGallery(apiTeam?.chassis).catch(() => []);
 
     res.json({
-      ...serializeTeam(team, stats, apiTeam, profilesByTeam.get(teamKey(team.name))),
+      ...serializeTeam(team, stats, apiTeam, openF1Profiles.teams.get(teamKey(team.name))),
       base: apiTeam?.base || null,
       firstTeamEntry: apiTeam?.first_team_entry || null,
       worldChampionships: apiTeam?.world_championships ?? null,

@@ -96,8 +96,24 @@ model Driver {
   driverNumber Int      @unique @map("driver_number")
   entries      Entry[]
   careerStats  DriverCareerStats[]
+  image        DriverImage?
 
   @@map("driver")
+}
+
+// Photo uploaded by a user for a driver. Kept in its own table (not a column on
+// driver) so queries that load drivers never drag image bytes along with them.
+model DriverImage {
+  driverId    String   @id @map("driver_id")
+  driver      Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  data        Bytes
+  contentType String   @map("content_type")
+  sizeBytes   Int      @map("size_bytes")
+  // Firebase uid of whoever uploaded it
+  uploadedBy  String?  @map("uploaded_by")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("driver_image")
 }
 
 model Entry {
