@@ -1,6 +1,58 @@
 import { Link } from 'react-router-dom';
+import { useDeveloperMode } from '../context/DeveloperModeContext';
 
-function DeveloperPage() {
+// Shown to any signed-in user who hasn't switched on developer mode yet.
+// Explains what the developer role is for, and how to turn it on —
+// nothing here assumes the reader has any technical background.
+function DeveloperExplainer() {
+  return (
+    <div className="page" id="page-developer">
+      <div className="pagehead">
+        <div className="section-eyebrow">For contributors, not just consumers</div>
+        <div className="section-title">Developer</div>
+        <div className="section-desc">
+          Developer mode is for anyone who wants to go beyond browsing the site — submitting a new
+          derived statistic (a stat computed from existing race data that we haven't already built)
+          for an admin to review and, if approved, add to the site and the public API.
+        </div>
+      </div>
+      <div className="content">
+        <div className="rationale">
+          <span className="ic">◆</span>
+          <div>
+            <b>What developer mode unlocks:</b> access to Datasets (the underlying race data available
+            to work with) and Submissions (where a proposed stat is submitted and its review status is
+            tracked). Nothing you submit goes live on its own — an admin reviews it first.
+          </div>
+        </div>
+
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-head">
+            <div className="card-title">How to turn on developer mode</div>
+          </div>
+          <ol className="developer-steps">
+            <li>
+              Go to <Link to="/settings">Settings</Link>.
+            </li>
+            <li>Find the <b>Developer mode</b> toggle.</li>
+            <li>Switch it on.</li>
+          </ol>
+          <div className="card-note">
+            You can switch it off again at any time from the same place — it doesn't affect anything
+            you've already submitted.
+          </div>
+          <Link to="/settings" className="btn btn-ghost btn-full" style={{ marginTop: 14 }}>
+            Go to Settings
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// The existing developer console — unchanged, shown once developer mode
+// is switched on.
+function DeveloperConsole() {
   return (
     <div className="page" id="page-developer">
       <div className="pagehead">
@@ -67,6 +119,11 @@ function DeveloperPage() {
       </div>
     </div>
   );
+}
+
+function DeveloperPage() {
+  const { isDeveloperMode } = useDeveloperMode();
+  return isDeveloperMode ? <DeveloperConsole /> : <DeveloperExplainer />;
 }
 
 export default DeveloperPage;

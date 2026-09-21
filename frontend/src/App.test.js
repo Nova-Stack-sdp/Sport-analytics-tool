@@ -33,6 +33,10 @@ function getTopNavLink(name) {
 
 beforeEach(() => {
   window.history.pushState({}, '', '/');
+  // Developer mode is persisted per-uid in real localStorage (see
+  // DeveloperModeContext) — clear it so one test toggling it on doesn't
+  // leak into the next test reusing the same mock uid.
+  localStorage.clear();
 });
 
 test('renders the welcome page by default, with the persistent top nav', () => {
@@ -65,17 +69,34 @@ test('signed-out users never see links to Submissions, Datasets, Developer, or A
   expect(screen.queryByRole('link', { name: 'Admin' })).not.toBeInTheDocument();
 });
 
-test('signed-in users see every nav link, including the protected ones', async () => {
+test('signed-in users see the logged-in nav links, but Submissions and Datasets stay hidden until developer mode is on', async () => {
   render(<App />);
   emitAuthState({ uid: 'u1' });
 
   fireEvent.click(getTopNavLink('Overview'));
   await waitFor(() => expect(screen.getAllByText(/Overview/i).length).toBeGreaterThan(0));
 
+  expect(screen.getByRole('link', { name: 'Developer' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Admin' })).toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Submissions' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Datasets' })).not.toBeInTheDocument();
+});
+
+test('turning on developer mode from Settings reveals Submissions and Datasets in the nav', async () => {
+  render(<App />);
+  emitAuthState({ uid: 'u1' });
+
+  fireEvent.click(getTopNavLink('Overview'));
+  await waitFor(() => expect(screen.getAllByText(/Overview/i).length).toBeGreaterThan(0));
+
+  fireEvent.click(getTopNavLink('Settings'));
+  await waitFor(() => expect(screen.getByText('Developer mode')).toBeInTheDocument());
+
+  fireEvent.click(screen.getByRole('checkbox', { name: /toggle developer mode/i }));
+
   expect(screen.getByRole('link', { name: 'Submissions' })).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'Datasets' })).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: 'Developer' })).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: 'Admin' })).toBeInTheDocument();
 });
 
 test('a signed-out user who navigates straight to /submissions by URL is redirected to sign-in', async () => {
@@ -98,12 +119,27 @@ test('signed-in users reach the Overview dashboard, with the persistent top nav'
   expect(screen.getByLabelText('Main navigation')).toBeInTheDocument();
 });
 
-test('nav switches to the Developer page once signed in', async () => {
+test('nav switches to the Developer explainer once signed in, before developer mode is on', async () => {
   render(<App />);
   emitAuthState({ uid: 'u1' });
 
   fireEvent.click(getTopNavLink('Overview'));
   await waitFor(() => expect(screen.getAllByText(/Overview/i).length).toBeGreaterThan(0));
+
+  fireEvent.click(screen.getByText('Developer'));
+  expect(screen.getByText(/how to turn on developer mode/i)).toBeInTheDocument();
+});
+
+test('nav shows the full Developer console once developer mode is turned on', async () => {
+  render(<App />);
+  emitAuthState({ uid: 'u1' });
+
+  fireEvent.click(getTopNavLink('Overview'));
+  await waitFor(() => expect(screen.getAllByText(/Overview/i).length).toBeGreaterThan(0));
+
+  fireEvent.click(getTopNavLink('Settings'));
+  await waitFor(() => expect(screen.getByText('Developer mode')).toBeInTheDocument());
+  fireEvent.click(screen.getByRole('checkbox', { name: /toggle developer mode/i }));
 
   fireEvent.click(screen.getByText('Developer'));
   expect(screen.getByText(/API endpoints/i)).toBeInTheDocument();

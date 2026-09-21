@@ -9,6 +9,7 @@ import DatasetsPage from '../pages/DatasetsPage';
 import DeveloperPage from '../pages/DeveloperPage';
 import ApiDocsPage from '../pages/ApiDocsPage';
 import AdminPage from '../pages/AdminPage';
+import SettingsPage from '../pages/SettingsPage';
 import WatchLivePage from '../pages/WatchLivePage';
 import SignInPage from '../pages/SignInPage';
 import SignUpPage from '../pages/SignUpPage';
@@ -31,11 +32,12 @@ function AppRoutes() {
       <Route path="/overview" element={<OverviewPage />} />
       <Route path="/fixtures" element={<FixturesEventsPage />} />
       <Route path="/statistics" element={<StatisticsPage />} />
-      <Route path="/submissions" element={<RequireAuth><SubmissionsPage /></RequireAuth>} />
+      <Route path="/submissions" element={<RequireAuth role="developer"><SubmissionsPage /></RequireAuth>} />
       <Route path="/timetravel" element={<TimeTravelPage />} />
-      <Route path="/datasets" element={<RequireAuth><DatasetsPage /></RequireAuth>} />
+      <Route path="/datasets" element={<RequireAuth role="developer"><DatasetsPage /></RequireAuth>} />
       <Route path="/developer" element={<RequireAuth><DeveloperPage /></RequireAuth>} />
-      <Route path="/developer/api-docs" element={<RequireAuth><ApiDocsPage /></RequireAuth>} />
+      <Route path="/developer/api-docs" element={<RequireAuth role="developer"><ApiDocsPage /></RequireAuth>} />
+      <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
       <Route path="/admin" element={<RequireAuth><AdminPage /></RequireAuth>} />
 
       <Route path="/teams" element={<TeamsPage />} />

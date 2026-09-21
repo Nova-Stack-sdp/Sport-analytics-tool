@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
 import { useAuth } from '../context/AuthContext';
+import { useDeveloperMode } from '../context/DeveloperModeContext';
 import { clearSession } from '../api/client';
 
 const NAV_ITEMS = [
@@ -10,11 +11,17 @@ const NAV_ITEMS = [
   { to: '/statistics', label: 'Statistics' },
   { to: '/teams', label: 'Teams' },
   { to: '/drivers', label: 'Drivers' },
-  { to: '/submissions', label: 'Submissions', requiresAuth: true },
   { to: '/timetravel', label: 'Time-Travel' },
   { to: '/replay', label: 'Race Replay' },
-  { to: '/datasets', label: 'Datasets', requiresAuth: true },
+  // Datasets and Submissions are developer-only — a signed-in user who
+  // hasn't switched on developer mode shouldn't see them in the nav at
+  // all (the route itself also redirects, this just keeps the nav honest).
+  { to: '/datasets', label: 'Datasets', requiresAuth: true, requiresDeveloper: true },
+  { to: '/submissions', label: 'Submissions', requiresAuth: true, requiresDeveloper: true },
+  // Developer is visible to every signed-in user — it explains the role
+  // and how to turn it on for those who don't have it yet.
   { to: '/developer', label: 'Developer', requiresAuth: true },
+  { to: '/settings', label: 'Settings', requiresAuth: true },
   { to: '/admin', label: 'Admin', requiresAuth: true },
 ];
 
@@ -29,6 +36,7 @@ function initialsFor(user) {
 
 function TopNav({ theme, onToggleTheme }) {
   const { user, signOut: clearAuth } = useAuth();
+  const { isDeveloperMode } = useDeveloperMode();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
@@ -48,7 +56,11 @@ function TopNav({ theme, onToggleTheme }) {
           <div className="brand-text">Analytics</div>
         </NavLink>
         <div className="nav-items">
-          {NAV_ITEMS.filter((item) => !item.requiresAuth || user).map((item) => (
+          {NAV_ITEMS.filter((item) => {
+            if (item.requiresAuth && !user) return false;
+            if (item.requiresDeveloper && !isDeveloperMode) return false;
+            return true;
+          }).map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end} className={navItemClass}>
               {item.label}
             </NavLink>
