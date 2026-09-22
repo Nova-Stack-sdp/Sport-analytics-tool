@@ -68,6 +68,33 @@ export function getSession() {
   return request('/api/auth/me');
 }
 
+/**
+ * Set the `developer` custom claim on the signed-in user's own Firebase
+ * account. This is self-service (any signed-in user can toggle their own
+ * flag) — see the backend route for the reasoning. The frontend still
+ * needs to force a fresh ID token afterwards (see AuthContext's
+ * refreshDeveloperMode) for the new claim to actually be visible locally.
+ *
+ * `idToken` is optional and, when provided, is sent as an explicit
+ * `Authorization: Bearer` header (same pattern as uploadDriverImage
+ * below) alongside the usual `credentials: 'include'` cookie. requireAuth
+ * on the backend checks the header first and falls back to the cookie, so
+ * this covers both transports — useful because the httpOnly cookie set at
+ * sign-in doesn't always make it onto every request in local dev (e.g. a
+ * Firebase session restored from a previous visit, without a fresh trip
+ * through the sign-in page that re-establishes the cookie).
+ */
+export function setDeveloperModeOnServer(enabled, idToken) {
+  return request('/api/auth/developer-mode', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+    },
+    body: JSON.stringify({ enabled }),
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Data endpoints
 // ---------------------------------------------------------------------------

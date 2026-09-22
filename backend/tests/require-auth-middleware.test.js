@@ -102,12 +102,12 @@ describe('requireAuth', () => {
 
     await requireAuth(req, res, next);
 
-    expect(req.user).toEqual({ uid: 'user_123', email: 'driver@example.com' });
+    expect(req.user).toEqual({ uid: 'user_123', email: 'driver@example.com', developer: false });
     expect(next).toHaveBeenCalled();
     expect(res.status).not.toHaveBeenCalled();
   });
 
-  test('defaults email to null when the decoded token omits it', async () => {
+  test('defaults email to null and developer to false when the decoded token omits them', async () => {
     mockVerifyIdToken.mockResolvedValue({ uid: 'user_123' });
     const req = { headers: { authorization: 'Bearer good-token' } };
     const res = buildRes();
@@ -115,7 +115,19 @@ describe('requireAuth', () => {
 
     await requireAuth(req, res, next);
 
-    expect(req.user).toEqual({ uid: 'user_123', email: null });
+    expect(req.user).toEqual({ uid: 'user_123', email: null, developer: false });
+    expect(next).toHaveBeenCalled();
+  });
+
+  test('carries a developer custom claim through onto req.user', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user_123', email: 'dev@example.com', developer: true });
+    const req = { headers: { authorization: 'Bearer good-token' } };
+    const res = buildRes();
+    const next = jest.fn();
+
+    await requireAuth(req, res, next);
+
+    expect(req.user).toEqual({ uid: 'user_123', email: 'dev@example.com', developer: true });
     expect(next).toHaveBeenCalled();
   });
 });

@@ -3,6 +3,7 @@ import { BrowserRouter } from 'react-router-dom';
 import TopNav from './components/TopNavigation';
 import AppRoutes from './navigation/AppRoutes';
 import { AuthProvider } from './context/AuthContext';
+import { DeveloperModeProvider } from './context/DeveloperModeContext';
 
 const THEME_STORAGE_KEY = 'f1-analytics-theme';
 
@@ -30,10 +31,12 @@ function App() {
     <div className="app-shell" data-theme={theme}>
       <BrowserRouter>
         <AuthProvider>
-          <AppShell
-            theme={theme}
-            onToggleTheme={() => setTheme((currentTheme) => (currentTheme === 'dark' ? 'light' : 'dark'))}
-          />
+          <DeveloperModeProvider>
+            <AppShell
+              theme={theme}
+              onToggleTheme={() => setTheme((currentTheme) => (currentTheme === 'dark' ? 'light' : 'dark'))}
+            />
+          </DeveloperModeProvider>
         </AuthProvider>
       </BrowserRouter>
     </div>

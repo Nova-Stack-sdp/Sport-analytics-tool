@@ -70,7 +70,10 @@ export async function requireAuth(req, res, next) {
 
   try {
     const decoded = await admin.auth(app).verifyIdToken(token);
-    req.user = { uid: decoded.uid, email: decoded.email ?? null };
+    // Custom claims (set via the Admin SDK, e.g. `developer: true`) ride
+    // along inside the decoded token automatically — no extra lookup
+    // needed here, just pull them out alongside the standard fields.
+    req.user = { uid: decoded.uid, email: decoded.email ?? null, developer: decoded.developer === true };
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Invalid or expired token' });

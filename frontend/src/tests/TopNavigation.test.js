@@ -4,9 +4,16 @@ import TopNav from '../components/TopNavigation';
 import { signOut } from 'firebase/auth';
 
 let mockUser = null;
+let mockIsDeveloperMode = false;
 
 jest.mock('../context/AuthContext', () => ({
-  useAuth: () => ({ user: mockUser }),
+  // signOut is destructured by TopNavigation's handleSignOut (as clearAuth) —
+  // omitting it here makes that call throw a TypeError and silently skip the
+  // real firebase signOut() call it's supposed to trigger.
+  useAuth: () => ({ user: mockUser, signOut: jest.fn() }),
+}));
+jest.mock('../context/DeveloperModeContext', () => ({
+  useDeveloperMode: () => ({ isDeveloperMode: mockIsDeveloperMode, setDeveloperMode: jest.fn() }),
 }));
 jest.mock('../firebase', () => ({ auth: {} }));
 jest.mock('firebase/auth', () => ({ signOut: jest.fn() }));
@@ -36,6 +43,7 @@ describe('TopNavigation', () => {
   afterEach(() => {
     jest.clearAllMocks();
     mockUser = null;
+    mockIsDeveloperMode = false;
   });
 
   test('renders public Teams and Drivers links, highlights the active route, and lets guests toggle the theme', () => {
@@ -53,7 +61,23 @@ describe('TopNavigation', () => {
     expect(onToggleTheme).toHaveBeenCalledTimes(1);
   });
 
-  test('shows protected links, display-name initials, and signs a user out', async () => {
+  test('shows logged-in links but hides developer-only links until developer mode is on', () => {
+    renderNav({
+      user: { displayName: 'Max Verstappen', email: 'max@example.test' },
+      path: '/overview',
+      theme: 'light',
+    });
+
+    expect(screen.getByRole('link', { name: 'Overview' })).toHaveClass('active');
+    expect(screen.getByRole('link', { name: 'Developer' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Admin' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Submissions' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Datasets' })).not.toBeInTheDocument();
+  });
+
+  test('shows Datasets and Submissions once developer mode is on, display-name initials, and signs a user out', async () => {
+    mockIsDeveloperMode = true;
     renderNav({
       user: { displayName: 'Max Verstappen', email: 'max@example.test' },
       path: '/overview',
@@ -74,7 +98,8 @@ describe('TopNavigation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'M' }));
 
     await waitFor(() => expect(signOut).toHaveBeenCalledWith({}));
-    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/sign-in'));
+    // handleSignOut navigates to '/' (the welcome page), not '/sign-in'.
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/'));
   });
 
   test('uses an email initial when display name is absent', () => {
