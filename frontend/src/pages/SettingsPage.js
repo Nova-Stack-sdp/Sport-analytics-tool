@@ -1,7 +1,23 @@
+import { useState } from 'react';
 import { useDeveloperMode } from '../context/DeveloperModeContext';
 
 function SettingsPage() {
   const { isDeveloperMode, setDeveloperMode } = useDeveloperMode();
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleToggle = async (event) => {
+    const nextValue = event.target.checked;
+    setIsSaving(true);
+    setError('');
+    try {
+      await setDeveloperMode(nextValue);
+    } catch {
+      setError('Could not update developer mode. Try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="page" id="page-settings">
@@ -27,11 +43,17 @@ function SettingsPage() {
               <input
                 type="checkbox"
                 checked={isDeveloperMode}
-                onChange={(event) => setDeveloperMode(event.target.checked)}
+                disabled={isSaving}
+                onChange={handleToggle}
               />
               <span className="switch-track" />
             </label>
           </div>
+          {error && (
+            <p className="card-note" role="alert" style={{ color: 'var(--status-red)' }}>
+              {error}
+            </p>
+          )}
         </div>
       </div>
     </div>

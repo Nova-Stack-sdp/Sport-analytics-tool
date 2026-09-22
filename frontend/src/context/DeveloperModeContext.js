@@ -1,48 +1,33 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext } from 'react';
 import { useAuth } from './AuthContext';
+import { auth } from '../firebase';
+import { setDeveloperModeOnServer } from '../api/client';
 
 const DeveloperModeContext = createContext({
   isDeveloperMode: false,
-  setDeveloperMode: () => {},
+  setDeveloperMode: async () => {},
 });
 
-// Developer mode is a per-account preference: "is this logged-in user
-// currently acting as a developer". It is NOT the same thing as being
-// granted the developer role — the role model (who is allowed to submit
-// derived stats, and how that is enforced server-side) is a teammate's
-// scope and will eventually be wired through Firebase custom claims
-// alongside the admin role.
-//
-// Until that lands, this flag is stored client-side, scoped to the
-// signed-in user's uid so it doesn't leak across accounts on a shared
-// browser (same pattern the theme toggle already uses for its own
-// localStorage key). This is intentionally a stopgap: swapping this for
-// a server-verified claim later only touches this file and does not
-// change how RequireAuth or the pages consume `isDeveloperMode`.
-function storageKeyFor(uid) {
-  return `f1-analytics-developer-mode:${uid}`;
-}
-
+// Developer mode used to be a localStorage-only preference. It's now a
+// Firebase custom claim on the account (see AuthContext, which owns
+// reading it off the ID token) — this provider just adapts that into the
+// same { isDeveloperMode, setDeveloperMode } shape every consumer
+// (RequireAuth, DeveloperPage, SettingsPage, TopNavigation) already
+// expects, so none of them needed to change.
 export function DeveloperModeProvider({ children }) {
-  const { user } = useAuth();
-  const [isDeveloperMode, setIsDeveloperMode] = useState(false);
+  const { isDeveloperMode, refreshDeveloperMode } = useAuth();
 
-  // Re-read the flag whenever the signed-in user changes (sign-in,
-  // sign-out, switching accounts).
-  useEffect(() => {
-    if (!user) {
-      setIsDeveloperMode(false);
-      return;
-    }
-    const stored = localStorage.getItem(storageKeyFor(user.uid));
-    setIsDeveloperMode(stored === 'true');
-  }, [user]);
-
-  const setDeveloperMode = (nextValue) => {
-    setIsDeveloperMode(nextValue);
-    if (user) {
-      localStorage.setItem(storageKeyFor(user.uid), nextValue ? 'true' : 'false');
-    }
+  const setDeveloperMode = async (nextValue) => {
+    // When there's a live Firebase session in this tab, attach its ID
+    // token explicitly rather than relying solely on the httpOnly cookie
+    // — see the comment on setDeveloperModeOnServer for why. If there's
+    // no live session (cookie-restored user), idToken is undefined and
+    // the request falls back to the cookie alone, same as before.
+    const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : undefined;
+    await setDeveloperModeOnServer(nextValue, idToken);
+    // The claim doesn't exist in any token we're already holding — pull a
+    // freshly-issued one so the UI reflects it immediately.
+    await refreshDeveloperMode();
   };
 
   return (

@@ -14,7 +14,13 @@
 import { jest } from '@jest/globals';
 
 const mockVerifyIdToken = jest.fn();
-const mockAuth = jest.fn(() => ({ verifyIdToken: mockVerifyIdToken }));
+const mockGetUser = jest.fn();
+const mockSetCustomUserClaims = jest.fn();
+const mockAuth = jest.fn(() => ({
+  verifyIdToken: mockVerifyIdToken,
+  getUser: mockGetUser,
+  setCustomUserClaims: mockSetCustomUserClaims,
+}));
 const mockInitializeApp = jest.fn(() => ({ name: 'fake-app' }));
 const mockCert = jest.fn((sa) => sa);
 
@@ -129,7 +135,20 @@ describe('GET /api/auth/me', () => {
     const res = await agent.get('/api/auth/me');
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ uid: 'u2', email: 'me@test.com' });
+    expect(res.body).toEqual({ uid: 'u2', email: 'me@test.com', developer: false });
+  });
+
+  test('reflects a developer custom claim when one is set on the token', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'u2b', email: 'dev@test.com', developer: true });
+    const app = createApp();
+
+    const agent = request.agent(app);
+    await agent.post('/api/auth/session').send({ idToken: 'valid-token' });
+
+    const res = await agent.get('/api/auth/me');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ uid: 'u2b', email: 'dev@test.com', developer: true });
   });
 
   test('returns 401 when no cookie or header is present', async () => {
@@ -149,6 +168,67 @@ describe('GET /api/auth/me', () => {
       .set('Authorization', 'Bearer header-token');
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ uid: 'u3', email: 'bearer@test.com' });
+    expect(res.body).toEqual({ uid: 'u3', email: 'bearer@test.com', developer: false });
+  });
+});
+
+// ------------------------------------------------------------------
+// POST /api/auth/developer-mode
+// ------------------------------------------------------------------
+describe('POST /api/auth/developer-mode', () => {
+  function authedAgent(app, { uid = 'u1', email = 'a@b.com', developer } = {}) {
+    mockVerifyIdToken.mockResolvedValue({ uid, email, ...(developer !== undefined ? { developer } : {}) });
+    return request(app).post('/api/auth/developer-mode').set('Authorization', 'Bearer token');
+  }
+
+  test('sets the developer claim to true, merging with any existing claims', async () => {
+    mockGetUser.mockResolvedValue({ customClaims: { someOtherFlag: true } });
+    const app = createApp();
+
+    const res = await authedAgent(app).send({ enabled: true });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ developer: true });
+    expect(mockSetCustomUserClaims).toHaveBeenCalledWith('u1', {
+      someOtherFlag: true,
+      developer: true,
+    });
+  });
+
+  test('sets the developer claim to false', async () => {
+    mockGetUser.mockResolvedValue({ customClaims: { developer: true } });
+    const app = createApp();
+
+    const res = await authedAgent(app).send({ enabled: false });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ developer: false });
+    expect(mockSetCustomUserClaims).toHaveBeenCalledWith('u1', { developer: false });
+  });
+
+  test('returns 400 when enabled is not a boolean', async () => {
+    const app = createApp();
+
+    const res = await authedAgent(app).send({ enabled: 'yes' });
+
+    expect(res.status).toBe(400);
+    expect(mockSetCustomUserClaims).not.toHaveBeenCalled();
+  });
+
+  test('returns 401 when not signed in', async () => {
+    const app = createApp();
+
+    const res = await request(app).post('/api/auth/developer-mode').send({ enabled: true });
+
+    expect(res.status).toBe(401);
+  });
+
+  test('returns 500 when the Admin SDK call fails', async () => {
+    mockGetUser.mockRejectedValue(new Error('boom'));
+    const app = createApp();
+
+    const res = await authedAgent(app).send({ enabled: true });
+
+    expect(res.status).toBe(500);
   });
 });

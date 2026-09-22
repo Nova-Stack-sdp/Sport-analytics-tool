@@ -8,9 +8,11 @@
  * Firebase Admin SDK.
  *
  * Endpoints:
- *   POST /api/auth/session  — token exchange (Firebase ID token → cookie)
- *   POST /api/auth/logout   — clear the cookie
- *   GET  /api/auth/me       — check cookie, return current user or 401
+ *   POST /api/auth/session         — token exchange (Firebase ID token → cookie)
+ *   POST /api/auth/logout          — clear the cookie
+ *   GET  /api/auth/me              — check cookie, return current user or 401
+ *   POST /api/auth/developer-mode  — set the `developer` custom claim on the
+ *                                    signed-in user's own Firebase account
  */
 import { Router } from 'express';
 import admin from 'firebase-admin';
@@ -80,5 +82,35 @@ authRouter.post('/logout', (req, res) => {
 authRouter.get('/me', requireAuth, (req, res) => {
   // requireAuth already verified the token (from cookie or Bearer
   // header) and attached req.user, so we just echo it back.
-  res.json({ uid: req.user.uid, email: req.user.email });
+  res.json({ uid: req.user.uid, email: req.user.email, developer: req.user.developer });
+});
+
+// ------------------------------------------------------------------
+// POST /api/auth/developer-mode — set the `developer` custom claim
+// ------------------------------------------------------------------
+// Self-service: a signed-in user toggles their own developer mode from
+// Settings. This is NOT an admin-grant flow — anyone signed in can turn
+// it on for themselves, same as the earlier localStorage-only version,
+// just now persisted on the account instead of the browser. If developer
+// access ever needs to be admin-approved instead, this is the endpoint
+// to lock down (e.g. require an admin claim on the caller).
+authRouter.post('/developer-mode', requireAuth, async (req, res) => {
+  const { enabled } = req.body;
+  if (typeof enabled !== 'boolean') {
+    return res.status(400).json({ error: 'enabled must be a boolean' });
+  }
+
+  try {
+    const app = getAdminApp();
+    // Custom claims are set as a whole object — fetch the user's existing
+    // claims first and merge, so this never wipes out other claims (e.g.
+    // a future `admin: true`) that happen to already be set.
+    const existingUser = await admin.auth(app).getUser(req.user.uid);
+    const claims = { ...(existingUser.customClaims || {}), developer: enabled };
+    await admin.auth(app).setCustomUserClaims(req.user.uid, claims);
+    res.json({ developer: enabled });
+  } catch (err) {
+    console.error('auth/developer-mode failed:', err.message);
+    res.status(500).json({ error: 'Could not update developer mode' });
+  }
 });
