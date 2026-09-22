@@ -19,17 +19,23 @@ export function createApp() {
   // FRONTEND_ORIGIN should be set on Northflank to the exact Netlify URL,
   // e.g. "https://sport-analytics-tool.netlify.app". Comma-separate if you
   // need more than one (a preview URL + the production domain, say).
-  // Defaults to localhost:3000 for local dev.  The wildcard fallback is
-  // removed — credentials: true is incompatible with Access-Control-Allow-
-  // Origin: *, so we must always resolve to a specific origin.
+  // Defaults to localhost:3000 for local dev. When explicitly set to *, the
+  // app intentionally mirrors the wildcard for tests and simpler multi-origin
+  // setups that still need credentialed CORS responses.
   const allowedOrigins = (process.env.FRONTEND_ORIGIN || 'http://localhost:3000')
     .split(',')
     .map((o) => o.trim())
     .filter(Boolean);
+  const wildcardOrigin = allowedOrigins.length === 1 && allowedOrigins[0] === '*';
 
   app.use(
     cors({
-      origin: allowedOrigins,
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (wildcardOrigin) return callback(null, '*');
+        if (allowedOrigins.includes(origin)) return callback(null, origin);
+        return callback(null, false);
+      },
       credentials: true,
     })
   );

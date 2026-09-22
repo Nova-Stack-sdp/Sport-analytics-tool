@@ -9,6 +9,7 @@ jest.unstable_mockModule('../src/lib/prisma.js', () => ({ prisma: mockPrisma }))
 
 // Signed in as long as an Authorization header is present; 401 otherwise.
 jest.unstable_mockModule('../src/middleware/requireAuth.js', () => ({
+  getAdminApp: () => ({ name: 'mock-admin-app' }),
   requireAuth: (req, res, next) => {
     if (!req.headers.authorization) {
       return res.status(401).json({ error: 'Missing or malformed Authorization header' });

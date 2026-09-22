@@ -22,7 +22,8 @@
     "eject": "react-scripts eject"
   },
   "devDependencies": {
-    "@playwright/test": "^1.55.0"
+    "@playwright/test": "^1.55.0",
+    "jest-html-reporters": "^3.1.7"
   },
   "eslintConfig": {
     "extends": [
@@ -43,8 +44,15 @@
     ]
   },
   "jest": {
-    "moduleNameMapper": {
-      "^react-router/dom$": "<rootDir>/node_modules/react-router/dist/development/dom-export.js"
-    }
-  }
+  "moduleNameMapper": {
+    "^react-router/dom$": "<rootDir>/node_modules/react-router/dist/development/dom-export.js"
+  },
+  "collectCoverageFrom": [
+    "src/**/*.{js,jsx}",
+    "!src/index.js",
+    "!src/reportWebVitals.js",
+    "!src/**/*.test.js"
+  ],
+  "coverageReporters": ["text", "html", "lcov"]
+}
 }
