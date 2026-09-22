@@ -235,11 +235,14 @@ export async function fetchBarcelonaRaceRaw() {
   // Acceptable because the persisted cache (ExternalApiCache) means this
   // cost is paid once, not on every server restart.
   await paceBundleRequests();
-  bundle.location = await fetchLocationDataChunked(
+  const locationData = await fetchLocationDataChunked(
     sessionKey,
     session.date_start,
     session.date_end
   );
+  if (locationData.length > 0) {
+    bundle.location = locationData;
+  }
 
   // OpenF1 stores a race's starting grid under the qualifying session key.
   await paceBundleRequests();
