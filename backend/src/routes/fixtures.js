@@ -3,6 +3,13 @@ import { prisma } from '../lib/prisma.js';
 
 export const fixturesRouter = Router();
 
+// The event types Race Replay needs present to reconstruct a watchable
+// leaderboard — see backend/scripts/inspect-sessions.js, which this mirrors
+// (that script is the read-only reporting tool for a human to run; this is
+// the same check baked into the live fixtures list so the frontend's match
+// picker can filter to only sessions that will actually work).
+const REPLAY_REQUIRED_EVENT_TYPES = ['lap_completed', 'position_change', 'classification'];
+
 // List every fixture (session), newest first, flagging any that have had an
 // event corrected — "corrected" isn't a stored SessionStatus, it's derived
 // by checking whether any event for that session has been superseded.
@@ -20,17 +27,34 @@ fixturesRouter.get('/', async (req, res, next) => {
     });
     const correctedSessionIds = new Set(correctedGroups.map((g) => g.sessionId));
 
-    const fixtures = sessions.map((s) => ({
-      id: s.id,
-      meetingName: s.meeting.name,
-      circuitName: s.meeting.circuit.name,
-      country: s.meeting.circuit.country,
-      season: s.meeting.season,
-      type: s.type,
-      startTime: s.startTime,
-      status: s.status,
-      hasCorrections: correctedSessionIds.has(s.id),
-    }));
+    // One query for every session's event-type coverage, rather than N+1 —
+    // groups by (sessionId, eventType) so we can tell exactly which of the
+    // required types each session has.
+    const eventTypeGroups = await prisma.event.groupBy({
+      by: ['sessionId', 'eventType'],
+      where: { eventType: { in: REPLAY_REQUIRED_EVENT_TYPES } },
+    });
+    const eventTypesBySession = new Map();
+    for (const g of eventTypeGroups) {
+      if (!eventTypesBySession.has(g.sessionId)) eventTypesBySession.set(g.sessionId, new Set());
+      eventTypesBySession.get(g.sessionId).add(g.eventType);
+    }
+
+    const fixtures = sessions.map((s) => {
+      const presentTypes = eventTypesBySession.get(s.id) ?? new Set();
+      return {
+        id: s.id,
+        meetingName: s.meeting.name,
+        circuitName: s.meeting.circuit.name,
+        country: s.meeting.circuit.country,
+        season: s.meeting.season,
+        type: s.type,
+        startTime: s.startTime,
+        status: s.status,
+        hasCorrections: correctedSessionIds.has(s.id),
+        replayReady: REPLAY_REQUIRED_EVENT_TYPES.every((t) => presentTypes.has(t)),
+      };
+    });
 
     res.json({ fixtures });
   } catch (err) {

@@ -14,6 +14,10 @@ const { Router } = await import('express');
 jest.unstable_mockModule('../src/lib/prisma.js', () => ({ prisma: mockPrisma }));
 jest.unstable_mockModule('../src/routes/openf1.js', () => ({
   fetchBarcelonaRaceRaw: mockFetchBarcelonaRaceRaw,
+  // Not used by these tests, but app.js also wires up raceReplay.js, which
+  // imports this from the same module — jest.unstable_mockModule replaces
+  // the whole module, so every export it uses needs a stub here too.
+  fetchSessionTrackTelemetryRaw: jest.fn(),
   openF1Router: Router(),
 }));
 

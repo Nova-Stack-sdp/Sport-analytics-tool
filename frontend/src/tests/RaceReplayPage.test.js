@@ -2,52 +2,80 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import RaceReplayPage from '../pages/RaceReplayPage';
 import * as apiClient from '../api/client';
 
-const SAMPLE_STATE = {
-  videoSeconds: 0,
-  session: { meetingName: 'Spanish Grand Prix', sessionName: 'Race', currentLap: 3, totalLaps: 66 },
-  leaderboard: [
-    { position: 1, driverNumber: 63, driverName: 'George Russell', teamName: 'Mercedes', tyreCompound: 'MEDIUM' },
-    { position: 2, driverNumber: 44, driverName: 'Lewis Hamilton', teamName: 'Ferrari', tyreCompound: 'MEDIUM' },
-    { position: 3, driverNumber: 1, driverName: 'Max Verstappen', teamName: 'Red Bull Racing', tyreCompound: 'SOFT' },
+const FIXTURES = {
+  fixtures: [
+    { id: 's1', meetingName: 'Spanish Grand Prix', season: 2026, type: 'Race', replayReady: true },
+    { id: 's2', meetingName: 'Not Synced Grand Prix', season: 2026, type: 'Race', replayReady: false },
   ],
-  recentRaceControl: [],
 };
 
-const SAFETY_CAR_STATE = {
-  ...SAMPLE_STATE,
+function makeState(overrides = {}) {
+  return {
+    lap: 3,
+    totalLaps: 66,
+    atEnd: false,
+    session: { meetingName: 'Spanish Grand Prix', sessionName: 'Race', currentLap: 3, totalLaps: 66 },
+    leaderboard: [
+      { entryId: 'e1', driverNumber: 63, driverName: 'George Russell', teamName: 'Mercedes', tyreCompound: 'MEDIUM', position: 1 },
+      { entryId: 'e2', driverNumber: 44, driverName: 'Lewis Hamilton', teamName: 'Ferrari', tyreCompound: 'MEDIUM', position: 2 },
+      { entryId: 'e3', driverNumber: 1, driverName: 'Max Verstappen', teamName: 'Red Bull Racing', tyreCompound: 'SOFT', position: 3 },
+    ],
+    recentRaceControl: [],
+    ...overrides,
+  };
+}
+
+const SAFETY_CAR_STATE = makeState({
   recentRaceControl: [
     { date: '2026-05-24T13:10:00Z', category: 'SafetyCar', flag: null, message: 'SAFETY CAR DEPLOYED' },
   ],
-};
+});
 
 describe('race replay page (real data, mocked API)', () => {
   beforeEach(() => {
     jest.restoreAllMocks();
+    jest.spyOn(apiClient, 'getFixtures').mockResolvedValue(FIXTURES);
     // Every test exercises the fallback track shape unless it explicitly
-    // overrides this — matches the earlier tests' assumptions, which were
-    // written before real track-shape fetching existed.
-    jest.spyOn(apiClient, 'getTrackShape').mockRejectedValue(new Error('no track shape in test'));
+    // overrides this.
+    jest.spyOn(apiClient, 'getRaceReplayTrackShape').mockRejectedValue(new Error('no track shape in test'));
   });
 
-  test('shows a loading state, then the real leaderboard once data resolves', async () => {
-    jest.spyOn(apiClient, 'getWatchLiveState').mockResolvedValue(SAMPLE_STATE);
+  test('auto-selects the first replay-ready match and shows the real leaderboard once data resolves', async () => {
+    jest.spyOn(apiClient, 'getRaceReplayState').mockResolvedValue(makeState());
     render(<RaceReplayPage />);
 
-    expect(screen.getByText(/Loading Barcelona 2026 session data/i)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText(/select a match to replay/i)).toBeInTheDocument());
     await waitFor(() => expect(screen.getByText('George Russell')).toBeInTheDocument());
     expect(screen.getByText('Max Verstappen')).toBeInTheDocument();
     expect(screen.getAllByText('MEDIUM').length).toBeGreaterThan(0);
   });
 
+  test('only lists replay-ready fixtures in the picker', async () => {
+    jest.spyOn(apiClient, 'getRaceReplayState').mockResolvedValue(makeState());
+    render(<RaceReplayPage />);
+
+    await waitFor(() => expect(screen.getByLabelText(/select a match to replay/i)).toBeInTheDocument());
+    expect(screen.queryByText(/Not Synced Grand Prix/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Spanish Grand Prix/i)).toBeInTheDocument();
+  });
+
+  test('shows a message instead of a picker when no fixture is replay-ready', async () => {
+    apiClient.getFixtures.mockResolvedValue({ fixtures: [{ id: 's2', meetingName: 'Not Synced Grand Prix', season: 2026, type: 'Race', replayReady: false }] });
+    render(<RaceReplayPage />);
+
+    await waitFor(() => expect(screen.getByText(/no synced sessions have enough data/i)).toBeInTheDocument());
+    expect(screen.queryByLabelText(/select a match to replay/i)).not.toBeInTheDocument();
+  });
+
   test('shows an error state and lets the user retry', async () => {
-    jest.spyOn(apiClient, 'getWatchLiveState').mockRejectedValue(new Error('network down'));
+    jest.spyOn(apiClient, 'getRaceReplayState').mockRejectedValue(new Error('network down'));
     render(<RaceReplayPage />);
     await waitFor(() => expect(screen.getByText(/Couldn't load replay data/i)).toBeInTheDocument());
     expect(screen.getByText('Try again')).toBeInTheDocument();
   });
 
   test('detects a real safety car period from race control messages', async () => {
-    jest.spyOn(apiClient, 'getWatchLiveState').mockResolvedValue(SAFETY_CAR_STATE);
+    jest.spyOn(apiClient, 'getRaceReplayState').mockResolvedValue(SAFETY_CAR_STATE);
     render(<RaceReplayPage />);
     await waitFor(() => expect(screen.getByText('Safety car deployed')).toBeInTheDocument());
 
@@ -56,35 +84,20 @@ describe('race replay page (real data, mocked API)', () => {
   });
 
   test('pause button toggles its own label', async () => {
-    jest.spyOn(apiClient, 'getWatchLiveState').mockResolvedValue(SAMPLE_STATE);
+    jest.spyOn(apiClient, 'getRaceReplayState').mockResolvedValue(makeState());
     render(<RaceReplayPage />);
     await waitFor(() => expect(screen.getByText('⏸ Pause')).toBeInTheDocument());
     fireEvent.click(screen.getByText('⏸ Pause'));
     expect(screen.getByText('▶ Play')).toBeInTheDocument();
   });
 
-  test('shows final classification with a winner once the session ends', async () => {
-    const endedError = new Error('videoSeconds out of range');
-    endedError.status = 400;
-    jest.spyOn(apiClient, 'getWatchLiveState')
-      .mockResolvedValueOnce(SAMPLE_STATE)
-      .mockRejectedValue(endedError);
+  test('shows final classification with a winner once the backend reports atEnd', async () => {
+    jest.spyOn(apiClient, 'getRaceReplayState').mockResolvedValue(makeState({ atEnd: true, lap: 66 }));
     render(<RaceReplayPage />);
 
-    await waitFor(() => expect(screen.getByText('George Russell')).toBeInTheDocument());
-    await waitFor(() => expect(screen.getByText(/wins/i)).toBeInTheDocument(), { timeout: 3000 });
+    await waitFor(() => expect(screen.getByText(/wins/i)).toBeInTheDocument());
     expect(screen.getByText(/George Russell wins/i)).toBeInTheDocument();
     expect(screen.getByText('Final Classification')).toBeInTheDocument();
-    expect(screen.getByText('⟲ Watch again')).toBeInTheDocument();
-  });
-
-  test('shows a graceful fallback if the session ends before any data ever loaded', async () => {
-    const endedError = new Error('videoSeconds out of range');
-    endedError.status = 400;
-    jest.spyOn(apiClient, 'getWatchLiveState').mockRejectedValue(endedError);
-    render(<RaceReplayPage />);
-
-    await waitFor(() => expect(screen.getByText(/no classification data available/i)).toBeInTheDocument());
     expect(screen.getByText('⟲ Watch again')).toBeInTheDocument();
   });
 
@@ -93,8 +106,8 @@ describe('race replay page (real data, mocked API)', () => {
       const theta = (i / 30) * Math.PI * 2;
       return { x: 500 * Math.cos(theta), y: 500 * Math.sin(theta) };
     });
-    jest.spyOn(apiClient, 'getTrackShape').mockResolvedValue({ points, sourceDriverNumber: 1 });
-    jest.spyOn(apiClient, 'getWatchLiveState').mockResolvedValue(SAMPLE_STATE);
+    apiClient.getRaceReplayTrackShape.mockResolvedValue({ points, sourceDriverNumber: 1 });
+    jest.spyOn(apiClient, 'getRaceReplayState').mockResolvedValue(makeState());
     render(<RaceReplayPage />);
 
     await waitFor(() => expect(screen.getByText('George Russell')).toBeInTheDocument());
@@ -102,63 +115,45 @@ describe('race replay page (real data, mocked API)', () => {
   });
 
   test('shows the illustrative-track note when no real track shape is available', async () => {
-    jest.spyOn(apiClient, 'getWatchLiveState').mockResolvedValue(SAMPLE_STATE);
+    jest.spyOn(apiClient, 'getRaceReplayState').mockResolvedValue(makeState());
     render(<RaceReplayPage />);
     await waitFor(() => expect(screen.getByText(/illustrative track/i)).toBeInTheDocument());
   });
 
-  test('skip to end probes the backend for the true end and jumps there', async () => {
-    const rangeError = new Error('range');
-    rangeError.status = 400;
-    rangeError.body = { maxVideoSeconds: 42 };
-
-    const mockFn = jest.fn((args) => {
-      if (args.videoSeconds === 100000) return Promise.reject(rangeError);
-      return Promise.resolve({ ...SAMPLE_STATE, videoSeconds: args.videoSeconds });
-    });
-    jest.spyOn(apiClient, 'getWatchLiveState').mockImplementation(mockFn);
+  test('skip to end jumps straight to the known final lap — no more probing the backend for it', async () => {
+    const mockFn = jest.fn((sessionId, { lap }) =>
+      Promise.resolve(makeState({ lap, atEnd: lap >= 66 }))
+    );
+    jest.spyOn(apiClient, 'getRaceReplayState').mockImplementation(mockFn);
 
     render(<RaceReplayPage />);
     await waitFor(() => expect(screen.getByText('George Russell')).toBeInTheDocument());
 
     fireEvent.click(screen.getByText('⏭ Skip to end'));
 
-    await waitFor(() => expect(mockFn).toHaveBeenCalledWith({ videoSeconds: 100000 }));
-    await waitFor(() => expect(mockFn).toHaveBeenCalledWith({ videoSeconds: 42 }));
+    await waitFor(() => expect(mockFn).toHaveBeenCalledWith('s1', { lap: 66 }));
   });
 
-  test('skip to end still works against an old backend without the structured maxVideoSeconds field', async () => {
-    const oldStyleError = new Error('range');
-    oldStyleError.status = 400;
-    oldStyleError.body = { error: 'videoSeconds must be between 0 and 77' }; // no maxVideoSeconds field
-
-    const mockFn = jest.fn((args) => {
-      if (args.videoSeconds === 100000) return Promise.reject(oldStyleError);
-      return Promise.resolve({ ...SAMPLE_STATE, videoSeconds: args.videoSeconds });
+  test('switching the match in the picker resets the replay and refetches for the new session', async () => {
+    apiClient.getFixtures.mockResolvedValue({
+      fixtures: [
+        { id: 's1', meetingName: 'Spanish Grand Prix', season: 2026, type: 'Race', replayReady: true },
+        { id: 's-other', meetingName: 'Monaco Grand Prix', season: 2026, type: 'Race', replayReady: true },
+      ],
     });
-    jest.spyOn(apiClient, 'getWatchLiveState').mockImplementation(mockFn);
+    const mockFn = jest.fn((sessionId) =>
+      Promise.resolve(makeState({
+        session: { meetingName: sessionId === 's-other' ? 'Monaco Grand Prix' : 'Spanish Grand Prix', sessionName: 'Race', currentLap: 3, totalLaps: 66 },
+      }))
+    );
+    jest.spyOn(apiClient, 'getRaceReplayState').mockImplementation(mockFn);
 
     render(<RaceReplayPage />);
     await waitFor(() => expect(screen.getByText('George Russell')).toBeInTheDocument());
-    fireEvent.click(screen.getByText('⏭ Skip to end'));
+    expect(mockFn).toHaveBeenCalledWith('s1', expect.anything());
 
-    await waitFor(() => expect(mockFn).toHaveBeenCalledWith({ videoSeconds: 77 }));
-  });
+    fireEvent.change(screen.getByLabelText(/select a match to replay/i), { target: { value: 's-other' } });
 
-  test('shows a visible error if skip to end genuinely fails, instead of doing nothing', async () => {
-    const genuineFailure = new Error('network error');
-    genuineFailure.status = 500;
-
-    const mockFn = jest.fn((args) => {
-      if (args.videoSeconds === 100000) return Promise.reject(genuineFailure);
-      return Promise.resolve(SAMPLE_STATE);
-    });
-    jest.spyOn(apiClient, 'getWatchLiveState').mockImplementation(mockFn);
-
-    render(<RaceReplayPage />);
-    await waitFor(() => expect(screen.getByText('George Russell')).toBeInTheDocument());
-    fireEvent.click(screen.getByText('⏭ Skip to end'));
-
-    await waitFor(() => expect(screen.getByText(/backend hasn't been redeployed/i)).toBeInTheDocument());
+    await waitFor(() => expect(mockFn).toHaveBeenCalledWith('s-other', expect.anything()));
   });
 });
