@@ -530,6 +530,16 @@ footer{border-top:1px solid var(--border-soft);padding:44px 0 30px;background:va
 .replay-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;}
 .replay-sc-toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);margin-left:auto;cursor:pointer;}
 .replay-leaderboard table{margin-top:4px;}
+/* FLIP-animated row reorder + change-flash for the live Order table (see
+   RaceReplayViewer's useLayoutEffect) — purely presentational, doesn't
+   change how often real data arrives, just makes each real update land
+   as a visible slide/highlight instead of an abrupt snap. */
+.replay-leaderboard tbody tr{transition:transform 350ms ease;}
+.replay-leaderboard tbody tr.row-flash{animation:replay-row-flash 700ms ease;}
+@keyframes replay-row-flash{
+  0%{background-color:rgba(250,204,21,0.35);}
+  100%{background-color:transparent;}
+}
 
 /* ─── Settings page ──────────────────────────────────────────────────── */
 .settings-row{display:flex;align-items:center;justify-content:space-between;gap:20px;}
