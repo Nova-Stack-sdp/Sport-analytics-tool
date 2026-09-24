@@ -355,9 +355,15 @@ function RaceReplayViewer({ sessionId }) {
     const winner = leaderboard[0];
     return (
       <div className="replay-layout">
-        <div className="replay-track-card replay-finished">
-          <div className="replay-session-label">
-            {snapshot?.session?.meetingName ?? 'Session'} · {snapshot?.session?.sessionName ?? ''} · Finished
+        <div className="card replay-track-card replay-finished">
+          <div className="card-head">
+            <div>
+              <div className="card-title leaderboard-title">Track</div>
+              <div className="card-title-sub">
+                {snapshot?.session?.meetingName ?? 'Session'} · {snapshot?.session?.sessionName ?? ''}
+              </div>
+            </div>
+            <span className="pill pill-gray">Finished</span>
           </div>
           <div className="replay-winner">
             {winner ? `🏁 ${winner.driverName} wins` : 'Race finished — no classification data available'}
@@ -366,7 +372,12 @@ function RaceReplayViewer({ sessionId }) {
         </div>
         {leaderboard.length > 0 && (
           <div className="card replay-leaderboard">
-            <div className="card-head"><div className="card-title">Final Classification</div></div>
+            <div className="card-head">
+              <div>
+                <div className="card-title leaderboard-title">Final Classification</div>
+                <div className="card-title-sub">Race result, in order</div>
+              </div>
+            </div>
             <table>
               <tbody>
                 <tr><th>Pos</th><th>Driver</th><th>Tyre</th></tr>
@@ -387,7 +398,7 @@ function RaceReplayViewer({ sessionId }) {
 
   if (error) {
     return (
-      <div className="replay-track-card">
+      <div className="card replay-track-card">
         <div className="pill status-rejected">Couldn't load replay data: {error}</div>
         <button className="btn btn-ghost btn-sm" style={{ marginTop: 12 }} onClick={restart}>Try again</button>
       </div>
@@ -396,7 +407,7 @@ function RaceReplayViewer({ sessionId }) {
 
   if (loading && !snapshot) {
     return (
-      <div className="replay-track-card">
+      <div className="card replay-track-card">
         <p className="secondary">Loading session data…</p>
       </div>
     );
@@ -414,15 +425,21 @@ function RaceReplayViewer({ sessionId }) {
 
   return (
     <div className="replay-layout">
-      <div className="replay-track-card">
-        <div className="replay-session-label">
-          {snapshot.session?.meetingName ?? 'Session'} · {snapshot.session?.sessionName ?? ''} · Lap {snapshot.session?.currentLap ?? '—'} / {snapshot.session?.totalLaps ?? '—'}
-          {!usingRealTrack && (
-            <span className="replay-track-fallback-note">
-              {' '}· illustrative track ({trackShapeError ? 'no location telemetry available for this session' : 'checking for real telemetry…'})
-            </span>
-          )}
+      <div className="card replay-track-card">
+        <div className="card-head">
+          <div>
+            <div className="card-title leaderboard-title">Track</div>
+            <div className="card-title-sub">
+              {snapshot.session?.meetingName ?? 'Session'} · {snapshot.session?.sessionName ?? ''}
+            </div>
+          </div>
+          <span className="pill pill-gray">Lap {snapshot.session?.currentLap ?? '—'} / {snapshot.session?.totalLaps ?? '—'}</span>
         </div>
+        {!usingRealTrack && (
+          <div className="replay-track-fallback-note">
+            Illustrative track ({trackShapeError ? 'no location telemetry available for this session' : 'checking for real telemetry…'})
+          </div>
+        )}
 
         <svg viewBox={`0 0 ${geometry.svgWidth} ${geometry.svgHeight}`} className="replay-track-svg" role="img" aria-label="Track with driver positions">
           <polygon points={polylinePoints(boundaries.outerPoints)} fill="none" stroke="var(--border)" strokeWidth="2.5" strokeLinejoin="round" />
@@ -479,7 +496,13 @@ function RaceReplayViewer({ sessionId }) {
       </div>
 
       <div className="card replay-leaderboard">
-        <div className="card-head"><div className="card-title">Order</div></div>
+        <div className="card-head">
+          <div>
+            <div className="card-title leaderboard-title">Order</div>
+            <div className="card-title-sub">Live race order and tyre compounds</div>
+          </div>
+          <span className="pill pill-gray">Lap {snapshot.session?.currentLap ?? '—'}</span>
+        </div>
         <table>
           <tbody>
             <tr><th>Pos</th><th>Driver</th><th>Tyre</th></tr>
