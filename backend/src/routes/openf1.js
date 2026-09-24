@@ -278,6 +278,42 @@ export async function fetchBarcelonaRaceRaw() {
   return bundle;
 }
 
+/**
+ * Real x,y location telemetry + laps for an ARBITRARY session, keyed by its
+ * own OpenF1 session_key — the generalized version of the Barcelona-only
+ * telemetry fetch above, used by Race Replay (src/routes/raceReplay.js) to
+ * derive a real track outline for whichever session is being replayed,
+ * instead of an illustrative one. Deliberately minimal: just enough
+ * (session window + laps + location) to run deriveTrackShapeFromTelemetry
+ * in src/lib/trackShape.js — no car_data, pit, stints, etc., since track
+ * shape is all this is for.
+ *
+ * Returns null if OpenF1 has no session for this key, or no location data
+ * for it (common for older/less-recent sessions — OpenF1's retention for
+ * high-frequency resources like /location is limited) — never throws for
+ * that case, since "no live telemetry" is an expected, handled outcome
+ * (the caller falls back to a static per-circuit shape, then to the
+ * illustrative track), not a failure.
+ */
+export async function fetchSessionTrackTelemetryRaw(sessionKey) {
+  const sessionResult = await fetchOpenF1Json(
+    buildResourceUrl('sessions', { session_key: sessionKey })
+  );
+  if (sessionResult.status !== 200) return null;
+  const session = sessionResult.payload[0];
+  if (!session) return null;
+
+  await paceBundleRequests();
+  const lapsResult = await fetchRequiredResource('laps', { session_key: sessionKey });
+  const laps = Array.isArray(lapsResult) ? lapsResult : lapsResult.payload;
+
+  await paceBundleRequests();
+  const location = await fetchLocationDataChunked(sessionKey, session.date_start, session.date_end);
+  if (location.length === 0) return null;
+
+  return { laps, location };
+}
+
 // One raw bundle containing the OpenF1 records consumed by the existing sync
 // adapter. Records are not normalized, derived, or written to the database.
 openF1Router.get('/races/barcelona-2026/raw', async (req, res) => {

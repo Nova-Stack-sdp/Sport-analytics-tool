@@ -47,6 +47,45 @@ describe('GET /api/fixtures', () => {
     expect(res.body.fixtures.find((f) => f.id === 's1').hasCorrections).toBe(true);
     expect(res.body.fixtures.find((f) => f.id === 's2').hasCorrections).toBe(false);
   });
+
+  test('flags replayReady only for a fixture with laps, position changes, and a classification', async () => {
+    mockPrisma.session.findMany.mockResolvedValue([
+      {
+        id: 's1', // has all three required types
+        type: 'Race',
+        startTime: '2024-03-02T15:00:00.000Z',
+        status: 'finished',
+        meeting: { name: 'Bahrain Grand Prix', season: 2024, circuit: { name: 'Sakhir', country: 'Bahrain' } },
+      },
+      {
+        id: 's2', // never synced — missing all three
+        type: 'Race',
+        startTime: '2023-03-03T15:00:00.000Z',
+        status: 'finished',
+        meeting: { name: 'Australian Grand Prix', season: 2023, circuit: { name: 'Albert Park', country: 'Australia' } },
+      },
+    ]);
+    // The route makes two separate event.groupBy calls (corrections — by
+    // sessionId alone — then event-type coverage — by sessionId+eventType).
+    // Distinguish them by the shape of `by` rather than call order.
+    mockPrisma.event.groupBy.mockImplementation(({ by }) => {
+      if (by.length === 1) {
+        return Promise.resolve([]); // no corrections in this test
+      }
+      return Promise.resolve([
+        { sessionId: 's1', eventType: 'lap_completed' },
+        { sessionId: 's1', eventType: 'position_change' },
+        { sessionId: 's1', eventType: 'classification' },
+      ]);
+    });
+
+    const app = createApp();
+    const res = await request(app).get('/api/fixtures');
+
+    expect(res.status).toBe(200);
+    expect(res.body.fixtures.find((f) => f.id === 's1').replayReady).toBe(true);
+    expect(res.body.fixtures.find((f) => f.id === 's2').replayReady).toBe(false);
+  });
 });
 
 describe('GET /api/fixtures/:sessionId/events', () => {

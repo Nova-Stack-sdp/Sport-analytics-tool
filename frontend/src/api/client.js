@@ -223,3 +223,23 @@ export function getWatchLiveState({ videoSeconds, bufferSeconds } = {}) {
 export function getTrackShape() {
   return request('/api/watch-live/track-shape');
 }
+
+// ---------------------------------------------------------------------------
+// Race Replay — decoupled from Watch Live, works for any synced fixture
+// (see /api/fixtures' `replayReady` flag for which ones qualify), not just
+// the one hardcoded Barcelona session Watch Live is built around.
+// ---------------------------------------------------------------------------
+
+// Leaderboard reconstructed from the Event log as of the end of `lap`.
+export function getRaceReplayState(sessionId, { lap } = {}) {
+  const params = new URLSearchParams({ lap: String(lap) });
+  return request(`/api/race-replay/${sessionId}/state?${params.toString()}`);
+}
+
+// Real track outline for this session's circuit — live OpenF1 telemetry
+// when available, else a static FastF1-generated shape for the circuit,
+// else a 404 (the caller falls back to the illustrative track, same as
+// Watch Live already does for getTrackShape above).
+export function getRaceReplayTrackShape(sessionId) {
+  return request(`/api/race-replay/${sessionId}/track-shape`);
+}

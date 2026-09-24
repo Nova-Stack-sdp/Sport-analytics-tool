@@ -44,7 +44,7 @@ function polylinePoints(points) {
   return points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
 }
 
-function RaceReplayViewer() {
+function RaceReplayViewer({ sessionId }) {
   const [showSafetyCar, setShowSafetyCar] = useState(true);
 
   // Animation state lives in refs, not React state — none of this should
@@ -74,10 +74,9 @@ function RaceReplayViewer() {
     cycleSpeed,
     restart,
     jumpToEnd,
-    jumpToEndError,
     trackShape,
     trackShapeError,
-  } = useRaceReplaySnapshots();
+  } = useRaceReplaySnapshots(sessionId);
 
   speedRef.current = speed;
 
@@ -106,7 +105,11 @@ function RaceReplayViewer() {
   useEffect(() => {
     if (!snapshot || !geometry) return;
     const totalDrivers = leaderboard.length;
-    const sharedPhase = (snapshot.videoSeconds % 60) / 60;
+    // Replay's clock is lap number now (see useRaceReplaySnapshots), not
+    // seconds into a broadcast — same modulo trick, just against laps
+    // instead of videoSeconds, to keep the paced-animation phase varying
+    // tick to tick rather than resetting identically every lap.
+    const sharedPhase = (snapshot.lap % 60) / 60;
     const now = performance.now();
     const durationMs = (1 / speedRef.current) * 1000;
 
@@ -237,7 +240,7 @@ function RaceReplayViewer() {
   if (loading && !snapshot) {
     return (
       <div className="replay-track-card">
-        <p className="secondary">Loading Barcelona 2026 session data…</p>
+        <p className="secondary">Loading session data…</p>
       </div>
     );
   }
@@ -316,7 +319,6 @@ function RaceReplayViewer() {
           </label>
         </div>
         {scActive && <div className="pill pill-amber" style={{ marginTop: 10 }}>Safety car deployed</div>}
-        {jumpToEndError && <div className="pill status-rejected" style={{ marginTop: 10 }}>{jumpToEndError}</div>}
       </div>
 
       <div className="card replay-leaderboard">

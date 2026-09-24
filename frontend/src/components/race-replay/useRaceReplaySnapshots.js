@@ -1,40 +1,59 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getWatchLiveState, getTrackShape } from '../../api/client';
+import { getRaceReplayState, getRaceReplayTrackShape } from '../../api/client';
 
 const SPEEDS = [0.5, 1, 2, 4, 16, 60];
-const BASE_TICK_MS = 1000; // one snapshot = one real second of the session
-// A comfortably-larger-than-any-real-session probe value, used only to
-// learn the true end of the session from the backend's error response
-// when the user hasn't naturally reached the end yet.
-const PROBE_VIDEO_SECONDS = 100000;
+// The replay clock is LAP NUMBER, not seconds into a broadcast (see
+// raceReplay.js on the backend for why — several event types only carry a
+// lap range, not a real timestamp). One lap advances every BASE_TICK_MS /
+// speed real ms; at 1x that's a lap every 2 seconds, fast enough to watch
+// a full race in a couple of minutes.
+const BASE_TICK_MS = 2000;
 
-export function useRaceReplaySnapshots() {
-  const [videoSeconds, setVideoSeconds] = useState(0);
+export function useRaceReplaySnapshots(sessionId) {
+  const [lap, setLap] = useState(0);
   const [playing, setPlaying] = useState(true);
   const [speedIndex, setSpeedIndex] = useState(1);
   const [snapshot, setSnapshot] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [atEnd, setAtEnd] = useState(false);
-  const [maxVideoSeconds, setMaxVideoSeconds] = useState(null);
 
   const [trackShape, setTrackShape] = useState(null);
   const [trackShapeError, setTrackShapeError] = useState(null);
 
   const cacheRef = useRef(new Map());
 
+  // A different fixture was picked — every piece of per-session state
+  // starts over, including the per-lap snapshot cache (a lap 5 snapshot
+  // from the previous session is meaningless for this one).
   useEffect(() => {
+    cacheRef.current = new Map();
+    setLap(0);
+    setSnapshot(null);
+    setLoading(true);
+    setError(null);
+    setAtEnd(false);
+    setPlaying(true);
+    setTrackShape(null);
+    setTrackShapeError(null);
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!sessionId) return undefined;
     let cancelled = false;
-    getTrackShape()
+    getRaceReplayTrackShape(sessionId)
       .then((shape) => { if (!cancelled) setTrackShape(shape); })
       .catch((err) => { if (!cancelled) setTrackShapeError(err.message); });
     return () => { cancelled = true; };
-  }, []);
+  }, [sessionId]);
 
-  const loadSecond = useCallback(async (second) => {
+  const loadLap = useCallback(async (lapNumber) => {
+    if (!sessionId) return;
     const cache = cacheRef.current;
-    if (cache.has(second)) {
-      setSnapshot(cache.get(second));
+    if (cache.has(lapNumber)) {
+      const cached = cache.get(lapNumber);
+      setSnapshot(cached);
+      setAtEnd(Boolean(cached.atEnd));
       setLoading(false);
       return;
     }
@@ -42,85 +61,51 @@ export function useRaceReplaySnapshots() {
     setLoading(true);
     setError(null);
     try {
-      const state = await getWatchLiveState({ videoSeconds: second });
-      cache.set(second, state);
+      const state = await getRaceReplayState(sessionId, { lap: lapNumber });
+      cache.set(lapNumber, state);
       setSnapshot(state);
-      setAtEnd(false);
+      setAtEnd(Boolean(state.atEnd));
+      if (state.atEnd) setPlaying(false);
     } catch (err) {
-      // The backend returns 400 once videoSeconds runs past the end of the
-      // session — that's "replay finished," not a real error.
-      if (err.status === 400) {
-        setAtEnd(true);
-        setPlaying(false);
-        if (err.body?.maxVideoSeconds != null) setMaxVideoSeconds(err.body.maxVideoSeconds);
-      } else {
-        setError(err.message || 'Failed to load replay data');
-      }
+      setError(err.message || 'Failed to load replay data');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [sessionId]);
 
   useEffect(() => {
-    loadSecond(videoSeconds);
-  }, [videoSeconds, loadSecond]);
+    loadLap(lap);
+  }, [lap, loadLap]);
 
   useEffect(() => {
     if (!playing) return undefined;
     const interval = setInterval(() => {
-      setVideoSeconds((s) => s + 1);
+      setLap((l) => l + 1);
     }, BASE_TICK_MS / SPEEDS[speedIndex]);
     return () => clearInterval(interval);
   }, [playing, speedIndex]);
 
   const restart = () => {
     setAtEnd(false);
-    setVideoSeconds(0);
+    setLap(0);
     setPlaying(true);
   };
 
-  const [jumpToEndError, setJumpToEndError] = useState(null);
-
-  // Jumps straight to the final state rather than making the user wait
-  // through real-time (or even 60x) playback to see how the race ends.
-  const jumpToEnd = useCallback(async () => {
+  // Total laps comes straight from the fixture's own synced data, known
+  // before the replay even starts — unlike Watch Live's videoSeconds clock,
+  // there's no need to probe the backend to learn where the end is.
+  const jumpToEnd = useCallback(() => {
     setPlaying(false);
-    setJumpToEndError(null);
-    if (maxVideoSeconds != null) {
-      setVideoSeconds(maxVideoSeconds);
-      return;
+    if (snapshot?.totalLaps != null) {
+      setLap(snapshot.totalLaps);
     }
-    try {
-      await getWatchLiveState({ videoSeconds: PROBE_VIDEO_SECONDS });
-      // The probe itself succeeding would be very unexpected (it implies
-      // the session is longer than PROBE_VIDEO_SECONDS), but handle it
-      // rather than silently doing nothing.
-      setJumpToEndError('Could not determine the end of the session.');
-    } catch (err) {
-      const structuredMax = err.body?.maxVideoSeconds;
-      // Fallback for a backend that hasn't been redeployed with the
-      // structured maxVideoSeconds field yet — the number is still in the
-      // error text ("videoSeconds must be between 0 and 5423").
-      const textMatch = typeof err.body?.error === 'string'
-        ? err.body.error.match(/(\d+)\s*$/)
-        : null;
-      const learnedMax = structuredMax ?? (textMatch ? Number(textMatch[1]) : null);
-
-      if (err.status === 400 && learnedMax != null) {
-        setMaxVideoSeconds(learnedMax);
-        setVideoSeconds(learnedMax);
-      } else {
-        setJumpToEndError(
-          "Couldn't jump to the end — this usually means the backend hasn't been redeployed with the latest changes yet."
-        );
-      }
-    }
-  }, [maxVideoSeconds]);
+  }, [snapshot]);
 
   const cycleSpeed = () => setSpeedIndex((i) => (i + 1) % SPEEDS.length);
   const togglePlaying = () => setPlaying((p) => !p);
 
   return {
+    lap,
     snapshot,
     loading,
     error,
@@ -131,7 +116,6 @@ export function useRaceReplaySnapshots() {
     cycleSpeed,
     restart,
     jumpToEnd,
-    jumpToEndError,
     trackShape,
     trackShapeError,
   };
