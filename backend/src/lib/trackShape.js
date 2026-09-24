@@ -2,14 +2,21 @@
  * Track-shape derivation, generalized for ANY session — not just Barcelona.
  *
  * Two real sources, in priority order, never a fabricated/guessed shape:
- *   1. Live OpenF1 /location telemetry for this exact session, when OpenF1
- *      still has it (see fetchSessionTrackTelemetryRaw in routes/openf1.js).
- *   2. A static per-circuit JSON file generated offline via FastF1 (see
+ *   1. A static per-circuit JSON file generated offline via FastF1 (see
  *      backend/scripts/generate_track_shapes.py) — real historical
  *      telemetry from an actual past race at the same physical circuit,
  *      checked into src/data/track-shapes/. The circuit's layout doesn't
  *      change race to race, so one real trace covers every session held
- *      there.
+ *      there. Checked first because it's a single fast local file read,
+ *      and because Race Replay's leaderboard never carries real per-car
+ *      x/y (computeStateAtLap always sets it null) — so this endpoint only
+ *      ever supplies the drawn track OUTLINE, for which a static trace of
+ *      the same circuit is exactly as real as this session's own telemetry.
+ *   2. Live OpenF1 /location telemetry for this exact session, when OpenF1
+ *      still has it (see fetchSessionTrackTelemetryRaw in routes/openf1.js) —
+ *      tried only when no static trace exists yet for the circuit, since
+ *      it's ~10-12 chunked, rate-limit-paced requests and can take
+ *      30s-2min+ end to end.
  * If neither is available, callers get `null` back — the frontend already
  * has an illustrative fallback track for exactly this case (see
  * RaceReplayViewer.js), so a missing shape is a graceful degradation, never

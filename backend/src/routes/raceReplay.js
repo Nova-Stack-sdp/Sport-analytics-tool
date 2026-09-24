@@ -302,7 +302,24 @@ raceReplayRouter.get('/:sessionId/track-shape', async (req, res, next) => {
     });
     if (!session) return res.status(404).json({ error: 'Fixture not found' });
 
-    // 1. Real live telemetry for this exact session, if OpenF1 still has it.
+    // 1. A real offline FastF1 trace for this circuit, if one's been
+    // generated — checked FIRST, not second, despite being a "fallback" by
+    // name. Race Replay's leaderboard never carries real per-car x/y (see
+    // computeStateAtLap above — x/y is always null here), so this endpoint
+    // only ever supplies the drawn track OUTLINE, and a static per-circuit
+    // trace is exactly as real for that purpose as this exact session's own
+    // live telemetry would be — same physical circuit, same shape. Static
+    // is also a single local file read, versus live's ~10-12 chunked
+    // /location requests (each behind a mandatory rate-limit pace delay,
+    // see openf1.js's paceBundleRequests/fetchLocationDataChunked), which
+    // was previously leaving the frontend on its illustrative fallback for
+    // 30s-2min+ on every single load. Checking static first makes the
+    // common case (a circuit we've already generated a trace for) instant.
+    const staticShape = await readStaticTrackShape(session.meeting.circuit.name);
+    if (staticShape) return res.json({ ...staticShape, source: 'fastf1-static-fallback' });
+
+    // 2. No static trace for this circuit yet — worth the slower live fetch
+    // as a last resort, for whatever session-specific telemetry it can get.
     if (session.openf1Key != null) {
       try {
         const telemetry = await fetchSessionTrackTelemetryRaw(session.openf1Key);
@@ -312,16 +329,12 @@ raceReplayRouter.get('/:sessionId/track-shape', async (req, res, next) => {
         }
       } catch (err) {
         // OpenF1 being unreachable shouldn't fail the whole request — fall
-        // through to the static/illustrative fallbacks below.
+        // through to the illustrative fallback below.
         console.warn(`OpenF1 track telemetry fetch failed for session ${sessionId}:`, err.message);
       }
     }
 
-    // 2. A real offline FastF1 trace for this circuit, if one's been generated.
-    const staticShape = await readStaticTrackShape(session.meeting.circuit.name);
-    if (staticShape) return res.json({ ...staticShape, source: 'fastf1-static-fallback' });
-
-    // 3. Neither exists yet — the frontend has an illustrative fallback for
+    // 3. Neither exists — the frontend has an illustrative fallback for
     // this, so a 404 here is an expected, handled outcome, not an error.
     return res.status(404).json({ error: 'No real track telemetry available for this circuit yet' });
   } catch (err) {
