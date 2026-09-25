@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import TopNav from '../components/TopNavigation';
 import { signOut } from 'firebase/auth';
+import { clearSession } from '../api/client';
 
 let mockUser = null;
 let mockIsDeveloperMode = false;
@@ -17,6 +18,9 @@ jest.mock('../context/DeveloperModeContext', () => ({
 }));
 jest.mock('../firebase', () => ({ auth: {} }));
 jest.mock('firebase/auth', () => ({ signOut: jest.fn() }));
+// The real client goes over the network via fetch — mock it so these tests
+// exercise the component's sign-out behavior rather than a live backend.
+jest.mock('../api/client', () => ({ clearSession: jest.fn() }));
 
 function LocationDisplay() {
   const location = useLocation();
@@ -38,6 +42,7 @@ function renderNav({ user = null, path = '/teams', theme = 'dark' } = {}) {
 describe('TopNavigation', () => {
   beforeEach(() => {
     signOut.mockResolvedValue();
+    clearSession.mockResolvedValue({ status: 'ok' });
   });
 
   afterEach(() => {
@@ -98,8 +103,32 @@ describe('TopNavigation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'M' }));
 
     await waitFor(() => expect(signOut).toHaveBeenCalledWith({}));
+    expect(clearSession).toHaveBeenCalled();
     // handleSignOut navigates to '/' (the welcome page), not '/sign-in'.
-    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/'));
+    // Anchored: toHaveTextContent does a substring match for a string
+    // argument, so a plain '/' would also be satisfied by the '/overview'
+    // path we started from and the assertion would never fail.
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(/^\/$/));
+  });
+
+  test('still signs out and redirects when the backend session cookie cannot be cleared', async () => {
+    // Reproduces the "Uncaught runtime errors: Failed to fetch" overlay: with
+    // the API unreachable, clearSession() rejects. A rejected Promise.all used
+    // to skip the redirect entirely and leave an unhandled rejection behind.
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    clearSession.mockRejectedValue(new TypeError('Failed to fetch'));
+    renderNav({
+      user: { displayName: 'Max Verstappen', email: 'max@example.test' },
+      path: '/overview',
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'M' }));
+
+    await waitFor(() => expect(signOut).toHaveBeenCalledWith({}));
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(/^\/$/));
+    expect(warn).toHaveBeenCalled();
+
+    warn.mockRestore();
   });
 
   test('uses an email initial when display name is absent', () => {
