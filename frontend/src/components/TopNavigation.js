@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
@@ -38,6 +39,19 @@ function TopNav({ theme, onToggleTheme }) {
   const { user, signOut: clearAuth } = useAuth();
   const { isDeveloperMode } = useDeveloperMode();
   const navigate = useNavigate();
+  // The avatar opens an account menu rather than signing the user straight
+  // out, and logging out then has to be confirmed — a stray click on the
+  // avatar used to end the session immediately.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmingLogOut, setConfirmingLogOut] = useState(false);
+  const menuRef = useRef(null);
+  const avatarRef = useRef(null);
+  const confirmRef = useRef(null);
+
+  const closeMenu = useCallback(() => {
+    setMenuOpen(false);
+    setConfirmingLogOut(false);
+  }, []);
 
   const handleSignOut = async () => {
     // Clear both auth layers: Firebase client session and the backend
@@ -59,6 +73,49 @@ function TopNav({ theme, onToggleTheme }) {
     }
     navigate('/', { replace: true });
   };
+
+  // Confirming is the only path to handleSignOut, so nothing is lost when
+  // the menu closes first.
+  const handleLogOutConfirmed = () => {
+    closeMenu();
+    handleSignOut();
+  };
+
+  // Dismiss the menu on an outside click or Escape — Escape hands focus back
+  // to the avatar so keyboard users don't lose their place.
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (!menuRef.current?.contains(event.target)) closeMenu();
+    };
+    const handleKeyDown = (event) => {
+      if (event.key !== 'Escape') return;
+      closeMenu();
+      avatarRef.current?.focus();
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [menuOpen, closeMenu]);
+
+  // Swapping "Log out" for the Yes/No pair removes the focused element, so
+  // focus is moved onto the question to keep it announced and reachable.
+  useEffect(() => {
+    if (confirmingLogOut) confirmRef.current?.focus();
+  }, [confirmingLogOut]);
+
+  // Firebase syncs sign-out across tabs, so the identity can change while
+  // the menu is open — never let a stale menu greet the next sign-in.
+  useEffect(() => {
+    closeMenu();
+  }, [user, closeMenu]);
+
+  const identity = user ? user.email ?? user.displayName ?? 'you' : null;
 
   return (
     <div className="topnav" aria-label="Main navigation">
@@ -87,14 +144,63 @@ function TopNav({ theme, onToggleTheme }) {
             <span>{theme === 'dark' ? '☀' : '☾'}</span>
           </button>
           {user ? (
-            <button
-              className="avatar"
-              title={`Signed in as ${user.email ?? user.displayName ?? 'you'} · Sign out`}
-              onClick={handleSignOut}
-              type="button"
-            >
-              {initialsFor(user)}
-            </button>
+            <div className="avatar-wrap" ref={menuRef}>
+              <button
+                className="avatar"
+                ref={avatarRef}
+                title={`Signed in as ${identity}`}
+                aria-expanded={menuOpen}
+                onClick={() => (menuOpen ? closeMenu() : setMenuOpen(true))}
+                type="button"
+              >
+                {initialsFor(user)}
+              </button>
+              {menuOpen && (
+                <div className="avatar-menu">
+                  <p className="avatar-menu-identity">Signed in as {identity}</p>
+                  {confirmingLogOut ? (
+                    <div
+                      className="avatar-menu-confirm"
+                      ref={confirmRef}
+                      role="group"
+                      aria-label="Confirm log out"
+                      tabIndex={-1}
+                    >
+                      <p className="avatar-menu-question">Are you sure you want to log out?</p>
+                      <div className="avatar-menu-actions">
+                        <button
+                          className="avatar-menu-button is-primary"
+                          onClick={handleLogOutConfirmed}
+                          type="button"
+                        >
+                          Yes
+                        </button>
+                        <button
+                          className="avatar-menu-button is-secondary"
+                          onClick={() => {
+                            // "No" only clears the question — the session
+                            // and the cookie are left untouched.
+                            closeMenu();
+                            avatarRef.current?.focus();
+                          }}
+                          type="button"
+                        >
+                          No
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      className="avatar-menu-button"
+                      onClick={() => setConfirmingLogOut(true)}
+                      type="button"
+                    >
+                      Log out
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           ) : (
             <NavLink to="/sign-in" className="avatar" title="Sign in">
               SignIn

@@ -160,6 +160,120 @@
   transform: translateY(-1px);
 }
 
+.avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* Keep the avatar looking "on" for as long as its menu is open. */
+.avatar[aria-expanded='true'] {
+  background: #ffffff;
+  color: #111111;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+}
+
+.avatar-menu {
+  position: absolute;
+  /* The 36px avatar is centred in the 80px bar, so its own bottom edge sits
+     22px above the bar's — the extra 8px hangs the panel just clear of it. */
+  top: calc(100% + 30px);
+  right: 0;
+  z-index: 30;
+  min-width: 216px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 22px 44px rgba(0, 0, 0, 0.34);
+  text-align: left;
+}
+
+.avatar-menu-identity {
+  margin: 0 0 6px;
+  padding: 4px 10px 8px;
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  word-break: break-word;
+}
+
+.avatar-menu-button {
+  display: block;
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+.avatar-menu-button:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.avatar-menu-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.avatar-menu-confirm:focus {
+  outline: none;
+}
+
+.avatar-menu-question {
+  margin: 6px 10px 10px;
+  color: var(--text-primary);
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.avatar-menu-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.avatar-menu-actions .avatar-menu-button {
+  flex: 1;
+  text-align: center;
+}
+
+.avatar-menu-button.is-primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.avatar-menu-button.is-primary:hover {
+  border-color: var(--accent-dark);
+  background: var(--accent-dark);
+  color: var(--accent-contrast);
+}
+
+.avatar-menu-button.is-secondary {
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+
+.avatar-menu-button.is-secondary:hover {
+  border-color: var(--accent);
+  background: transparent;
+  color: var(--accent);
+}
+
 .theme-toggle {
   display: flex;
   align-items: center;

@@ -81,7 +81,7 @@ describe('TopNavigation', () => {
     expect(screen.queryByRole('link', { name: 'Datasets' })).not.toBeInTheDocument();
   });
 
-  test('shows Datasets and Submissions once developer mode is on, display-name initials, and signs a user out', async () => {
+  test('shows Datasets and Submissions once developer mode is on, plus display-name initials', () => {
     mockIsDeveloperMode = true;
     renderNav({
       user: { displayName: 'Max Verstappen', email: 'max@example.test' },
@@ -94,13 +94,81 @@ describe('TopNavigation', () => {
     expect(screen.getByRole('link', { name: 'Datasets' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Developer' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Admin' })).toBeInTheDocument();
+    // Clicking the avatar opens the account menu now, so the title only
+    // states who is signed in.
     expect(screen.getByRole('button', { name: 'M' })).toHaveAttribute(
       'title',
-      'Signed in as max@example.test · Sign out'
+      'Signed in as max@example.test'
     );
     expect(screen.getByText('☾')).toBeInTheDocument();
+  });
+
+  test('opens an account menu on click instead of signing the user out', () => {
+    renderNav({
+      user: { displayName: 'Max Verstappen', email: 'max@example.test' },
+      path: '/overview',
+    });
+
+    expect(screen.queryByRole('button', { name: 'Log out' })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'M' }));
+
+    expect(screen.getByText('Signed in as max@example.test')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Log out' })).toBeInTheDocument();
+    // The point of the menu: opening it must not touch the session.
+    expect(signOut).not.toHaveBeenCalled();
+    expect(clearSession).not.toHaveBeenCalled();
+  });
+
+  test('closes the account menu on Escape and on an outside click', () => {
+    renderNav({ user: { displayName: 'Max Verstappen', email: 'max@example.test' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'M' }));
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(screen.queryByRole('button', { name: 'Log out' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'M' })).toHaveFocus();
+
+    fireEvent.click(screen.getByRole('button', { name: 'M' }));
+    fireEvent.mouseDown(document.body);
+
+    expect(screen.queryByRole('button', { name: 'Log out' })).not.toBeInTheDocument();
+    expect(signOut).not.toHaveBeenCalled();
+  });
+
+  test('asks for confirmation before logging out, and No only clears the question', () => {
+    renderNav({
+      user: { displayName: 'Max Verstappen', email: 'max@example.test' },
+      path: '/overview',
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'M' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
+
+    expect(screen.getByText('Are you sure you want to log out?')).toBeInTheDocument();
+    expect(signOut).not.toHaveBeenCalled();
+    expect(clearSession).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'No' }));
+
+    // "No" clears the question and leaves the session alone: same route, no
+    // sign-out, no cookie clear, and focus back on the avatar.
+    expect(screen.queryByText('Are you sure you want to log out?')).not.toBeInTheDocument();
+    expect(screen.getByTestId('location')).toHaveTextContent(/^\/overview$/);
+    expect(signOut).not.toHaveBeenCalled();
+    expect(clearSession).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'M' })).toHaveFocus();
+  });
+
+  test('logs out and redirects only after confirming with Yes', async () => {
+    renderNav({
+      user: { displayName: 'Max Verstappen', email: 'max@example.test' },
+      path: '/overview',
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'M' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes' }));
 
     await waitFor(() => expect(signOut).toHaveBeenCalledWith({}));
     expect(clearSession).toHaveBeenCalled();
@@ -123,6 +191,8 @@ describe('TopNavigation', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'M' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes' }));
 
     await waitFor(() => expect(signOut).toHaveBeenCalledWith({}));
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(/^\/$/));
@@ -136,7 +206,7 @@ describe('TopNavigation', () => {
 
     expect(screen.getByRole('button', { name: 'L' })).toHaveAttribute(
       'title',
-      'Signed in as lando@example.test · Sign out'
+      'Signed in as lando@example.test'
     );
   });
 
@@ -145,7 +215,7 @@ describe('TopNavigation', () => {
 
     expect(screen.getByRole('button', { name: '?' })).toHaveAttribute(
       'title',
-      'Signed in as you · Sign out'
+      'Signed in as you'
     );
   });
 });
