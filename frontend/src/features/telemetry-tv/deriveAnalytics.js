@@ -13,7 +13,7 @@ function momentumLabel(positionChange) {
   return 'Holding position';
 }
 
-export function deriveWatchLiveAnalytics(snapshot, snapshots = []) {
+export function deriveTelemetryTVAnalytics(snapshot, snapshots = []) {
   if (!snapshot) return { leaderboard: [] };
 
   const previousSnapshot = findSnapshotAtOrBefore(

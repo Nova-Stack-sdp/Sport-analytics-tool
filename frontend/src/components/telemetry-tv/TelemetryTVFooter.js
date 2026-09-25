@@ -1,7 +1,7 @@
 // Minimal footer with data sources attribution.
-function WatchLiveFooter() {
+function TelemetryTVFooter() {
   return (
-    <footer className="watch-live-footer">
+    <footer className="telemetry-tv-footer">
       <div className="footer-content">
         <div className="footer-brand">
           <span className="wire-pill">WIRE</span>
@@ -16,4 +16,4 @@ function WatchLiveFooter() {
   );
 }
 
-export default WatchLiveFooter;
+export default TelemetryTVFooter;

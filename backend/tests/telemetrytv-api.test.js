@@ -35,7 +35,7 @@ beforeEach(() => {
   mockPrisma.externalApiCache.upsert.mockResolvedValue({});
 });
 
-describe('GET /api/watch-live', () => {
+describe('GET /api/telemetry-tv', () => {
   test('returns the cached Barcelona bundle and validates state input', async () => {
     const bundle = {
       session_key: 11307,
@@ -54,11 +54,11 @@ describe('GET /api/watch-live', () => {
     };
     mockFetchBarcelonaRaceRaw.mockResolvedValue(bundle);
 
-    const stateRes = await request(createApp()).get('/api/watch-live/state?videoSeconds=923');
+    const stateRes = await request(createApp()).get('/api/telemetry-tv/state?videoSeconds=923');
     expect(stateRes.status).toBe(200);
     expect(stateRes.body.mapping).toMatchObject({ chunkId: 'opening-stint', openF1Timestamp: '2026-06-14T13:19:06.289Z' });
 
-    const badStateRes = await request(createApp()).get('/api/watch-live/state?videoSeconds=invalid');
+    const badStateRes = await request(createApp()).get('/api/telemetry-tv/state?videoSeconds=invalid');
     expect(badStateRes.status).toBe(400);
     expect(badStateRes.body.error).toMatch(/videoSeconds.*finite number/i);
   });
@@ -89,7 +89,7 @@ describe('GET /api/watch-live', () => {
     };
     mockFetchBarcelonaRaceRaw.mockResolvedValue(bundle);
 
-    const res = await request(createApp()).get('/api/watch-live/track-shape');
+    const res = await request(createApp()).get('/api/telemetry-tv/track-shape');
 
     expect(res.status).toBe(200);
     expect(['openf1-live', 'fastf1-static-fallback']).toContain(res.body.source);

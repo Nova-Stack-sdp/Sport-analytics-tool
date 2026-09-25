@@ -25,8 +25,8 @@ const SAMPLE_STATE = {
   ],
 };
 
-async function stubWatchLive(page, response = { snapshots: [SAMPLE_STATE], bufferStartSeconds: 0, bufferEndSeconds: 30 }) {
-  await page.route('**/api/watch-live/state*', (route) => route.fulfill({
+async function stubTelemetryTV(page, response = { snapshots: [SAMPLE_STATE], bufferStartSeconds: 0, bufferEndSeconds: 30 }) {
+  await page.route('**/api/telemetry-tv/state*', (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify(response),
@@ -46,10 +46,10 @@ async function stubWatchLive(page, response = { snapshots: [SAMPLE_STATE], buffe
   }));
 }
 
-test.describe('Watch Live', () => {
+test.describe('TelemetryTV', () => {
   test('loads synchronized telemetry and exposes keyboard-accessible setup controls', async ({ page }) => {
-    await stubWatchLive(page);
-    await page.goto('/watch-live');
+    await stubTelemetryTV(page);
+    await page.goto('/telemetry-tv');
 
     await expect(page.getByText('Spanish Grand Prix')).toBeVisible();
     await expect(page.getByText('Lewis Hamilton')).toBeVisible();
@@ -62,7 +62,7 @@ test.describe('Watch Live', () => {
   });
 
   test('shows a backend error without horizontal overflow', async ({ page }) => {
-    await page.route('**/api/watch-live/state*', (route) => route.fulfill({
+    await page.route('**/api/telemetry-tv/state*', (route) => route.fulfill({
       status: 503,
       contentType: 'application/json',
       body: JSON.stringify({ error: 'not available' }),
@@ -79,9 +79,9 @@ test.describe('Watch Live', () => {
       };
       window.onYouTubeIframeAPIReady();`,
     }));
-    await page.goto('/watch-live');
+    await page.goto('/telemetry-tv');
 
-    await expect(page.getByText(/Request to \/api\/watch-live\/state failed with status 503/i)).toBeVisible();
+    await expect(page.getByText(/Request to \/api\/telemetry-tv\/state failed with status 503/i)).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });
 });

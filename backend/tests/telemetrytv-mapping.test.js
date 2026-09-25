@@ -2,11 +2,11 @@ import { describe, expect, test } from '@jest/globals';
 import {
   Barcelona_video_chunks,
   buildBarcelonaOpenF1Chunks,
-  createBarcelonaWatchLiveBuffer,
-  createBarcelonaWatchLiveState,
+  createBarcelonaTelemetryTVBuffer,
+  createBarcelonaTelemetryTVState,
   getBarcelonaCachedState,
   mapBarcelonaVideoTime,
-} from '../src/routes/watchLive.js';
+} from '../src/routes/telemetryTV.js';
 
 describe('Barcelona video mapping', () => {
   test('maps every verified calibration point to its OpenF1 timestamp', () => {
@@ -63,7 +63,7 @@ describe('Barcelona video mapping', () => {
     };
     const chunks = buildBarcelonaOpenF1Chunks(bundle);
 
-    expect(createBarcelonaWatchLiveState(923, bundle, chunks)).toMatchObject({
+    expect(createBarcelonaTelemetryTVState(923, bundle, chunks)).toMatchObject({
       mapping: { chunkId: 'opening-stint', openF1Timestamp: '2026-06-14T13:19:06.289Z' },
       session: { sessionKey: 11307, currentLap: 11, totalLaps: 11 },
       leaderboard: [{ position: 1, driverNumber: 44, driverName: 'Lewis Hamilton', teamName: 'Ferrari', tyreCompound: 'HARD', stintNumber: 2 }],
@@ -91,7 +91,7 @@ describe('Barcelona video mapping', () => {
     expect(getBarcelonaCachedState(923.1, bundle, chunks, cache))
       .toBe(getBarcelonaCachedState(923.9, bundle, chunks, cache));
 
-    expect(createBarcelonaWatchLiveBuffer(923.7, 2, bundle, chunks, cache)).toMatchObject({
+    expect(createBarcelonaTelemetryTVBuffer(923.7, 2, bundle, chunks, cache)).toMatchObject({
       requestedVideoSeconds: 923.7,
       bufferStartSeconds: 923,
       bufferEndSeconds: 925,

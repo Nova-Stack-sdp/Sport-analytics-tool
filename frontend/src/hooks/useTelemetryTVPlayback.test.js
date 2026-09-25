@@ -1,12 +1,12 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { getWatchLiveState } from '../api/client';
-import { useWatchLivePlayback } from './useWatchLivePlayback';
+import { getTelemetryTVState } from '../api/client';
+import { useTelemetryTVPlayback } from './useTelemetryTVPlayback';
 
 jest.mock('../api/client', () => ({
-  getWatchLiveState: jest.fn(),
+  getTelemetryTVState: jest.fn(),
 }));
 
-describe('useWatchLivePlayback', () => {
+describe('useTelemetryTVPlayback', () => {
   let playerOptions;
   let player;
 
@@ -23,7 +23,7 @@ describe('useWatchLivePlayback', () => {
         return player;
       }),
     };
-    getWatchLiveState.mockReset();
+    getTelemetryTVState.mockReset();
   });
 
   afterEach(() => {
@@ -37,13 +37,13 @@ describe('useWatchLivePlayback', () => {
       session: { currentLap: 4, totalLaps: 66 },
       leaderboard: [],
     };
-    getWatchLiveState.mockResolvedValue({
+    getTelemetryTVState.mockResolvedValue({
       bufferStartSeconds: 0,
       bufferEndSeconds: 30,
       snapshots: [snapshot],
     });
 
-    const { result, unmount } = renderHook(() => useWatchLivePlayback());
+    const { result, unmount } = renderHook(() => useTelemetryTVPlayback());
     result.current.iframeRef.current = document.createElement('iframe');
 
     await waitFor(() => expect(window.YT.Player).toHaveBeenCalled());
@@ -52,7 +52,7 @@ describe('useWatchLivePlayback', () => {
       playerOptions.events.onStateChange({ data: window.YT.PlayerState.PLAYING });
     });
 
-    expect(getWatchLiveState).toHaveBeenCalledWith({ videoSeconds: 12, bufferSeconds: 15 });
+    expect(getTelemetryTVState).toHaveBeenCalledWith({ videoSeconds: 12, bufferSeconds: 15 });
     expect(result.current.loading).toBe(false);
 
     act(() => jest.advanceTimersByTime(500));
@@ -64,8 +64,8 @@ describe('useWatchLivePlayback', () => {
   });
 
   test('exposes backend failures without crashing the playback surface', async () => {
-    getWatchLiveState.mockRejectedValue(new Error('telemetry unavailable'));
-    const { result } = renderHook(() => useWatchLivePlayback());
+    getTelemetryTVState.mockRejectedValue(new Error('telemetry unavailable'));
+    const { result } = renderHook(() => useTelemetryTVPlayback());
     result.current.iframeRef.current = document.createElement('iframe');
 
     await waitFor(() => expect(window.YT.Player).toHaveBeenCalled());

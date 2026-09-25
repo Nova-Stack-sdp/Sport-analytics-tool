@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { getWatchLiveState } from '../api/client';
+import { getTelemetryTVState } from '../api/client';
 
 // Synchronizes YouTube playback with buffered replay snapshots.
 const VIDEO_BUFFER_SECONDS = 15;
@@ -22,7 +22,7 @@ function loadYouTubeApi() {
   return youtubeApiPromise;
 }
 
-export function useWatchLivePlayback() {
+export function useTelemetryTVPlayback() {
   const iframeRef = useRef(null);
   const playerRef = useRef(null);
   const timerRef = useRef(null);
@@ -48,7 +48,7 @@ export function useWatchLivePlayback() {
       setLoading(true);
 
       try {
-        const nextBuffer = await getWatchLiveState({
+        const nextBuffer = await getTelemetryTVState({
           videoSeconds,
           bufferSeconds: VIDEO_BUFFER_SECONDS,
         });

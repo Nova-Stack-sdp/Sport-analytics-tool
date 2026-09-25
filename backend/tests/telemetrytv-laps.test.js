@@ -1,8 +1,8 @@
 import { describe, expect, test } from '@jest/globals';
 import {
   buildBarcelonaOpenF1Chunks,
-  createBarcelonaWatchLiveState,
-} from '../src/routes/watchLive.js';
+  createBarcelonaTelemetryTVState,
+} from '../src/routes/telemetryTV.js';
 
 // Field shapes below are copied from an actual cached OpenF1 bundle for
 // session 11307 (verified via a direct DB query), not assumed — this is
@@ -32,13 +32,13 @@ describe('Barcelona lap counting', () => {
     const chunks = buildBarcelonaOpenF1Chunks(bundle);
 
     // Before lap 1 has completed (its date_start).
-    const beforeLap1 = createBarcelonaWatchLiveState(0, bundle, chunks);
+    const beforeLap1 = createBarcelonaTelemetryTVState(0, bundle, chunks);
     expect(beforeLap1.session.currentLap).toBe(0);
 
     // videoSeconds 110 interpolates (via the real opening-stint calibration
     // anchors) to real time ~13:05:07, which is past lap 2's date_start
     // (13:04:52.8) but before lap 3's (13:06:15.9).
-    const afterLap2 = createBarcelonaWatchLiveState(110, bundle, chunks);
+    const afterLap2 = createBarcelonaTelemetryTVState(110, bundle, chunks);
     expect(afterLap2.session.currentLap).toBe(2);
   });
 

@@ -136,8 +136,8 @@ function TopNav({ theme, onToggleTheme }) {
           ))}
         </div>
         <div className="topnav-right">
-          <NavLink to="/watch-live" className="live-pill live-blink" title="Watch live">
-            LIVE
+          <NavLink to="/telemetry-tv" className="live-pill live-blink" title="TelemetryTV">
+            TelemetryTV
           </NavLink>
           <div className="season-pill">2026 Season ▾</div>
           <button className="theme-toggle" title="Toggle dark mode" onClick={onToggleTheme}>

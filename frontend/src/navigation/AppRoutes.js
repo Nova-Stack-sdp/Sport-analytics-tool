@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import WelcomePage from '../pages/WelcomePage';
 import OverviewPage from '../pages/OverviewPage';
 import FixturesEventsPage from '../pages/FixturesEventsPage';
@@ -10,7 +10,7 @@ import DeveloperPage from '../pages/DeveloperPage';
 import ApiDocsPage from '../pages/ApiDocsPage';
 import AdminPage from '../pages/AdminPage';
 import SettingsPage from '../pages/SettingsPage';
-import WatchLivePage from '../pages/WatchLivePage';
+import TelemetryTVPage from '../pages/TelemetryTVPage';
 import SignInPage from '../pages/SignInPage';
 import SignUpPage from '../pages/SignUpPage';
 import ForgotPasswordPage from '../pages/ForgotPasswordPage';
@@ -44,7 +44,8 @@ function AppRoutes() {
       <Route path="/team/:id" element={<TeamDetailPage />} />
       <Route path="/drivers" element={<DriversPage />} />
       <Route path="/driver/:id" element={<DriverDetailPage />} />
-      <Route path="/watch-live" element={<WatchLivePage />} />
+      <Route path="/telemetry-tv" element={<TelemetryTVPage />} />
+      <Route path="/watch-live" element={<Navigate to="/telemetry-tv" replace />} />
       <Route path="/replay" element={<RaceReplayPage />} />
     </Routes>
   );

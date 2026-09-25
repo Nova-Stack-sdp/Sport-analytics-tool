@@ -1,8 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import WatchLivePage from '../pages/WatchLivePage';
-import { useWatchLivePlayback } from '../hooks/useWatchLivePlayback';
+import TelemetryTVPage from '../pages/TelemetryTVPage';
+import { useTelemetryTVPlayback } from '../hooks/useTelemetryTVPlayback';
 
-jest.mock('../hooks/useWatchLivePlayback');
+jest.mock('../hooks/useTelemetryTVPlayback');
 
 const SAMPLE_STATE = {
   videoSeconds: 125,
@@ -29,11 +29,11 @@ const SAMPLE_STATE = {
   ],
 };
 
-describe('WatchLivePage', () => {
+describe('TelemetryTVPage', () => {
   afterEach(() => jest.clearAllMocks());
 
   test('shows loading telemetry and the empty dashboard before playback syncs', () => {
-    useWatchLivePlayback.mockReturnValue({
+    useTelemetryTVPlayback.mockReturnValue({
       iframeRef: { current: null },
       state: null,
       snapshots: [],
@@ -41,7 +41,7 @@ describe('WatchLivePage', () => {
       loading: true,
     });
 
-    render(<WatchLivePage />);
+    render(<TelemetryTVPage />);
 
     expect(screen.getByText(/Loading race telemetry/i)).toBeInTheDocument();
     expect(screen.getByText(/Find a race above, load its telemetry/i)).toBeInTheDocument();
@@ -49,7 +49,7 @@ describe('WatchLivePage', () => {
   });
 
   test('renders synchronized telemetry, ticker content, and race insights', () => {
-    useWatchLivePlayback.mockReturnValue({
+    useTelemetryTVPlayback.mockReturnValue({
       iframeRef: { current: null },
       state: SAMPLE_STATE,
       snapshots: [SAMPLE_STATE],
@@ -57,7 +57,7 @@ describe('WatchLivePage', () => {
       loading: false,
     });
 
-    render(<WatchLivePage />);
+    render(<TelemetryTVPage />);
 
     expect(screen.getByText('Spanish Grand Prix')).toBeInTheDocument();
     expect(screen.getByText('Synchronized')).toBeInTheDocument();
@@ -72,7 +72,7 @@ describe('WatchLivePage', () => {
   });
 
   test('keeps the dashboard usable and displays a telemetry error', () => {
-    useWatchLivePlayback.mockReturnValue({
+    useTelemetryTVPlayback.mockReturnValue({
       iframeRef: { current: null },
       state: null,
       snapshots: [],
@@ -80,7 +80,7 @@ describe('WatchLivePage', () => {
       loading: false,
     });
 
-    render(<WatchLivePage />);
+    render(<TelemetryTVPage />);
 
     expect(screen.getByText('telemetry unavailable')).toBeInTheDocument();
     expect(screen.getByText(/Find a race above, load its telemetry/i)).toBeInTheDocument();

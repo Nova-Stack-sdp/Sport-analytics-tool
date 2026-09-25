@@ -140,8 +140,8 @@ export function getPopularVideos() {
   return request('/api/videos/popular');
 }
 
-export function getLiveVideo() {
-  return request('/api/watch-live');
+export function getTelemetryTVSession() {
+  return request('/api/telemetry-tv');
 }
 
 export function getTeams({ limit, offset } = {}) {
@@ -212,16 +212,16 @@ export async function uploadDriverImage(driverId, file, idToken) {
 }
 
 // Fetches one replay state or a short playback buffer.
-export function getWatchLiveState({ videoSeconds, bufferSeconds } = {}) {
+export function getTelemetryTVState({ videoSeconds, bufferSeconds } = {}) {
   const params = new URLSearchParams({ videoSeconds: String(videoSeconds) });
   if (bufferSeconds != null) params.set('bufferSeconds', String(bufferSeconds));
-  return request(`/api/watch-live/state?${params.toString()}`);
+  return request(`/api/telemetry-tv/state?${params.toString()}`);
 }
 
 // Real track outline derived from one driver's actual location telemetry —
 // see deriveTrackShape() in the backend for how this is picked.
 export function getTrackShape() {
-  return request('/api/watch-live/track-shape');
+  return request('/api/telemetry-tv/track-shape');
 }
 
 // ---------------------------------------------------------------------------

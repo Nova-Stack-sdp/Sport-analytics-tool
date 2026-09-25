@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { fetchBarcelonaRaceRaw } from './openf1.js';
 
 // Maps replay playback time to cached Barcelona OpenF1 state.
-export const watchLiveRouter = Router();
+export const telemetryTVRouter = Router();
 
 // The DB row key for the persisted bundle cache (see ExternalApiCache in
 // schema.prisma). Bumped if the bundle's *shape* ever changes in a way that
@@ -29,7 +29,7 @@ const MAX_BUFFER_SECONDS = 20;
 
 async function fetchAndCacheBarcelonaData() {
   // Imported lazily, not at module top-level: several exports from this
-  // file (buildBarcelonaOpenF1Chunks, createBarcelonaWatchLiveState, etc.)
+  // file (buildBarcelonaOpenF1Chunks, createBarcelonaTelemetryTVState, etc.)
   // are imported directly by tests that never call this function and
   // never need a database connection. lib/prisma.js throws at import time
   // if DATABASE_URL isn't set, which it isn't in the test environment — a
@@ -124,7 +124,7 @@ function buildPrecomputedIndex(bundle, chunks) {
   }))).filter((lap) => Number.isFinite(lap._startMs))
     .sort((a, b) => a._startMs - b._startMs);
 
-  // Pre-group laps by driver (sorted by start time) so createBarcelonaWatchLiveState
+  // Pre-group laps by driver (sorted by start time) so createBarcelonaTelemetryTVState
   // can binary-search per driver instead of linearly scanning all laps every call.
   const lapsByDriver = new Map();
   for (const lap of allLaps) {
@@ -150,7 +150,7 @@ function buildPrecomputedIndex(bundle, chunks) {
 }
 
 // Triggers the one-time OpenF1 fetch in the background so the cache is warm
-// by the time a user hits the watch-live page. Called from server.js at
+// by the time a user hits the TelemetryTV page. Called from server.js at
 // startup — failures are logged but never fatal.
 export function prewarmBarcelonaCache() {
   getBarcelonaOpenF1Data().catch((err) => {
@@ -158,7 +158,7 @@ export function prewarmBarcelonaCache() {
   });
 }
 
-watchLiveRouter.get('/', async (req, res, next) => {
+telemetryTVRouter.get('/', async (req, res, next) => {
   try {
     const { bundle } = await getBarcelonaOpenF1Data();
     res.json(bundle);
@@ -470,7 +470,7 @@ function normalizeDriver(driver) {
   };
 }
 
-export function createBarcelonaWatchLiveState(videoSeconds, bundle, chunks) {
+export function createBarcelonaTelemetryTVState(videoSeconds, bundle, chunks) {
   const mapping = mapBarcelonaVideoTime(videoSeconds);
   if (!mapping) return null;
 
@@ -682,14 +682,14 @@ export function getBarcelonaCachedState(videoSeconds, bundle, chunks, cache = Ba
   let snapshot = cache.get(snapshotSecond);
 
   if (!snapshot) {
-    snapshot = createBarcelonaWatchLiveState(snapshotSecond, bundle, chunks);
+    snapshot = createBarcelonaTelemetryTVState(snapshotSecond, bundle, chunks);
     cache.set(snapshotSecond, snapshot);
   }
 
   return snapshot;
 }
 
-export function createBarcelonaWatchLiveBuffer(videoSeconds, bufferSeconds, bundle, chunks, cache) {
+export function createBarcelonaTelemetryTVBuffer(videoSeconds, bufferSeconds, bundle, chunks, cache) {
   const bufferStartSeconds = Math.floor(videoSeconds);
   const finalVideoSecond = Barcelona_video_chunks.at(-1).videoEndSeconds;
   const bufferEndSeconds = Math.min(bufferStartSeconds + bufferSeconds, finalVideoSecond);
@@ -794,7 +794,7 @@ async function readStaticTrackShape() {
   }
 }
 
-watchLiveRouter.get('/track-shape', async (req, res, next) => {
+telemetryTVRouter.get('/track-shape', async (req, res, next) => {
   try {
     const { bundle } = await getBarcelonaOpenF1Data();
     const liveShape = deriveTrackShape(bundle);
@@ -813,7 +813,7 @@ watchLiveRouter.get('/track-shape', async (req, res, next) => {
   }
 });
 
-watchLiveRouter.get('/state', async (req, res, next) => {
+telemetryTVRouter.get('/state', async (req, res, next) => {
   const value = req.query.videoSeconds;
   const videoSeconds = typeof value === 'string' && value.trim() !== '' ? Number(value) : Number.NaN;
   if (!Number.isFinite(videoSeconds)) {
@@ -843,7 +843,7 @@ watchLiveRouter.get('/state', async (req, res, next) => {
   try {
     const { bundle, chunks } = await getBarcelonaOpenF1Data();
     if (bufferSeconds != null) {
-      return res.json(createBarcelonaWatchLiveBuffer(videoSeconds, bufferSeconds, bundle, chunks));
+      return res.json(createBarcelonaTelemetryTVBuffer(videoSeconds, bufferSeconds, bundle, chunks));
     }
 
     return res.json(getBarcelonaCachedState(videoSeconds, bundle, chunks));

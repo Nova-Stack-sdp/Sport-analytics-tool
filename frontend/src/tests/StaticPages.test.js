@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import AdminPage from '../pages/AdminPage';
 import DatasetsPage from '../pages/DatasetsPage';
 import SubmissionsPage from '../pages/SubmissionsPage';
-import WatchLivePage from '../pages/WatchLivePage';
+import TelemetryTVPage from '../pages/TelemetryTVPage';
 
 describe('static platform pages', () => {
   test('renders the datasets distribution workflow and published releases', () => {
@@ -57,7 +57,7 @@ describe('static platform pages', () => {
   });
 
   test('embeds the live video with safe iframe attributes', () => {
-    render(<WatchLivePage />);
+    render(<TelemetryTVPage />);
     const frame = screen.getByTitle('YouTube video player');
     expect(frame).toHaveAttribute('src', expect.stringContaining('youtube.com/embed'));
     expect(frame).toHaveAttribute('referrerpolicy', 'strict-origin-when-cross-origin');

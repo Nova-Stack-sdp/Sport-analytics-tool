@@ -1,6 +1,6 @@
-import { deriveWatchLiveAnalytics } from './deriveAnalytics';
+import { deriveTelemetryTVAnalytics } from './deriveAnalytics';
 
-describe('deriveWatchLiveAnalytics', () => {
+describe('deriveTelemetryTVAnalytics', () => {
   test('derives five-second position momentum from replay snapshots', () => {
     const previous = {
       videoSeconds: 10,
@@ -20,7 +20,7 @@ describe('deriveWatchLiveAnalytics', () => {
       ],
     };
 
-    expect(deriveWatchLiveAnalytics(current, [previous, current]).leaderboard).toEqual([
+    expect(deriveTelemetryTVAnalytics(current, [previous, current]).leaderboard).toEqual([
       expect.objectContaining({ driverNumber: 44, positionChange: 2, momentum: 'Gaining positions' }),
       expect.objectContaining({ driverNumber: 63, positionChange: -1, momentum: 'Losing positions' }),
       expect.objectContaining({ driverNumber: 12, positionChange: null, momentum: 'Collecting data' }),
