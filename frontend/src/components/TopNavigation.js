@@ -5,9 +5,11 @@ import { auth } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useDeveloperMode } from '../context/DeveloperModeContext';
 import { clearSession } from '../api/client';
+import { readLocalProfile, subscribeToLocalProfile } from '../services/userProfile';
 
 const NAV_ITEMS = [
   { to: '/overview', label: 'Overview' },
+  { to: '/profile', label: 'Profile', requiresAuth: true },
   { to: '/fixtures', label: 'Fixtures & Events' },
   { to: '/statistics', label: 'Statistics' },
   { to: '/teams', label: 'Teams' },
@@ -44,9 +46,16 @@ function TopNav({ theme, onToggleTheme }) {
   // avatar used to end the session immediately.
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmingLogOut, setConfirmingLogOut] = useState(false);
+  const [localProfile, setLocalProfile] = useState(() => readLocalProfile(user));
   const menuRef = useRef(null);
   const avatarRef = useRef(null);
   const confirmRef = useRef(null);
+
+  useEffect(() => {
+    const refreshLocalProfile = () => setLocalProfile(readLocalProfile(user));
+    refreshLocalProfile();
+    return subscribeToLocalProfile(user?.uid, refreshLocalProfile);
+  }, [user]);
 
   const closeMenu = useCallback(() => {
     setMenuOpen(false);
@@ -116,6 +125,10 @@ function TopNav({ theme, onToggleTheme }) {
   }, [user, closeMenu]);
 
   const identity = user ? user.email ?? user.displayName ?? 'you' : null;
+  const avatarUser = user ? {
+    ...user,
+    displayName: localProfile.displayName || user.displayName,
+  } : null;
 
   return (
     <div className="topnav" aria-label="Main navigation">
@@ -153,11 +166,20 @@ function TopNav({ theme, onToggleTheme }) {
                 onClick={() => (menuOpen ? closeMenu() : setMenuOpen(true))}
                 type="button"
               >
-                {initialsFor(user)}
+                {localProfile.photoDataUrl
+                  ? <img src={localProfile.photoDataUrl} alt="" />
+                  : initialsFor(avatarUser)}
               </button>
               {menuOpen && (
                 <div className="avatar-menu">
                   <p className="avatar-menu-identity">Signed in as {identity}</p>
+                  <NavLink
+                    to="/profile"
+                    className="avatar-menu-button"
+                    onClick={closeMenu}
+                  >
+                    View profile
+                  </NavLink>
                   {confirmingLogOut ? (
                     <div
                       className="avatar-menu-confirm"
