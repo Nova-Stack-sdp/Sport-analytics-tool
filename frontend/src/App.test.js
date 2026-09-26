@@ -55,6 +55,13 @@ function emitAuthState(user) {
   });
 }
 
+// Settings is a tab on the Profile page now, not its own nav item.
+async function openSettingsTab() {
+  fireEvent.click(getTopNavLink('Profile'));
+  fireEvent.click(await screen.findByRole('tab', { name: 'Settings' }));
+  await waitFor(() => expect(screen.getByText('Developer mode')).toBeInTheDocument());
+}
+
 function getTopNavLink(name) {
   // The persistent top nav is the only region with aria-label="Main navigation".
   const topnav = screen.getByLabelText('Main navigation');
@@ -106,13 +113,14 @@ test('signed-in users see the logged-in nav links, but Submissions and Datasets 
   await waitFor(() => expect(screen.getAllByText(/Overview/i).length).toBeGreaterThan(0));
 
   expect(screen.getByRole('link', { name: 'Developer' })).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Profile' })).toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'Admin' })).toBeInTheDocument();
   expect(screen.queryByRole('link', { name: 'Submissions' })).not.toBeInTheDocument();
   expect(screen.queryByRole('link', { name: 'Datasets' })).not.toBeInTheDocument();
 });
 
-test('turning on developer mode from Settings reveals Submissions and Datasets in the nav', async () => {
+test('turning on developer mode from Profile → Settings reveals Submissions and Datasets in the nav', async () => {
   const devFlag = { value: false };
   setDeveloperModeOnServer.mockImplementation(async (enabled) => {
     devFlag.value = enabled;
@@ -125,8 +133,7 @@ test('turning on developer mode from Settings reveals Submissions and Datasets i
   fireEvent.click(getTopNavLink('Overview'));
   await waitFor(() => expect(screen.getAllByText(/Overview/i).length).toBeGreaterThan(0));
 
-  fireEvent.click(getTopNavLink('Settings'));
-  await waitFor(() => expect(screen.getByText('Developer mode')).toBeInTheDocument());
+  await openSettingsTab();
 
   fireEvent.click(screen.getByRole('checkbox', { name: /toggle developer mode/i }));
 
@@ -178,8 +185,7 @@ test('nav shows the full Developer console once developer mode is turned on', as
   fireEvent.click(getTopNavLink('Overview'));
   await waitFor(() => expect(screen.getAllByText(/Overview/i).length).toBeGreaterThan(0));
 
-  fireEvent.click(getTopNavLink('Settings'));
-  await waitFor(() => expect(screen.getByText('Developer mode')).toBeInTheDocument());
+  await openSettingsTab();
   fireEvent.click(screen.getByRole('checkbox', { name: /toggle developer mode/i }));
   await waitFor(() => expect(screen.getByRole('checkbox', { name: /toggle developer mode/i })).not.toBeDisabled());
 

@@ -12,7 +12,7 @@ const DeveloperModeContext = createContext({
 // Firebase custom claim on the account (see AuthContext, which owns
 // reading it off the ID token) — this provider just adapts that into the
 // same { isDeveloperMode, setDeveloperMode } shape every consumer
-// (RequireAuth, DeveloperPage, SettingsPage, TopNavigation) already
+// (RequireAuth, DeveloperPage, the Profile page's Settings tab, TopNavigation) already
 // expects, so none of them needed to change.
 export function DeveloperModeProvider({ children }) {
   const { isDeveloperMode, refreshDeveloperMode } = useAuth();

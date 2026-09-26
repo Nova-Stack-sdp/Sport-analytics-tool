@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
 import { clearSession } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useDeveloperMode } from '../context/DeveloperModeContext';
+import SettingsPanel from '../components/profile/SettingsPanel';
 import {
   profileImageToDataUrl,
   readLocalProfile,
@@ -12,7 +13,19 @@ import {
   validateProfileImage,
 } from '../services/userProfile';
 
-const PROFILE_TABS = ['User Profile', 'News Feed', 'Calendar'];
+// Each tab has a URL slug so other pages can link straight to one, e.g.
+// /profile?tab=settings (the old /settings route redirects there).
+const PROFILE_TABS = [
+  { slug: 'profile', label: 'User Profile' },
+  { slug: 'settings', label: 'Settings' },
+  { slug: 'news', label: 'News Feed' },
+  { slug: 'calendar', label: 'Calendar' },
+];
+const DEFAULT_TAB = PROFILE_TABS[0].slug;
+
+function tabFromParam(value) {
+  return PROFILE_TABS.some((tab) => tab.slug === value) ? value : DEFAULT_TAB;
+}
 
 function initialsFor(name, email) {
   const parts = (name || '').trim().split(/\s+/).filter(Boolean);
@@ -48,7 +61,14 @@ function ProfilePage() {
   const [selectedPhotoName, setSelectedPhotoName] = useState('');
   const [saveState, setSaveState] = useState('idle');
   const [message, setMessage] = useState('');
-  const [activeTab, setActiveTab] = useState('User Profile');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = tabFromParam(searchParams.get('tab'));
+
+  const selectTab = (slug) => {
+    // replace, not push: flicking between tabs shouldn't fill up the back
+    // button history.
+    setSearchParams(slug === DEFAULT_TAB ? {} : { tab: slug }, { replace: true });
+  };
 
   useEffect(() => {
     const savedProfile = readLocalProfile(user);
@@ -126,26 +146,28 @@ function ProfilePage() {
       <div className="pagehead profile-pagehead">
         <div className="section-eyebrow">Your account</div>
         <div className="section-title">Profile</div>
-        <div className="section-desc">Manage how your account appears in this browser.</div>
+        <div className="section-desc">Manage how your account appears and how the site behaves for you.</div>
       </div>
 
       <div className="content profile-content">
         <div className="tabs profile-tabs" role="tablist" aria-label="User dashboard sections">
           {PROFILE_TABS.map((tab) => (
             <button
-              key={tab}
-              className={`tab${activeTab === tab ? ' active' : ''}`}
+              key={tab.slug}
+              className={`tab${activeTab === tab.slug ? ' active' : ''}`}
               type="button"
               role="tab"
-              aria-selected={activeTab === tab}
-              onClick={() => setActiveTab(tab)}
+              aria-selected={activeTab === tab.slug}
+              onClick={() => selectTab(tab.slug)}
             >
-              {tab}
+              {tab.label}
             </button>
           ))}
         </div>
 
-        {activeTab === 'User Profile' && (
+        {activeTab === 'settings' && <SettingsPanel />}
+
+        {activeTab === 'profile' && (
           <>
         <section className="profile-hero" aria-labelledby="profile-name">
           <div className="profile-avatar-wrap">
@@ -175,7 +197,13 @@ function ProfilePage() {
               </span>
             </div>
           </div>
-          <Link to="/settings" className="btn btn-ghost profile-settings-link">Account settings</Link>
+          <button
+            type="button"
+            className="btn btn-ghost profile-settings-link"
+            onClick={() => selectTab('settings')}
+          >
+            Account settings
+          </button>
         </section>
 
         <div className="profile-grid">
@@ -247,10 +275,10 @@ function ProfilePage() {
             <span>Follow the race with synchronized analytics.</span>
             <b aria-hidden="true">→</b>
           </Link>
-          <Link to="/settings" className="profile-action-card">
+          <Link to="/profile?tab=settings" className="profile-action-card">
             <span className="profile-action-index">02</span>
             <strong>Settings</strong>
-            <span>Manage developer mode and account preferences.</span>
+            <span>Manage developer mode and your site preferences.</span>
             <b aria-hidden="true">→</b>
           </Link>
           <Link to="/developer" className="profile-action-card">

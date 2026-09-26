@@ -32,7 +32,7 @@ function DeveloperExplainer() {
           </div>
           <ol className="developer-steps">
             <li>
-              Go to <Link to="/settings">Settings</Link>.
+              Go to <Link to="/profile?tab=settings">Profile → Settings</Link>.
             </li>
             <li>Find the <b>Developer mode</b> toggle.</li>
             <li>Switch it on.</li>
@@ -41,7 +41,7 @@ function DeveloperExplainer() {
             You can switch it off again at any time from the same place — it doesn't affect anything
             you've already submitted.
           </div>
-          <Link to="/settings" className="btn btn-ghost btn-full" style={{ marginTop: 14 }}>
+          <Link to="/profile?tab=settings" className="btn btn-ghost btn-full" style={{ marginTop: 14 }}>
             Go to Settings
           </Link>
         </div>

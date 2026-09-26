@@ -10,6 +10,14 @@ jest.mock('../pages/SubmissionsPage', () => ({ __esModule: true, default: () => 
 jest.mock('../pages/TimeTravelPage', () => ({ __esModule: true, default: () => <div>Time travel route</div> }));
 jest.mock('../pages/DatasetsPage', () => ({ __esModule: true, default: () => <div>Datasets route</div> }));
 jest.mock('../pages/DeveloperPage', () => ({ __esModule: true, default: () => <div>Developer route</div> }));
+jest.mock('../pages/ProfilePage', () => ({
+  __esModule: true,
+  default: function MockProfile() {
+    const { useLocation } = require('react-router-dom');
+    const location = useLocation();
+    return <div>Profile route {location.search}</div>;
+  },
+}));
 jest.mock('../pages/AdminPage', () => ({ __esModule: true, default: () => <div>Admin route</div> }));
 jest.mock('../pages/SignInPage', () => ({ __esModule: true, default: () => <div>Sign in route</div> }));
 jest.mock('../pages/SignUpPage', () => ({ __esModule: true, default: () => <div>Sign up route</div> }));
@@ -41,5 +49,11 @@ describe('AppRoutes', () => {
     renderRoutes(path);
 
     expect(screen.getByText(page)).toBeInTheDocument();
+  });
+
+  test('redirects the old /settings URL to the Settings tab on Profile', () => {
+    renderRoutes('/settings');
+
+    expect(screen.getByText('Profile route ?tab=settings')).toBeInTheDocument();
   });
 });

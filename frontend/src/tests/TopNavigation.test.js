@@ -76,22 +76,23 @@ describe('TopNavigation', () => {
 
     expect(screen.getByRole('link', { name: 'Overview' })).toHaveClass('active');
     expect(screen.getByRole('link', { name: 'Developer' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Profile' })).toHaveAttribute('href', '/profile');
+    // Settings is a tab inside Profile now, not its own nav item.
+    expect(screen.queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Admin' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Submissions' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Datasets' })).not.toBeInTheDocument();
   });
 
-  test('places Profile immediately after Overview for signed-in users', () => {
+  test('places Profile where Settings used to be — after Developer, before Admin', () => {
     renderNav({
       user: { uid: 'user-123', displayName: 'Max Verstappen', email: 'max@example.test' },
     });
 
     const navLinks = screen.getByLabelText('Main navigation').querySelectorAll('.nav-items a');
-    expect(Array.from(navLinks).slice(0, 2).map((link) => link.textContent)).toEqual([
-      'Overview',
-      'Profile',
-    ]);
+    const labels = Array.from(navLinks).map((link) => link.textContent);
+    expect(labels[1]).not.toBe('Profile');
+    expect(labels.slice(-3)).toEqual(['Developer', 'Profile', 'Admin']);
   });
 
   test('shows Datasets and Submissions once developer mode is on, plus display-name initials', () => {

@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import WelcomePage from '../pages/WelcomePage';
 import OverviewPage from '../pages/OverviewPage';
 import FixturesEventsPage from '../pages/FixturesEventsPage';
@@ -9,7 +9,6 @@ import DatasetsPage from '../pages/DatasetsPage';
 import DeveloperPage from '../pages/DeveloperPage';
 import ApiDocsPage from '../pages/ApiDocsPage';
 import AdminPage from '../pages/AdminPage';
-import SettingsPage from '../pages/SettingsPage';
 import ProfilePage from '../pages/ProfilePage';
 import WatchLivePage from '../pages/WatchLivePage';
 import SignInPage from '../pages/SignInPage';
@@ -38,7 +37,8 @@ function AppRoutes() {
       <Route path="/datasets" element={<RequireAuth role="developer"><DatasetsPage /></RequireAuth>} />
       <Route path="/developer" element={<RequireAuth><DeveloperPage /></RequireAuth>} />
       <Route path="/developer/api-docs" element={<RequireAuth role="developer"><ApiDocsPage /></RequireAuth>} />
-      <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
+      {/* Settings now lives as a tab on Profile — keep old links working. */}
+      <Route path="/settings" element={<Navigate to="/profile?tab=settings" replace />} />
       <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
       <Route path="/admin" element={<RequireAuth><AdminPage /></RequireAuth>} />
 

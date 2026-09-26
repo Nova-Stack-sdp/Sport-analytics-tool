@@ -9,7 +9,6 @@ import { readLocalProfile, subscribeToLocalProfile } from '../services/userProfi
 
 const NAV_ITEMS = [
   { to: '/overview', label: 'Overview' },
-  { to: '/profile', label: 'Profile', requiresAuth: true },
   { to: '/fixtures', label: 'Fixtures & Events' },
   { to: '/statistics', label: 'Statistics' },
   { to: '/teams', label: 'Teams' },
@@ -24,7 +23,8 @@ const NAV_ITEMS = [
   // Developer is visible to every signed-in user — it explains the role
   // and how to turn it on for those who don't have it yet.
   { to: '/developer', label: 'Developer', requiresAuth: true },
-  { to: '/settings', label: 'Settings', requiresAuth: true },
+  // Profile sits where Settings used to — Settings is now a tab inside it.
+  { to: '/profile', label: 'Profile', requiresAuth: true },
   { to: '/admin', label: 'Admin', requiresAuth: true },
 ];
 

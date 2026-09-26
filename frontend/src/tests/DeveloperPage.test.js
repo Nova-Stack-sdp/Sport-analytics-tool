@@ -25,7 +25,7 @@ describe('DeveloperPage', () => {
     renderDeveloperPage();
 
     expect(screen.getByText(/how to turn on developer mode/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /go to settings/i })).toHaveAttribute('href', '/settings');
+    expect(screen.getByRole('link', { name: /go to settings/i })).toHaveAttribute('href', '/profile?tab=settings');
     expect(screen.queryByText('API endpoints')).not.toBeInTheDocument();
   });
 

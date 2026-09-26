@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import SettingsPage from '../pages/SettingsPage';
+import SettingsPanel from '../components/profile/SettingsPanel';
 
 const mockSetDeveloperMode = jest.fn();
 let mockIsDeveloperMode = false;
@@ -8,7 +8,7 @@ jest.mock('../context/DeveloperModeContext', () => ({
   useDeveloperMode: () => ({ isDeveloperMode: mockIsDeveloperMode, setDeveloperMode: mockSetDeveloperMode }),
 }));
 
-describe('SettingsPage', () => {
+describe('SettingsPanel', () => {
   afterEach(() => {
     mockIsDeveloperMode = false;
     mockSetDeveloperMode.mockReset();
@@ -16,14 +16,14 @@ describe('SettingsPage', () => {
 
   test('reflects the current developer mode state', () => {
     mockIsDeveloperMode = true;
-    render(<SettingsPage />);
+    render(<SettingsPanel />);
 
     expect(screen.getByRole('checkbox', { name: /toggle developer mode/i })).toBeChecked();
   });
 
   test('toggling the switch calls setDeveloperMode with the new value', async () => {
     mockSetDeveloperMode.mockResolvedValue();
-    render(<SettingsPage />);
+    render(<SettingsPanel />);
 
     fireEvent.click(screen.getByRole('checkbox', { name: /toggle developer mode/i }));
 
@@ -33,7 +33,7 @@ describe('SettingsPage', () => {
   test('disables the switch while the change is saving', async () => {
     let resolveSave;
     mockSetDeveloperMode.mockReturnValue(new Promise((resolve) => { resolveSave = resolve; }));
-    render(<SettingsPage />);
+    render(<SettingsPanel />);
 
     fireEvent.click(screen.getByRole('checkbox', { name: /toggle developer mode/i }));
 
@@ -47,7 +47,7 @@ describe('SettingsPage', () => {
 
   test('shows an error message when saving fails, without crashing', async () => {
     mockSetDeveloperMode.mockRejectedValue(new Error('network down'));
-    render(<SettingsPage />);
+    render(<SettingsPanel />);
 
     fireEvent.click(screen.getByRole('checkbox', { name: /toggle developer mode/i }));
 
