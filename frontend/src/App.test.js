@@ -73,6 +73,7 @@ function getTopNavLink(name) {
 }
 
 beforeEach(() => {
+  window.localStorage.clear();
   window.history.pushState({}, '', '/');
   auth.currentUser = null;
   setDeveloperModeOnServer.mockReset();
@@ -241,4 +242,25 @@ test('the hero banner\'s live fixture link works once signed in', async () => {
   fireEvent.click(screen.getByText('Open live fixture'));
 
   await waitFor(() => expect(screen.getByText('Event log')).toBeInTheDocument());
+});
+
+test('the nav theme button flips the theme and remembers it as a preference', () => {
+  render(<App />);
+  expect(document.documentElement.dataset.theme).toBe('dark');
+
+  fireEvent.click(screen.getByTitle('Toggle dark mode'));
+
+  expect(document.documentElement.dataset.theme).toBe('light');
+  expect(JSON.parse(window.localStorage.getItem('f1-analytics-preferences')).theme).toBe('light');
+});
+
+test('applies saved density and reduce-motion preferences to the page', () => {
+  window.localStorage.setItem(
+    'f1-analytics-preferences',
+    JSON.stringify({ density: 'compact', reduceMotion: true })
+  );
+  render(<App />);
+
+  expect(document.documentElement.dataset.density).toBe('compact');
+  expect(document.documentElement.dataset.reduceMotion).toBe('true');
 });

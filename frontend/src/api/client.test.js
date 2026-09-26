@@ -81,7 +81,8 @@ describe('API client', () => {
 
     await client.getTeams();
 
-    expect(global.fetch).toHaveBeenCalledWith('https://api.example.test/api/teams');
+    // Every request also carries { credentials: 'include' } for the session cookie.
+    expect(global.fetch).toHaveBeenCalledWith('https://api.example.test/api/teams', expect.any(Object));
   });
 
   test('rejects with a useful status message when the backend responds unsuccessfully', async () => {

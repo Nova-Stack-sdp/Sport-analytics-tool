@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getRaceReplayState, getRaceReplayTrackShape } from '../../api/client';
+import { usePreferences } from '../../context/PreferencesContext';
+import { REPLAY_SPEEDS } from '../../services/preferences';
 
-const SPEEDS = [0.5, 1, 2, 4, 16, 60];
+// Shared with Profile → Settings, where the default speed is picked.
+const SPEEDS = REPLAY_SPEEDS;
+const FALLBACK_SPEED_INDEX = SPEEDS.indexOf(1);
 // The replay clock is LAP NUMBER, not seconds into a broadcast (see
 // raceReplay.js on the backend for why — several event types only carry a
 // lap range, not a real timestamp). One lap advances every BASE_TICK_MS /
@@ -20,9 +24,15 @@ const SPEEDS = [0.5, 1, 2, 4, 16, 60];
 export const BASE_TICK_MS = 10000;
 
 export function useRaceReplaySnapshots(sessionId) {
+  const { preferences } = usePreferences();
   const [lap, setLap] = useState(0);
   const [playing, setPlaying] = useState(true);
-  const [speedIndex, setSpeedIndex] = useState(1);
+  // Starts at the "Default speed" from Settings; the speed button still
+  // cycles through every speed from there.
+  const [speedIndex, setSpeedIndex] = useState(() => {
+    const index = SPEEDS.indexOf(preferences.replaySpeed);
+    return index >= 0 ? index : FALLBACK_SPEED_INDEX;
+  });
   const [snapshot, setSnapshot] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
