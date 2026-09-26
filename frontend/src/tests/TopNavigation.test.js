@@ -61,6 +61,9 @@ describe('TopNavigation', () => {
     expect(screen.queryByRole('link', { name: 'Submissions' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'SignIn' })).toHaveAttribute('href', '/sign-in');
     expect(screen.getByText('☀')).toBeInTheDocument();
+    // The static "2026 Season ▾" pill was removed — it looked like a picker
+    // but didn't do anything.
+    expect(screen.queryByText(/2026 Season/)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByTitle('Toggle dark mode'));
 

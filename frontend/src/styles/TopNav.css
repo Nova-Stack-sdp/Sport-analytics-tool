@@ -129,16 +129,6 @@
   animation: pulse-live 1.4s infinite, live-blink 0.9s steps(2, end) infinite;
 }
 
-.season-pill {
-  padding: 8px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.06);
-  color: #fff5f5;
-  font-size: 15px;
-  font-weight: 700;
-}
-
 .avatar {
   display: flex;
   align-items: center;
