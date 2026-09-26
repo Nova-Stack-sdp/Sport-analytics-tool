@@ -3,9 +3,7 @@ import WelcomePage from '../pages/WelcomePage';
 import OverviewPage from '../pages/OverviewPage';
 import FixturesEventsPage from '../pages/FixturesEventsPage';
 import StatisticsPage from '../pages/StatisticsPage';
-import SubmissionsPage from '../pages/SubmissionsPage';
 import TimeTravelPage from '../pages/TimeTravelPage';
-import DatasetsPage from '../pages/DatasetsPage';
 import DeveloperPage from '../pages/DeveloperPage';
 import ApiDocsPage from '../pages/ApiDocsPage';
 import AdminPage from '../pages/AdminPage';
@@ -32,9 +30,10 @@ function AppRoutes() {
       <Route path="/overview" element={<OverviewPage />} />
       <Route path="/fixtures" element={<FixturesEventsPage />} />
       <Route path="/statistics" element={<StatisticsPage />} />
-      <Route path="/submissions" element={<RequireAuth role="developer"><SubmissionsPage /></RequireAuth>} />
+      {/* Datasets and Submissions are tabs on the Developer page now. */}
+      <Route path="/submissions" element={<Navigate to="/developer?tab=submissions" replace />} />
       <Route path="/timetravel" element={<TimeTravelPage />} />
-      <Route path="/datasets" element={<RequireAuth role="developer"><DatasetsPage /></RequireAuth>} />
+      <Route path="/datasets" element={<Navigate to="/developer?tab=datasets" replace />} />
       <Route path="/developer" element={<RequireAuth><DeveloperPage /></RequireAuth>} />
       <Route path="/developer/api-docs" element={<RequireAuth role="developer"><ApiDocsPage /></RequireAuth>} />
       {/* Settings now lives as a tab on Profile — keep old links working. */}

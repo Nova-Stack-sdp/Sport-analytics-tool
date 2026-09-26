@@ -95,7 +95,7 @@ describe('TopNavigation', () => {
     expect(labels.slice(-3)).toEqual(['Developer', 'Profile', 'Admin']);
   });
 
-  test('shows Datasets and Submissions once developer mode is on, plus display-name initials', () => {
+  test('keeps Datasets and Submissions out of the nav even in developer mode (they are Developer tabs), plus display-name initials', () => {
     mockIsDeveloperMode = true;
     renderNav({
       user: { displayName: 'Max Verstappen', email: 'max@example.test' },
@@ -104,8 +104,8 @@ describe('TopNavigation', () => {
     });
 
     expect(screen.getByRole('link', { name: 'Overview' })).toHaveClass('active');
-    expect(screen.getByRole('link', { name: 'Submissions' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Datasets' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Submissions' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Datasets' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Developer' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Admin' })).toBeInTheDocument();
     // Clicking the avatar opens the account menu now, so the title only

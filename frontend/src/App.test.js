@@ -105,7 +105,7 @@ test('signed-out users never see links to Submissions, Datasets, Developer, or A
   expect(screen.queryByRole('link', { name: 'Admin' })).not.toBeInTheDocument();
 });
 
-test('signed-in users see the logged-in nav links, but Submissions and Datasets stay hidden until developer mode is on', async () => {
+test('signed-in users see the logged-in nav links, and Submissions and Datasets are never nav links', async () => {
   render(<App />);
   emitAuthState(fakeFirebaseUser());
 
@@ -120,7 +120,7 @@ test('signed-in users see the logged-in nav links, but Submissions and Datasets 
   expect(screen.queryByRole('link', { name: 'Datasets' })).not.toBeInTheDocument();
 });
 
-test('turning on developer mode from Profile → Settings reveals Submissions and Datasets in the nav', async () => {
+test('turning on developer mode from Profile → Settings unlocks the Datasets and Submissions tabs on Developer', async () => {
   const devFlag = { value: false };
   setDeveloperModeOnServer.mockImplementation(async (enabled) => {
     devFlag.value = enabled;
@@ -136,9 +136,14 @@ test('turning on developer mode from Profile → Settings reveals Submissions an
   await openSettingsTab();
 
   fireEvent.click(screen.getByRole('checkbox', { name: /toggle developer mode/i }));
+  await waitFor(() => expect(screen.getByRole('checkbox', { name: /toggle developer mode/i })).toBeChecked());
 
-  await waitFor(() => expect(screen.getByRole('link', { name: 'Submissions' })).toBeInTheDocument());
-  expect(screen.getByRole('link', { name: 'Datasets' })).toBeInTheDocument();
+  fireEvent.click(getTopNavLink('Developer'));
+  expect(await screen.findByRole('tab', { name: 'Datasets' })).toBeInTheDocument();
+  expect(screen.getByRole('tab', { name: 'Submissions' })).toBeInTheDocument();
+  // They're tabs now, never nav links.
+  expect(screen.queryByRole('link', { name: 'Submissions' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Datasets' })).not.toBeInTheDocument();
 });
 
 test('a signed-out user who navigates straight to /submissions by URL is redirected to sign-in', async () => {

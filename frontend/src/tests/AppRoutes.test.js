@@ -6,10 +6,15 @@ jest.mock('../pages/WelcomePage', () => ({ __esModule: true, default: () => <div
 jest.mock('../pages/OverviewPage', () => ({ __esModule: true, default: () => <div>Overview route</div> }));
 jest.mock('../pages/FixturesEventsPage', () => ({ __esModule: true, default: () => <div>Fixtures route</div> }));
 jest.mock('../pages/StatisticsPage', () => ({ __esModule: true, default: () => <div>Statistics route</div> }));
-jest.mock('../pages/SubmissionsPage', () => ({ __esModule: true, default: () => <div>Submissions route</div> }));
 jest.mock('../pages/TimeTravelPage', () => ({ __esModule: true, default: () => <div>Time travel route</div> }));
-jest.mock('../pages/DatasetsPage', () => ({ __esModule: true, default: () => <div>Datasets route</div> }));
-jest.mock('../pages/DeveloperPage', () => ({ __esModule: true, default: () => <div>Developer route</div> }));
+jest.mock('../pages/DeveloperPage', () => ({
+  __esModule: true,
+  default: function MockDeveloper() {
+    const { useLocation } = require('react-router-dom');
+    const location = useLocation();
+    return <div>Developer route {location.search}</div>;
+  },
+}));
 jest.mock('../pages/ProfilePage', () => ({
   __esModule: true,
   default: function MockProfile() {
@@ -46,6 +51,15 @@ describe('AppRoutes', () => {
     ['/drivers', 'Drivers route'],
     ['/driver/max-verstappen', 'Driver detail route'],
   ])('renders %s with its public route component', (path, page) => {
+    renderRoutes(path);
+
+    expect(screen.getByText(page)).toBeInTheDocument();
+  });
+
+  test.each([
+    ['/datasets', 'Developer route ?tab=datasets'],
+    ['/submissions', 'Developer route ?tab=submissions'],
+  ])('redirects the old %s URL to its tab on Developer', (path, page) => {
     renderRoutes(path);
 
     expect(screen.getByText(page)).toBeInTheDocument();
