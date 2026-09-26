@@ -28,6 +28,7 @@ jest.mock('firebase/auth', () => ({
   signOut: jest.fn().mockResolvedValue(),
 }));
 jest.mock('../api/client', () => ({ clearSession: jest.fn().mockResolvedValue() }));
+jest.mock('../components/profile/NewsFeedPanel', () => () => <div>Live F1 news panel</div>);
 
 describe('ProfilePage', () => {
   beforeEach(() => window.localStorage.clear());
@@ -42,7 +43,7 @@ describe('ProfilePage', () => {
     expect(screen.getByText('Standard access')).toBeInTheDocument();
   });
 
-  test('shows User Profile, News Feed, and Calendar tabs with empty future sections', () => {
+  test('shows the profile dashboard tabs and opens the live news panel', () => {
     render(<MemoryRouter><ProfilePage /></MemoryRouter>);
 
     expect(screen.getByRole('tab', { name: 'User Profile' })).toHaveAttribute('aria-selected', 'true');
@@ -52,6 +53,7 @@ describe('ProfilePage', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'News Feed' }));
 
     expect(screen.getByRole('tab', { name: 'News Feed' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('Live F1 news panel')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Alex Morgan' })).not.toBeInTheDocument();
   });
 

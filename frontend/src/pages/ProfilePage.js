@@ -5,6 +5,7 @@ import { auth } from '../firebase';
 import { clearSession } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useDeveloperMode } from '../context/DeveloperModeContext';
+import NewsFeedPanel from '../components/profile/NewsFeedPanel';
 import {
   profileImageToDataUrl,
   readLocalProfile,
@@ -270,6 +271,7 @@ function ProfilePage() {
         </section>
           </>
         )}
+        {activeTab === 'News Feed' && <NewsFeedPanel />}
       </div>
     </div>
   );
