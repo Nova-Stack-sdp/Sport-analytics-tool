@@ -3,17 +3,17 @@ import { useAuth } from '../context/AuthContext';
 import { useDeveloperMode } from '../context/DeveloperModeContext';
 
 // Guards a route behind the signed-in state, and optionally a role on
-// top of that. `role="developer"` is the only role this component knows
-// about for now — admin gating is deferred (see project notes: the
-// admin role will be wired through Firebase custom claims later, and
-// isn't part of this pass).
+// top of that:
 //
-// A signed-in user who lacks the required role is sent to /developer
-// rather than /sign-in — they ARE allowed in the app, they're just
-// missing a role, so the useful place to land them is the page that
-// explains how to get that role, not the sign-in screen.
+//   role="developer" — the user's own developer-mode flag. Without it they
+//     go to /developer, which explains how to turn it on (they ARE allowed
+//     in the app, they're just missing a role — so not /sign-in).
+//   role="admin" — the user's UID must be on the backend's ADMIN_UIDS list
+//     (AuthContext asks the backend; see backend/src/lib/adminAccess.js).
+//     Non-admins go to /overview: there's no way to request admin access
+//     from the site, so there's nothing to explain.
 function RequireAuth({ children, role }) {
-  const { user, loading } = useAuth();
+  const { user, loading, isAdmin } = useAuth();
   const { isDeveloperMode } = useDeveloperMode();
   const location = useLocation();
 
@@ -29,6 +29,10 @@ function RequireAuth({ children, role }) {
 
   if (role === 'developer' && !isDeveloperMode) {
     return <Navigate to="/developer" state={{ from: location }} replace />;
+  }
+
+  if (role === 'admin' && !isAdmin) {
+    return <Navigate to="/overview" replace />;
   }
 
   return children;

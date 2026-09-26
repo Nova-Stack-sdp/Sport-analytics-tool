@@ -10,13 +10,16 @@
  * Endpoints:
  *   POST /api/auth/session         — token exchange (Firebase ID token → cookie)
  *   POST /api/auth/logout          — clear the cookie
- *   GET  /api/auth/me              — check cookie, return current user or 401
+ *   GET  /api/auth/me              — check cookie (or Bearer token), return
+ *                                    current user (incl. developer/admin) or 401
+ *   GET  /api/auth/admin-check     — 200 for admins, 403 for everyone else
  *   POST /api/auth/developer-mode  — set the `developer` custom claim on the
  *                                    signed-in user's own Firebase account
  */
 import { Router } from 'express';
 import admin from 'firebase-admin';
-import { requireAuth, getAdminApp } from '../middleware/requireAuth.js';
+import { requireAuth, requireAdmin, getAdminApp } from '../middleware/requireAuth.js';
+import { isAdminUid } from '../lib/adminAccess.js';
 
 export const authRouter = Router();
 
@@ -56,7 +59,7 @@ authRouter.post('/session', async (req, res, next) => {
     const decoded = await admin.auth(app).verifyIdToken(idToken);
 
     res.cookie(COOKIE_NAME, idToken, cookieOptions());
-    res.json({ uid: decoded.uid, email: decoded.email ?? null });
+    res.json({ uid: decoded.uid, email: decoded.email ?? null, admin: isAdminUid(decoded.uid) });
   } catch (err) {
     // Distinguish misconfiguration from bad tokens, same convention as
     // requireAuth.
@@ -82,7 +85,23 @@ authRouter.post('/logout', (req, res) => {
 authRouter.get('/me', requireAuth, (req, res) => {
   // requireAuth already verified the token (from cookie or Bearer
   // header) and attached req.user, so we just echo it back.
-  res.json({ uid: req.user.uid, email: req.user.email, developer: req.user.developer });
+  res.json({
+    uid: req.user.uid,
+    email: req.user.email,
+    developer: req.user.developer,
+    admin: req.user.admin,
+  });
+});
+
+// ------------------------------------------------------------------
+// GET /api/auth/admin-check — is the caller an admin?
+// ------------------------------------------------------------------
+// The first route guarded by requireAdmin. The Admin page itself is still
+// static UI, so nothing else needs protecting yet — but this proves the
+// server-side check end to end, and it's the pattern to copy for real
+// admin endpoints later.
+authRouter.get('/admin-check', requireAuth, requireAdmin, (req, res) => {
+  res.json({ admin: true });
 });
 
 // ------------------------------------------------------------------

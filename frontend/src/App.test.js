@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import App from './App';
 import { auth } from './firebase';
-import { setDeveloperModeOnServer } from './api/client';
+import { getSession, setDeveloperModeOnServer } from './api/client';
 
 // AuthContext drives everything route-protection-related, so control it
 // directly here rather than letting real Firebase try to restore a session
@@ -26,6 +26,9 @@ jest.mock('firebase/auth', () => ({
 jest.mock('./api/client', () => ({
   ...jest.requireActual('./api/client'),
   setDeveloperModeOnServer: jest.fn(),
+  // Controls the backend's answer to "is this user an admin?" (and the
+  // cookie-session fallback). Rejecting = no backend session / not admin.
+  getSession: jest.fn(),
 }));
 
 // A stand-in for a real Firebase User. `devFlag` is a { value } ref so a
@@ -73,6 +76,8 @@ beforeEach(() => {
   window.history.pushState({}, '', '/');
   auth.currentUser = null;
   setDeveloperModeOnServer.mockReset();
+  getSession.mockReset();
+  getSession.mockRejectedValue(new Error('no backend session'));
 });
 
 test('renders the welcome page by default, with the persistent top nav', () => {
@@ -115,7 +120,8 @@ test('signed-in users see the logged-in nav links, and Submissions and Datasets 
   expect(screen.getByRole('link', { name: 'Developer' })).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'Profile' })).toBeInTheDocument();
   expect(screen.queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument();
-  expect(screen.getByRole('link', { name: 'Admin' })).toBeInTheDocument();
+  // Not on the backend's admin list.
+  expect(screen.queryByRole('link', { name: 'Admin' })).not.toBeInTheDocument();
   expect(screen.queryByRole('link', { name: 'Submissions' })).not.toBeInTheDocument();
   expect(screen.queryByRole('link', { name: 'Datasets' })).not.toBeInTheDocument();
 });
@@ -144,6 +150,35 @@ test('turning on developer mode from Profile → Settings unlocks the Datasets a
   // They're tabs now, never nav links.
   expect(screen.queryByRole('link', { name: 'Submissions' })).not.toBeInTheDocument();
   expect(screen.queryByRole('link', { name: 'Datasets' })).not.toBeInTheDocument();
+});
+
+test('an admin (per the backend) sees the Admin link and can open the Admin page', async () => {
+  getSession.mockResolvedValue({ uid: 'boss', admin: true });
+  render(<App />);
+  await act(async () => {
+    auth.currentUser = fakeFirebaseUser({ uid: 'boss' });
+    authCallback(auth.currentUser);
+  });
+
+  fireEvent.click(await waitFor(() => {
+    const link = getTopNavLink('Admin');
+    expect(link).toBeDefined();
+    return link;
+  }));
+
+  expect(await screen.findByText('Submitter accounts')).toBeInTheDocument();
+});
+
+test('a signed-in non-admin who goes straight to /admin by URL lands on Overview instead', async () => {
+  window.history.pushState({}, '', '/admin');
+  render(<App />);
+  await act(async () => {
+    auth.currentUser = fakeFirebaseUser();
+    authCallback(auth.currentUser);
+  });
+
+  await waitFor(() => expect(window.location.pathname).toBe('/overview'));
+  expect(screen.queryByText('Submitter accounts')).not.toBeInTheDocument();
 });
 
 test('a signed-out user who navigates straight to /submissions by URL is redirected to sign-in', async () => {

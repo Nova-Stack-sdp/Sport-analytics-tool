@@ -21,7 +21,8 @@ const NAV_ITEMS = [
   { to: '/developer', label: 'Developer', requiresAuth: true },
   // Profile sits where Settings used to — Settings is now a tab inside it.
   { to: '/profile', label: 'Profile', requiresAuth: true },
-  { to: '/admin', label: 'Admin', requiresAuth: true },
+  // Only for UIDs on the backend's ADMIN_UIDS list (see AuthContext).
+  { to: '/admin', label: 'Admin', requiresAuth: true, requiresAdmin: true },
 ];
 
 function navItemClass({ isActive }) {
@@ -34,7 +35,7 @@ function initialsFor(user) {
 }
 
 function TopNav({ theme, onToggleTheme }) {
-  const { user, signOut: clearAuth } = useAuth();
+  const { user, isAdmin, signOut: clearAuth } = useAuth();
   const { isDeveloperMode } = useDeveloperMode();
   const navigate = useNavigate();
   // The avatar opens an account menu rather than signing the user straight
@@ -137,6 +138,7 @@ function TopNav({ theme, onToggleTheme }) {
           {NAV_ITEMS.filter((item) => {
             if (item.requiresAuth && !user) return false;
             if (item.requiresDeveloper && !isDeveloperMode) return false;
+            if (item.requiresAdmin && !isAdmin) return false;
             return true;
           }).map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end} className={navItemClass}>

@@ -102,6 +102,21 @@ describe('API client', () => {
     expect(client.getDriverImageUrl('d1', 123)).toBe(`${FALLBACK_API_URL}/api/drivers/d1/image?v=123`);
   });
 
+  test('getSession uses the cookie by default and a Bearer header when given an ID token', async () => {
+    delete process.env.REACT_APP_API_URL;
+    global.fetch.mockResolvedValue(successfulResponse({ uid: 'u1', admin: true }));
+    const client = loadClient();
+
+    await client.getSession();
+    await expect(client.getSession('tok')).resolves.toEqual({ uid: 'u1', admin: true });
+
+    expect(global.fetch).toHaveBeenNthCalledWith(1, `${FALLBACK_API_URL}/api/auth/me`, { credentials: 'include' });
+    expect(global.fetch).toHaveBeenNthCalledWith(2, `${FALLBACK_API_URL}/api/auth/me`, {
+      credentials: 'include',
+      headers: { Authorization: 'Bearer tok' },
+    });
+  });
+
   test('uploadDriverImage PUTs the raw file with the caller\'s ID token', async () => {
     delete process.env.REACT_APP_API_URL;
     global.fetch.mockResolvedValue({ ok: true, status: 201, json: jest.fn().mockResolvedValue({ uploadedImageVersion: 5 }) });

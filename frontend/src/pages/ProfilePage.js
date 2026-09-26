@@ -53,7 +53,7 @@ function providerLabel(user) {
 
 function ProfilePage() {
   const navigate = useNavigate();
-  const { user, signOut: clearAuth } = useAuth();
+  const { user, isAdmin, signOut: clearAuth } = useAuth();
   const { isDeveloperMode } = useDeveloperMode();
   const initialProfile = readLocalProfile(user);
   const [displayName, setDisplayName] = useState(initialProfile.displayName);
@@ -262,7 +262,7 @@ function ProfilePage() {
             <dl className="profile-detail-list">
               <div><dt>Member since</dt><dd>{friendlyDate(user?.metadata?.creationTime)}</dd></div>
               <div><dt>Sign-in method</dt><dd>{providerLabel(user)}</dd></div>
-              <div><dt>Account access</dt><dd>{isDeveloperMode ? 'Developer' : 'Standard'}</dd></div>
+              <div><dt>Account access</dt><dd>{[isAdmin && 'Admin', isDeveloperMode ? 'Developer' : 'Standard'].filter(Boolean).join(' · ')}</dd></div>
               <div><dt>User ID</dt><dd className="profile-user-id">{user?.uid || 'Not available'}</dd></div>
             </dl>
           </section>

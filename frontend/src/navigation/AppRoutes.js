@@ -39,7 +39,7 @@ function AppRoutes() {
       {/* Settings now lives as a tab on Profile — keep old links working. */}
       <Route path="/settings" element={<Navigate to="/profile?tab=settings" replace />} />
       <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
-      <Route path="/admin" element={<RequireAuth><AdminPage /></RequireAuth>} />
+      <Route path="/admin" element={<RequireAuth role="admin"><AdminPage /></RequireAuth>} />
 
       <Route path="/teams" element={<TeamsPage />} />
       <Route path="/team/:id" element={<TeamDetailPage />} />
