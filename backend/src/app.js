@@ -13,6 +13,7 @@ import { openF1Router } from './routes/openf1.js';
 import { watchLiveRouter } from './routes/watchLive.js';
 import { raceReplayRouter } from './routes/raceReplay.js';
 import { imagesRouter } from './routes/images.js';
+import { newsRouter } from './routes/news.js';
 
 export function createApp() {
   const app = express();
@@ -65,6 +66,7 @@ export function createApp() {
   app.use('/api/watch-live', watchLiveRouter);
   app.use('/api/race-replay', raceReplayRouter);
   app.use('/api/images', imagesRouter);
+  app.use('/api/news', newsRouter);
 
   // 404 for anything else under /api
   app.use('/api', (req, res) => {
