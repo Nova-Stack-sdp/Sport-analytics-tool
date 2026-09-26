@@ -272,7 +272,10 @@ td.secondary{color:var(--text-secondary);}
 
 @media (max-width: 1100px){
   .topnav-inner{height:auto;min-height:62px;flex-wrap:wrap;padding:10px 16px;gap:10px 16px;}
-  .nav-items{order:3;width:100%;overflow-x:auto;padding-bottom:2px;}
+  /* flex-basis 100% (not just width) so the links really wrap onto their
+     own row — .nav-items has flex:1 (basis 0) on desktop, which otherwise
+     keeps them squeezed beside the controls and cut off at the edge. */
+  .nav-items{order:3;flex:1 1 100%;width:100%;overflow-x:auto;padding-bottom:2px;}
   .topnav-right{margin-left:auto;}
   .grid-4{grid-template-columns:repeat(2,1fr);}
 }
