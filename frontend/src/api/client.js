@@ -224,6 +224,14 @@ export function getTrackShape() {
   return request('/api/watch-live/track-shape');
 }
 
+export function getF1News() {
+  return request('/api/news');
+}
+
+export function getF1NewsStreamUrl() {
+  return `${API_BASE_URL}/api/news/stream`;
+}
+
 // ---------------------------------------------------------------------------
 // Race Replay — decoupled from Watch Live, works for any synced fixture
 // (see /api/fixtures' `replayReady` flag for which ones qualify), not just
