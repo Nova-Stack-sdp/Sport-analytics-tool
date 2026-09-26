@@ -37,6 +37,7 @@ function Footer() {
             <ul className="footer-links">
               <li><Link to="/sign-in">Sign in</Link></li>
               <li><Link to="/sign-up">Create account</Link></li>
+              {user && <li><Link to="/profile">Profile</Link></li>}
               {user && <li><Link to="/submissions">Submissions</Link></li>}
             </ul>
           </div>

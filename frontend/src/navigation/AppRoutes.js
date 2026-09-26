@@ -10,6 +10,7 @@ import DeveloperPage from '../pages/DeveloperPage';
 import ApiDocsPage from '../pages/ApiDocsPage';
 import AdminPage from '../pages/AdminPage';
 import SettingsPage from '../pages/SettingsPage';
+import ProfilePage from '../pages/ProfilePage';
 import WatchLivePage from '../pages/WatchLivePage';
 import SignInPage from '../pages/SignInPage';
 import SignUpPage from '../pages/SignUpPage';
@@ -38,6 +39,7 @@ function AppRoutes() {
       <Route path="/developer" element={<RequireAuth><DeveloperPage /></RequireAuth>} />
       <Route path="/developer/api-docs" element={<RequireAuth role="developer"><ApiDocsPage /></RequireAuth>} />
       <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
+      <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
       <Route path="/admin" element={<RequireAuth><AdminPage /></RequireAuth>} />
 
       <Route path="/teams" element={<TeamsPage />} />
