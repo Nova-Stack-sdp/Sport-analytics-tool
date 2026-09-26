@@ -1,8 +1,11 @@
+/* Sticky, not fixed: the bar stays pinned to the top while scrolling but
+   still takes up its own space in the layout, so page headings always start
+   below it — whatever height the bar wraps to on narrower screens. (With
+   position: fixed every page had to guess the bar's height with its own
+   padding-top, and most pages didn't, so their headings sat underneath it.) */
 .topnav {
-  position: fixed;
+  position: sticky;
   top: 0;
-  left: 0;
-  right: 0;
   z-index: 20;
   background: linear-gradient(90deg, var(--accent-dark) 0%, var(--accent) 100%);
   border-bottom: 1px solid var(--accent-dark);

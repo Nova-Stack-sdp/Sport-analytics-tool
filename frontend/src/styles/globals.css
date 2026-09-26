@@ -34,6 +34,7 @@
   --shadow-elevated:0 14px 34px rgba(0,0,0,0.16);
   --font-ui:'Inter',sans-serif;
   --font-mono:'Roboto Mono',monospace;
+  --nav-height:80px; /* the top bar's desktop height — see TopNav.css */
   color-scheme:light;
 }
 [data-theme="dark"]{
@@ -306,14 +307,10 @@ td.secondary{color:var(--text-secondary);}
 }
 
 /* Welcome / landing page */
-.welcome-page{min-height:100vh;display:flex;flex-direction:column;}
-.welcome-hero-wrap{flex:1;display:flex;padding-top:80px;}
+.welcome-page{min-height:calc(100vh - var(--nav-height));display:flex;flex-direction:column;}
+.welcome-hero-wrap{flex:1;display:flex;}
 .welcome-hero-wrap .hero-banner{flex:1;border-radius:0;margin-bottom:0;}
 .welcome-hero-wrap .hero-image-panel{clip-path:polygon(28% 0, 100% 0, 100% 100%, 0% 100%);}
-
-@media (max-width: 760px){
-  .welcome-hero-wrap{padding-top:0;}
-}
 
 /* Welcome / landing page redesign */
 .tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--accent);border:1px solid var(--accent-dark);background:var(--accent-soft);border-radius:6px;padding:3px 9px;margin-bottom:10px;}
@@ -559,7 +556,6 @@ footer{border-top:1px solid var(--border-soft);padding:44px 0 30px;background:va
 .developer-steps a{color:var(--accent);}
 
 /* ─── User profile ───────────────────────────────────────────────────── */
-.profile-page{padding-top:80px;}
 .profile-content{display:flex;flex-direction:column;gap:18px;}
 .profile-tabs{margin-bottom:0;}
 .profile-tabs .tab{border-top:0;border-right:0;border-left:0;background:transparent;font-family:inherit;}

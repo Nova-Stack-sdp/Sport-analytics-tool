@@ -1,5 +1,5 @@
 #page-watch-live {
-  min-height: calc(100vh - 72px);
+  min-height: calc(100vh - var(--nav-height));
   max-width: none;
   width: 100%;
   margin: 0;
@@ -14,7 +14,8 @@
 #page-watch-live .content {
   max-width: none;
   width: 100%;
-  padding: 0;
+  /* a little breathing room under the (now sticky, in-flow) top bar */
+  padding: 16px 0 0;
   background: #0a0a0a;
 }
 
