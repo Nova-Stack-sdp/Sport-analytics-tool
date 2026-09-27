@@ -52,3 +52,45 @@ telemetryTVRouter.get('/races', async (req, res, next) => {
     return next(err);
   }
 });
+
+telemetryTVRouter.get('/races/:slug', async (req, res, next) => {
+  try {
+    const { prisma } = await import('../lib/prisma.js');
+    const rows = await prisma.externalApiCache.findMany({
+      where: { key: { startsWith: `indycar:${req.params.slug}-race:v` } },
+    });
+
+    const matchingRows = rows.flatMap((row) => {
+      const match = RACE_KEY_PATTERN.exec(row.key);
+      return match?.[1] === req.params.slug
+        ? [{ version: Number(match[2]), row }]
+        : [];
+    });
+    const latest = matchingRows.reduce((current, candidate) => (
+      !current || candidate.version > current.version ? candidate : current
+    ), null);
+
+    if (!latest) return res.status(404).json({ error: 'INDYCAR race not found' });
+
+    const payload = latest.row.payload ?? {};
+    return res.json({
+      race: {
+        slug: req.params.slug,
+        session: payload.session ?? {},
+        video: payload.video ?? {},
+        clock: payload.clock ?? null,
+        classification: payload.classification ?? [],
+        leaderLaps: payload.leaderLaps ?? [],
+        lapChart: payload.lapChart ?? { positions: {}, flags: {}, legend: {} },
+        pitStops: payload.pitStops ?? [],
+        stats: payload.stats ?? {},
+        podium: payload.podium ?? [],
+        pole: payload.pole ?? null,
+        leaders: payload.leaders ?? [],
+        cautions: payload.cautions ?? [],
+      },
+    });
+  } catch (err) {
+    return next(err);
+  }
+});

@@ -1,42 +1,45 @@
-// Displays race clock, lap count, intensity meter, and sync status.
-function PlaybackStatusBar({ state }) {
-  const formatRaceClock = (seconds) => {
-    if (seconds === null || seconds === undefined) return '--:--';
-    const totalSeconds = Math.floor(seconds);
-    const minutes = Math.floor(totalSeconds / 60);
-    return `${minutes}:${String(totalSeconds % 60).padStart(2, '0')}`;
-  };
-
-  const raceClock = formatRaceClock(state?.videoSeconds);
-  const lapInfo = state?.session?.currentLap ? `Lap ${state.session.currentLap}/${state.session.totalLaps}` : '-- Lap';
-  const intensityPercent = state ? Math.round(((state.videoSeconds || 0) / (state.session?.totalLaps ? state.session.totalLaps * 60 : 1)) * 100) : 0;
+// Controls the historical lap cursor and shows the leader's published lap data.
+function PlaybackStatusBar({ race, lap, onLapChange, leaderLap }) {
+  const totalLaps = Number(race?.session?.totalLaps) || 1;
 
   return (
     <div className="playback-status-bar">
       <div className="status-left">
         <div className="status-item">
-          <span className="status-label">Race clock</span>
-          <span className="status-value mono">{raceClock}</span>
+          <span className="status-label">Race lap</span>
+          <span className="status-value mono">{race ? `${lap} / ${totalLaps}` : '--'}</span>
         </div>
         <div className="status-item">
-          <span className="status-label">Lap</span>
-          <span className="status-value mono">{lapInfo}</span>
+          <span className="status-label">Leader lap</span>
+          <span className="status-value mono">{leaderLap?.lapTime ?? '--'}</span>
         </div>
-        <div className="status-item intensity-meter">
-          <span className="status-label">Intensity</span>
-          <div className="intensity-bar">
-            <div className="intensity-fill" style={{ width: `${Math.min(intensityPercent, 100)}%` }} />
-          </div>
+        <div className="status-item">
+          <span className="status-label">Leader speed</span>
+          <span className="status-value mono">
+            {leaderLap?.speed == null ? '--' : `${Number(leaderLap.speed).toFixed(1)} mph`}
+          </span>
         </div>
       </div>
 
       <div className="status-right">
-        <div className="sync-status">
-          <span className={`sync-badge ${state ? 'synced' : 'unsynced'}`}>
-            {state ? '✓ Synced' : '○ Unavailable'}
-          </span>
-        </div>
+        <span className={`sync-badge ${leaderLap?.flag === 'Yellow' ? 'caution' : 'synced'}`}>
+          {leaderLap?.flag ?? (race ? 'Race report' : 'No data')}
+        </span>
       </div>
+
+      <label className="lap-range-control">
+        <span className="status-label">Browse lap</span>
+        <input
+          aria-label="Select race lap"
+          type="range"
+          min="1"
+          max={totalLaps}
+          step="1"
+          value={race ? Math.min(lap, totalLaps) : 1}
+          disabled={!race}
+          onChange={(event) => onLapChange(Number(event.target.value))}
+        />
+      </label>
     </div>
   );
 }

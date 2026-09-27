@@ -119,3 +119,40 @@ describe('GET /api/telemetry-tv/races', () => {
     expect(res.body).toEqual({ races: [] });
   });
 });
+
+describe('GET /api/telemetry-tv/races/:slug', () => {
+  test('returns the latest cached lap-by-lap race bundle', async () => {
+    const row = raceRow('indycar:toronto-2025-race:v2');
+    row.payload = {
+      ...row.payload,
+      classification: [{ CarNumber: '5', DriverName: "Pato O'Ward", PositionFinish: 1 }],
+      leaderLaps: [{ lap: 1, car: '26', lapTime: '01:04.0188', speed: 100.433, flag: 'Green' }],
+      lapChart: { positions: { 1: { 1: '26' } }, flags: { 1: 1 }, legend: { 26: { driver: 'Herta, Colton' } } },
+      stats: { avgSpeedMph: 88.972 },
+    };
+    mockPrisma.externalApiCache.findMany.mockResolvedValue([
+      raceRow('indycar:toronto-2025-race:v1'),
+      row,
+    ]);
+
+    const res = await request(createApp()).get('/api/telemetry-tv/races/toronto-2025');
+
+    expect(res.status).toBe(200);
+    expect(res.body.race).toMatchObject({
+      slug: 'toronto-2025',
+      classification: [{ CarNumber: '5', PositionFinish: 1 }],
+      leaderLaps: [{ lap: 1, car: '26', flag: 'Green' }],
+      lapChart: { positions: { 1: { 1: '26' } } },
+      stats: { avgSpeedMph: 88.972 },
+    });
+  });
+
+  test('returns 404 for a race slug without a cached bundle', async () => {
+    mockPrisma.externalApiCache.findMany.mockResolvedValue([]);
+
+    const res = await request(createApp()).get('/api/telemetry-tv/races/not-cached');
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toMatch(/race not found/i);
+  });
+});

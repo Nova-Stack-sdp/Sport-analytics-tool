@@ -850,3 +850,184 @@
     text-align: left;
   }
 }
+
+#page-telemetry-tv .playback-status-bar {
+  flex-wrap: wrap;
+}
+
+#page-telemetry-tv .status-right {
+  margin-left: auto;
+}
+
+#page-telemetry-tv .sync-badge.caution {
+  color: #ffd166;
+  background: rgba(245, 158, 11, 0.14);
+}
+
+#page-telemetry-tv .lap-range-control {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-soft);
+}
+
+#page-telemetry-tv .lap-range-control input {
+  width: 100%;
+  min-width: 0;
+  accent-color: #e10600;
+  cursor: pointer;
+}
+
+#page-telemetry-tv .lap-range-control input:disabled {
+  cursor: not-allowed;
+}
+
+#page-telemetry-tv .masterboard-scroll {
+  max-height: min(68vh, 720px);
+  overflow: auto;
+}
+
+#page-telemetry-tv .masterboard-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface);
+}
+
+#page-telemetry-tv .race-pulse-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+#page-telemetry-tv .pulse-stat.red {
+  border-left-color: #ef6a62;
+}
+
+#page-telemetry-tv .race-timeline-card {
+  margin: 18px 20px 0;
+  padding: 14px 16px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+#page-telemetry-tv .timeline-row-label {
+  margin: 14px 0 6px;
+  color: var(--text-tertiary);
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+#page-telemetry-tv .race-timeline-track {
+  position: relative;
+  height: 24px;
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+#page-telemetry-tv .leader-run,
+#page-telemetry-tv .caution-run {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+#page-telemetry-tv .leader-run {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2px;
+  overflow: hidden;
+  color: #111;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+#page-telemetry-tv .caution-run {
+  background: repeating-linear-gradient(135deg, #e9ad39 0 5px, #714d13 5px 10px);
+}
+
+#page-telemetry-tv .timeline-cursor {
+  position: absolute;
+  z-index: 2;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: #fff;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+  transform: translateX(-1px);
+}
+
+#page-telemetry-tv .timeline-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 5px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+#page-telemetry-tv .leader-timeline-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 16px;
+  margin-top: 8px;
+}
+
+#page-telemetry-tv .leader-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+#page-telemetry-tv .leader-legend-swatch {
+  flex: 0 0 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+#page-telemetry-tv .leader-legend-laps {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+
+#page-telemetry-tv .pit-stop-marker {
+  position: absolute;
+  z-index: 1;
+  top: 3px;
+  bottom: 3px;
+  width: 2px;
+  background: #75c9b0;
+}
+
+#page-telemetry-tv .pit-data-note {
+  margin-top: 5px;
+  color: var(--text-tertiary);
+  font-size: 9px;
+}
+
+@media (max-width: 560px) {
+  #page-telemetry-tv .status-left {
+    flex-wrap: wrap;
+    gap: 12px 18px;
+  }
+
+  #page-telemetry-tv .race-pulse-card,
+  #page-telemetry-tv .race-timeline-card {
+    margin-right: 12px;
+    margin-left: 12px;
+  }
+
+  #page-telemetry-tv .race-pulse-grid {
+    grid-template-columns: 1fr;
+  }
+}

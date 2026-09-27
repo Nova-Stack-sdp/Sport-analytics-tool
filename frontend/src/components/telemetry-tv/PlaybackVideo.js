@@ -38,7 +38,7 @@ function PlaybackVideo({ race, races, selectedSlug, onSelectRace, loading, error
         <div>
           <div className="card-title">{race?.eventName ?? 'Race replay'}</div>
           <div className="card-title-sub">
-            {race ? 'Full race replay' : loading ? 'Loading races…' : 'No video source configured'}
+            {race ? 'Official broadcast replay' : loading ? 'Loading races…' : 'No video source configured'}
           </div>
         </div>
         <span className={`pill ${race ? 'pill-green' : 'pill-gray'}`}>
