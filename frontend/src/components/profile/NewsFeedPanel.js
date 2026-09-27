@@ -1,4 +1,16 @@
+import { useEffect, useMemo, useState } from 'react';
 import useF1NewsFeed from '../../hooks/useF1NewsFeed';
+import { filterNewsItems } from '../../services/newsFiltering';
+
+const FILTERS = [
+  ['for-you', 'For You'],
+  ['latest', 'Latest'],
+  ['drivers', 'Drivers'],
+  ['teams', 'Teams'],
+  ['races', 'Races'],
+];
+const INITIAL_STORY_COUNT = 10;
+const STORY_BATCH_SIZE = 10;
 
 function timeAgo(value) {
   if (!value) return 'Recently';
@@ -39,7 +51,7 @@ function StoryMeta({ article }) {
   );
 }
 
-function NewsFeedPanel() {
+function NewsFeedPanel({ preferences, catalog }) {
   const {
     items,
     loading,
@@ -49,8 +61,27 @@ function NewsFeedPanel() {
     newItemIds,
     refresh,
   } = useF1NewsFeed();
-  const featured = items[0];
-  const remaining = items.slice(1);
+  const [activeFilter, setActiveFilter] = useState(preferences?.defaultNewsFilter || 'for-you');
+  const [visibleCount, setVisibleCount] = useState(INITIAL_STORY_COUNT);
+  useEffect(() => {
+    setActiveFilter(preferences?.defaultNewsFilter || 'for-you');
+  }, [preferences?.defaultNewsFilter]);
+  useEffect(() => {
+    setVisibleCount(INITIAL_STORY_COUNT);
+  }, [activeFilter]);
+
+  const visibleItems = useMemo(
+    () => filterNewsItems(items, activeFilter, preferences, catalog),
+    [activeFilter, catalog, items, preferences]
+  );
+  const displayedItems = visibleItems.slice(0, visibleCount);
+  const featured = displayedItems[0];
+  const remaining = displayedItems.slice(1);
+  const hasMoreStories = displayedItems.length < visibleItems.length;
+  const hasPreferences = Boolean(
+    preferences?.followedDriverIds?.length
+    || preferences?.followedTeamIds?.length
+  );
   const connectionLabel = {
     live: 'Listening for new stories',
     connecting: 'Connecting to live updates',
@@ -67,6 +98,28 @@ function NewsFeedPanel() {
         </div>
         <p>Fresh headlines arrive automatically while this tab is open.</p>
       </div>
+
+      <div className="news-filterbar" role="tablist" aria-label="Filter Formula 1 news">
+        {FILTERS.map(([value, label]) => (
+          <button
+            className={`news-filter${activeFilter === value ? ' is-active' : ''}`}
+            type="button"
+            role="tab"
+            aria-selected={activeFilter === value}
+            onClick={() => setActiveFilter(value)}
+            key={value}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {activeFilter === 'for-you' && !hasPreferences && (
+        <div className="news-preference-hint" role="status">
+          Choose followed drivers or teams in the User Profile tab to personalise this feed.
+          Showing Latest for now.
+        </div>
+      )}
 
       <div className="news-livebar" role="status">
         <span className={`news-live-dot is-${connection}`} aria-hidden="true" />
@@ -99,6 +152,13 @@ function NewsFeedPanel() {
         </div>
       )}
 
+      {!loading && items.length > 0 && visibleItems.length === 0 && (
+        <div className="card news-empty">
+          <div className="card-title">No matching stories right now</div>
+          <p>Try another filter or add more followed drivers and teams in User Profile.</p>
+        </div>
+      )}
+
       {featured && (
         <a className="news-featured" href={featured.url} target="_blank" rel="noreferrer">
           <NewsImage article={featured} featured />
@@ -107,7 +167,7 @@ function NewsFeedPanel() {
             <StoryMeta article={featured} />
             <h2>{featured.title}</h2>
             {featured.summary && <p>{featured.summary}</p>}
-            <span className="news-read-link">Read full story at BBC Sport <b aria-hidden="true">→</b></span>
+            <span className="news-read-link">Read full story at {featured.source} <b aria-hidden="true">→</b></span>
           </div>
         </a>
       )}
@@ -119,7 +179,7 @@ function NewsFeedPanel() {
               <div className="section-eyebrow">Rolling coverage</div>
               <h2 id="news-latest-title">Latest stories</h2>
             </div>
-            <span>{items.length} headlines</span>
+              <span>{visibleItems.length} headlines</span>
           </div>
           <div className="news-grid">
             {remaining.map((article) => (
@@ -143,8 +203,21 @@ function NewsFeedPanel() {
         </section>
       )}
 
+      {hasMoreStories && (
+        <div className="news-load-more">
+          <button
+            className="btn btn-ghost"
+            type="button"
+            onClick={() => setVisibleCount((count) => count + STORY_BATCH_SIZE)}
+          >
+            Load more stories
+          </button>
+          <span>Showing {displayedItems.length} of {visibleItems.length}</span>
+        </div>
+      )}
+
       <p className="news-attribution">
-        Headlines and summaries provided by BBC Sport. Each story opens on the publisher's site.
+        Headlines and summaries provided by ESPN and BBC Sport. Each story opens on the publisher's site.
       </p>
     </section>
   );

@@ -13,7 +13,7 @@ const stories = [
     imageUrl: 'https://example.test/story-1.jpg',
     publishedAt: new Date().toISOString(),
     category: 'Formula 1',
-    source: 'BBC Sport',
+    source: 'ESPN',
   },
   {
     id: 'story-2',
@@ -23,7 +23,7 @@ const stories = [
     imageUrl: null,
     publishedAt: new Date().toISOString(),
     category: 'Formula 1',
-    source: 'BBC Sport',
+    source: 'ESPN',
   },
 ];
 
@@ -51,6 +51,7 @@ describe('NewsFeedPanel', () => {
     expect(screen.getByRole('heading', { name: stories[0].title }).closest('a'))
       .toHaveAttribute('href', stories[0].url);
     expect(screen.getByText('2 headlines')).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'General' })).not.toBeInTheDocument();
   });
 
   test('marks newly received stories and supports manual refresh', () => {
@@ -80,5 +81,45 @@ describe('NewsFeedPanel', () => {
 
     expect(screen.getByLabelText('Loading Formula 1 news')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Refreshing…' })).toBeDisabled();
+  });
+
+  test('filters For You stories using followed teams', () => {
+    render(
+      <NewsFeedPanel
+        preferences={{
+          followedDriverIds: [],
+          followedTeamIds: ['mclaren'],
+          followedRaceIds: [],
+          defaultNewsFilter: 'for-you',
+        }}
+        catalog={{
+          drivers: [],
+          teams: [{ id: 'mclaren', name: 'McLaren' }],
+          races: [],
+        }}
+      />
+    );
+
+    expect(screen.getByRole('heading', { name: stories[0].title })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: stories[1].title })).not.toBeInTheDocument();
+  });
+
+  test('shows stories in batches with a load more button', () => {
+    const manyStories = Array.from({ length: 14 }, (_, index) => ({
+      ...stories[index % stories.length],
+      id: `story-${index + 1}`,
+      title: `Formula 1 headline ${index + 1}`,
+    }));
+    useF1NewsFeed.mockReturnValue(feedState({ items: manyStories }));
+
+    render(<NewsFeedPanel />);
+
+    expect(screen.getByText('Showing 10 of 14')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Formula 1 headline 14' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Load more stories' }));
+
+    expect(screen.getByRole('heading', { name: 'Formula 1 headline 14' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Load more stories' })).not.toBeInTheDocument();
   });
 });
