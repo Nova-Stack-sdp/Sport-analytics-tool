@@ -1,4 +1,4 @@
-// Minimal footer with data sources attribution.
+// Minimal footer for the unconfigured data feed.
 function TelemetryTVFooter() {
   return (
     <footer className="telemetry-tv-footer">
@@ -7,9 +7,7 @@ function TelemetryTVFooter() {
           <span className="wire-pill">WIRE</span>
         </div>
         <div className="footer-attribution">
-          <p className="footer-text">
-            Data sources: OpenF1 community/unofficial data, heuristic momentum/battle predictions, third-party YouTube video used only as a synced visual reference.
-          </p>
+          <p className="footer-text">Telemetry feed not configured.</p>
         </div>
       </div>
     </footer>

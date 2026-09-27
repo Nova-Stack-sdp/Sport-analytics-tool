@@ -35,7 +35,7 @@ function BattleRadar({ leaderboard }) {
           <span className="pill pill-blue">Race dynamics</span>
         </div>
         <div className="battle-radar-empty">
-          Load and sync a race to see battle dynamics.
+          Telemetry feed not configured.
         </div>
       </div>
     );

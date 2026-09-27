@@ -50,7 +50,7 @@ function SessionSetupBar({ onFindRace }) {
 
         <div className="setup-bar-helper">
           <p className="helper-text">
-            Sync happens automatically when you hit play.
+            Race selection is not configured.
           </p>
         </div>
       </div>

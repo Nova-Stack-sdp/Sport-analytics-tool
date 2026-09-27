@@ -56,10 +56,9 @@ describe('static platform pages', () => {
     expect(screen.getByText('Correction propagation log')).toBeInTheDocument();
   });
 
-  test('embeds the live video with safe iframe attributes', () => {
+  test('does not embed a video before a source is configured', () => {
     render(<TelemetryTVPage />);
-    const frame = screen.getByTitle('YouTube video player');
-    expect(frame).toHaveAttribute('src', expect.stringContaining('youtube.com/embed'));
-    expect(frame).toHaveAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+    expect(screen.queryByTitle('YouTube video player')).not.toBeInTheDocument();
+    expect(screen.getByText('Video source not configured')).toBeInTheDocument();
   });
 });
