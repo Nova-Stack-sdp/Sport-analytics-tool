@@ -3,6 +3,11 @@ import AdminPage from '../pages/AdminPage';
 import DatasetsPage from '../pages/DatasetsPage';
 import SubmissionsPage from '../pages/SubmissionsPage';
 import TelemetryTVPage from '../pages/TelemetryTVPage';
+import { getTelemetryTVRaces } from '../api/client';
+
+jest.mock('../api/client', () => ({
+  getTelemetryTVRaces: jest.fn(),
+}));
 
 describe('static platform pages', () => {
   test('renders the datasets distribution workflow and published releases', () => {
@@ -56,9 +61,10 @@ describe('static platform pages', () => {
     expect(screen.getByText('Correction propagation log')).toBeInTheDocument();
   });
 
-  test('does not embed a video before a source is configured', () => {
+  test('does not embed a video when no race catalogue can be loaded', async () => {
+    getTelemetryTVRaces.mockRejectedValue(new Error('catalogue unavailable'));
     render(<TelemetryTVPage />);
+    expect(await screen.findByText('No video source configured')).toBeInTheDocument();
     expect(screen.queryByTitle('YouTube video player')).not.toBeInTheDocument();
-    expect(screen.getByText('Video source not configured')).toBeInTheDocument();
   });
 });

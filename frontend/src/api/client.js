@@ -140,6 +140,10 @@ export function getPopularVideos() {
   return request('/api/videos/popular');
 }
 
+export function getTelemetryTVRaces() {
+  return request('/api/telemetry-tv/races');
+}
+
 export function getTeams({ limit, offset } = {}) {
   const params = new URLSearchParams();
   if (limit != null) params.set('limit', String(limit));

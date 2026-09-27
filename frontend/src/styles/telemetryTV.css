@@ -110,6 +110,7 @@
   flex-direction: column;
   gap: 4px;
   flex: 1;
+  max-width: 420px;
 }
 
 #page-telemetry-tv .setup-label {

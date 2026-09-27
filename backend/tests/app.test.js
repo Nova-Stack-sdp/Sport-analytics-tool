@@ -53,7 +53,7 @@ describe('App-level endpoints', () => {
     expect(res.body).toEqual({ status: 'ok' });
   });
 
-  test('retired TelemetryTV route returns 404', async () => {
+  test('removed TelemetryTV state endpoint returns 404', async () => {
     baseMocks();
     const app = createApp();
     const res = await request(app).get('/api/telemetry-tv/state?videoSeconds=12');
