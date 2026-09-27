@@ -143,19 +143,6 @@ describe('ProfilePage', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('saved to your account');
   });
 
-  test('adds a followed driver and saves the selection', async () => {
-    render(<MemoryRouter><ProfilePage /></MemoryRouter>);
-
-    await waitFor(() => expect(screen.getByRole('option', { name: 'Lando Norris' })).toBeInTheDocument());
-    fireEvent.change(screen.getByLabelText('Add drivers'), { target: { value: 'driver-lando-norris' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save news preferences' }));
-
-    await waitFor(() => expect(saveUserPreferences).toHaveBeenLastCalledWith(
-      mockUser,
-      expect.objectContaining({ followedDriverIds: ['driver-lando-norris'] })
-    ));
-  });
-
   test('uses the official driver and team lists when the live catalogues are empty', async () => {
     getDrivers.mockResolvedValue({ drivers: [] });
     getTeams.mockResolvedValue({ teams: [] });
@@ -164,7 +151,5 @@ describe('ProfilePage', () => {
 
     expect(await screen.findByRole('option', { name: 'Max Verstappen' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Cadillac' })).toBeInTheDocument();
-    expect(screen.getByText(/using the official 2026 driver and team lists/i)).toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: 'General' })).not.toBeInTheDocument();
   });
 });

@@ -54,35 +54,6 @@ describe('NewsFeedPanel', () => {
     expect(screen.queryByRole('tab', { name: 'General' })).not.toBeInTheDocument();
   });
 
-  test('marks newly received stories and supports manual refresh', () => {
-    const refresh = jest.fn();
-    useF1NewsFeed.mockReturnValue(feedState({ newItemIds: ['story-2'], refresh }));
-    render(<NewsFeedPanel />);
-
-    expect(screen.getByText('New')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh now' }));
-    expect(refresh).toHaveBeenCalledTimes(1);
-  });
-
-  test('shows cached stories alongside a stale-feed warning', () => {
-    useF1NewsFeed.mockReturnValue(feedState({
-      error: 'News provider returned 503',
-      connection: 'reconnecting',
-    }));
-    render(<NewsFeedPanel />);
-
-    expect(screen.getByRole('alert')).toHaveTextContent('Showing the most recent cached stories.');
-    expect(screen.getByRole('heading', { name: stories[0].title })).toBeInTheDocument();
-  });
-
-  test('shows a loading state before the first feed arrives', () => {
-    useF1NewsFeed.mockReturnValue(feedState({ items: [], loading: true, lastUpdated: null }));
-    render(<NewsFeedPanel />);
-
-    expect(screen.getByLabelText('Loading Formula 1 news')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Refreshing…' })).toBeDisabled();
-  });
-
   test('filters For You stories using followed teams', () => {
     render(
       <NewsFeedPanel

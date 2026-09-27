@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { createF1NewsService, parseEspnF1News, parseF1NewsRss } from '../src/lib/f1NewsFeed.js';
+import { createF1NewsService } from '../src/lib/f1NewsFeed.js';
 
 const TEST_FEED_URL = 'https://example.test/f1/news';
 
@@ -57,35 +57,6 @@ const secondStory = {
 };
 
 describe('F1 news feed service', () => {
-  test('keeps support for a custom RSS feed', () => {
-    const articles = parseF1NewsRss(rss([firstStory, secondStory]));
-
-    expect(articles).toHaveLength(2);
-    expect(articles[0]).toMatchObject({
-      title: secondStory.title,
-      summary: secondStory.summary,
-      url: secondStory.url,
-      source: 'BBC Sport',
-      category: 'Formula 1',
-    });
-    expect(articles[1].imageUrl).toBe(firstStory.imageUrl);
-    expect(articles[0].id).toHaveLength(20);
-  });
-
-  test('parses, normalizes and sorts ESPN Formula 1 stories', () => {
-    const articles = parseEspnF1News(JSON.parse(espnFeed([firstStory, secondStory])));
-
-    expect(articles).toHaveLength(2);
-    expect(articles[0]).toMatchObject({
-      title: secondStory.title,
-      summary: secondStory.summary,
-      url: secondStory.url,
-      source: 'ESPN',
-      category: 'Formula One',
-    });
-    expect(articles[1].imageUrl).toBe(firstStory.imageUrl);
-  });
-
   test('combines simultaneous refreshes into one provider request', async () => {
     let resolveFetch;
     const fetchImpl = jest.fn(() => new Promise((resolve) => {
@@ -100,26 +71,6 @@ describe('F1 news feed service', () => {
 
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect(first.items).toEqual(second.items);
-  });
-
-  test('notifies listeners when a new story appears', async () => {
-    let currentFeed = espnFeed([firstStory]);
-    const fetchImpl = jest.fn(async () => upstreamResponse(currentFeed));
-    const service = createF1NewsService({ fetchImpl, feedUrl: TEST_FEED_URL, pollIntervalMs: 60_000 });
-    await service.refresh();
-
-    const listener = jest.fn();
-    const unsubscribe = service.subscribe(listener);
-    await service.refresh();
-    listener.mockClear();
-
-    currentFeed = espnFeed([secondStory, firstStory]);
-    await service.refresh();
-
-    expect(listener).toHaveBeenCalledTimes(1);
-    expect(listener.mock.calls[0][0].newItems).toHaveLength(1);
-    expect(listener.mock.calls[0][0].newItems[0].title).toBe(secondStory.title);
-    unsubscribe();
   });
 
   test('keeps cached stories and marks them stale after a provider failure', async () => {

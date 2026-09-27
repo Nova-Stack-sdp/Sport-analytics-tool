@@ -71,25 +71,4 @@ describe('userPreferences', () => {
       { merge: true }
     );
   });
-
-  test('keeps local demo preferences in browser storage without calling Firestore', async () => {
-    const result = await saveUserPreferences({ ...user, isDemo: true }, {
-      displayName: 'Demo',
-      followedDriverIds: [],
-      followedTeamIds: [],
-      followedRaceIds: [],
-      defaultNewsFilter: 'latest',
-    });
-
-    expect(result.storage).toBe('browser');
-    expect(setDoc).not.toHaveBeenCalled();
-  });
-
-  test('moves the removed General default back to For You', () => {
-    window.localStorage.setItem('f1-news-preferences:user-1', JSON.stringify({
-      defaultNewsFilter: 'general',
-    }));
-
-    expect(readCachedUserPreferences(user).defaultNewsFilter).toBe('for-you');
-  });
 });

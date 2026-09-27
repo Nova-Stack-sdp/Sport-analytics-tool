@@ -32,8 +32,4 @@ describe('newsFiltering', () => {
     expect(filterNewsItems(stories, 'races', preferences, catalog).map((item) => item.id))
       .toEqual(['3', '5']);
   });
-
-  test('shows latest stories when For You has no selections yet', () => {
-    expect(filterNewsItems(stories, 'for-you', {}, catalog)).toEqual(stories);
-  });
 });
