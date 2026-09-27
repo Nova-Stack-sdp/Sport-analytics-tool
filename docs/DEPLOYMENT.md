@@ -41,6 +41,14 @@ To deploy it correctly on Northflank:
      Sign-in fails without it: the frontend's token exchange is what sets
      the session cookie, so Firebase will report the user as signed in
      while every protected call still rejects them.
+   - `ADMIN_UIDS` — comma-separated Firebase UIDs of the users allowed to
+     see the Admin page (e.g. `uidA,uidB`). A user's UID is on their
+     Profile page under "User ID". The backend reports `admin: true` for
+     these users from `GET /api/auth/me`, which is what shows the Admin
+     nav link and unlocks the `/admin` route; admin-only API routes use
+     the `requireAdmin` middleware. Empty or unset means nobody is an
+     admin. Changing it needs a service restart, and a signed-in user
+     picks it up on their next page load.
 4. **Health check** — point Northflank's health check at `GET /health`
    (or `GET /`), both now return `200 { status: "ok" }`.
 5. **Prisma engine** — `@prisma/client` needs its generated client

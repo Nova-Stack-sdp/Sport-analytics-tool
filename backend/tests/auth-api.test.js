@@ -67,7 +67,7 @@ describe('POST /api/auth/session', () => {
       .send({ idToken: 'valid-firebase-token' });
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ uid: 'u1', email: 'a@b.com' });
+    expect(res.body).toEqual({ uid: 'u1', email: 'a@b.com', admin: false });
 
     // Verify the Set-Cookie header contains the httpOnly __session cookie.
     const setCookie = res.headers['set-cookie'];
@@ -135,11 +135,11 @@ describe('GET /api/auth/me', () => {
     const res = await agent.get('/api/auth/me');
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ uid: 'u2', email: 'me@test.com', developer: false });
+    expect(res.body).toEqual({ uid: 'u2', email: 'me@test.com', developer: false, admin: false });
   });
 
   test('reflects a developer custom claim when one is set on the token', async () => {
-    mockVerifyIdToken.mockResolvedValue({ uid: 'u2b', email: 'dev@test.com', developer: true });
+    mockVerifyIdToken.mockResolvedValue({ uid: 'u2b', email: 'dev@test.com', developer: true, admin: false });
     const app = createApp();
 
     const agent = request.agent(app);
@@ -148,7 +148,7 @@ describe('GET /api/auth/me', () => {
     const res = await agent.get('/api/auth/me');
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ uid: 'u2b', email: 'dev@test.com', developer: true });
+    expect(res.body).toEqual({ uid: 'u2b', email: 'dev@test.com', developer: true, admin: false });
   });
 
   test('returns 401 when no cookie or header is present', async () => {
@@ -168,7 +168,58 @@ describe('GET /api/auth/me', () => {
       .set('Authorization', 'Bearer header-token');
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ uid: 'u3', email: 'bearer@test.com', developer: false });
+    expect(res.body).toEqual({ uid: 'u3', email: 'bearer@test.com', developer: false, admin: false });
+  });
+});
+
+// ------------------------------------------------------------------
+// Admin allowlist (ADMIN_UIDS) — /session, /me and /admin-check
+// ------------------------------------------------------------------
+describe('admin access via ADMIN_UIDS', () => {
+  afterEach(() => {
+    delete process.env.ADMIN_UIDS;
+  });
+
+  test('/session and /me report admin: true for a listed UID', async () => {
+    process.env.ADMIN_UIDS = 'boss-uid,other-uid';
+    mockVerifyIdToken.mockResolvedValue({ uid: 'boss-uid', email: 'boss@test.com' });
+    const agent = request.agent(createApp());
+
+    const session = await agent.post('/api/auth/session').send({ idToken: 'valid-token' });
+    const me = await agent.get('/api/auth/me');
+
+    expect(session.body.admin).toBe(true);
+    expect(me.body).toEqual({ uid: 'boss-uid', email: 'boss@test.com', developer: false, admin: true });
+  });
+
+  test('/me reports admin: false for everyone when ADMIN_UIDS is unset', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'boss-uid', email: 'boss@test.com' });
+
+    const res = await request(createApp()).get('/api/auth/me').set('Authorization', 'Bearer t');
+
+    expect(res.body.admin).toBe(false);
+  });
+
+  test('/admin-check returns 200 for an admin', async () => {
+    process.env.ADMIN_UIDS = 'boss-uid';
+    mockVerifyIdToken.mockResolvedValue({ uid: 'boss-uid' });
+
+    const res = await request(createApp()).get('/api/auth/admin-check').set('Authorization', 'Bearer t');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ admin: true });
+  });
+
+  test('/admin-check returns 403 for a signed-in non-admin and 401 when signed out', async () => {
+    process.env.ADMIN_UIDS = 'boss-uid';
+    mockVerifyIdToken.mockResolvedValue({ uid: 'regular-uid' });
+    const app = createApp();
+
+    const forbidden = await request(app).get('/api/auth/admin-check').set('Authorization', 'Bearer t');
+    const signedOut = await request(app).get('/api/auth/admin-check');
+
+    expect(forbidden.status).toBe(403);
+    expect(signedOut.status).toBe(401);
   });
 });
 

@@ -62,10 +62,15 @@ export function clearSession() {
 
 /**
  * Check whether the backend cookie is still valid.
- * Returns the user object or throws if no valid session exists.
+ * Returns the user object ({ uid, email, developer, admin }) or throws if no
+ * valid session exists.
+ *
+ * `idToken` is optional: pass the live Firebase ID token to authenticate
+ * with an explicit Bearer header instead of relying on the cookie — needed
+ * right after sign-in, when the cookie may not have been set yet.
  */
-export function getSession() {
-  return request('/api/auth/me');
+export function getSession(idToken) {
+  return request('/api/auth/me', idToken ? { headers: { Authorization: `Bearer ${idToken}` } } : {});
 }
 
 /**

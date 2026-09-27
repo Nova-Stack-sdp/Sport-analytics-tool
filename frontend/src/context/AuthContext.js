@@ -7,9 +7,23 @@ const AuthContext = createContext({
   user: null,
   loading: true,
   isDeveloperMode: false,
+  isAdmin: false,
   refreshDeveloperMode: async () => {},
   signOut: () => {},
 });
+
+// Admin status is decided by the backend (the ADMIN_UIDS allowlist — see
+// backend/src/lib/adminAccess.js), so ask it. Any failure (backend down,
+// no session yet) simply means "not an admin" — the safe default.
+async function fetchIsAdmin(firebaseUser) {
+  try {
+    const idToken = firebaseUser?.getIdToken ? await firebaseUser.getIdToken() : undefined;
+    const sessionUser = await getSession(idToken);
+    return sessionUser?.admin === true;
+  } catch {
+    return false;
+  }
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -20,6 +34,10 @@ export function AuthProvider({ children }) {
   // then travels with the account to any device/browser that signs in,
   // unlike the old localStorage-only version of this flag.
   const [isDeveloperMode, setIsDeveloperMode] = useState(false);
+  // Whether this user is on the backend's admin list. Resolved before
+  // `loading` clears, so an /admin guard never redirects an admin away
+  // just because the check hadn't come back yet.
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Immediately clear the user from context — used by the sign-out
   // handler so the UI updates before the async Firebase/backend
@@ -27,6 +45,7 @@ export function AuthProvider({ children }) {
   const signOut = () => {
     setUser(null);
     setIsDeveloperMode(false);
+    setIsAdmin(false);
     setLoading(false);
   };
 
@@ -62,8 +81,12 @@ export function AuthProvider({ children }) {
         // httpOnly cookie should already exist from the sign-in flow
         // (SignInPage / SignUpPage calls establishSession after auth).
         setUser(firebaseUser);
-        const tokenResult = await firebaseUser.getIdTokenResult();
+        const [tokenResult, admin] = await Promise.all([
+          firebaseUser.getIdTokenResult(),
+          fetchIsAdmin(firebaseUser),
+        ]);
         setIsDeveloperMode(tokenResult.claims.developer === true);
+        setIsAdmin(admin);
         setLoading(false);
         return;
       }
@@ -78,10 +101,12 @@ export function AuthProvider({ children }) {
         // that read user.email / user.uid keep working.
         setUser({ uid: sessionUser.uid, email: sessionUser.email });
         setIsDeveloperMode(sessionUser.developer === true);
+        setIsAdmin(sessionUser.admin === true);
       } catch {
         // No valid cookie either — genuinely not authenticated.
         setUser(null);
         setIsDeveloperMode(false);
+        setIsAdmin(false);
       } finally {
         setLoading(false);
       }
@@ -90,7 +115,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, isDeveloperMode, refreshDeveloperMode, signOut }}>
+    <AuthContext.Provider value={{ user, loading, isDeveloperMode, isAdmin, refreshDeveloperMode, signOut }}>
       {children}
     </AuthContext.Provider>
   );

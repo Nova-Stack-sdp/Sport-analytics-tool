@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import AdminPage from '../pages/AdminPage';
-import DatasetsPage from '../pages/DatasetsPage';
-import SubmissionsPage from '../pages/SubmissionsPage';
+import DatasetsPanel from '../components/developer/DatasetsPanel';
+import SubmissionsPanel from '../components/developer/SubmissionsPanel';
 import TelemetryTVPage from '../pages/TelemetryTVPage';
 import { getTelemetryTVRaces } from '../api/client';
 
@@ -11,7 +11,7 @@ jest.mock('../api/client', () => ({
 
 describe('static platform pages', () => {
   test('renders the datasets distribution workflow and published releases', () => {
-    render(<DatasetsPage />);
+    render(<DatasetsPanel />);
     expect(screen.getByText('Build a custom export')).toBeInTheDocument();
     expect(screen.getByText('Request export')).toBeInTheDocument();
     expect(screen.getByText('Driver telemetry')).toBeInTheDocument();
@@ -19,7 +19,7 @@ describe('static platform pages', () => {
   });
 
   test('renders the submissions pipeline and switches review tabs', () => {
-    render(<SubmissionsPage />);
+    render(<SubmissionsPanel />);
     expect(screen.getByText(/Batch validation.*1 error found/)).toBeInTheDocument();
     expect(screen.getByText('Correction history')).toBeInTheDocument();
     const approved = screen.getByText('Approved', { selector: '.tab' });

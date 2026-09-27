@@ -22,6 +22,7 @@
  */
 import admin from 'firebase-admin';
 import { getAdminApp } from '../lib/firebaseAdmin.js';
+import { isAdminUid } from '../lib/adminAccess.js';
 
 export { getAdminApp } from '../lib/firebaseAdmin.js';
 
@@ -73,9 +74,34 @@ export async function requireAuth(req, res, next) {
     // Custom claims (set via the Admin SDK, e.g. `developer: true`) ride
     // along inside the decoded token automatically — no extra lookup
     // needed here, just pull them out alongside the standard fields.
-    req.user = { uid: decoded.uid, email: decoded.email ?? null, developer: decoded.developer === true };
+    // `admin` is NOT a token claim — it's decided by the ADMIN_UIDS
+    // allowlist on this server (see lib/adminAccess.js).
+    req.user = {
+      uid: decoded.uid,
+      email: decoded.email ?? null,
+      developer: decoded.developer === true,
+      admin: isAdminUid(decoded.uid),
+    };
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
+}
+
+/**
+ * requireAdmin — use AFTER requireAuth on any admin-only route:
+ *
+ *   router.post('/something', requireAuth, requireAdmin, handler);
+ *
+ * Signed in but not on the ADMIN_UIDS list -> 403 (not 401: we know who
+ * they are, they just aren't allowed).
+ */
+export function requireAdmin(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Not signed in' });
+  }
+  if (!req.user.admin) {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+  next();
 }
