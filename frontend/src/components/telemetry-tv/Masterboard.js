@@ -43,7 +43,7 @@ const Masterboard = memo(function Masterboard({ leaderboard, error }) {
         </div>
 
         <div className="masterboard-empty-state">
-          Find a race above, load its telemetry, then sync the clock.
+          Telemetry feed not configured.
         </div>
       </div>
     );

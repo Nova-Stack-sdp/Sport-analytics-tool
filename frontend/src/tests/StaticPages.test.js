@@ -2,7 +2,12 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import AdminPage from '../pages/AdminPage';
 import DatasetsPage from '../pages/DatasetsPage';
 import SubmissionsPage from '../pages/SubmissionsPage';
-import WatchLivePage from '../pages/WatchLivePage';
+import TelemetryTVPage from '../pages/TelemetryTVPage';
+import { getTelemetryTVRaces } from '../api/client';
+
+jest.mock('../api/client', () => ({
+  getTelemetryTVRaces: jest.fn(),
+}));
 
 describe('static platform pages', () => {
   test('renders the datasets distribution workflow and published releases', () => {
@@ -56,10 +61,10 @@ describe('static platform pages', () => {
     expect(screen.getByText('Correction propagation log')).toBeInTheDocument();
   });
 
-  test('embeds the live video with safe iframe attributes', () => {
-    render(<WatchLivePage />);
-    const frame = screen.getByTitle('YouTube video player');
-    expect(frame).toHaveAttribute('src', expect.stringContaining('youtube.com/embed'));
-    expect(frame).toHaveAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+  test('does not embed a video when no race catalogue can be loaded', async () => {
+    getTelemetryTVRaces.mockRejectedValue(new Error('catalogue unavailable'));
+    render(<TelemetryTVPage />);
+    expect(await screen.findByText('No video source configured')).toBeInTheDocument();
+    expect(screen.queryByTitle('YouTube video player')).not.toBeInTheDocument();
   });
 });

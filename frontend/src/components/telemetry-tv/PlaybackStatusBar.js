@@ -33,7 +33,7 @@ function PlaybackStatusBar({ state }) {
       <div className="status-right">
         <div className="sync-status">
           <span className={`sync-badge ${state ? 'synced' : 'unsynced'}`}>
-            {state ? '✓ Synced' : '○ Awaiting sync'}
+            {state ? '✓ Synced' : '○ Unavailable'}
           </span>
         </div>
       </div>

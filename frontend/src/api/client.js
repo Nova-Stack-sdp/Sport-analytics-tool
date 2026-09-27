@@ -140,8 +140,8 @@ export function getPopularVideos() {
   return request('/api/videos/popular');
 }
 
-export function getLiveVideo() {
-  return request('/api/watch-live');
+export function getTelemetryTVRaces() {
+  return request('/api/telemetry-tv/races');
 }
 
 export function getTeams({ limit, offset } = {}) {
@@ -211,19 +211,6 @@ export async function uploadDriverImage(driverId, file, idToken) {
   return body;
 }
 
-// Fetches one replay state or a short playback buffer.
-export function getWatchLiveState({ videoSeconds, bufferSeconds } = {}) {
-  const params = new URLSearchParams({ videoSeconds: String(videoSeconds) });
-  if (bufferSeconds != null) params.set('bufferSeconds', String(bufferSeconds));
-  return request(`/api/watch-live/state?${params.toString()}`);
-}
-
-// Real track outline derived from one driver's actual location telemetry —
-// see deriveTrackShape() in the backend for how this is picked.
-export function getTrackShape() {
-  return request('/api/watch-live/track-shape');
-}
-
 // ---------------------------------------------------------------------------
 // Race Replay — decoupled from Watch Live, works for any synced fixture
 // (see /api/fixtures' `replayReady` flag for which ones qualify), not just
@@ -238,8 +225,7 @@ export function getRaceReplayState(sessionId, { lap } = {}) {
 
 // Real track outline for this session's circuit — live OpenF1 telemetry
 // when available, else a static FastF1-generated shape for the circuit,
-// else a 404 (the caller falls back to the illustrative track, same as
-// Watch Live already does for getTrackShape above).
+// else a 404 so the caller can use its illustrative fallback.
 export function getRaceReplayTrackShape(sessionId) {
   return request(`/api/race-replay/${sessionId}/track-shape`);
 }

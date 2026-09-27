@@ -173,7 +173,7 @@ class OpenF1PassthroughError extends Error {
  * Builds the raw OpenF1 bundle (session, laps, pit, stints, position,
  * car_data, race_control, weather, session_result, starting_grid) for the
  * Barcelona 2026 race. Records are not normalized, derived, or written to the
- * database — exported so other routes (e.g. watchLive.js) can reuse it
+ * database — exported so other routes (e.g. telemetryTV.js) can reuse it
  * in-process instead of calling this endpoint over HTTP.
  */
 export async function fetchBarcelonaRaceRaw() {
@@ -229,7 +229,7 @@ export async function fetchBarcelonaRaceRaw() {
   );
 
   // Real x,y,z position telemetry — needed to derive an accurate track
-  // shape and real car positions (see deriveTrackShape in watchLive.js).
+  // shape and real car positions (see deriveTrackShape in telemetryTV.js).
   // NOTE: this roughly doubles the cold-fetch time and cached payload size
   // versus car_data alone, since /location is comparably high-frequency.
   // Acceptable because the persisted cache (ExternalApiCache) means this
