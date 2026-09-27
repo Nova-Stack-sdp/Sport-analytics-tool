@@ -1,8 +1,13 @@
 import { createHash } from 'node:crypto';
 
-export const DEFAULT_F1_NEWS_FEED_URL = 'https://feeds.bbci.co.uk/sport/formula1/rss.xml';
+export const DEFAULT_F1_NEWS_FEED_URL = 'https://site.api.espn.com/apis/site/v2/sports/racing/f1/news?limit=50';
+export const DEFAULT_BBC_F1_NEWS_FEED_URL = 'https://feeds.bbci.co.uk/sport/formula1/rss.xml';
+export const DEFAULT_F1_NEWS_FEEDS = [
+  { source: 'ESPN', url: DEFAULT_F1_NEWS_FEED_URL, sourceUrl: 'https://www.espn.com/f1/' },
+  { source: 'BBC Sport', url: DEFAULT_BBC_F1_NEWS_FEED_URL, sourceUrl: 'https://www.bbc.com/sport/formula1' },
+];
 const DEFAULT_POLL_INTERVAL_MS = 60_000;
-const DEFAULT_MAX_ITEMS = 24;
+const DEFAULT_MAX_ITEMS = 100;
 
 function decodeXml(value = '') {
   return value
@@ -58,7 +63,7 @@ function stableId(value) {
   return createHash('sha256').update(value).digest('hex').slice(0, 20);
 }
 
-export function parseF1NewsRss(xml, { maxItems = DEFAULT_MAX_ITEMS } = {}) {
+export function parseF1NewsRss(xml, { maxItems = DEFAULT_MAX_ITEMS, source = 'BBC Sport' } = {}) {
   if (typeof xml !== 'string' || !xml.includes('<')) return [];
 
   return Array.from(xml.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi))
@@ -84,12 +89,58 @@ export function parseF1NewsRss(xml, { maxItems = DEFAULT_MAX_ITEMS } = {}) {
         imageUrl: imageFromItem(item, rawDescription),
         publishedAt,
         category: stripMarkup(tagValue(item, 'category')) || 'Formula 1',
-        source: 'BBC Sport',
+        source,
       };
     })
     .filter(Boolean)
     .sort((a, b) => new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0))
     .slice(0, maxItems);
+}
+
+export function parseEspnF1News(payload, { maxItems = DEFAULT_MAX_ITEMS } = {}) {
+  if (!payload || !Array.isArray(payload.articles)) return [];
+
+  return payload.articles
+    .map((article) => {
+      const title = stripMarkup(article?.headline || '');
+      const url = safeHttpUrl(article?.links?.web?.href);
+      if (!title || !url) return null;
+
+      const publishedDate = new Date(article.published || article.lastModified || '');
+      const publishedAt = Number.isNaN(publishedDate.getTime())
+        ? null
+        : publishedDate.toISOString();
+      const category = article.categories?.find((item) => item?.type === 'league')?.description
+        || article.categories?.[0]?.description
+        || 'Formula 1';
+      const imageUrl = article.images
+        ?.map((image) => safeHttpUrl(image?.url))
+        .find(Boolean) || null;
+
+      return {
+        id: String(article.id || stableId(url)),
+        title,
+        summary: stripMarkup(article.description || '').slice(0, 320),
+        url,
+        imageUrl,
+        publishedAt,
+        category: stripMarkup(category) || 'Formula 1',
+        source: 'ESPN',
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0))
+    .slice(0, maxItems);
+}
+
+function parseProviderResponse(body, options) {
+  try {
+    const payload = JSON.parse(body);
+    if (Array.isArray(payload?.articles)) return parseEspnF1News(payload, options);
+  } catch {
+    // Keep RSS support for a custom F1_NEWS_FEED_URL override.
+  }
+  return parseF1NewsRss(body, options);
 }
 
 function positiveNumber(value, fallback) {
@@ -99,24 +150,35 @@ function positiveNumber(value, fallback) {
 
 export function createF1NewsService({
   fetchImpl = globalThis.fetch,
-  feedUrl = process.env.F1_NEWS_FEED_URL || DEFAULT_F1_NEWS_FEED_URL,
+  feedUrl = process.env.F1_NEWS_FEED_URL,
+  feedUrls,
   pollIntervalMs = positiveNumber(process.env.F1_NEWS_POLL_MS, DEFAULT_POLL_INTERVAL_MS),
   maxItems = DEFAULT_MAX_ITEMS,
   now = () => new Date(),
 } = {}) {
+  const providers = (feedUrls || (feedUrl
+    ? [{ source: 'Formula 1 News', url: feedUrl, sourceUrl: feedUrl }]
+    : DEFAULT_F1_NEWS_FEEDS))
+    .map((provider) => (typeof provider === 'string'
+      ? { source: 'Formula 1 News', url: provider, sourceUrl: provider }
+      : provider));
+  const providerState = new Map(providers.map((provider) => [provider.url, {
+    articles: [],
+    etag: null,
+    lastModified: null,
+  }]));
   let articles = [];
   let lastUpdated = null;
   let lastError = null;
-  let etag = null;
-  let lastModified = null;
   let refreshPromise = null;
   let timer = null;
   const listeners = new Set();
 
   const snapshot = () => ({
-    source: 'BBC Sport',
-    sourceUrl: 'https://www.bbc.com/sport/formula1',
-    feedUrl,
+    source: providers.map((provider) => provider.source).join(' + '),
+    sourceUrls: providers.map((provider) => provider.sourceUrl),
+    feedUrl: providers[0]?.url || null,
+    feedUrls: providers.map((provider) => provider.url),
     items: articles,
     lastUpdated,
     stale: Boolean(lastError),
@@ -128,30 +190,67 @@ export function createF1NewsService({
     for (const listener of listeners) listener(payload);
   };
 
+  const aggregateArticles = () => {
+    const seen = new Set();
+    return providers
+      .flatMap((provider) => providerState.get(provider.url)?.articles || [])
+      .sort((a, b) => new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0))
+      .filter((article) => {
+        const key = `${article.source}:${article.id}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, maxItems);
+  };
+
+  const refreshProvider = async (provider) => {
+    const state = providerState.get(provider.url);
+    const headers = {
+      Accept: 'application/json, application/rss+xml;q=0.9, application/xml;q=0.8',
+    };
+    if (state.etag) headers['If-None-Match'] = state.etag;
+    if (state.lastModified) headers['If-Modified-Since'] = state.lastModified;
+
+    const response = await fetchImpl(provider.url, {
+      headers,
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (response.status === 304) return;
+    if (!response.ok) throw new Error(`${provider.source} returned ${response.status}`);
+
+    const nextArticles = parseProviderResponse(await response.text(), {
+      maxItems,
+      source: provider.source,
+    });
+    if (nextArticles.length === 0) {
+      throw new Error(`${provider.source} returned no readable stories`);
+    }
+
+    state.articles = nextArticles;
+    state.etag = response.headers?.get?.('etag') || state.etag;
+    state.lastModified = response.headers?.get?.('last-modified') || state.lastModified;
+  };
+
   const refresh = async () => {
     if (refreshPromise) return refreshPromise;
 
     refreshPromise = (async () => {
       try {
-        const headers = {
-          Accept: 'application/rss+xml, application/xml, text/xml;q=0.9',
-          'User-Agent': 'NovaStack-F1Lytics/1.0 (+https://sdp.ms.wits.ac.za/nova-stack/sport-analytics-tool)',
-        };
-        if (etag) headers['If-None-Match'] = etag;
-        if (lastModified) headers['If-Modified-Since'] = lastModified;
-
-        const response = await fetchImpl(feedUrl, { headers, signal: AbortSignal.timeout(10_000) });
-        if (response.status === 304) {
-          lastUpdated = now().toISOString();
-          lastError = null;
-          return snapshot();
-        }
-        if (!response.ok) throw new Error(`News provider returned ${response.status}`);
-
-        const nextArticles = parseF1NewsRss(await response.text(), { maxItems });
-        if (nextArticles.length === 0) throw new Error('News provider returned no readable stories');
-
+        const results = await Promise.all(providers.map(async (provider) => {
+          try {
+            await refreshProvider(provider);
+            return null;
+          } catch (error) {
+            return error instanceof Error ? error.message : `${provider.source} is unavailable`;
+          }
+        }));
+        const errors = results.filter(Boolean);
         const previousIds = new Set(articles.map((article) => article.id));
+        const nextArticles = aggregateArticles();
+        if (nextArticles.length === 0) {
+          throw new Error(errors.join('; ') || 'News providers returned no readable stories');
+        }
         const newItems = previousIds.size === 0
           ? []
           : nextArticles.filter((article) => !previousIds.has(article.id));
@@ -160,11 +259,9 @@ export function createF1NewsService({
 
         articles = nextArticles;
         lastUpdated = now().toISOString();
-        lastError = null;
-        etag = response.headers?.get?.('etag') || etag;
-        lastModified = response.headers?.get?.('last-modified') || lastModified;
+        lastError = errors.length > 0 ? errors.join('; ') : null;
 
-        if (changed) publish(newItems);
+        if (changed || errors.length > 0) publish(newItems);
         return snapshot();
       } catch (error) {
         lastError = error instanceof Error ? error.message : 'News feed unavailable';
