@@ -1,10 +1,39 @@
-function PlaybackVideo({ race, loading, error }) {
+function raceLabel(race) {
+  const parsedYear = race.sessionDate ? new Date(race.sessionDate).getFullYear() : NaN;
+  const year = Number.isFinite(parsedYear) ? parsedYear : null;
+  return [race.eventName, year].filter(Boolean).join(' · ') || race.slug;
+}
+
+function PlaybackVideo({ race, races, selectedSlug, onSelectRace, loading, error }) {
   const embedUrl = race?.video?.youtubeId
     ? `https://www.youtube.com/embed/${race.video.youtubeId}?enablejsapi=1&playsinline=1&start=${race.video.embedStartSeconds ?? 0}`
     : null;
 
   return (
     <div className="card video-panel">
+      <div className="race-picker">
+        <div className="race-picker-copy">
+          <span className="race-picker-eyebrow">INDYCAR REPLAY</span>
+          <label htmlFor="race-select" className="race-picker-label">Choose a race</label>
+        </div>
+        <select
+          id="race-select"
+          className="race-picker-select"
+          value={selectedSlug}
+          onChange={(event) => onSelectRace(event.target.value)}
+          disabled={loading || races.length === 0}
+        >
+          {races.length === 0 && (
+            <option value="">{loading ? 'Loading races…' : 'No races available'}</option>
+          )}
+          {races.map((raceOption) => (
+            <option key={raceOption.slug} value={raceOption.slug}>
+              {raceLabel(raceOption)}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div className="card-head live-panel-head">
         <div>
           <div className="card-title">{race?.eventName ?? 'Race replay'}</div>

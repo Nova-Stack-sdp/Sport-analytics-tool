@@ -39,7 +39,8 @@ describe('TelemetryTVPage', () => {
       'src',
       'https://www.youtube.com/embed/UO4c-wMLhso?enablejsapi=1&playsinline=1&start=184'
     );
-    expect(screen.getByLabelText('Race')).toHaveValue('toronto-2025');
+    expect(screen.getByLabelText('Choose a race')).toHaveValue('toronto-2025');
+    expect(screen.getByLabelText('Choose a race').closest('.video-panel')).toBeInTheDocument();
     expect(
       screen.getByRole('option', { name: 'Ontario Honda Dealers Indy Toronto · 2025' })
     ).toBeInTheDocument();
@@ -53,7 +54,9 @@ describe('TelemetryTVPage', () => {
     render(<TelemetryTVPage />);
 
     await screen.findByTitle('YouTube video player');
-    fireEvent.change(screen.getByLabelText('Race'), { target: { value: 'indianapolis-500-2024' } });
+    fireEvent.change(screen.getByLabelText('Choose a race'), {
+      target: { value: 'indianapolis-500-2024' },
+    });
 
     expect(screen.getByTitle('YouTube video player')).toHaveAttribute(
       'src',
@@ -73,6 +76,6 @@ describe('TelemetryTVPage', () => {
     ).toBeInTheDocument();
     expect(screen.queryByTitle('YouTube video player')).not.toBeInTheDocument();
     expect(screen.getByText('No video source configured')).toBeInTheDocument();
-    expect(screen.getByLabelText('Race')).toHaveValue('');
+    expect(screen.getByLabelText('Choose a race')).toHaveValue('');
   });
 });

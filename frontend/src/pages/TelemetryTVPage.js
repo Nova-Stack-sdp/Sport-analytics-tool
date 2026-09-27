@@ -3,7 +3,6 @@ import { getTelemetryTVRaces } from '../api/client';
 import LiveTicker from '../components/telemetry-tv/LiveTicker';
 import Masterboard from '../components/telemetry-tv/Masterboard';
 import PlaybackVideo from '../components/telemetry-tv/PlaybackVideo';
-import SessionSetupBar from '../components/telemetry-tv/SessionSetupBar';
 import PlaybackStatusBar from '../components/telemetry-tv/PlaybackStatusBar';
 import BattleRadar from '../components/telemetry-tv/BattleRadar';
 import RacePulse from '../components/telemetry-tv/RacePulse';
@@ -41,16 +40,16 @@ function TelemetryTVPage() {
   return (
     <div className="page" id="page-telemetry-tv">
       <div className="content">
-        <SessionSetupBar
-          races={races}
-          selectedSlug={selectedSlug}
-          onSelectRace={setSelectedSlug}
-          loading={loading}
-        />
-
         <div className="telemetry-tv-grid">
           <div className="telemetry-tv-primary">
-            <PlaybackVideo race={selectedRace} loading={loading} error={error} />
+            <PlaybackVideo
+              race={selectedRace}
+              races={races}
+              selectedSlug={selectedSlug}
+              onSelectRace={setSelectedSlug}
+              loading={loading}
+              error={error}
+            />
             <PlaybackStatusBar state={null} />
             <LiveTicker events={[]} />
           </div>
