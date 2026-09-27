@@ -558,6 +558,67 @@ footer{border-top:1px solid var(--border-soft);padding:44px 0 30px;background:va
 .developer-steps li b{color:var(--text-primary);}
 .developer-steps a{color:var(--accent);}
 
+/* ─── User profile ───────────────────────────────────────────────────── */
+.profile-page{padding-top:80px;}
+.profile-content{display:flex;flex-direction:column;gap:18px;}
+.profile-tabs{margin-bottom:0;}
+.profile-tabs .tab{border-top:0;border-right:0;border-left:0;background:transparent;font-family:inherit;}
+.profile-hero{position:relative;display:flex;align-items:center;gap:22px;overflow:hidden;padding:28px;border:1px solid var(--border);border-radius:var(--radius-lg);background:linear-gradient(120deg,var(--surface) 0%,var(--surface) 62%,var(--accent-soft) 100%);box-shadow:var(--shadow-soft);}
+.profile-hero::after{content:'01';position:absolute;right:130px;top:-34px;color:var(--accent);opacity:.07;font-size:150px;line-height:1;font-weight:900;pointer-events:none;}
+.profile-avatar{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;width:88px;height:88px;flex:0 0 88px;border:2px solid rgba(255,255,255,.42);border-radius:26px;background:linear-gradient(145deg,var(--accent),var(--accent-dark));box-shadow:0 16px 34px rgba(157,13,13,.3);color:#fff;font-size:27px;font-weight:900;letter-spacing:-.04em;}
+.profile-avatar-wrap{position:relative;z-index:1;display:flex;flex:0 0 104px;flex-direction:column;align-items:center;gap:8px;}
+.profile-avatar img{width:100%;height:100%;border-radius:24px;object-fit:cover;}
+.profile-photo-button{padding:5px 9px;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--text-primary);font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap;}
+.profile-photo-button:hover{border-color:var(--accent);color:var(--accent);}
+.profile-photo-input{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;}
+.profile-identity{position:relative;z-index:1;min-width:0;flex:1;}
+.profile-overline{margin-bottom:3px;color:var(--accent);font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;}
+.profile-identity h1{margin:0;color:var(--text-primary);font-size:28px;line-height:1.2;letter-spacing:-.03em;}
+.profile-identity p{margin:5px 0 0;color:var(--text-secondary);font-size:12.5px;}
+.profile-badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:13px;}
+.profile-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border:1px solid var(--border-soft);border-radius:999px;background:var(--gray-pill-bg);color:var(--text-secondary);font-size:10.5px;font-weight:700;}
+.profile-badge::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--text-tertiary);}
+.profile-badge.is-verified::before{background:var(--status-green);box-shadow:0 0 8px var(--status-green);}
+.profile-badge.is-developer::before{background:var(--accent);box-shadow:0 0 8px var(--accent);}
+.profile-settings-link{position:relative;z-index:1;text-decoration:none;white-space:nowrap;}
+.profile-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:18px;}
+.profile-card:hover,.profile-signout-card:hover{transform:none;border-color:var(--border);box-shadow:var(--shadow-soft);}
+.profile-form{display:grid;grid-template-columns:1fr;gap:8px;}
+.profile-form label{margin-top:3px;color:var(--text-secondary);font-size:11px;font-weight:700;}
+.profile-form input{width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg);color:var(--text-primary);font:inherit;outline:none;transition:border-color .15s,box-shadow .15s;}
+.profile-form input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+.profile-form input:disabled{opacity:.65;cursor:not-allowed;}
+.profile-field-note{margin-top:-3px;color:var(--text-tertiary);font-size:10.5px;}
+.profile-save{justify-self:start;margin-top:8px;}
+.profile-message{margin:5px 0 0;font-size:11.5px;font-weight:700;}
+.profile-message.is-success{color:var(--status-green);}
+.profile-message.is-error{color:var(--status-red);}
+.profile-detail-list{margin:0;}
+.profile-detail-list div{display:grid;grid-template-columns:120px minmax(0,1fr);gap:14px;padding:11px 0;border-bottom:1px solid var(--border-soft);}
+.profile-detail-list div:last-child{border-bottom:0;}
+.profile-detail-list dt{color:var(--text-tertiary);font-size:11.5px;}
+.profile-detail-list dd{min-width:0;margin:0;color:var(--text-primary);font-size:11.5px;font-weight:700;text-align:right;}
+.profile-user-id{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--font-mono);font-size:10.5px!important;}
+.profile-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+.profile-action-card{position:relative;display:grid;grid-template-columns:1fr auto;gap:4px 16px;min-height:124px;padding:20px;border:1px solid var(--border-soft);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow-soft);color:inherit;text-decoration:none;transition:transform .15s,border-color .15s,box-shadow .15s;}
+.profile-action-card:hover{transform:translateY(-2px);border-color:var(--accent);box-shadow:var(--shadow-elevated);}
+.profile-action-card strong{align-self:end;color:var(--text-primary);font-size:14px;}
+.profile-action-card>span:not(.profile-action-index){grid-column:1/2;color:var(--text-secondary);font-size:11.5px;line-height:1.5;}
+.profile-action-card b{grid-column:2;grid-row:2/4;align-self:center;color:var(--accent);font-size:20px;}
+.profile-action-index{grid-column:1/-1;color:var(--accent);font-family:var(--font-mono);font-size:10px;font-weight:800;}
+.profile-signout-card{display:flex;align-items:center;justify-content:space-between;gap:20px;}
+
+@media (max-width: 760px){
+  .profile-hero{align-items:flex-start;flex-wrap:wrap;padding:22px;}
+  .profile-avatar-wrap{flex-basis:84px;}
+  .profile-avatar{width:68px;height:68px;flex-basis:68px;border-radius:20px;font-size:22px;}
+  .profile-avatar img{border-radius:18px;}
+  .profile-settings-link{width:100%;text-align:center;}
+  .profile-grid,.profile-actions{grid-template-columns:1fr;}
+  .profile-detail-list div{grid-template-columns:1fr;gap:3px;}
+  .profile-detail-list dd{text-align:left;}
+}
+
 @media (max-width: 900px){
   .replay-layout{grid-template-columns:1fr;}
 }

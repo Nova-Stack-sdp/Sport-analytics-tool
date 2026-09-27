@@ -41,6 +41,7 @@ function renderNav({ user = null, path = '/teams', theme = 'dark' } = {}) {
 
 describe('TopNavigation', () => {
   beforeEach(() => {
+    window.localStorage.clear();
     signOut.mockResolvedValue();
     clearSession.mockResolvedValue({ status: 'ok' });
   });
@@ -81,6 +82,18 @@ describe('TopNavigation', () => {
     expect(screen.queryByRole('link', { name: 'Datasets' })).not.toBeInTheDocument();
   });
 
+  test('places Profile immediately after Overview for signed-in users', () => {
+    renderNav({
+      user: { uid: 'user-123', displayName: 'Max Verstappen', email: 'max@example.test' },
+    });
+
+    const navLinks = screen.getByLabelText('Main navigation').querySelectorAll('.nav-items a');
+    expect(Array.from(navLinks).slice(0, 2).map((link) => link.textContent)).toEqual([
+      'Overview',
+      'Profile',
+    ]);
+  });
+
   test('shows Datasets and Submissions once developer mode is on, plus display-name initials', () => {
     mockIsDeveloperMode = true;
     renderNav({
@@ -114,6 +127,7 @@ describe('TopNavigation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'M' }));
 
     expect(screen.getByText('Signed in as max@example.test')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'View profile' })).toHaveAttribute('href', '/profile');
     expect(screen.getByRole('button', { name: 'Log out' })).toBeInTheDocument();
     // The point of the menu: opening it must not touch the session.
     expect(signOut).not.toHaveBeenCalled();

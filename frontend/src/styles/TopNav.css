@@ -160,6 +160,13 @@
   transform: translateY(-1px);
 }
 
+.avatar img {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
 .avatar-wrap {
   position: relative;
   flex-shrink: 0;
@@ -213,6 +220,7 @@
   text-align: left;
   cursor: pointer;
   transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+  text-decoration: none;
 }
 
 .avatar-menu-button:hover {
