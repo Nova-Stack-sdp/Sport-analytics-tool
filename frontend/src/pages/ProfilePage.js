@@ -269,9 +269,9 @@ function ProfilePage() {
         </div>
 
         <section className="profile-actions" aria-label="Account shortcuts">
-          <Link to="/watch-live" className="profile-action-card">
+          <Link to="/telemetry-tv" className="profile-action-card">
             <span className="profile-action-index">01</span>
-            <strong>Watch Live</strong>
+            <strong>Telemetry TV</strong>
             <span>Follow the race with synchronized analytics.</span>
             <b aria-hidden="true">→</b>
           </Link>

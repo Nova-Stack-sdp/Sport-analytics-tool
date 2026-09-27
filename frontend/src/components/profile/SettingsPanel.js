@@ -141,7 +141,7 @@ function SettingsPanel() {
       <SettingsCard title="Motion" subtitle="For anyone who finds movement distracting.">
         <SettingRow
           label="Reduce motion"
-          description="Turns off hover lifts, row flashes, fades and the blinking LIVE badge. Race Replay's cars still move."
+          description="Turns off hover lifts, row flashes, fades and the blinking TelemetryTV badge. Race Replay's cars still move."
         >
           <Switch
             label="Toggle reduce motion"

@@ -15,7 +15,7 @@ export const REPLAY_SPEEDS = [0.5, 1, 2, 4, 16, 60];
 
 export const START_PAGES = [
   { value: '/overview', label: 'Overview' },
-  { value: '/watch-live', label: 'Watch Live' },
+  { value: '/telemetry-tv', label: 'Telemetry TV' },
   { value: '/fixtures', label: 'Fixtures & Events' },
   { value: '/statistics', label: 'Statistics' },
   { value: '/replay', label: 'Race Replay' },
