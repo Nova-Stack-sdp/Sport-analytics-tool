@@ -13,6 +13,7 @@ import { openF1Router } from './routes/openf1.js';
 import { raceReplayRouter } from './routes/raceReplay.js';
 import { imagesRouter } from './routes/images.js';
 import { telemetryTVRouter } from './routes/telemetryTV.js';
+import { apiV1Router } from './api/v1/router.js';
 
 export function createApp() {
   const app = express();
@@ -65,6 +66,10 @@ export function createApp() {
   app.use('/api/race-replay', raceReplayRouter);
   app.use('/api/images', imagesRouter);
   app.use('/api/telemetry-tv', telemetryTVRouter);
+
+  // Public, versioned API for other platforms (see src/api/v1/router.js).
+  // The routes above serve the website's own pages and may change with them.
+  app.use('/api/v1', apiV1Router);
 
   // 404 for anything else under /api
   app.use('/api', (req, res) => {
