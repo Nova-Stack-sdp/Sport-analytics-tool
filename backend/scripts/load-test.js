@@ -80,23 +80,37 @@ async function getJson(base, urlPath) {
 
 /** Real ids to request, taken from the API so the test works on any database. */
 async function discover(base) {
-  const fixtures = await getJson(base, '/api/v1/fixtures?sessionType=Race&limit=50');
+  const fixtures = await getJson(base, '/api/v1/fixtures?sessionType=Race&limit=100');
   const races = fixtures.data;
   if (!races.length) throw new Error('No Race fixtures in this database — sync some sessions first.');
-  // Prefer a race that actually has results.
-  let race = races[0];
-  let stats = [];
-  for (const candidate of races.slice(0, 10)) {
-    stats = (await getJson(base, `/api/v1/fixtures/${candidate.id}/statistics`)).data;
-    if (stats.length) { race = candidate; break; }
+
+  // Use a race that was actually synced: it has events and a classified
+  // result. The newest fixtures can be scheduled races with entries but no
+  // events yet. Prefer one with more than a page of events, so the cursor
+  // request is realistic.
+  let fallback = null;
+  for (const race of races) {
+    const firstPage = await getJson(base, `/api/v1/events?fixture=${race.id}&limit=500`);
+    if (!firstPage.data.length) continue;
+    const stats = (await getJson(base, `/api/v1/fixtures/${race.id}/statistics`)).data;
+    const classified = stats.find((row) => row.finalPosition != null);
+    if (!classified) continue;
+    const laps = await getJson(base, `/api/v1/events?fixture=${race.id}&type=lap_completed&limit=1`);
+    const found = {
+      race,
+      hasLaps: laps.data.length > 0,
+      season: race.season ?? new Date(race.startTime).getUTCFullYear(),
+      driverId: classified.driver?.id ?? null,
+      deepCursor: firstPage.page.nextCursor,
+    };
+    if (found.deepCursor && found.hasLaps) return found;
+    fallback ??= found;
   }
-  const season = race.season ?? new Date(race.startTime).getUTCFullYear();
-  const driverId = stats[0]?.driver?.id ?? null;
-  const firstPage = await getJson(base, `/api/v1/events?fixture=${race.id}&limit=500`);
-  return { race, season, driverId, deepCursor: firstPage.page.nextCursor };
+  if (fallback) return fallback;
+  throw new Error('No Race fixture with synced events and results was found.');
 }
 
-export function buildScenario({ race, season, driverId, deepCursor }) {
+export function buildScenario({ race, season, driverId, deepCursor, hasLaps = true }) {
   const id = race.id;
   const list = [
     // The website's own reads
@@ -105,7 +119,6 @@ export function buildScenario({ race, season, driverId, deepCursor }) {
     ['site: fixture events', `/api/fixtures/${id}/events`],
     ['site: season statistics', `/api/statistics?view=season&season=${season}`],
     ['site: career statistics', '/api/statistics?view=career'],
-    ['site: race replay state', `/api/race-replay/${id}/state?lap=10`],
     // Public API (v1)
     ['v1: fixtures by season', `/api/v1/fixtures?season=${season}`],
     ['v1: one fixture', `/api/v1/fixtures/${id}`],
@@ -118,6 +131,8 @@ export function buildScenario({ race, season, driverId, deepCursor }) {
     ['v1: team standings', `/api/v1/statistics/teams?season=${season}`],
     ['v1: drivers', '/api/v1/drivers'],
   ];
+  // Race replay needs lap data; a fixture without it answers 400 by design.
+  if (hasLaps) list.push(['site: race replay state', `/api/race-replay/${id}/state?lap=10`]);
   if (deepCursor) list.push(['v1: events page 2 (cursor)', `/api/v1/events?fixture=${id}&limit=500&cursor=${deepCursor}`]);
   if (driverId) list.push(['v1: stat with source events', `/api/v1/fixtures/${id}/statistics/${driverId}`]);
   return list.map(([name, urlPath]) => ({ name, path: urlPath }));
