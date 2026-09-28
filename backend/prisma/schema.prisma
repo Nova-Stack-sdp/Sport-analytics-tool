@@ -213,6 +213,9 @@ model Event {
   @@index([entryId])
   @@index([sourceSubmissionId])
   @@index([sessionId, lapNumber])
+  // The v1 API's cursor order — see migration 20261001090000_add_event_time_indexes.
+  @@index([occurredAt, id])
+  @@index([sessionId, occurredAt, id])
   @@map("event")
 }
 
