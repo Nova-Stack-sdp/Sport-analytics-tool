@@ -38,13 +38,15 @@ beforeEach(() => {
   jest.clearAllMocks();
   process.env.FIREBASE_SERVICE_ACCOUNT = JSON.stringify({ project_id: 'test-project' });
   // Default: a valid authenticated user, unless a specific test overrides this.
-  mockVerifyIdToken.mockResolvedValue({ uid: 'test-uid', email: null });
+  mockVerifyIdToken.mockResolvedValue({ uid: 'test-uid', email: null, developer: true });
+  process.env.ADMIN_UIDS = 'test-uid';
   mockTx.submission.create.mockResolvedValue({ id: 'sub-1', status: 'pending' });
   mockTx.event.createMany.mockResolvedValue({});
 });
 
 afterEach(() => {
   delete process.env.FIREBASE_SERVICE_ACCOUNT;
+  delete process.env.ADMIN_UIDS;
 });
 
 function authed(req) {

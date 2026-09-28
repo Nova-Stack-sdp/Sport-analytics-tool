@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import pkg from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
-import { requireAuth } from '../middleware/requireAuth.js';
+import { requireAuth, requireAdmin } from '../middleware/requireAuth.js';
 import { runDerivationForSession } from '../derivation/index.js';
 import {
   mapLap,
@@ -17,6 +17,13 @@ import {
 const { SubmissionSource, SubmissionStatus } = pkg;
 
 export const submissionsRouter = Router();
+
+function requireDeveloperOrAdmin(req, res, next) {
+  if (!req.user.developer && !req.user.admin) {
+    return res.status(403).json({ error: 'Developer or admin access required to submit data' });
+  }
+  next();
+}
 
 /**
  * Builds an entryId lookup for an already-synced session, keyed by OpenF1
@@ -53,7 +60,7 @@ async function buildEntryLookup(sessionId) {
  * pending: events exist in the log but are excluded from derived stats
  * until an admin approves (see the LIVE filter in derivation/db.js).
  */
-submissionsRouter.post('/', requireAuth, async (req, res, next) => {
+submissionsRouter.post('/', requireAuth, requireDeveloperOrAdmin, async (req, res, next) => {
   try {
     const { session_key: sessionKey } = req.body;
     if (!sessionKey) {
@@ -189,7 +196,7 @@ submissionsRouter.get('/', requireAuth, async (req, res, next) => {
  * project notes). Approving triggers derivation so the now-live events
  * actually count toward stats.
  */
-submissionsRouter.patch('/:id', requireAuth, async (req, res, next) => {
+submissionsRouter.patch('/:id', requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const { status } = req.body;
     if (![SubmissionStatus.accepted, SubmissionStatus.rejected].includes(status)) {
