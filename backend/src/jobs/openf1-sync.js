@@ -25,6 +25,12 @@
  *    it in the free API tier.
  *  - Sprint Qualifying / Sprint Shootout sessions are mapped to `Q` since the
  *    SessionType enum has no dedicated slot for them.
+ *
+ * RE-RUNNING IS SAFE: every run is compared against what's already stored
+ * (see src/ingestion/planIngestion.js). Events already stored unchanged are
+ * skipped, new ones are inserted, and changed ones are stored as corrections
+ * that supersede the old version — so syncing a session twice never
+ * double-counts. Each run's counts are saved on its Submission (`summary`).
  */
 
 import net from 'node:net';
@@ -32,6 +38,8 @@ import pkg from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import 'dotenv/config';
 import { runDerivationForSession } from '../derivation/index.js';
+import { planIngestion, summarizePlan } from '../ingestion/planIngestion.js';
+import { validateEvents } from '../ingestion/validationRules.js';
 
 const { PrismaClient, SubmissionSource, SubmissionStatus, EventType } = pkg;
 
@@ -201,6 +209,9 @@ async function syncDimensions(sessionKey) {
     entryByDriverNumber,
     meetingKey: sessionData.meeting_key,
     sessionName: sessionData.session_name,
+    sessionType: session.type,
+    sessionStart: session.startTime,
+    sessionEnd: session.endTime ?? session.startTime,
   };
 }
 
@@ -236,7 +247,11 @@ async function resolveGridSessionKey(meetingKey, sessionName) {
  * a normalized { eventType, entryId, lapNumber, occurredAt, payload } shape,
  * or null if the record fails basic validation (with a reason logged).
  */
-async function collectEvents(sessionKey, entryByDriverNumber, gridSessionKey) {
+async function collectEvents(sessionKey, entryByDriverNumber, gridSessionKey, timing) {
+  // Records with no timestamp of their own (stints, the grid, the result)
+  // get a fixed one from the session instead of "now" — using the time of
+  // the sync made the same record look different on every run.
+  const { sessionStart, sessionEnd } = timing;
   const events = [];
   const rejections = [];
 
@@ -261,7 +276,9 @@ async function collectEvents(sessionKey, entryByDriverNumber, gridSessionKey) {
       eventType: EventType.lap_completed,
       entryId: entryFor(l.driver_number),
       lapNumber: l.lap_number,
-      occurredAt: new Date(l.date_start),
+      // A few laps (often lap 1) come without a start time; fall back to the
+      // session start rather than an invalid date — laps order by number anyway.
+      occurredAt: l.date_start ? new Date(l.date_start) : sessionStart,
       payload: {
         lap_time_ms: l.lap_duration != null ? Math.round(l.lap_duration * 1000) : null,
         sector1_ms: l.duration_sector_1 != null ? Math.round(l.duration_sector_1 * 1000) : null,
@@ -312,7 +329,7 @@ async function collectEvents(sessionKey, entryByDriverNumber, gridSessionKey) {
       eventType: EventType.tyre_stint,
       entryId: entryFor(s.driver_number),
       lapNumber: s.lap_start,
-      occurredAt: new Date(), // stints have no timestamp; ordered by lap range instead
+      occurredAt: sessionStart, // stints have no timestamp; ordered by lap range instead
       payload: {
         compound: s.compound,
         stint_number: s.stint_number,
@@ -417,7 +434,7 @@ async function collectEvents(sessionKey, entryByDriverNumber, gridSessionKey) {
       eventType: EventType.grid_position,
       entryId: entryFor(g.driver_number),
       lapNumber: null,
-      occurredAt: new Date(), // grid is set pre-race, no natural timestamp
+      occurredAt: sessionStart, // grid is set pre-race, no natural timestamp
       payload: { position: g.position },
     });
   }
@@ -433,7 +450,7 @@ async function collectEvents(sessionKey, entryByDriverNumber, gridSessionKey) {
       eventType: EventType.classification,
       entryId: entryFor(r.driver_number),
       lapNumber: null,
-      occurredAt: new Date(),
+      occurredAt: sessionEnd, // the result stands as of the end of the session
       payload: {
         final_position: r.position ?? null,
         points: r.points ?? 0,
@@ -450,21 +467,64 @@ async function syncSession(sessionKeyRaw) {
   const sessionKey = Number(sessionKeyRaw);
   console.log(`Syncing session_key=${sessionKey}...`);
 
-  const { sessionId, entryByDriverNumber, meetingKey, sessionName } = await syncDimensions(sessionKey);
+  const dims = await syncDimensions(sessionKey);
+  const { sessionId, entryByDriverNumber, meetingKey, sessionName } = dims;
   const gridSessionKey = await resolveGridSessionKey(meetingKey, sessionName);
-  const { events, rejections } = await collectEvents(sessionKey, entryByDriverNumber, gridSessionKey);
+  const collected = await collectEvents(sessionKey, entryByDriverNumber, gridSessionKey, dims);
+
+  // Rules for impossible / conflicting data (lap times, positions, points...).
+  const validated = validateEvents(collected.events, {
+    entryCount: entryByDriverNumber.size,
+    sessionType: dims.sessionType,
+    sessionStart: dims.sessionStart,
+    sessionEnd: dims.sessionEnd,
+  });
+
+  // Compare against what's already stored, so a re-run only adds what's new.
+  const existingLive = await prisma.event.findMany({
+    where: { sessionId, supersededById: null },
+    select: {
+      id: true, eventType: true, entryId: true, lapNumber: true,
+      occurredAt: true, payload: true, ingestedAt: true,
+    },
+  });
+  const plan = planIngestion(validated.accepted, existingLive);
+
+  const rejections = [
+    ...collected.rejections,
+    ...validated.rejections,
+    ...plan.duplicates.map(({ event, identity }) => ({
+      eventType: event.eventType,
+      rule: 'duplicate_in_batch',
+      reason: `the same event appears more than once in this submission (${identity})`,
+      record: event,
+    })),
+  ];
+  const summary = summarizePlan(plan, rejections.length);
 
   if (rejections.length > 0) {
     console.warn(`${rejections.length} record(s) rejected:`);
-    for (const r of rejections) console.warn(`  [${r.eventType}] ${r.reason}`);
+    for (const r of rejections.slice(0, 50)) console.warn(`  [${r.eventType}] ${r.reason}`);
+    if (rejections.length > 50) console.warn(`  ...and ${rejections.length - 50} more (all saved on the submission)`);
   }
 
+  const acceptedCount = plan.insert.length + plan.corrections.length + plan.unchanged.length;
   const status =
-    events.length === 0
+    acceptedCount === 0 && rejections.length > 0
       ? SubmissionStatus.rejected
       : rejections.length === 0
       ? SubmissionStatus.accepted
       : SubmissionStatus.partially_accepted;
+
+  const toRow = (e, submissionId) => ({
+    sessionId,
+    entryId: e.entryId,
+    eventType: e.eventType,
+    lapNumber: e.lapNumber,
+    occurredAt: e.occurredAt,
+    payload: e.payload,
+    sourceSubmissionId: submissionId,
+  });
 
   const result = await prisma.$transaction(async (tx) => {
     const submission = await tx.submission.create({
@@ -475,39 +535,40 @@ async function syncSession(sessionKeyRaw) {
         fileRef: null,
         status,
         validationErrors: rejections.length > 0 ? rejections : undefined,
+        summary,
       },
     });
 
-    if (events.length > 0) {
-      await tx.event.createMany({
-        data: events.map((e) => ({
-          sessionId,
-          entryId: e.entryId,
-          eventType: e.eventType,
-          lapNumber: e.lapNumber,
-          occurredAt: e.occurredAt,
-          payload: e.payload,
-          sourceSubmissionId: submission.id,
-        })),
-      });
+    if (plan.insert.length > 0) {
+      await tx.event.createMany({ data: plan.insert.map((e) => toRow(e, submission.id)) });
+    }
+
+    // A correction is a new event plus a pointer from the old one to it; the
+    // old row stays in the log so the change has a history.
+    for (const { event, supersedesId } of plan.corrections) {
+      const created = await tx.event.create({ data: toRow(event, submission.id) });
+      await tx.event.update({ where: { id: supersedesId }, data: { supersededById: created.id } });
     }
 
     return submission;
-  }, { maxWait: 15000, timeout: 30000 });
+  }, { maxWait: 15000, timeout: 60000 });
 
-    console.log(`Submission ${result.id} created — status: ${result.status}, events written: ${events.length}`);
+  console.log(
+    `Submission ${result.id} — status: ${result.status}. `
+    + `Inserted ${summary.inserted}, corrected ${summary.corrected}, `
+    + `already stored ${summary.unchanged}, rejected ${summary.rejected}.`
+  );
 
-  // Derivation cascade was previously never triggered anywhere — submissions
-  // landed as accepted/partially_accepted with real events, but the
-  // projection tables (driver_career_stats, team_season_stats, etc.) stayed
-  // empty forever, which is why the Overview/Statistics pages showed no
-  // leaderboard despite having real data. Mirrors the doc comment on
-  // runDerivationForSession: run it whenever a submission touching this
-  // session moves to accepted or partially_accepted.
-  if (result.status === SubmissionStatus.accepted || result.status === SubmissionStatus.partially_accepted) {
+  // Derivation cascade: run it whenever this submission actually changed
+  // the session's events. (Previously it never ran at all, which is why the
+  // projection tables stayed empty — see runDerivationForSession.) Skipped
+  // when nothing changed, since the derived figures would be identical.
+  if (summary.inserted + summary.corrected > 0) {
     console.log(`Running derivation for session ${sessionId}...`);
     await runDerivationForSession(prisma, sessionId);
     console.log('Derivation complete.');
+  } else {
+    console.log('Nothing new for this session — derived statistics are already up to date.');
   }
 
   return result;

@@ -160,6 +160,9 @@ model Submission {
   fileRef          String?          @map("file_ref")
   status           SubmissionStatus @default(pending)
   validationErrors Json?            @map("validation_errors")
+  // What the submission did: { inserted, corrected, unchanged,
+  // duplicatesInBatch, rejected } — see src/ingestion/planIngestion.js.
+  summary          Json?
   submittedAt      DateTime         @default(now()) @map("submitted_at")
   // References an auth-system user ID (admin who reviewed), not a local FK.
   reviewedBy       String?          @map("reviewed_by")
