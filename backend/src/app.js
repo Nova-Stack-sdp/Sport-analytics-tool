@@ -1,4 +1,5 @@
 import express from 'express';
+import { serverTiming } from './middleware/serverTiming.js';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { authRouter } from './routes/auth.js';
@@ -44,6 +45,9 @@ export function createApp(options = {}) {
   // X-Forwarded-For so req.ip is the real client (what rate limits key on),
   // not the proxy's own address.
   app.set('trust proxy', 1);
+
+  // Server-side response time on every response (see middleware/serverTiming.js).
+  app.use(serverTiming());
 
   // FRONTEND_ORIGIN should be set on Northflank to the exact Netlify URL,
   // e.g. "https://sport-analytics-tool.netlify.app". Comma-separate if you

@@ -4,7 +4,12 @@
 // ============================================================
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  // Loads `include`d relations in the same SQL query (JOINs) instead of one
+  // query per relation level. Each query is a network round trip to Neon,
+  // so this cuts most API responses from 2-3 round trips to 1. Responses
+  // were checked to be byte-for-byte identical — see docs/PERFORMANCE.md.
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {

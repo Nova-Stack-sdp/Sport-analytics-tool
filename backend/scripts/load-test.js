@@ -17,13 +17,20 @@
  *   RATE_LIMIT_PER_MINUTE=0 RATE_LIMIT_V1_PER_MINUTE=0 RATE_LIMIT_EXPORTS_PER_MINUTE=0 \
  *   CACHE_TTL_SECONDS=0 npm start
  *
- * Exit code 0 when overall p95 and every endpoint's p95 meet the target and
- * nothing errored; 1 otherwise.
+ * Two times are recorded per request: the total seen by this client, and
+ * the server's own time from the Server-Timing header (database + building
+ * the response, without the network between here and the server). The
+ * target is judged on the server time when the API sends it (--judge total
+ * to judge on the client time instead), since a client on another continent
+ * adds its own round trip to every request whatever the platform does.
+ *
+ * Exit code 0 when every endpoint's p95 meets the target and nothing
+ * errored; 1 otherwise.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 
-const DEFAULTS = { base: 'http://localhost:8080', concurrency: 10, requests: 30, targetP95: 500, warmup: 1, report: null };
+const DEFAULTS = { base: 'http://localhost:8080', concurrency: 10, requests: 30, targetP95: 500, warmup: 1, report: null, judge: 'server' };
 
 export function parseArgs(argv) {
   const args = { ...DEFAULTS };
@@ -32,6 +39,10 @@ export function parseArgs(argv) {
     const flag = argv[i];
     if (flag === '--base') args.base = argv[++i].replace(/\/$/, '');
     else if (flag === '--report') args.report = argv[++i];
+    else if (flag === '--judge') {
+      args.judge = argv[++i];
+      if (!['server', 'total'].includes(args.judge)) throw new Error('--judge must be server or total');
+    }
     else if (numeric[flag]) args[numeric[flag]] = Number(argv[++i]);
     else throw new Error(`Unknown argument ${flag}`);
   }
@@ -49,6 +60,8 @@ export function percentile(values, p) {
 export function summarize(name, samples) {
   const ok = samples.filter((s) => s.ok);
   const times = samples.map((s) => s.ms);
+  const serverTimes = samples.map((s) => s.serverMs).filter((v) => typeof v === 'number');
+  const hasServer = serverTimes.length === samples.length && samples.length > 0;
   return {
     name,
     requests: samples.length,
@@ -57,6 +70,8 @@ export function summarize(name, samples) {
     p50: percentile(times, 50),
     p95: percentile(times, 95),
     max: times.length ? Math.max(...times) : null,
+    serverP50: hasServer ? percentile(serverTimes, 50) : null,
+    serverP95: hasServer ? percentile(serverTimes, 95) : null,
     statuses: [...new Set(samples.filter((s) => !s.ok).map((s) => s.status))],
   };
 }
@@ -66,10 +81,27 @@ async function timedGet(base, urlPath) {
   try {
     const res = await fetch(base + urlPath);
     await res.arrayBuffer(); // include body transfer in the timing
-    return { ok: res.ok, status: res.status, ms: performance.now() - started, cache: res.headers.get('x-cache') };
+    return {
+      ok: res.ok,
+      status: res.status,
+      ms: performance.now() - started,
+      serverMs: parseServerTiming(res.headers.get('server-timing')),
+      cache: res.headers.get('x-cache'),
+    };
   } catch (error) {
     return { ok: false, status: error.cause?.code ?? 'network', ms: performance.now() - started };
   }
+}
+
+/** `app;dur=12.3` → 12.3 (null when the header is missing). */
+export function parseServerTiming(header) {
+  const match = /(?:^|,)\s*app;dur=([\d.]+)/.exec(header ?? '');
+  return match ? Number(match[1]) : null;
+}
+
+/** The p95 the target is judged on: server time when available (and asked for), else total. */
+export function judgedP95(row, judge) {
+  return judge === 'server' && row.serverP95 != null ? row.serverP95 : row.p95;
 }
 
 async function getJson(base, urlPath) {
@@ -156,17 +188,21 @@ async function run(base, scenario, { concurrency, requests }) {
 
 export function formatReport({ args, rows, overall, seconds, exportTiming, generatedAt = new Date() }) {
   const ms = (v) => (v == null ? '—' : `${Math.round(v)}`);
-  const verdict = (row) => (row.errors === 0 && row.p95 <= args.targetP95 ? 'ok' : 'OVER');
+  const judge = args.judge ?? 'server';
+  const verdict = (row) => (row.errors === 0 && judgedP95(row, judge) <= args.targetP95 ? 'ok' : 'OVER');
+  const judgedOnServer = judge === 'server' && rows.every((r) => r.serverP95 != null);
   const lines = [
     '# Load test',
     '',
     `Generated ${generatedAt.toISOString()} against \`${args.base}\` — ${args.concurrency} concurrent clients, ${args.requests} requests per endpoint.`,
     '',
-    `**Target: p95 ≤ ${args.targetP95} ms for every endpoint, no errors.** Result: **${overall.pass ? 'PASS' : 'FAIL'}** — overall p95 ${ms(overall.p95)} ms, ${overall.requests} requests in ${seconds.toFixed(1)} s (${(overall.requests / seconds).toFixed(1)} req/s), ${overall.errors} errors.`,
+    `**Target: p95 ≤ ${args.targetP95} ms for every endpoint, no errors** (judged on ${judgedOnServer ? 'server time' : 'total time seen by the client'}). Result: **${overall.pass ? 'PASS' : 'FAIL'}** — overall p95 ${ms(overall.p95)} ms total${overall.serverP95 != null ? ` / ${ms(overall.serverP95)} ms server` : ''}, ${overall.requests} requests in ${seconds.toFixed(1)} s (${(overall.requests / seconds).toFixed(1)} req/s), ${overall.errors} errors.`,
     '',
-    '| Endpoint | Requests | Errors | p50 ms | p95 ms | max ms | |',
-    '|---|---:|---:|---:|---:|---:|---|',
-    ...rows.map((r) => `| ${r.name} | ${r.requests} | ${r.errors}${r.statuses.length ? ` (${r.statuses.join(', ')})` : ''} | ${ms(r.p50)} | ${ms(r.p95)} | ${ms(r.max)} | ${verdict(r)} |`),
+    '"Total" is what this client measured; "server" is the API\'s own time from its Server-Timing header (database + building the response). The difference is the network between this client and the API.',
+    '',
+    '| Endpoint | Requests | Errors | total p50 | total p95 | total max | server p50 | server p95 | |',
+    '|---|---:|---:|---:|---:|---:|---:|---:|---|',
+    ...rows.map((r) => `| ${r.name} | ${r.requests} | ${r.errors}${r.statuses.length ? ` (${r.statuses.join(', ')})` : ''} | ${ms(r.p50)} | ${ms(r.p95)} | ${ms(r.max)} | ${ms(r.serverP50)} | ${ms(r.serverP95)} | ${verdict(r)} |`),
   ];
   if (exportTiming) {
     lines.push('', `Export (single request, not part of the concurrent mix): \`${exportTiming.path}\` — ${exportTiming.ok ? `${Math.round(exportTiming.ms)} ms, ${exportTiming.bytes.toLocaleString('en-US')} bytes` : `failed (${exportTiming.status})`}.`);
@@ -199,7 +235,7 @@ async function main() {
   const overallRow = summarize('overall', all);
   const overall = {
     ...overallRow,
-    pass: overallRow.errors === 0 && rows.every((r) => r.p95 <= args.targetP95),
+    pass: overallRow.errors === 0 && rows.every((r) => judgedP95(r, args.judge) <= args.targetP95),
   };
   const exportTiming = await timeExport(args.base, ids.race.id);
 

@@ -2,7 +2,7 @@
  * The load test's arithmetic: if percentiles or the pass/fail verdict were
  * wrong, the numbers in docs/PERFORMANCE.md would be too.
  */
-import { buildScenario, formatReport, parseArgs, percentile, summarize } from '../scripts/load-test.js';
+import { buildScenario, formatReport, judgedP95, parseArgs, parseServerTiming, percentile, summarize } from '../scripts/load-test.js';
 
 describe('percentile (nearest rank)', () => {
   test('matches hand-computed values', () => {
@@ -51,19 +51,44 @@ describe('buildScenario', () => {
   });
 });
 
+describe('server timing', () => {
+  test('reads the app duration from the Server-Timing header', () => {
+    expect(parseServerTiming('app;dur=12.5')).toBe(12.5);
+    expect(parseServerTiming('cache;desc=hit, app;dur=3')).toBe(3);
+    expect(parseServerTiming(null)).toBeNull();
+  });
+
+  test('summarize reports server percentiles only when every sample has one', () => {
+    const withServer = summarize('x', [
+      { ok: true, status: 200, ms: 300, serverMs: 10 },
+      { ok: true, status: 200, ms: 320, serverMs: 30 },
+    ]);
+    expect(withServer).toEqual(expect.objectContaining({ p95: 320, serverP50: 10, serverP95: 30 }));
+    const partial = summarize('x', [{ ok: true, status: 200, ms: 1, serverMs: 1 }, { ok: true, status: 200, ms: 2 }]);
+    expect(partial.serverP95).toBeNull();
+  });
+
+  test('judged on server time by default, total when asked or when the header is missing', () => {
+    expect(judgedP95({ p95: 800, serverP95: 90 }, 'server')).toBe(90);
+    expect(judgedP95({ p95: 800, serverP95: 90 }, 'total')).toBe(800);
+    expect(judgedP95({ p95: 800, serverP95: null }, 'server')).toBe(800);
+  });
+});
+
 describe('formatReport', () => {
   test('marks endpoints over the target and states the overall result', () => {
-    const args = { base: 'http://x', concurrency: 10, requests: 2, targetP95: 100 };
+    const args = { base: 'http://x', concurrency: 10, requests: 2, targetP95: 100, judge: 'server' };
     const rows = [
-      { name: 'fast', requests: 2, errors: 0, cacheHits: 0, p50: 10, p95: 20, max: 20, statuses: [] },
-      { name: 'slow', requests: 2, errors: 0, cacheHits: 0, p50: 90, p95: 150, max: 150, statuses: [] },
+      { name: 'fast', requests: 2, errors: 0, cacheHits: 0, p50: 300, p95: 320, max: 320, serverP50: 10, serverP95: 20, statuses: [] },
+      { name: 'slow', requests: 2, errors: 0, cacheHits: 0, p50: 400, p95: 450, max: 450, serverP50: 90, serverP95: 150, statuses: [] },
     ];
     const report = formatReport({
-      args, rows, seconds: 1, overall: { pass: false, p95: 150, requests: 4, errors: 0 },
+      args, rows, seconds: 1, overall: { pass: false, p95: 450, serverP95: 150, requests: 4, errors: 0 },
       generatedAt: new Date('2026-09-28T00:00:00Z'),
     });
     expect(report).toContain('Result: **FAIL**');
-    expect(report).toContain('| fast | 2 | 0 | 10 | 20 | 20 | ok |');
-    expect(report).toContain('| slow | 2 | 0 | 90 | 150 | 150 | OVER |');
+    expect(report).toContain('judged on server time');
+    expect(report).toContain('| fast | 2 | 0 | 300 | 320 | 320 | 10 | 20 | ok |');
+    expect(report).toContain('| slow | 2 | 0 | 400 | 450 | 450 | 90 | 150 | OVER |');
   });
 });
