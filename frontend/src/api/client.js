@@ -14,7 +14,7 @@
  * cookie set by POST /api/auth/session is sent automatically on every call.
  */
 const API_BASE_URL =
-  process.env.REACT_APP_API_URL || 'https://sport--backend-api--7kcwxz9xblx5.code.run';
+  process.env.REACT_APP_API_URL || 'http://localhost:8080';//|| 'https://sport--backend-api--7kcwxz9xblx5.code.run';
 
 async function request(path, options = {}) {
   const res = await fetch(`${API_BASE_URL}${path}`, {

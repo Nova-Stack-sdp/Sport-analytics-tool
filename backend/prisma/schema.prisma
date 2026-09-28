@@ -293,3 +293,42 @@ model ExternalApiCache {
 
   @@map("external_api_cache")
 }
+
+
+// ------------------------------------------------------------
+// 5. User Features (External Auth Linked)
+// ------------------------------------------------------------
+
+model UserProfile {
+  // This is the Firebase UID, NOT an auto-generated UUID
+  userId         String   @id @map("user_id") 
+  favoriteTeamId String?  @map("favorite_team_id")
+  favoriteDriverId String? @map("favorite_driver_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@map("user_profile")
+}
+
+enum NotificationType {
+  race_reminder
+  driver_news
+  team_update
+  system_alert
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @map("notification_id")
+  // References an auth-system user ID (e.g., Firebase UID), not a local FK.
+  userId    String           @map("user_id")
+  type      NotificationType
+  title     String?
+  message   String
+  linkUrl   String?          @map("link_url")
+  isRead    Boolean          @default(false) @map("is_read")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  // Index by userId for fast queries when a user loads their profile
+  @@index([userId, createdAt])
+  @@index([isRead])
+  @@map("notification")
+}

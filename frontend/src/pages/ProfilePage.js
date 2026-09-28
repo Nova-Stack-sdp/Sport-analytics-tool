@@ -14,8 +14,9 @@ import {
 import { readFollows, subscribeToFollows, unfollowDriver, unfollowTeam } from '../services/followService';
 import FollowingListModal from '../components/FollowingListModal';
 import ProfileCalendar from '../components/ProfileCalendar';
+import ProfileNotifications from '../components/ProfileNotifications';
 
-const PROFILE_TABS = ['User Profile', 'News Feed', 'Calendar'];
+const PROFILE_TABS = ['User Profile', 'News Feed', 'Calendar', 'Notifications'];
 
 function initialsFor(name, email) {
   const parts = (name || '').trim().split(/\s+/).filter(Boolean);
@@ -305,6 +306,19 @@ function ProfilePage() {
               </div>
             </div>
             <ProfileCalendar />
+          </section>
+        )}
+
+        {/* --- NOTIFICATIONS NEW SECTION --- */}
+        {activeTab === 'Notifications' && (
+          <section className="card profile-card">
+            <div className="card-head">
+              <div>
+                <div className="card-title">Notifications</div>
+                <div className="card-title-sub">Recent updates, alerts, and race news.</div>
+              </div>
+            </div>
+            <ProfileNotifications />
           </section>
         )}
       </div>

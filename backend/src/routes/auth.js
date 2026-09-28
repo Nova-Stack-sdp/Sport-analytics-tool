@@ -13,10 +13,13 @@
  *   GET  /api/auth/me              — check cookie, return current user or 401
  *   POST /api/auth/developer-mode  — set the `developer` custom claim on the
  *                                    signed-in user's own Firebase account
+ *   PUT  /api/user/favorites       — update favorite driver and team in PostgreSQL
  */
 import { Router } from 'express';
 import admin from 'firebase-admin';
 import { requireAuth, getAdminApp } from '../middleware/requireAuth.js';
+// 1. ADD THIS: Import your Prisma client (adjust the path if your Prisma client is exported from a lib folder)
+import { prisma } from '../lib/prisma.js';
 
 export const authRouter = Router();
 
@@ -54,6 +57,18 @@ authRouter.post('/session', async (req, res, next) => {
     // uses — this reuses the singleton admin app under the hood.
     const app = getAdminApp();
     const decoded = await admin.auth(app).verifyIdToken(idToken);
+
+    console.log('--- SESSION ENDPOINT HIT: Creating profile for UID:', decoded.uid);
+
+    // 2. ADD THIS PRISMA BLOCK
+    // Initialize the user profile in PostgreSQL using your shared Prisma instance.
+    await prisma.userProfile.upsert({
+      where: { userId: decoded.uid },
+      update: {}, 
+      create: { userId: decoded.uid }
+    });
+
+    
 
     res.cookie(COOKIE_NAME, idToken, cookieOptions());
     res.json({ uid: decoded.uid, email: decoded.email ?? null });
@@ -112,5 +127,20 @@ authRouter.post('/developer-mode', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('auth/developer-mode failed:', err.message);
     res.status(500).json({ error: 'Could not update developer mode' });
+  }
+});
+
+// PUT /api/user/favorites — Update favorite driver and team
+authRouter.put('/favorites', requireAuth, async (req, res) => {
+  const { favoriteTeamId, favoriteDriverId } = req.body;
+
+  try {
+    const updated = await prisma.userProfile.update({
+      where: { userId: req.user.uid },
+      data: { favoriteTeamId, favoriteDriverId },
+    });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update favorites' });
   }
 });

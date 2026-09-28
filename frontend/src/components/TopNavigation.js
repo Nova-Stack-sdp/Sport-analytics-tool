@@ -46,6 +46,54 @@ function TopNav({ theme, onToggleTheme }) {
   // avatar used to end the session immediately.
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmingLogOut, setConfirmingLogOut] = useState(false);
+  
+  // --- NEW: Notifications State ---
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const bellRef = useRef(null);
+
+  // Notifications state
+  const [notifications, setNotifications] = useState([]);
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+
+  // Helper function to fetch notifications safely
+  const fetchNavNotifications = async () => {
+    if (!user) return; // Don't fetch if unauthenticated
+
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
+      const response = await fetch(`${API_URL}/api/notifications`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // CRITICAL: Send HTTP-only session cookie
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setNotifications(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch notifications for nav', err);
+    }
+  };
+
+  // 1. Fetch on mount / user auth state change
+  useEffect(() => {
+    fetchNavNotifications();
+  }, [user]);
+
+  // 2. Handle Bell Click: Toggle dropdown AND fetch fresh notifications
+  const handleBellClick = () => {
+    if (menuOpen) closeMenu();
+    
+    const nextState = !notificationsOpen;
+    setNotificationsOpen(nextState);
+
+    // Re-fetch when opening the dropdown so data is always fresh and session timing issues are bypassed
+    if (nextState) {
+      fetchNavNotifications();
+    }
+  };
+  
   const [localProfile, setLocalProfile] = useState(() => readLocalProfile(user));
   const menuRef = useRef(null);
   const avatarRef = useRef(null);
@@ -66,6 +114,10 @@ function TopNav({ theme, onToggleTheme }) {
   const closeMenu = useCallback(() => {
     setMenuOpen(false);
     setConfirmingLogOut(false);
+  }, []);
+
+  const closeNotifications = useCallback(() => {
+    setNotificationsOpen(false);
   }, []);
 
   const handleSignOut = async () => {
@@ -117,6 +169,7 @@ function TopNav({ theme, onToggleTheme }) {
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [menuOpen, closeMenu]);
+  
 
   // Swapping "Log out" for the Yes/No pair removes the focused element, so
   // focus is moved onto the question to keep it announced and reachable.
@@ -159,6 +212,66 @@ function TopNav({ theme, onToggleTheme }) {
             <span>{theme === 'dark' ? '☀' : '☾'}</span>
           </button>
           {user ? (
+            <>
+            {/* Notification Bell */}
+              <div className="notification-wrap" ref={bellRef}>
+                <button
+                  className="notification-bell"
+                  title="Notifications"
+                  aria-expanded={notificationsOpen}
+                  onClick={handleBellClick} // Updated click handler
+                >
+                  <span aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                      <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                    </svg>
+                  </span>
+                  {unreadCount > 0 && (
+                    <span className="notification-badge">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {notificationsOpen && (
+                  <div className="notification-menu avatar-menu">
+                    <h4>Updates</h4>
+                    
+                    <div className="notification-list">
+                      {notifications.length === 0 ? (
+                        <div className="notification-item" style={{ padding: '0.5rem 1rem' }}>
+                          No new updates
+                        </div>
+                      ) : (
+                        notifications.slice(0, 4).map(n => (
+                          <div 
+                            key={n.id} 
+                            className="notification-item" 
+                            style={{ 
+                              padding: '0.5rem 1rem', 
+                              borderBottom: '1px solid var(--border-color, #eee)',
+                              fontWeight: n.isRead ? 'normal' : 'bold'
+                            }}
+                          >
+                            <strong>{n.title}</strong><br/>
+                            <span style={{ fontSize: '0.85em', opacity: 0.8 }}>{n.message}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    <NavLink 
+                      to="/profile" 
+                      className="avatar-menu-button" 
+                      onClick={() => setNotificationsOpen(false)}
+                    >
+                      View all in Profile
+                    </NavLink>
+                  </div>
+                )}
+              </div>
+              {/* --- END Notification Bell --- */}
             <div className="avatar-wrap" ref={menuRef}>
               <button
                 className="avatar"
@@ -225,6 +338,7 @@ function TopNav({ theme, onToggleTheme }) {
                 </div>
               )}
             </div>
+            </>
           ) : (
             <NavLink to="/sign-in" className="avatar" title="Sign in">
               SignIn
