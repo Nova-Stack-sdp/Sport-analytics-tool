@@ -1,5 +1,23 @@
 import { Link } from 'react-router-dom';
 
+// The public, versioned API (backend/src/api/v1/router.js).
+const V1_ENDPOINTS = [
+  ['/api/v1', 'What the API offers'],
+  ['/api/v1/fixtures', 'Fixtures (sessions), filtered and paged'],
+  ['/api/v1/fixtures/:id', 'One fixture'],
+  ['/api/v1/fixtures/:id/statistics', 'Derived statistics for every driver in a fixture'],
+  ['/api/v1/fixtures/:id/statistics/:driverId', 'One driver’s figures, the exact events each was computed from, and the submissions behind them'],
+  ['/api/v1/events', 'The raw event log, filtered and paged'],
+  ['/api/v1/events/:id', 'One event, including what it corrected'],
+  ['/api/v1/drivers?season=', 'Driver ids and numbers, for filtering'],
+  ['/api/v1/teams?season=', 'Team ids, for filtering'],
+  ['/api/v1/statistics/drivers?season=', 'Season totals per driver'],
+  ['/api/v1/statistics/drivers/:driverId/seasons/:season', 'A season total broken into the race results (and events) it was summed from'],
+  ['/api/v1/statistics/teams?season=', 'Season totals per team'],
+  ['/api/v1/exports/events?format=csv|json', 'Download a filtered slice of events as a file (same filters as /events)'],
+  ['/api/v1/exports/driver-season-stats?format=csv|json', 'Download the season table as a file'],
+];
+
 function ApiDocsPage() {
   return (
     <div className="page" id="page-api-docs">
@@ -100,6 +118,39 @@ function ApiDocsPage() {
           </table>
           <div className="card-note">
             Anything under <span className="mono">/api</span> that doesn't match a route returns <span className="mono">404 {'{ error: "Not found" }'}</span>. Unhandled errors are caught centrally, logged server-side, and returned as a generic <span className="mono">500 {'{ error: "Internal server error" }'}</span> — no stack traces leak to the client. CORS is controlled by the <span className="mono">FRONTEND_ORIGIN</span> env var (comma-separated for multiple origins); it falls back to <span className="mono">*</span> if unset, which is fine locally but shouldn't be relied on in production.
+          </div>
+        </div>
+
+        <div className="card" style={{ marginBottom: 16 }} id="api-v1">
+          <div className="card-head">
+            <div>
+              <div className="card-title">Public API — v1</div>
+              <div className="card-title-sub">For other platforms. Its shape stays fixed for as long as v1 exists; breaking changes will come as /api/v2.</div>
+            </div>
+            <span className="pill pill-green">Live</span>
+          </div>
+          <table className="results">
+            <thead>
+              <tr><th>Method</th><th>Path</th><th>Purpose</th></tr>
+            </thead>
+            <tbody>
+              {V1_ENDPOINTS.map(([path, purpose]) => (
+                <tr key={path}>
+                  <td><span className="method get">GET</span></td>
+                  <td className="mono">{path}</td>
+                  <td>{purpose}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="card-note">
+            <b>Filtering:</b> events take <span className="mono">fixture, season, sessionType, type</span> (comma-separated), <span className="mono">driver, driverNumber, team, lapFrom, lapTo, from, to, includeSuperseded</span>; fixtures take <span className="mono">season, sessionType, status, circuit, from, to</span>.
+            {' '}<b>Paging:</b> lists return <span className="mono">{'{ data, page: { limit, hasMore, nextCursor } }'}</span> — pass <span className="mono">cursor=nextCursor</span> for the next page (<span className="mono">limit</span> 1–500, default 50).
+            {' '}<b>Errors:</b> a bad or unknown parameter returns <span className="mono">400</span> naming each problem; an unknown id returns <span className="mono">404</span>.
+            {' '}<b>Ids</b> are permanent UUIDs, so a reference held from last season still resolves; corrected events keep their id and point to their replacement via <span className="mono">supersededBy</span>.
+          </div>
+          <div className="card-note">
+            Example: <span className="mono">/api/v1/exports/events?season=2024&amp;type=pit_stop&amp;format=csv</span> downloads every 2024 pit stop as a spreadsheet-ready file.
           </div>
         </div>
 
