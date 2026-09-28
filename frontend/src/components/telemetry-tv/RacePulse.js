@@ -1,101 +1,116 @@
-import { memo, useMemo } from 'react';
+import { memo } from 'react';
 
 function formatLapTime(seconds) {
-  if (seconds == null || !Number.isFinite(seconds) || seconds <= 0) return '--';
-  const min = Math.floor(seconds / 60);
-  const sec = seconds % 60;
-  return min > 0
-    ? `${min}:${sec.toFixed(3).padStart(6, '0')}`
-    : `${sec.toFixed(3)}`;
+  if (seconds == null || !Number.isFinite(Number(seconds))) return '--';
+  const [minutes, remainder] = Number(seconds).toFixed(3).split('.');
+  const totalSeconds = Number(minutes);
+  return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, '0')}.${remainder}`;
 }
 
-// Derives headline race statistics from the current leaderboard.
-function computePulseStats(leaderboard) {
-  if (!leaderboard?.length) return null;
+function currentRaceCards(lapState) {
+  const currentLeader = lapState.leaderboard[0];
+  const biggestMove = lapState.leaderboard
+    .filter((driver) => driver.lapDelta != null)
+    .sort((first, second) => Math.abs(second.lapDelta) - Math.abs(first.lapDelta))[0];
+  const raceSoFar = lapState.raceSoFar;
 
-  // Biggest mover: highest gridDelta (most positions gained since grid).
-  const withGrid = leaderboard.filter((d) => d.gridDelta != null);
-  const biggestMover = withGrid.length > 0
-    ? withGrid.reduce((best, d) => (d.gridDelta > best.gridDelta ? d : best))
-    : null;
-
-  // Fastest last lap: lowest lastLapTime among drivers with valid data.
-  const withLap = leaderboard.filter((d) =>
-    d.lastLapTime != null && Number.isFinite(d.lastLapTime) && d.lastLapTime > 0
-  );
-  const fastestLap = withLap.length > 0
-    ? withLap.reduce((best, d) => (d.lastLapTime < best.lastLapTime ? d : best))
-    : null;
-
-  // Closest battle: consecutive-position pair with smallest gapToAhead.
-  let closestBattle = null;
-  let smallestGap = Infinity;
-  for (let i = 1; i < leaderboard.length; i++) {
-    const gap = leaderboard[i].gapToAhead;
-    if (gap != null && Number.isFinite(gap) && gap > 0 && gap < smallestGap) {
-      smallestGap = gap;
-      closestBattle = {
-        ahead: leaderboard[i - 1],
-        behind: leaderboard[i],
-        gap,
-      };
-    }
-  }
-
-  // Leader's pace.
-  const leader = leaderboard[0];
-  const leaderPace = leader?.lastLapTime ?? null;
-
-  return { biggestMover, fastestLap, closestBattle, leaderPace };
-}
-
-// Compact race-insights strip showing headline statistics.
-const RacePulse = memo(function RacePulse({ leaderboard }) {
-  const stats = useMemo(() => computePulseStats(leaderboard), [leaderboard]);
-
-  if (!stats) return null;
-
-  const cards = [
+  return [
     {
-      label: 'Biggest Mover',
-      value: stats.biggestMover
-        ? stats.biggestMover.driverName ?? `#${stats.biggestMover.driverNumber}`
-        : '--',
-      sub: stats.biggestMover ? `+${stats.biggestMover.gridDelta} places from grid` : 'Awaiting data',
+      label: 'Race Leader',
+      value: currentLeader ? `${currentLeader.driverName} (#${currentLeader.carNumber})` : '--',
+      sub: raceSoFar.leaderChangedThisLap ? 'Took the lead this lap' : 'Leader at selected lap',
       accent: 'green',
     },
     {
-      label: 'Closest Battle',
-      value: stats.closestBattle
-        ? `${stats.closestBattle.ahead.driverName ?? `#${stats.closestBattle.ahead.driverNumber}`} vs ${stats.closestBattle.behind.driverName ?? `#${stats.closestBattle.behind.driverNumber}`}`
-        : '--',
-      sub: stats.closestBattle ? `${stats.closestBattle.gap.toFixed(1)}s gap` : 'Spreading out',
+      label: 'Lead Changes',
+      value: raceSoFar.leadChanges,
+      sub: `through lap ${lapState.lap}`,
       accent: 'amber',
     },
     {
-      label: 'Fastest Last Lap',
-      value: stats.fastestLap
-        ? stats.fastestLap.driverName ?? `#${stats.fastestLap.driverNumber}`
-        : '--',
-      sub: stats.fastestLap ? formatLapTime(stats.fastestLap.lastLapTime) : 'Awaiting data',
+      label: 'Caution Laps',
+      value: raceSoFar.cautionLaps,
+      sub: `through lap ${lapState.lap}`,
+      accent: 'red',
+    },
+    {
+      label: 'Biggest Move',
+      value: biggestMove?.driverName ?? '--',
+      sub: biggestMove
+        ? `${biggestMove.lapDelta > 0 ? '+' : ''}${biggestMove.lapDelta} vs previous lap`
+        : 'No prior lap to compare',
+      accent: 'blue',
+    },
+    {
+      label: 'Lap Status',
+      value: lapState.leaderLap?.flag ?? '--',
+      sub: lapState.leaderLap
+        ? `Leader ${lapState.leaderLap.lapTime} · ${lapState.leaderLap.speed == null ? '--' : `${Number(lapState.leaderLap.speed).toFixed(1)} mph`}`
+        : 'Leader timing unavailable',
+      accent: 'purple',
+    },
+  ];
+}
+
+// Shows cumulative race-so-far stats until the selected lap is the finish.
+const RacePulse = memo(function RacePulse({ race, lapState }) {
+  if (!race) return null;
+  const stats = race.stats ?? {};
+  const bestLap = stats.bestLap ?? {};
+  const mostLapsLed = stats.mostLapsLed ?? {};
+  const cautionLaps = stats.cautionLaps;
+  const isFinished = lapState.isFinished;
+  const cards = isFinished ? [
+    {
+      label: 'Race Average',
+      value: stats.avgSpeedMph == null ? '--' : `${Number(stats.avgSpeedMph).toFixed(1)} mph`,
+      sub: 'official average speed',
+      accent: 'blue',
+    },
+    {
+      label: 'Fastest Lap',
+      value: formatLapTime(bestLap.sec),
+      sub: bestLap.driver ? `${bestLap.driver} · lap ${bestLap.lap ?? '--'}` : 'official race report',
+      accent: 'green',
+    },
+    {
+      label: 'Lead Changes',
+      value: stats.leadChangesOfficial ?? '--',
+      sub: `${stats.leadDriversOfficial ?? '--'} drivers led`,
+      accent: 'amber',
+    },
+    {
+      label: 'Cautions',
+      value: stats.cautionCount ?? race.cautions?.length ?? '--',
+      sub: `${cautionLaps ?? '--'} lap${cautionLaps === 1 ? '' : 's'} under yellow`,
+      accent: 'red',
+    },
+    {
+      label: 'Position Passes',
+      value: stats.passes?.position ?? '--',
+      sub: `${stats.passes?.total ?? '--'} total passes`,
       accent: 'purple',
     },
     {
-      label: "Leader's Pace",
-      value: formatLapTime(stats.leaderPace),
-      sub: stats.leaderPace ? 'Last lap by P1' : 'Awaiting data',
+      label: 'Most Laps Led',
+      value: mostLapsLed.driver ?? '--',
+      sub: `${mostLapsLed.laps ?? '--'} lap${mostLapsLed.laps === 1 ? '' : 's'} · car ${mostLapsLed.car ?? '--'}`,
       accent: 'blue',
     },
-  ];
+  ] : currentRaceCards(lapState);
 
   return (
     <div className="card race-pulse-card">
       <div className="card-head">
         <div>
-          <div className="card-title">Race Pulse</div>
-          <div className="card-title-sub">Key stats from the track right now</div>
+          <div className="card-title">{isFinished ? 'Race Analysis' : 'Race So Far'}</div>
+          <div className="card-title-sub">
+            {isFinished ? 'Official final classification and race statistics' : `Current state through lap ${lapState.lap}`}
+          </div>
         </div>
-        <span className="pill pill-red">Live</span>
+        <span className={`pill ${isFinished ? 'pill-gray' : 'pill-green'}`}>
+          {isFinished ? 'Final' : `Lap ${lapState.lap}`}
+        </span>
       </div>
       <div className="race-pulse-grid">
         {cards.map((card) => (

@@ -149,6 +149,10 @@ export function getTelemetryTVRaces() {
   return request('/api/telemetry-tv/races');
 }
 
+export function getTelemetryTVRace(slug) {
+  return request(`/api/telemetry-tv/races/${encodeURIComponent(slug)}`);
+}
+
 export function getTeams({ limit, offset } = {}) {
   const params = new URLSearchParams();
   if (limit != null) params.set('limit', String(limit));
