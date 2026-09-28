@@ -2,23 +2,28 @@ import { memo } from 'react';
 
 const LEADER_COLORS = ['#f5c451', '#69c3a5', '#e8745d', '#81a9e8', '#dc8bc0', '#b2c96b'];
 
-const RaceTimeline = memo(function RaceTimeline({ race, lap }) {
+const RaceTimeline = memo(function RaceTimeline({ race, lapState }) {
   if (!race) return null;
 
-  const totalLaps = Number(race.session?.totalLaps) || 1;
-  const leaders = race.leaders ?? [];
-  const cautions = race.cautions ?? [];
-  const pitStops = (race.pitStops ?? []).flatMap((entry) => (
+  const { lap, totalLaps, isFinished, visibleLeaderRuns, visibleCautions, visiblePitStops } = lapState;
+  const timelineLaps = isFinished ? totalLaps : lap;
+  const leaders = visibleLeaderRuns ?? [];
+  const cautions = visibleCautions ?? [];
+  const allPitStops = (race.pitStops ?? []).flatMap((entry) => (
     (entry.stops ?? []).map((stop) => ({ ...stop, car: entry.car, driver: entry.driver }))
   ));
-  const cursor = `${((lap - 0.5) / totalLaps) * 100}%`;
+  const pitStops = (visiblePitStops ?? []).flatMap((entry) => (
+    (entry.stops ?? []).map((stop) => ({ ...stop, car: entry.car, driver: entry.driver }))
+  ));
 
   return (
     <section className="card race-timeline-card" aria-label="Race sequence">
       <div className="card-head">
         <div>
           <div className="card-title">Race Sequence</div>
-          <div className="card-title-sub">Leader runs and caution periods by lap</div>
+          <div className="card-title-sub">
+            {isFinished ? 'Complete race history' : `History through lap ${lap}`}
+          </div>
         </div>
         <span className="pill pill-gray">Lap {lap} of {totalLaps}</span>
       </div>
@@ -30,8 +35,8 @@ const RaceTimeline = memo(function RaceTimeline({ race, lap }) {
         aria-label={leaders.map((entry) => `${entry.driver}, laps ${entry.from} to ${entry.to}`).join('; ')}
       >
         {leaders.map((entry, index) => {
-          const left = ((Number(entry.from) - 1) / totalLaps) * 100;
-          const width = (Number(entry.laps ?? (entry.to - entry.from + 1)) / totalLaps) * 100;
+          const left = ((Number(entry.from) - 1) / timelineLaps) * 100;
+          const width = (Number(entry.laps) / timelineLaps) * 100;
           return (
             <span
               key={`${entry.car}-${entry.from}`}
@@ -43,7 +48,7 @@ const RaceTimeline = memo(function RaceTimeline({ race, lap }) {
             </span>
           );
         })}
-        <span className="timeline-cursor" style={{ left: cursor }} />
+        <span className="timeline-cursor" style={{ left: '100%' }} />
       </div>
       <div className="leader-timeline-legend">
         {leaders.map((entry, index) => (
@@ -64,11 +69,11 @@ const RaceTimeline = memo(function RaceTimeline({ race, lap }) {
         role="img"
         aria-label={cautions.length
           ? cautions.map((entry) => `Yellow, laps ${entry.from} to ${entry.to}`).join('; ')
-          : 'No cautions recorded'}
+          : isFinished ? 'No cautions recorded' : 'No cautions through selected lap'}
       >
         {cautions.map((entry) => {
-          const left = ((Number(entry.from) - 1) / totalLaps) * 100;
-          const width = (Number(entry.laps ?? (entry.to - entry.from + 1)) / totalLaps) * 100;
+          const left = ((Number(entry.from) - 1) / timelineLaps) * 100;
+          const width = (Number(entry.laps) / timelineLaps) * 100;
           return (
             <span
               key={`${entry.from}-${entry.to}`}
@@ -78,7 +83,7 @@ const RaceTimeline = memo(function RaceTimeline({ race, lap }) {
             />
           );
         })}
-        <span className="timeline-cursor" style={{ left: cursor }} />
+        <span className="timeline-cursor" style={{ left: '100%' }} />
       </div>
       <div className="timeline-row-label">Pit stops</div>
       <div
@@ -86,11 +91,13 @@ const RaceTimeline = memo(function RaceTimeline({ race, lap }) {
         role="img"
         aria-label={pitStops.length
           ? pitStops.map((stop) => `${stop.driver}, lap ${stop.raceLap ?? stop.lap}`).join('; ')
-          : 'Lap-level pit-stop records unavailable'}
+          : allPitStops.length
+            ? `No pit stops through lap ${lap}`
+            : 'Lap-level pit-stop records unavailable'}
       >
         {pitStops.map((stop, index) => {
           const stopLap = Number(stop.raceLap ?? stop.lap);
-          const left = ((stopLap - 1) / totalLaps) * 100;
+          const left = ((stopLap - 1) / timelineLaps) * 100;
           return (
             <span
               key={`${stop.car}-${stop.stop}-${index}`}
@@ -100,12 +107,16 @@ const RaceTimeline = memo(function RaceTimeline({ race, lap }) {
             />
           );
         })}
-        <span className="timeline-cursor" style={{ left: cursor }} />
+        <span className="timeline-cursor" style={{ left: '100%' }} />
       </div>
       {pitStops.length === 0 && (
-        <div className="pit-data-note">Lap-level pit-stop records unavailable in this report.</div>
+        <div className="pit-data-note">
+          {allPitStops.length
+            ? `No pit stops through lap ${lap}.`
+            : 'Lap-level pit-stop records unavailable in this report.'}
+        </div>
       )}
-      <div className="timeline-axis"><span>Lap 1</span><span>Lap {totalLaps}</span></div>
+      <div className="timeline-axis"><span>Lap 1</span><span>Lap {timelineLaps}</span></div>
     </section>
   );
 });

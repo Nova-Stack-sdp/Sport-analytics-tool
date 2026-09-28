@@ -20,7 +20,7 @@
 
 #page-telemetry-tv .telemetry-tv-grid {
   display: grid;
-  grid-template-columns: minmax(0, 4.2fr) minmax(260px, 0.95fr);
+  grid-template-columns: minmax(0, 1.45fr) minmax(560px, 1fr);
   gap: 24px;
   align-items: start;
   width: calc(100% - 40px);
@@ -785,9 +785,39 @@
   display: block;
 }
 
+#page-telemetry-tv .telemetry-tv-play-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.38);
+}
+
+#page-telemetry-tv .telemetry-tv-play-button {
+  padding: 12px 20px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+#page-telemetry-tv .telemetry-tv-play-button:hover {
+  background: var(--accent-dark);
+}
+
+#page-telemetry-tv .telemetry-tv-play-button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+
 @media (max-width: 1200px) {
   #page-telemetry-tv .telemetry-tv-grid {
-    grid-template-columns: minmax(0, 3fr) minmax(240px, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(560px, 1fr);
+    gap: 16px;
   }
 
   #page-telemetry-tv .setup-bar-content {

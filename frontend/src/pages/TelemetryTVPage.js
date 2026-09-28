@@ -18,6 +18,7 @@ function TelemetryTVPage() {
   const [raceLoading, setRaceLoading] = useState(false);
   const [raceError, setRaceError] = useState(null);
   const [lap, setLap] = useState(1);
+  const [playbackStarted, setPlaybackStarted] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,8 +43,17 @@ function TelemetryTVPage() {
   const selectedRace = races.find((race) => race.slug === selectedSlug) ?? null;
   const lapState = deriveIndycarLapState(raceData, lap);
 
+  function handleRaceSelect(slug) {
+    setSelectedSlug(slug);
+    setPlaybackStarted(false);
+    setRaceData(null);
+    setRaceError(null);
+    setRaceLoading(false);
+    setLap(1);
+  }
+
   useEffect(() => {
-    if (!selectedSlug) {
+    if (!selectedSlug || !playbackStarted) {
       setRaceData(null);
       setRaceLoading(false);
       return undefined;
@@ -67,7 +77,7 @@ function TelemetryTVPage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedSlug]);
+  }, [selectedSlug, playbackStarted]);
 
   return (
     <div className="page" id="page-telemetry-tv">
@@ -78,7 +88,9 @@ function TelemetryTVPage() {
               race={selectedRace}
               races={races}
               selectedSlug={selectedSlug}
-              onSelectRace={setSelectedSlug}
+              onSelectRace={handleRaceSelect}
+              onPlay={() => setPlaybackStarted(true)}
+              playbackStarted={playbackStarted}
               loading={loading}
               error={error}
             />
@@ -95,6 +107,7 @@ function TelemetryTVPage() {
             <Masterboard
               race={raceData}
               lap={lap}
+              isFinished={lapState.isFinished}
               leaderboard={lapState.leaderboard}
               loading={raceLoading}
               error={raceError}
@@ -102,8 +115,8 @@ function TelemetryTVPage() {
           </div>
         </div>
 
-        <RacePulse race={raceData} />
-        <RaceTimeline race={raceData} lap={lapState.lap || lap} />
+        <RacePulse race={raceData} lapState={lapState} />
+        <RaceTimeline race={raceData} lapState={lapState} />
 
         <TelemetryTVFooter />
       </div>

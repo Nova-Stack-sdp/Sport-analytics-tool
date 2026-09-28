@@ -14,14 +14,14 @@ function gridDeltaLabel(delta) {
   return '0';
 }
 
-// Renders the official running order reconstructed from the selected lap chart.
-const Masterboard = memo(function Masterboard({ race, lap, leaderboard, loading, error }) {
+// Renders the official running order with current speed when available.
+const Masterboard = memo(function Masterboard({ race, lap, isFinished, leaderboard, loading, error }) {
   if (!race || leaderboard.length === 0) {
     return (
       <div className="card masterboard-card">
         <div className="card-head">
           <div>
-            <div className="card-title leaderboard-title">Running Order</div>
+            <div className="card-title leaderboard-title">Master Board</div>
             <div className="card-title-sub">Official order by race lap</div>
           </div>
           <span className="pill pill-gray">Archive</span>
@@ -38,7 +38,7 @@ const Masterboard = memo(function Masterboard({ race, lap, leaderboard, loading,
     <div className="card masterboard-card">
       <div className="card-head">
         <div>
-            <div className="card-title leaderboard-title">Running Order</div>
+            <div className="card-title leaderboard-title">Master Board</div>
             <div className="card-title-sub">Official order at lap {lap}</div>
         </div>
         <span className="pill pill-gray">{leaderboard.length} cars</span>
@@ -53,8 +53,10 @@ const Masterboard = memo(function Masterboard({ race, lap, leaderboard, loading,
               <th>Driver</th>
               <th>Team</th>
               <th>Grid</th>
-              <th>Change</th>
-              <th>Result</th>
+              <th>Grid Δ</th>
+              <th>Last lap</th>
+              <th>Current speed</th>
+              {isFinished && <th>Result</th>}
             </tr>
           </thead>
           <tbody>
@@ -66,7 +68,11 @@ const Masterboard = memo(function Masterboard({ race, lap, leaderboard, loading,
                 <td>{row.teamName ?? '--'}</td>
                 <td className="mono">{row.startPosition ?? '--'}</td>
                 <td className={`mono grid-cell ${gridDeltaClass(row.gridDelta)}`}>{gridDeltaLabel(row.gridDelta)}</td>
-                <td className="mono">{row.finishPosition == null ? '--' : `P${row.finishPosition}`}</td>
+                <td className="mono">{row.lastLap ?? '--'}</td>
+                <td className="mono">{row.currentSpeedMph == null ? '--' : `${row.currentSpeedMph.toFixed(1)} mph`}</td>
+                {isFinished && (
+                  <td className="mono">{row.finishPosition == null ? '--' : `P${row.finishPosition}`}</td>
+                )}
               </tr>
             ))}
           </tbody>

@@ -1,10 +1,22 @@
+import { useRef } from 'react';
+
 function raceLabel(race) {
   const parsedYear = race.sessionDate ? new Date(race.sessionDate).getFullYear() : NaN;
   const year = Number.isFinite(parsedYear) ? parsedYear : null;
   return [race.eventName, year].filter(Boolean).join(' · ') || race.slug;
 }
 
-function PlaybackVideo({ race, races, selectedSlug, onSelectRace, loading, error }) {
+function PlaybackVideo({
+  race,
+  races,
+  selectedSlug,
+  onSelectRace,
+  onPlay,
+  playbackStarted,
+  loading,
+  error,
+}) {
+  const iframeRef = useRef(null);
   const embedUrl = race?.video?.youtubeId
     ? `https://www.youtube.com/embed/${race.video.youtubeId}?enablejsapi=1&playsinline=1&start=${race.video.embedStartSeconds ?? 0}`
     : null;
@@ -49,6 +61,7 @@ function PlaybackVideo({ race, races, selectedSlug, onSelectRace, loading, error
       <div className="video-embed" role={embedUrl ? undefined : 'status'}>
         {embedUrl ? (
           <iframe
+            ref={iframeRef}
             src={embedUrl}
             title="YouTube video player"
             frameBorder="0"
@@ -58,6 +71,23 @@ function PlaybackVideo({ race, races, selectedSlug, onSelectRace, loading, error
           />
         ) : (
           error ?? 'Video source not configured'
+        )}
+        {embedUrl && !playbackStarted && (
+          <div className="telemetry-tv-play-overlay">
+            <button
+              className="telemetry-tv-play-button"
+              type="button"
+              onClick={() => {
+                iframeRef.current?.contentWindow?.postMessage(
+                  JSON.stringify({ event: 'command', func: 'playVideo', args: [] }),
+                  '*'
+                );
+                onPlay();
+              }}
+            >
+              Play race
+            </button>
+          </div>
         )}
       </div>
 
