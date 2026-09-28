@@ -1,0 +1,162 @@
+Pager usage is off.
+== event rows
+ events 
+--------
+ 321858
+(1 row)
+
+== GET /api/v1/events?fixture=…&limit=500 (first page)
+                                                     QUERY PLAN                                                      
+---------------------------------------------------------------------------------------------------------------------
+ Limit (actual time=1.984..2.029 rows=501 loops=1)
+   Buffers: shared hit=263
+   ->  Sort (actual time=1.983..2.001 rows=501 loops=1)
+         Sort Key: occurred_at, event_id
+         Sort Method: top-N heapsort  Memory: 444kB
+         Buffers: shared hit=263
+         ->  Bitmap Heap Scan on event (actual time=0.101..1.057 rows=3703 loops=1)
+               Recheck Cond: (session_id = '760701f7-51c3-4799-854c-686719486e4b'::text)
+               Filter: (superseded_by IS NULL)
+               Heap Blocks: exact=258
+               Buffers: shared hit=263
+               ->  Bitmap Index Scan on event_session_id_event_type_idx (actual time=0.074..0.075 rows=3703 loops=1)
+                     Index Cond: (session_id = '760701f7-51c3-4799-854c-686719486e4b'::text)
+                     Buffers: shared hit=5
+ Planning:
+   Buffers: shared hit=14
+ Planning Time: 0.140 ms
+ Execution Time: 2.085 ms
+(18 rows)
+
+== GET /api/v1/events?fixture=…&cursor=… (next page)
+                                                                           QUERY PLAN                                                                            
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual time=1.595..1.652 rows=501 loops=1)
+   Buffers: shared hit=271
+   InitPlan 1 (returns $0)
+     ->  Index Scan using event_pkey on event event_1 (actual time=0.022..0.022 rows=1 loops=1)
+           Index Cond: (event_id = '8797ad53-7d53-4301-9e48-dee8e4f56762'::text)
+           Buffers: shared hit=4
+   InitPlan 2 (returns $1)
+     ->  Index Scan using event_pkey on event event_2 (actual time=0.002..0.002 rows=1 loops=1)
+           Index Cond: (event_id = '8797ad53-7d53-4301-9e48-dee8e4f56762'::text)
+           Buffers: shared hit=4
+   ->  Sort (actual time=1.594..1.616 rows=501 loops=1)
+         Sort Key: event.occurred_at, event.event_id
+         Sort Method: top-N heapsort  Memory: 444kB
+         Buffers: shared hit=271
+         ->  Bitmap Heap Scan on event (actual time=0.125..0.976 rows=3204 loops=1)
+               Recheck Cond: (session_id = '760701f7-51c3-4799-854c-686719486e4b'::text)
+               Filter: ((superseded_by IS NULL) AND (((occurred_at = $0) AND (event_id >= '8797ad53-7d53-4301-9e48-dee8e4f56762'::text)) OR (occurred_at > $1)))
+               Rows Removed by Filter: 499
+               Heap Blocks: exact=258
+               Buffers: shared hit=271
+               ->  Bitmap Index Scan on event_session_id_event_type_idx (actual time=0.068..0.068 rows=3703 loops=1)
+                     Index Cond: (session_id = '760701f7-51c3-4799-854c-686719486e4b'::text)
+                     Buffers: shared hit=5
+ Planning:
+   Buffers: shared hit=3
+ Planning Time: 0.140 ms
+ Execution Time: 1.692 ms
+(27 rows)
+
+== GET /api/v1/events?from=…&limit=100 (time window across all fixtures)
+                                                          QUERY PLAN                                                           
+-------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual time=31.884..36.974 rows=101 loops=1)
+   Buffers: shared hit=13015
+   ->  Gather Merge (actual time=31.882..36.963 rows=101 loops=1)
+         Workers Planned: 2
+         Workers Launched: 2
+         Buffers: shared hit=13015
+         ->  Sort (actual time=28.071..28.081 rows=92 loops=3)
+               Sort Key: occurred_at, event_id
+               Sort Method: top-N heapsort  Memory: 127kB
+               Buffers: shared hit=13015
+               Worker 0:  Sort Method: top-N heapsort  Memory: 97kB
+               Worker 1:  Sort Method: top-N heapsort  Memory: 77kB
+               ->  Parallel Seq Scan on event (actual time=2.888..26.425 rows=1234 loops=3)
+                     Filter: ((superseded_by IS NULL) AND (occurred_at >= '2025-10-29 14:00:00'::timestamp without time zone))
+                     Rows Removed by Filter: 106052
+                     Buffers: shared hit=12927
+ Planning:
+   Buffers: shared hit=3
+ Planning Time: 0.077 ms
+ Execution Time: 36.999 ms
+(20 rows)
+
+== GET /api/v1/events?season=…&type=pit_stop&limit=100
+                                                        QUERY PLAN                                                        
+--------------------------------------------------------------------------------------------------------------------------
+ Limit (actual time=0.627..0.642 rows=101 loops=1)
+   Buffers: shared hit=249 read=1
+   ->  Sort (actual time=0.626..0.633 rows=101 loops=1)
+         Sort Key: e.occurred_at, e.event_id
+         Sort Method: top-N heapsort  Memory: 51kB
+         Buffers: shared hit=249 read=1
+         ->  Nested Loop (actual time=0.055..0.457 rows=480 loops=1)
+               Buffers: shared hit=249 read=1
+               ->  Nested Loop (actual time=0.031..0.081 rows=54 loops=1)
+                     Buffers: shared hit=50 read=1
+                     ->  Seq Scan on meeting m (actual time=0.011..0.017 rows=24 loops=1)
+                           Filter: (season = 2025)
+                           Rows Removed by Filter: 48
+                           Buffers: shared hit=2
+                     ->  Index Scan using session_meeting_id_idx on session s (actual time=0.002..0.002 rows=2 loops=24)
+                           Index Cond: (meeting_id = m.meeting_id)
+                           Buffers: shared hit=48 read=1
+               ->  Index Scan using event_session_id_event_type_idx on event e (actual time=0.004..0.006 rows=9 loops=54)
+                     Index Cond: ((session_id = s.session_id) AND (event_type = 'pit_stop'::"EventType"))
+                     Filter: (superseded_by IS NULL)
+                     Buffers: shared hit=199
+ Planning:
+   Buffers: shared hit=21
+ Planning Time: 0.472 ms
+ Execution Time: 0.676 ms
+(25 rows)
+
+== GET /api/overview (events in the last 24 hours)
+                                        QUERY PLAN                                        
+------------------------------------------------------------------------------------------
+ Finalize Aggregate (actual time=32.234..34.086 rows=1 loops=1)
+   Buffers: shared hit=12927
+   ->  Gather (actual time=30.427..34.071 rows=3 loops=1)
+         Workers Planned: 2
+         Workers Launched: 2
+         Buffers: shared hit=12927
+         ->  Partial Aggregate (actual time=26.607..26.608 rows=1 loops=3)
+               Buffers: shared hit=12927
+               ->  Parallel Seq Scan on event (actual time=26.603..26.603 rows=0 loops=3)
+                     Filter: (occurred_at >= (now() - '24:00:00'::interval))
+                     Rows Removed by Filter: 107286
+                     Buffers: shared hit=12927
+ Planning:
+   Buffers: shared hit=3
+ Planning Time: 0.088 ms
+ Execution Time: 34.114 ms
+(16 rows)
+
+== GET /api/fixtures (which sessions have replay data)
+                                                               QUERY PLAN                                                                
+-----------------------------------------------------------------------------------------------------------------------------------------
+ Group (actual time=25.789..28.689 rows=414 loops=1)
+   Group Key: session_id, event_type
+   Buffers: shared hit=306
+   ->  Gather Merge (actual time=25.787..28.642 rows=478 loops=1)
+         Workers Planned: 2
+         Workers Launched: 2
+         Buffers: shared hit=306
+         ->  Group (actual time=0.025..15.254 rows=159 loops=3)
+               Group Key: session_id, event_type
+               Buffers: shared hit=306
+               ->  Parallel Index Only Scan using event_session_id_event_type_idx on event (actual time=0.022..9.170 rows=97200 loops=3)
+                     Filter: (event_type = ANY ('{lap_completed,position_change,classification}'::"EventType"[]))
+                     Rows Removed by Filter: 10086
+                     Heap Fetches: 0
+                     Buffers: shared hit=306
+ Planning:
+   Buffers: shared hit=5
+ Planning Time: 0.152 ms
+ Execution Time: 28.736 ms
+(19 rows)
+

@@ -23,5 +23,12 @@ if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL is not set — check your environment configuration.');
 }
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+// Connection pool. pg closes idle connections after 10 s by default, so a
+// quiet API reconnects (TCP + TLS + auth: several round trips to Neon) on
+// most requests. Keeping connections open for 5 minutes avoids that.
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL,
+  max: Number(process.env.DATABASE_POOL_MAX) || 10,
+  idleTimeoutMillis: 5 * 60 * 1000,
+});
 export const prisma = new PrismaClient({ adapter });

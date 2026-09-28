@@ -94,6 +94,22 @@ Find a `session_key` via, e.g.:
 curl -s "https://api.openf1.org/v1/sessions?year=2025&session_name=Race"
 ```
 
+Re-running a sync is safe. Events that are already stored unchanged are
+skipped, new ones are inserted, and changed ones are stored as corrections
+that supersede the old version, so nothing is counted twice. Records that
+fail a validation rule (e.g. a 4-second lap, 25th place in a 20-car field,
+two cars classified P1) are rejected with a reason. Each run's counts are
+saved on its submission (`summary`), and the rejections in
+`validation_errors`.
+
+**Repair sessions that were synced more than once before that fix** (one-off;
+dry run unless you pass `--apply`):
+
+```bash
+node scripts/dedupe-events.js            # show what would change
+node scripts/dedupe-events.js --apply    # delete duplicate copies, re-derive
+```
+
 **Inspect the database visually:**
 
 ```bash
@@ -113,6 +129,37 @@ npm test
 10 tests, pure functions only — no database connection needed. Covers lap/pit
 aggregation, positions-gained logic (sourced from a real `grid_position`
 event, never guessed), and head-to-head win counting.
+
+**Check derived statistics against published results:**
+
+```bash
+npm run verify:reference
+# save the report as evidence:
+node scripts/verify-reference.js --report ../docs/verification/reference-check.md
+```
+
+Read-only. Compares what the platform derived with known-correct results in
+`src/verification/reference-results.json` (sources listed per entry):
+
+- whole sessions — every car's finishing position and points
+  (2024 Bahrain GP, 2024 Chinese Sprint, 2023 and 2025 Australian GP);
+- a whole season — 2025 drivers' points and Grand Prix wins, and
+  constructors' points. Sessions not in the database but present in the
+  reference file are subtracted from the official totals, and the adjustment
+  is printed; any other gap marks the season `INCOMPLETE` rather than failed.
+
+Exit code 1 on any mismatch (`--strict` also fails sessions that aren't
+ingested). Driver-name mismatches are printed as warnings. To add a
+reference, append a session to the JSON with its source URL(s) —
+`tests/verify-reference.test.js` checks the file itself is consistent.
+
+**Load test against the stated response-time target** (see
+[`docs/PERFORMANCE.md`](../docs/PERFORMANCE.md)):
+
+```bash
+RATE_LIMIT_PER_MINUTE=0 RATE_LIMIT_V1_PER_MINUTE=0 RATE_LIMIT_EXPORTS_PER_MINUTE=0 CACHE_TTL_SECONDS=0 npm start
+npm run load-test -- --concurrency 10 --report ../docs/performance/my-run.md
+```
 
 ## Known limitations
 
@@ -134,6 +181,14 @@ available or are approximated:
   querying grid data — see `resolveGridSessionKey` in `src/jobs/openf1-sync.js`.
 - `head_to_head` currently only covers teammates (same team, same session),
   not arbitrary driver pairs — a deliberate scope decision, not a bug.
+- Season points (`driver_career_stats`, `team_season_stats`) add up Grand
+  Prix **and** Sprint points, like the official championship. Wins, podiums,
+  DNFs and reliability count Grands Prix only.
+- **Driver identity is keyed on car number.** OpenF1 sync upserts `driver` by
+  `driver_number` and overwrites the name, so when a number changes hands
+  (e.g. #1 Verstappen 2022–25 → Norris 2026, #3 Ricciardo → Verstappen 2026)
+  older results show the newest holder's name and career rows merge. Points
+  per car are still correct; `verify-reference` warns about each affected car.
 - Points, wins, and podiums are trusted directly from OpenF1's `classification`
   event data rather than recomputed against a hardcoded scoring table, since
   F1's points structure has changed across seasons and differs for sprints.
@@ -148,6 +203,11 @@ backend/
   src/
     jobs/
       openf1-sync.js     # pulls a session from OpenF1, writes submission + events
+    ingestion/
+      eventIdentity.js   # what makes two events "the same event"
+      planIngestion.js   # splits a submission into new / unchanged / corrected
+      validationRules.js # rejects impossible or conflicting data, with reasons
+      planDuplicateCleanup.js # repair plan for already-doubled sessions
     derivation/
       pure.js             # stat computation — no DB dependency, unit tested
       db.js                # DB access — fetches live events, upserts projections
