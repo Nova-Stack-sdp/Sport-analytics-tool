@@ -1,5 +1,21 @@
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useDeveloperMode } from '../context/DeveloperModeContext';
+import DatasetsPanel from '../components/developer/DatasetsPanel';
+import SubmissionsPanel from '../components/developer/SubmissionsPanel';
+
+// Datasets and Submissions used to be separate pages in the nav; they're
+// now tabs here, since they're only useful to developers anyway. Each tab
+// has a URL slug so /datasets and /submissions can redirect straight to it.
+const DEVELOPER_TABS = [
+  { slug: 'console', label: 'API Console' },
+  { slug: 'datasets', label: 'Datasets' },
+  { slug: 'submissions', label: 'Submissions' },
+];
+const DEFAULT_TAB = DEVELOPER_TABS[0].slug;
+
+function tabFromParam(value) {
+  return DEVELOPER_TABS.some((tab) => tab.slug === value) ? value : DEFAULT_TAB;
+}
 
 // Shown to any signed-in user who hasn't switched on developer mode yet.
 // Explains what the developer role is for, and how to turn it on —
@@ -20,9 +36,10 @@ function DeveloperExplainer() {
         <div className="rationale">
           <span className="ic">◆</span>
           <div>
-            <b>What developer mode unlocks:</b> access to Datasets (the underlying race data available
-            to work with) and Submissions (where a proposed stat is submitted and its review status is
-            tracked). Nothing you submit goes live on its own — an admin reviews it first.
+            <b>What developer mode unlocks:</b> three tabs on this page — the API Console, Datasets
+            (the underlying race data available to work with) and Submissions (where a proposed stat is
+            submitted and its review status is tracked). Nothing you submit goes live on its own — an
+            admin reviews it first.
           </div>
         </div>
 
@@ -32,7 +49,7 @@ function DeveloperExplainer() {
           </div>
           <ol className="developer-steps">
             <li>
-              Go to <Link to="/settings">Settings</Link>.
+              Go to <Link to="/profile?tab=settings">Profile → Settings</Link>.
             </li>
             <li>Find the <b>Developer mode</b> toggle.</li>
             <li>Switch it on.</li>
@@ -41,7 +58,7 @@ function DeveloperExplainer() {
             You can switch it off again at any time from the same place — it doesn't affect anything
             you've already submitted.
           </div>
-          <Link to="/settings" className="btn btn-ghost btn-full" style={{ marginTop: 14 }}>
+          <Link to="/profile?tab=settings" className="btn btn-ghost btn-full" style={{ marginTop: 14 }}>
             Go to Settings
           </Link>
         </div>
@@ -50,72 +67,106 @@ function DeveloperExplainer() {
   );
 }
 
-// The existing developer console — unchanged, shown once developer mode
-// is switched on.
-function DeveloperConsole() {
+// The API console — the original Developer page content, now the first tab.
+function ApiConsolePanel() {
+  return (
+    <div className="developer-panel" id="developer-console">
+      <div className="rationale">
+        <span className="ic">◆</span>
+        <div>
+          <b>Why this tab:</b> "the API is the platform's product rather than an accessory to a web interface" runs through all three tiers — from basic filtering/pagination, to intermediate versioning/keys/quotas, to advanced deprecation paths and per-consumer usage visibility. That's a distinct audience (integrators, not analysts) and enough surface area to earn its own tab.
+        </div>
+      </div>
+
+      <div className="grid grid-2" style={{ marginBottom: 16 }}>
+        <div className="card">
+          <div className="card-head">
+            <div className="card-title">Rate limits &amp; keys</div>
+            <span className="pill pill-gray">Pro Developer</span>
+          </div>
+          <div className="kv"><span>API key</span><b>dev_7f8c….ab92</b></div>
+          <div className="kv"><span>API version</span><b>v3 <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}>(v2 deprecates Dec 2026)</span></b></div>
+          <div className="kv"><span>Quota</span><b>1000 / min</b></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-tertiary)', marginTop: 14 }}><span>Bucket level</span><span>740 / 1000</span></div>
+          <div className="progress-bar"><div className="progress-fill" style={{ width: '74%' }}></div></div>
+          <button className="btn btn-ghost btn-full" style={{ marginTop: 8 }}>View usage history</button>
+        </div>
+
+        <div className="card">
+          <div className="card-head"><div className="card-title">Change feed</div><span className="card-title-sub">Pull only what changed since last read</span></div>
+          <table>
+            <tbody>
+              <tr><th>Since</th><th>Event</th><th>Fixture</th></tr>
+              <tr><td className="mono secondary">v10.18</td><td>stat_corrected</td><td className="secondary">Mexico City GP</td></tr>
+              <tr><td className="mono secondary">v10.17</td><td>fixture_published</td><td className="secondary">Brazilian GP</td></tr>
+            </tbody>
+          </table>
+          <div className="card-note">Lets a consumer already holding a release pull only the difference, instead of re-downloading everything.</div>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-head"><div className="card-title">API endpoints</div></div>
+        <div className="endpoint-row"><span className="method get">GET</span><span className="path">/v3/fixtures</span><span className="desc">Fixtures, filterable &amp; paginated</span><span className="secondary">Stable</span></div>
+        <div className="endpoint-row"><span className="method get">GET</span><span className="path">/v3/events</span><span className="desc">Raw event stream for a fixture</span><span className="secondary">Stable</span></div>
+        <div className="endpoint-row"><span className="method get">GET</span><span className="path">/v3/statistics</span><span className="desc">Derived driver / team statistics</span><span className="secondary">Stable</span></div>
+        <div className="endpoint-row"><span className="method get">GET</span><span className="path">/v3/statistics/as-of</span><span className="desc">Historical statistic snapshot</span><span className="pill pill-blue" style={{ justifySelf: 'start' }}>Advanced</span></div>
+        <div className="endpoint-row"><span className="method post">POST</span><span className="path">/v3/submissions</span><span className="desc">Submit an event batch</span><span className="secondary">Stable</span></div>
+        <div className="endpoint-row"><span className="method post">POST</span><span className="path">/v3/exports</span><span className="desc">Request a filtered dataset export</span><span className="secondary">Stable</span></div>
+        <Link to="/developer/api-docs" className="btn btn-ghost btn-full" style={{ marginTop: 14 }}>View full API documentation</Link>
+      </div>
+
+      <div className="card">
+        <div className="card-head"><div className="card-title">Access &amp; security</div></div>
+        <div className="security-grid">
+          <div className="sec-card"><div className="sec-icon">🔑</div><div className="sec-title">API keys</div><div className="sec-desc">Manage and rotate your keys</div><div className="sec-link">Manage keys →</div></div>
+          <div className="sec-card"><div className="sec-icon">⇄</div><div className="sec-title">Webhooks</div><div className="sec-desc">Subscribe to the change feed</div><div className="sec-link">Manage webhooks →</div></div>
+          <div className="sec-card"><div className="sec-icon">◎</div><div className="sec-title">Usage by consumer</div><div className="sec-desc">See what each key has accessed</div><div className="sec-link">View usage →</div></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Shown once developer mode is switched on: the console plus the Datasets
+// and Submissions tools, as tabs.
+function DeveloperWorkspace() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = tabFromParam(searchParams.get('tab'));
+
+  const selectTab = (slug) => {
+    setSearchParams(slug === DEFAULT_TAB ? {} : { tab: slug }, { replace: true });
+  };
+
   return (
     <div className="page" id="page-developer">
       <div className="pagehead">
         <div className="section-eyebrow">Basic → advanced · the API is the product</div>
         <div className="section-title">Developer</div>
         <div className="section-desc">
-          Keys, rate limits, versioning and usage — the brief treats the API as the platform's product, not an accessory to the web interface.
+          Keys, rate limits and usage for the API, plus the datasets you can work with and the
+          submissions you've made — everything for building on the platform in one place.
         </div>
       </div>
       <div className="content">
-        <div className="rationale">
-          <span className="ic">◆</span>
-          <div>
-            <b>Why this page:</b> "the API is the platform's product rather than an accessory to a web interface" runs through all three tiers — from basic filtering/pagination, to intermediate versioning/keys/quotas, to advanced deprecation paths and per-consumer usage visibility. That's a distinct audience (integrators, not analysts) and enough surface area to earn its own page rather than a tab elsewhere.
-          </div>
+        <div className="tabs developer-tabs" role="tablist" aria-label="Developer tools">
+          {DEVELOPER_TABS.map((tab) => (
+            <button
+              key={tab.slug}
+              className={`tab${activeTab === tab.slug ? ' active' : ''}`}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.slug}
+              onClick={() => selectTab(tab.slug)}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        <div className="grid grid-2" style={{ marginBottom: 16 }}>
-          <div className="card">
-            <div className="card-head">
-              <div className="card-title">Rate limits &amp; keys</div>
-              <span className="pill pill-gray">Pro Developer</span>
-            </div>
-            <div className="kv"><span>API key</span><b>dev_7f8c….ab92</b></div>
-            <div className="kv"><span>API version</span><b>v3 <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}>(v2 deprecates Dec 2026)</span></b></div>
-            <div className="kv"><span>Quota</span><b>1000 / min</b></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-tertiary)', marginTop: 14 }}><span>Bucket level</span><span>740 / 1000</span></div>
-            <div className="progress-bar"><div className="progress-fill" style={{ width: '74%' }}></div></div>
-            <button className="btn btn-ghost btn-full" style={{ marginTop: 8 }}>View usage history</button>
-          </div>
-
-          <div className="card">
-            <div className="card-head"><div className="card-title">Change feed</div><span className="card-title-sub">Pull only what changed since last read</span></div>
-            <table>
-              <tbody>
-                <tr><th>Since</th><th>Event</th><th>Fixture</th></tr>
-                <tr><td className="mono secondary">v10.18</td><td>stat_corrected</td><td className="secondary">Mexico City GP</td></tr>
-                <tr><td className="mono secondary">v10.17</td><td>fixture_published</td><td className="secondary">Brazilian GP</td></tr>
-              </tbody>
-            </table>
-            <div className="card-note">Lets a consumer already holding a release pull only the difference, instead of re-downloading everything.</div>
-          </div>
-        </div>
-
-        <div className="card" style={{ marginBottom: 16 }}>
-          <div className="card-head"><div className="card-title">API endpoints</div></div>
-          <div className="endpoint-row"><span className="method get">GET</span><span className="path">/v3/fixtures</span><span className="desc">Fixtures, filterable &amp; paginated</span><span className="secondary">Stable</span></div>
-          <div className="endpoint-row"><span className="method get">GET</span><span className="path">/v3/events</span><span className="desc">Raw event stream for a fixture</span><span className="secondary">Stable</span></div>
-          <div className="endpoint-row"><span className="method get">GET</span><span className="path">/v3/statistics</span><span className="desc">Derived driver / team statistics</span><span className="secondary">Stable</span></div>
-          <div className="endpoint-row"><span className="method get">GET</span><span className="path">/v3/statistics/as-of</span><span className="desc">Historical statistic snapshot</span><span className="pill pill-blue" style={{ justifySelf: 'start' }}>Advanced</span></div>
-          <div className="endpoint-row"><span className="method post">POST</span><span className="path">/v3/submissions</span><span className="desc">Submit an event batch</span><span className="secondary">Stable</span></div>
-          <div className="endpoint-row"><span className="method post">POST</span><span className="path">/v3/exports</span><span className="desc">Request a filtered dataset export</span><span className="secondary">Stable</span></div>
-          <Link to="/developer/api-docs" className="btn btn-ghost btn-full" style={{ marginTop: 14 }}>View full API documentation</Link>
-        </div>
-
-        <div className="card">
-          <div className="card-head"><div className="card-title">Access &amp; security</div></div>
-          <div className="security-grid">
-            <div className="sec-card"><div className="sec-icon">🔑</div><div className="sec-title">API keys</div><div className="sec-desc">Manage and rotate your keys</div><div className="sec-link">Manage keys →</div></div>
-            <div className="sec-card"><div className="sec-icon">⇄</div><div className="sec-title">Webhooks</div><div className="sec-desc">Subscribe to the change feed</div><div className="sec-link">Manage webhooks →</div></div>
-            <div className="sec-card"><div className="sec-icon">◎</div><div className="sec-title">Usage by consumer</div><div className="sec-desc">See what each key has accessed</div><div className="sec-link">View usage →</div></div>
-          </div>
-        </div>
+        {activeTab === 'console' && <ApiConsolePanel />}
+        {activeTab === 'datasets' && <DatasetsPanel />}
+        {activeTab === 'submissions' && <SubmissionsPanel />}
       </div>
     </div>
   );
@@ -123,7 +174,7 @@ function DeveloperConsole() {
 
 function DeveloperPage() {
   const { isDeveloperMode } = useDeveloperMode();
-  return isDeveloperMode ? <DeveloperConsole /> : <DeveloperExplainer />;
+  return isDeveloperMode ? <DeveloperWorkspace /> : <DeveloperExplainer />;
 }
 
 export default DeveloperPage;

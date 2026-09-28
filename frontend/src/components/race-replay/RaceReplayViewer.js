@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useRaceReplaySnapshots, BASE_TICK_MS } from './useRaceReplaySnapshots';
+import { usePreferences } from '../../context/PreferencesContext';
 import {
   teamClassFor,
   isSafetyCarActive,
@@ -65,7 +66,10 @@ function polylinePoints(points) {
 }
 
 function RaceReplayViewer({ sessionId }) {
-  const [showSafetyCar, setShowSafetyCar] = useState(true);
+  const { preferences } = usePreferences();
+  // Starts from Settings' "Show the safety car"; the checkbox below still
+  // toggles it for this replay.
+  const [showSafetyCar, setShowSafetyCar] = useState(() => preferences.replayShowSafetyCar);
 
   // Animation state lives in refs, not React state — none of this should
   // trigger its own re-render, since it's read/written by the animation

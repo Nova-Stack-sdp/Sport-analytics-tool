@@ -3,7 +3,15 @@ import { MemoryRouter } from 'react-router-dom';
 import SignInPage from '../pages/SignInPage';
 import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
 
-jest.mock('../firebase', () => ({ auth: {}, googleProvider: { id: 'google' }, githubProvider: { id: 'github' } }));
+// The page exchanges the new Firebase ID token for a backend session cookie
+// (auth.currentUser.getIdToken() -> establishSession) before navigating, so
+// both need stand-ins here or the success path throws before navigate().
+jest.mock('../firebase', () => ({
+  auth: { currentUser: { getIdToken: () => Promise.resolve('test-id-token') } },
+  googleProvider: { id: 'google' },
+  githubProvider: { id: 'github' },
+}));
+jest.mock('../api/client', () => ({ establishSession: jest.fn().mockResolvedValue({}) }));
 jest.mock('firebase/auth', () => ({ signInWithEmailAndPassword: jest.fn(), signInWithPopup: jest.fn() }));
 
 const mockNavigate = jest.fn();

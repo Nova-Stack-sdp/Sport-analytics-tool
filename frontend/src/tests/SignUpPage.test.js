@@ -3,7 +3,11 @@ import { MemoryRouter } from 'react-router-dom';
 import SignUpPage from '../pages/SignUpPage';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 
+// On success the page exchanges the new account's ID token
+// (credential.user.getIdToken()) for a backend session cookie via
+// establishSession before navigating, so both need stand-ins here.
 jest.mock('../firebase', () => ({ auth: {} }));
+jest.mock('../api/client', () => ({ establishSession: jest.fn().mockResolvedValue({}) }));
 
 jest.mock('firebase/auth', () => ({
   createUserWithEmailAndPassword: jest.fn(),
@@ -49,7 +53,7 @@ describe('SignUpPage', () => {
   });
 
   test('creates the account, sets the display name, and navigates to /overview', async () => {
-    createUserWithEmailAndPassword.mockResolvedValue({ user: { uid: 'u1' } });
+    createUserWithEmailAndPassword.mockResolvedValue({ user: { uid: 'u1', getIdToken: jest.fn().mockResolvedValue('test-id-token') } });
     updateProfile.mockResolvedValue();
     renderPage();
     fillValidForm();
@@ -64,7 +68,7 @@ describe('SignUpPage', () => {
       )
     );
     expect(updateProfile).toHaveBeenCalledWith(
-      { uid: 'u1' },
+      expect.objectContaining({ uid: 'u1' }),
       { displayName: 'Ada Lovelace' }
     );
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/overview', { replace: true }));

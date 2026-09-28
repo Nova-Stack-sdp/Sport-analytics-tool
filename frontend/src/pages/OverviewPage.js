@@ -1,11 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getOverview } from '../api/client';
-
-function formatDateTime(value) {
-  if (!value) return '—';
-  return new Date(value).toLocaleString();
-}
+import { useDateTimeFormat } from '../context/PreferencesContext';
 
 function statusPillClass(status) {
   switch (status) {
@@ -28,6 +24,8 @@ function sessionStatusPillClass(status) {
 }
 
 function OverviewPage() {
+  // Follows the clock / time zone choices in Profile → Settings.
+  const { formatDateTime } = useDateTimeFormat();
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
