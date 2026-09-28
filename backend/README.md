@@ -137,6 +137,14 @@ ingested). Driver-name mismatches are printed as warnings. To add a
 reference, append a session to the JSON with its source URL(s) —
 `tests/verify-reference.test.js` checks the file itself is consistent.
 
+**Load test against the stated response-time target** (see
+[`docs/PERFORMANCE.md`](../docs/PERFORMANCE.md)):
+
+```bash
+RATE_LIMIT_PER_MINUTE=0 RATE_LIMIT_V1_PER_MINUTE=0 RATE_LIMIT_EXPORTS_PER_MINUTE=0 CACHE_TTL_SECONDS=0 npm start
+npm run load-test -- --concurrency 10 --report ../docs/performance/my-run.md
+```
+
 ## Known limitations
 
 Documented here rather than silently left unclear — some OpenF1 fields aren't
