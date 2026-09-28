@@ -26,6 +26,7 @@ function renderGuarded({ role, path = '/protected' } = {}) {
         />
         <Route path="/sign-in" element={<div>Sign in page</div>} />
         <Route path="/developer" element={<div>Developer explainer</div>} />
+        <Route path="/overview" element={<div>Overview page</div>} />
       </Routes>
     </MemoryRouter>
   );
@@ -74,5 +75,27 @@ describe('RequireAuth', () => {
     renderGuarded({ role: 'developer' });
 
     expect(screen.getByText('Protected content')).toBeInTheDocument();
+  });
+
+  test('sends a signed-in non-admin away from an admin-gated route to /overview', () => {
+    mockAuthState = { user: { uid: 'u1' }, loading: false, isAdmin: false };
+    mockIsDeveloperMode = true; // developer mode is not admin
+    renderGuarded({ role: 'admin' });
+
+    expect(screen.getByText('Overview page')).toBeInTheDocument();
+    expect(screen.queryByText('Protected content')).not.toBeInTheDocument();
+  });
+
+  test('lets an admin through an admin-gated route', () => {
+    mockAuthState = { user: { uid: 'boss' }, loading: false, isAdmin: true };
+    renderGuarded({ role: 'admin' });
+
+    expect(screen.getByText('Protected content')).toBeInTheDocument();
+  });
+
+  test('still sends a signed-out user to sign-in for an admin-gated route', () => {
+    renderGuarded({ role: 'admin' });
+
+    expect(screen.getByText('Sign in page')).toBeInTheDocument();
   });
 });

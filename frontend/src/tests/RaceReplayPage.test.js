@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import RaceReplayPage from '../pages/RaceReplayPage';
+import { PreferencesProvider } from '../context/PreferencesContext';
 import * as apiClient from '../api/client';
 
 const FIXTURES = {
@@ -81,6 +82,20 @@ describe('race replay page (real data, mocked API)', () => {
 
     fireEvent.click(screen.getByLabelText('Show safety car'));
     expect(screen.queryByText('Safety car deployed')).not.toBeInTheDocument();
+  });
+
+  test('starts with the default speed and safety-car choice from Settings', async () => {
+    window.localStorage.setItem(
+      'f1-analytics-preferences',
+      JSON.stringify({ replaySpeed: 4, replayShowSafetyCar: false })
+    );
+    jest.spyOn(apiClient, 'getRaceReplayState').mockResolvedValue(SAFETY_CAR_STATE);
+    render(<PreferencesProvider><RaceReplayPage /></PreferencesProvider>);
+
+    await waitFor(() => expect(screen.getByText('4×')).toBeInTheDocument());
+    expect(screen.getByLabelText('Show safety car')).not.toBeChecked();
+    expect(screen.queryByText('Safety car deployed')).not.toBeInTheDocument();
+    window.localStorage.clear();
   });
 
   test('pause button toggles its own label', async () => {

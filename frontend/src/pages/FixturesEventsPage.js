@@ -1,16 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getFixtures, getFixtureEvents } from '../api/client';
-
-function formatDate(value) {
-  if (!value) return '—';
-  return new Date(value).toLocaleDateString();
-}
-
-function formatTime(value) {
-  if (!value) return '—';
-  return new Date(value).toLocaleTimeString();
-}
+import { useDateTimeFormat } from '../context/PreferencesContext';
 
 function fixtureStatusPill(fixture) {
   if (fixture.hasCorrections) return { className: 'pill pill-blue', label: 'Corrected' };
@@ -20,6 +11,8 @@ function fixtureStatusPill(fixture) {
 }
 
 function FixturesEventsPage() {
+  // Follows the clock / time zone choices in Profile → Settings.
+  const { formatDate, formatTime } = useDateTimeFormat();
   const [fixtures, setFixtures] = useState([]);
   const [fixturesLoading, setFixturesLoading] = useState(true);
   const [fixturesError, setFixturesError] = useState(null);

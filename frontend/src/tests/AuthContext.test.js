@@ -25,12 +25,13 @@ function fakeFirebaseUser({ uid = 'u1', email = 'a@b.com', developer = false } =
 }
 
 function Probe() {
-  const { user, loading, isDeveloperMode } = useAuth();
+  const { user, loading, isDeveloperMode, isAdmin } = useAuth();
   if (loading) return <div>loading</div>;
   return (
     <div>
       <div data-testid="uid">{user ? user.uid : 'none'}</div>
       <div data-testid="dev">{String(isDeveloperMode)}</div>
+      <div data-testid="admin">{String(isAdmin)}</div>
     </div>
   );
 }
@@ -121,5 +122,42 @@ describe('AuthContext', () => {
 
     expect(screen.getByTestId('dev')).toHaveTextContent('true');
     expect(user.getIdTokenResult).toHaveBeenLastCalledWith(true);
+  });
+
+  test('asks the backend (with a Bearer token) whether a Firebase user is an admin', async () => {
+    getSession.mockResolvedValue({ uid: 'u1', admin: true });
+    const user = { ...fakeFirebaseUser(), getIdToken: jest.fn().mockResolvedValue('id-token') };
+    renderProbe();
+
+    await act(async () => {
+      authCallback(user);
+    });
+
+    expect(getSession).toHaveBeenCalledWith('id-token');
+    expect(screen.getByTestId('admin')).toHaveTextContent('true');
+  });
+
+  test('treats a failed admin check as not an admin, without blocking sign-in', async () => {
+    getSession.mockRejectedValue(new Error('backend down'));
+    const user = { ...fakeFirebaseUser(), getIdToken: jest.fn().mockResolvedValue('id-token') };
+    renderProbe();
+
+    await act(async () => {
+      authCallback(user);
+    });
+
+    expect(screen.getByTestId('uid')).toHaveTextContent('u1');
+    expect(screen.getByTestId('admin')).toHaveTextContent('false');
+  });
+
+  test('picks up the admin flag from a cookie-restored session', async () => {
+    getSession.mockResolvedValue({ uid: 'cookie-user', email: 'c@d.com', developer: false, admin: true });
+    renderProbe();
+
+    await act(async () => {
+      authCallback(null);
+    });
+
+    expect(screen.getByTestId('admin')).toHaveTextContent('true');
   });
 });

@@ -34,6 +34,7 @@
   --shadow-elevated:0 14px 34px rgba(0,0,0,0.16);
   --font-ui:'Inter',sans-serif;
   --font-mono:'Roboto Mono',monospace;
+  --nav-height:80px; /* the top bar's desktop height — see TopNav.css */
   color-scheme:light;
 }
 [data-theme="dark"]{
@@ -271,7 +272,10 @@ td.secondary{color:var(--text-secondary);}
 
 @media (max-width: 1100px){
   .topnav-inner{height:auto;min-height:62px;flex-wrap:wrap;padding:10px 16px;gap:10px 16px;}
-  .nav-items{order:3;width:100%;overflow-x:auto;padding-bottom:2px;}
+  /* flex-basis 100% (not just width) so the links really wrap onto their
+     own row — .nav-items has flex:1 (basis 0) on desktop, which otherwise
+     keeps them squeezed beside the controls and cut off at the edge. */
+  .nav-items{order:3;flex:1 1 100%;width:100%;overflow-x:auto;padding-bottom:2px;}
   .topnav-right{margin-left:auto;}
   .grid-4{grid-template-columns:repeat(2,1fr);}
 }
@@ -306,14 +310,10 @@ td.secondary{color:var(--text-secondary);}
 }
 
 /* Welcome / landing page */
-.welcome-page{min-height:100vh;display:flex;flex-direction:column;}
-.welcome-hero-wrap{flex:1;display:flex;padding-top:80px;}
+.welcome-page{min-height:calc(100vh - var(--nav-height));display:flex;flex-direction:column;}
+.welcome-hero-wrap{flex:1;display:flex;}
 .welcome-hero-wrap .hero-banner{flex:1;border-radius:0;margin-bottom:0;}
 .welcome-hero-wrap .hero-image-panel{clip-path:polygon(28% 0, 100% 0, 100% 100%, 0% 100%);}
-
-@media (max-width: 760px){
-  .welcome-hero-wrap{padding-top:0;}
-}
 
 /* Welcome / landing page redesign */
 .tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--accent);border:1px solid var(--accent-dark);background:var(--accent-soft);border-radius:6px;padding:3px 9px;margin-bottom:10px;}
@@ -553,13 +553,83 @@ footer{border-top:1px solid var(--border-soft);padding:44px 0 30px;background:va
 .switch input:checked + .switch-track::before{transform:translateX(18px);}
 .switch input:focus-visible + .switch-track{outline:2px solid var(--accent);outline-offset:2px;}
 
-/* ─── Developer explainer page ───────────────────────────────────────── */
+/* Settings tab (Profile → Settings) */
+/* Two columns that cards flow down (like a masonry), so short cards don't
+   leave gaps beside tall ones. */
+.settings-panel{columns:2;column-gap:18px;}
+.settings-panel > .settings-card{break-inside:avoid;margin-bottom:18px;}
+.settings-card:hover{transform:none;border-color:var(--border);box-shadow:var(--shadow-soft);}
+.settings-rows{display:flex;flex-direction:column;}
+.settings-rows .settings-row{padding:12px 0;border-top:1px solid var(--border-soft);}
+.settings-rows .settings-row:first-child{border-top:0;padding-top:0;}
+.settings-rows .settings-row:last-child{padding-bottom:0;}
+label.settings-row-label{display:block;}
+.settings-control{flex-shrink:0;}
+.settings-select{min-width:150px;padding:8px 10px;border:1px solid var(--border);border-radius:9px;background:var(--bg);color:var(--text-primary);font-family:var(--font-ui);font-size:12px;font-weight:600;cursor:pointer;}
+.settings-select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+.segmented{display:inline-flex;flex-wrap:wrap;gap:2px;padding:3px;border:1px solid var(--border);border-radius:10px;background:var(--bg);}
+.segmented-option{position:relative;display:inline-flex;align-items:center;padding:6px 11px;border-radius:7px;font-size:11.5px;font-weight:700;color:var(--text-secondary);cursor:pointer;white-space:nowrap;transition:background .15s,color .15s;}
+.segmented-option input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;}
+.segmented-option:hover:not(.is-selected){color:var(--text-primary);background:var(--border-soft);}
+.segmented-option.is-selected{background:var(--accent);color:var(--accent-contrast);}
+.segmented-option:focus-within{outline:2px solid var(--accent);outline-offset:1px;}
+.settings-footer{column-span:all;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+.settings-footer .settings-save-note{margin:0;font-size:11.5px;color:var(--text-tertiary);}
+.settings-footer .settings-save-note.is-error{color:var(--status-red);}
+@media (max-width: 900px){
+  .settings-panel{columns:1;}
+  .settings-rows .settings-row{flex-wrap:wrap;}
+}
+
+/* Density: Compact (Profile → Settings → Appearance). Set on <html>. */
+:root[data-density="compact"]{--nav-height:64px;}
+@media (min-width: 1101px){
+  /* only the single-row desktop bar; narrower screens wrap to two rows */
+  :root[data-density="compact"] .topnav-inner{height:64px;}
+}
+:root[data-density="compact"] .app-shell{font-size:12.5px;}
+:root[data-density="compact"] .pagehead{padding-top:16px;}
+:root[data-density="compact"] .section-title{font-size:19px;}
+:root[data-density="compact"] .section-desc{margin-top:4px;}
+:root[data-density="compact"] .content{padding-top:14px;padding-bottom:48px;}
+:root[data-density="compact"] .grid{gap:12px;}
+:root[data-density="compact"] .card{padding:14px;}
+:root[data-density="compact"] .card-head{margin-bottom:10px;}
+:root[data-density="compact"] th{padding:0 8px 7px;}
+:root[data-density="compact"] td{padding:6px 8px;}
+:root[data-density="compact"] .rationale{padding:9px 12px;margin-bottom:12px;}
+:root[data-density="compact"] .profile-content{gap:12px;}
+:root[data-density="compact"] .settings-panel{column-gap:12px;}
+:root[data-density="compact"] .settings-panel > .settings-card{margin-bottom:12px;}
+
+/* Reduce motion (Profile → Settings → Motion). Set on <html>. Race
+   Replay's cars are moved by script, not CSS, so they keep moving. */
+:root[data-reduce-motion="true"] *,
+:root[data-reduce-motion="true"] *::before,
+:root[data-reduce-motion="true"] *::after{animation:none !important;transition:none !important;scroll-behavior:auto !important;}
+:root[data-reduce-motion="true"] .card:hover,
+:root[data-reduce-motion="true"] .btn:hover,
+:root[data-reduce-motion="true"] .nav-item:hover,
+:root[data-reduce-motion="true"] .team-tag:hover,
+:root[data-reduce-motion="true"] .profile-action-card:hover,
+:root[data-reduce-motion="true"] .hero-cta:hover,
+:root[data-reduce-motion="true"] .explore-card:hover,
+:root[data-reduce-motion="true"] .video-card:hover,
+:root[data-reduce-motion="true"] .team-card:hover,
+:root[data-reduce-motion="true"] .driver-cell:hover,
+:root[data-reduce-motion="true"] .avatar:hover,
+:root[data-reduce-motion="true"] .theme-toggle:hover,
+:root[data-reduce-motion="true"] .live-pill:hover{transform:none !important;}
+
+/* ─── Developer page ─────────────────────────────────────────────────── */
+/* Tabs are <button>s (like Profile's), so strip the default button chrome. */
+.developer-tabs{margin-bottom:18px;}
+.developer-tabs .tab{border-top:0;border-right:0;border-left:0;background:transparent;font-family:inherit;}
 .developer-steps{margin:0;padding-left:18px;font-size:12.5px;color:var(--text-secondary);line-height:1.9;}
 .developer-steps li b{color:var(--text-primary);}
 .developer-steps a{color:var(--accent);}
 
 /* ─── User profile ───────────────────────────────────────────────────── */
-.profile-page{padding-top:80px;}
 .profile-content{display:flex;flex-direction:column;gap:18px;}
 .profile-tabs{margin-bottom:0;}
 .profile-tabs .tab{border-top:0;border-right:0;border-left:0;background:transparent;font-family:inherit;}

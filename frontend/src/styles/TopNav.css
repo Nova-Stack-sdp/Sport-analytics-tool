@@ -1,8 +1,11 @@
+/* Sticky, not fixed: the bar stays pinned to the top while scrolling but
+   still takes up its own space in the layout, so page headings always start
+   below it — whatever height the bar wraps to on narrower screens. (With
+   position: fixed every page had to guess the bar's height with its own
+   padding-top, and most pages didn't, so their headings sat underneath it.) */
 .topnav {
-  position: fixed;
+  position: sticky;
   top: 0;
-  left: 0;
-  right: 0;
   z-index: 20;
   background: linear-gradient(90deg, var(--accent-dark) 0%, var(--accent) 100%);
   border-bottom: 1px solid var(--accent-dark);
@@ -124,16 +127,6 @@
 
 .live-blink {
   animation: pulse-live 1.4s infinite, live-blink 0.9s steps(2, end) infinite;
-}
-
-.season-pill {
-  padding: 8px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.06);
-  color: #fff5f5;
-  font-size: 15px;
-  font-weight: 700;
 }
 
 .avatar {
@@ -344,7 +337,10 @@
   }
 }
 
-@media (max-width: 768px) {
+/* Same breakpoint as the matching block in globals.css. This file loads
+   after globals.css, so if this stopped at 768px the desktop .nav-items
+   rule above won the 769-1100px range and the links got cut off. */
+@media (max-width: 1100px) {
   .topnav-inner {
     flex-wrap: wrap;
     height: auto;
@@ -355,6 +351,7 @@
 
   .nav-items {
     order: 3;
+    flex: 1 1 100%;
     width: 100%;
     overflow-x: auto;
     padding-bottom: 2px;

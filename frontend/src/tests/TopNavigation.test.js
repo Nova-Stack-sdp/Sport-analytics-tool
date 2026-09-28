@@ -6,12 +6,13 @@ import { clearSession } from '../api/client';
 
 let mockUser = null;
 let mockIsDeveloperMode = false;
+let mockIsAdmin = false;
 
 jest.mock('../context/AuthContext', () => ({
   // signOut is destructured by TopNavigation's handleSignOut (as clearAuth) —
   // omitting it here makes that call throw a TypeError and silently skip the
   // real firebase signOut() call it's supposed to trigger.
-  useAuth: () => ({ user: mockUser, signOut: jest.fn() }),
+  useAuth: () => ({ user: mockUser, isAdmin: mockIsAdmin, signOut: jest.fn() }),
 }));
 jest.mock('../context/DeveloperModeContext', () => ({
   useDeveloperMode: () => ({ isDeveloperMode: mockIsDeveloperMode, setDeveloperMode: jest.fn() }),
@@ -50,6 +51,7 @@ describe('TopNavigation', () => {
     jest.clearAllMocks();
     mockUser = null;
     mockIsDeveloperMode = false;
+    mockIsAdmin = false;
   });
 
   test('renders public Teams and Drivers links, highlights the active route, and lets guests toggle the theme', () => {
@@ -61,6 +63,9 @@ describe('TopNavigation', () => {
     expect(screen.queryByRole('link', { name: 'Submissions' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'SignIn' })).toHaveAttribute('href', '/sign-in');
     expect(screen.getByText('☀')).toBeInTheDocument();
+    // The static "2026 Season ▾" pill was removed — it looked like a picker
+    // but didn't do anything.
+    expect(screen.queryByText(/2026 Season/)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByTitle('Toggle dark mode'));
 
@@ -76,25 +81,28 @@ describe('TopNavigation', () => {
 
     expect(screen.getByRole('link', { name: 'Overview' })).toHaveClass('active');
     expect(screen.getByRole('link', { name: 'Developer' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Admin' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Profile' })).toHaveAttribute('href', '/profile');
+    // Settings is a tab inside Profile now, not its own nav item.
+    expect(screen.queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument();
+    // Not on the admin list -> no Admin link.
+    expect(screen.queryByRole('link', { name: 'Admin' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Submissions' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Datasets' })).not.toBeInTheDocument();
   });
 
-  test('places Profile immediately after Overview for signed-in users', () => {
+  test('places Profile where Settings used to be — after Developer, before Admin', () => {
+    mockIsAdmin = true;
     renderNav({
       user: { uid: 'user-123', displayName: 'Max Verstappen', email: 'max@example.test' },
     });
 
     const navLinks = screen.getByLabelText('Main navigation').querySelectorAll('.nav-items a');
-    expect(Array.from(navLinks).slice(0, 2).map((link) => link.textContent)).toEqual([
-      'Overview',
-      'Profile',
-    ]);
+    const labels = Array.from(navLinks).map((link) => link.textContent);
+    expect(labels[1]).not.toBe('Profile');
+    expect(labels.slice(-3)).toEqual(['Developer', 'Profile', 'Admin']);
   });
 
-  test('shows Datasets and Submissions once developer mode is on, plus display-name initials', () => {
+  test('keeps Datasets and Submissions out of the nav even in developer mode (they are Developer tabs), plus display-name initials', () => {
     mockIsDeveloperMode = true;
     renderNav({
       user: { displayName: 'Max Verstappen', email: 'max@example.test' },
@@ -103,10 +111,11 @@ describe('TopNavigation', () => {
     });
 
     expect(screen.getByRole('link', { name: 'Overview' })).toHaveClass('active');
-    expect(screen.getByRole('link', { name: 'Submissions' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Datasets' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Submissions' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Datasets' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Developer' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Admin' })).toBeInTheDocument();
+    // Developer mode doesn't make you an admin.
+    expect(screen.queryByRole('link', { name: 'Admin' })).not.toBeInTheDocument();
     // Clicking the avatar opens the account menu now, so the title only
     // states who is signed in.
     expect(screen.getByRole('button', { name: 'M' })).toHaveAttribute(
@@ -114,6 +123,20 @@ describe('TopNavigation', () => {
       'Signed in as max@example.test'
     );
     expect(screen.getByText('☾')).toBeInTheDocument();
+  });
+
+  test('shows the Admin link only to users the backend reports as admins', () => {
+    mockIsAdmin = true;
+    renderNav({ user: { uid: 'boss', displayName: 'Boss', email: 'boss@example.test' }, path: '/overview' });
+
+    expect(screen.getByRole('link', { name: 'Admin' })).toHaveAttribute('href', '/admin');
+  });
+
+  test('never shows the Admin link to signed-out visitors', () => {
+    mockIsAdmin = true; // even if the flag were somehow stale
+    renderNav();
+
+    expect(screen.queryByRole('link', { name: 'Admin' })).not.toBeInTheDocument();
   });
 
   test('opens an account menu on click instead of signing the user out', () => {

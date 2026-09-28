@@ -25,7 +25,7 @@ jest.mock('../context/AuthContext', () => ({
   }),
 }));
 jest.mock('../context/DeveloperModeContext', () => ({
-  useDeveloperMode: () => ({ isDeveloperMode: false }),
+  useDeveloperMode: () => ({ isDeveloperMode: false, setDeveloperMode: jest.fn() }),
 }));
 jest.mock('../firebase', () => ({
   auth: {},
@@ -117,6 +117,7 @@ describe('ProfilePage', () => {
 
     expect(await screen.findByText('Firestore synced')).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'User Profile' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Settings' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'News Feed' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Calendar' })).toBeInTheDocument();
 
@@ -125,6 +126,29 @@ describe('ProfilePage', () => {
     expect(screen.getByRole('tab', { name: 'News Feed' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText('Live F1 news panel')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Alex Morgan' })).not.toBeInTheDocument();
+  });
+
+  test('opens straight on the Settings tab from /profile?tab=settings', () => {
+    render(<MemoryRouter initialEntries={['/profile?tab=settings']}><ProfilePage /></MemoryRouter>);
+
+    expect(screen.getByRole('tab', { name: 'Settings' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('checkbox', { name: /toggle developer mode/i })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Alex Morgan' })).not.toBeInTheDocument();
+  });
+
+  test('falls back to the User Profile tab for an unknown tab value', () => {
+    render(<MemoryRouter initialEntries={['/profile?tab=nope']}><ProfilePage /></MemoryRouter>);
+
+    expect(screen.getByRole('tab', { name: 'User Profile' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  test('the Account settings button switches to the Settings tab', () => {
+    render(<MemoryRouter><ProfilePage /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Account settings' }));
+
+    expect(screen.getByRole('tab', { name: 'Settings' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('checkbox', { name: /toggle developer mode/i })).toBeInTheDocument();
   });
 
   test('saves the display name locally and syncs account preferences', async () => {

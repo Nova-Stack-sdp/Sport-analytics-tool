@@ -9,23 +9,20 @@ import { readLocalProfile, subscribeToLocalProfile } from '../services/userProfi
 
 const NAV_ITEMS = [
   { to: '/overview', label: 'Overview' },
-  { to: '/profile', label: 'Profile', requiresAuth: true },
   { to: '/fixtures', label: 'Fixtures & Events' },
   { to: '/statistics', label: 'Statistics' },
   { to: '/teams', label: 'Teams' },
   { to: '/drivers', label: 'Drivers' },
   { to: '/timetravel', label: 'Time-Travel' },
   { to: '/replay', label: 'Race Replay' },
-  // Datasets and Submissions are developer-only — a signed-in user who
-  // hasn't switched on developer mode shouldn't see them in the nav at
-  // all (the route itself also redirects, this just keeps the nav honest).
-  { to: '/datasets', label: 'Datasets', requiresAuth: true, requiresDeveloper: true },
-  { to: '/submissions', label: 'Submissions', requiresAuth: true, requiresDeveloper: true },
   // Developer is visible to every signed-in user — it explains the role
-  // and how to turn it on for those who don't have it yet.
+  // and how to turn it on for those who don't have it yet. Datasets and
+  // Submissions are tabs inside it (developer mode only), not nav items.
   { to: '/developer', label: 'Developer', requiresAuth: true },
-  { to: '/settings', label: 'Settings', requiresAuth: true },
-  { to: '/admin', label: 'Admin', requiresAuth: true },
+  // Profile sits where Settings used to — Settings is now a tab inside it.
+  { to: '/profile', label: 'Profile', requiresAuth: true },
+  // Only for UIDs on the backend's ADMIN_UIDS list (see AuthContext).
+  { to: '/admin', label: 'Admin', requiresAuth: true, requiresAdmin: true },
 ];
 
 function navItemClass({ isActive }) {
@@ -38,7 +35,7 @@ function initialsFor(user) {
 }
 
 function TopNav({ theme, onToggleTheme }) {
-  const { user, signOut: clearAuth } = useAuth();
+  const { user, isAdmin, signOut: clearAuth } = useAuth();
   const { isDeveloperMode } = useDeveloperMode();
   const navigate = useNavigate();
   // The avatar opens an account menu rather than signing the user straight
@@ -141,6 +138,7 @@ function TopNav({ theme, onToggleTheme }) {
           {NAV_ITEMS.filter((item) => {
             if (item.requiresAuth && !user) return false;
             if (item.requiresDeveloper && !isDeveloperMode) return false;
+            if (item.requiresAdmin && !isAdmin) return false;
             return true;
           }).map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end} className={navItemClass}>
@@ -152,7 +150,6 @@ function TopNav({ theme, onToggleTheme }) {
           <NavLink to="/telemetry-tv" className="live-pill live-blink" title="TelemetryTV">
             TelemetryTV
           </NavLink>
-          <div className="season-pill">2026 Season ▾</div>
           <button className="theme-toggle" title="Toggle dark mode" onClick={onToggleTheme}>
             <span>{theme === 'dark' ? '☀' : '☾'}</span>
           </button>
