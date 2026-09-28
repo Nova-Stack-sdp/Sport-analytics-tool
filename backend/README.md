@@ -94,6 +94,22 @@ Find a `session_key` via, e.g.:
 curl -s "https://api.openf1.org/v1/sessions?year=2025&session_name=Race"
 ```
 
+Re-running a sync is safe. Events that are already stored unchanged are
+skipped, new ones are inserted, and changed ones are stored as corrections
+that supersede the old version, so nothing is counted twice. Records that
+fail a validation rule (e.g. a 4-second lap, 25th place in a 20-car field,
+two cars classified P1) are rejected with a reason. Each run's counts are
+saved on its submission (`summary`), and the rejections in
+`validation_errors`.
+
+**Repair sessions that were synced more than once before that fix** (one-off;
+dry run unless you pass `--apply`):
+
+```bash
+node scripts/dedupe-events.js            # show what would change
+node scripts/dedupe-events.js --apply    # delete duplicate copies, re-derive
+```
+
 **Inspect the database visually:**
 
 ```bash
@@ -148,6 +164,11 @@ backend/
   src/
     jobs/
       openf1-sync.js     # pulls a session from OpenF1, writes submission + events
+    ingestion/
+      eventIdentity.js   # what makes two events "the same event"
+      planIngestion.js   # splits a submission into new / unchanged / corrected
+      validationRules.js # rejects impossible or conflicting data, with reasons
+      planDuplicateCleanup.js # repair plan for already-doubled sessions
     derivation/
       pure.js             # stat computation — no DB dependency, unit tested
       db.js                # DB access — fetches live events, upserts projections
