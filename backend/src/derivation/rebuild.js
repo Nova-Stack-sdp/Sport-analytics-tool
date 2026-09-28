@@ -22,7 +22,10 @@ import {
   computeHeadToHead,
 } from "./pure.js";
 
-const LIVE = { supersededById: null };
+const LIVE = {
+  supersededById: null,
+  sourceSubmission: { status: { in: ["accepted", "partially_accepted"] } },
+};
 const POINTS_SESSIONS = ["Race", "Sprint"];
 // The only event types computeSessionStatsForEntry reads — no need to pull
 // thousands of position_change / weather rows across the network.
