@@ -1,0 +1,769 @@
+{
+  "about": "Known-correct results used by scripts/verify-reference.js to check what the platform derives from ingested data. Sources are listed per entry; all values were cross-checked against at least two of them. Car numbers are the key because that is how drivers are identified in OpenF1 and in our driver table.",
+  "sessions": [
+    {
+      "id": "2024-bahrain-race",
+      "season": 2024,
+      "meeting": "Bahrain",
+      "sessionType": "Race",
+      "notes": "Verstappen's 26 includes the fastest-lap point (awarded 2019-2024).",
+      "sources": [
+        "https://en.wikipedia.org/wiki/2024_Bahrain_Grand_Prix",
+        "https://www.fia.com/events/fia-formula-one-world-championship/season-2024/bahrain-grand-prix/race-classification"
+      ],
+      "results": [
+        {
+          "carNumber": 1,
+          "driver": "Max Verstappen",
+          "points": 26,
+          "position": 1
+        },
+        {
+          "carNumber": 11,
+          "driver": "Sergio Pérez",
+          "points": 18,
+          "position": 2
+        },
+        {
+          "carNumber": 55,
+          "driver": "Carlos Sainz",
+          "points": 15,
+          "position": 3
+        },
+        {
+          "carNumber": 16,
+          "driver": "Charles Leclerc",
+          "points": 12,
+          "position": 4
+        },
+        {
+          "carNumber": 63,
+          "driver": "George Russell",
+          "points": 10,
+          "position": 5
+        },
+        {
+          "carNumber": 4,
+          "driver": "Lando Norris",
+          "points": 8,
+          "position": 6
+        },
+        {
+          "carNumber": 44,
+          "driver": "Lewis Hamilton",
+          "points": 6,
+          "position": 7
+        },
+        {
+          "carNumber": 81,
+          "driver": "Oscar Piastri",
+          "points": 4,
+          "position": 8
+        },
+        {
+          "carNumber": 14,
+          "driver": "Fernando Alonso",
+          "points": 2,
+          "position": 9
+        },
+        {
+          "carNumber": 18,
+          "driver": "Lance Stroll",
+          "points": 1,
+          "position": 10
+        },
+        {
+          "carNumber": 24,
+          "driver": "Zhou Guanyu",
+          "points": 0,
+          "position": 11
+        },
+        {
+          "carNumber": 20,
+          "driver": "Kevin Magnussen",
+          "points": 0,
+          "position": 12
+        },
+        {
+          "carNumber": 3,
+          "driver": "Daniel Ricciardo",
+          "points": 0,
+          "position": 13
+        },
+        {
+          "carNumber": 22,
+          "driver": "Yuki Tsunoda",
+          "points": 0,
+          "position": 14
+        },
+        {
+          "carNumber": 23,
+          "driver": "Alexander Albon",
+          "points": 0,
+          "position": 15
+        },
+        {
+          "carNumber": 27,
+          "driver": "Nico Hülkenberg",
+          "points": 0,
+          "position": 16
+        },
+        {
+          "carNumber": 31,
+          "driver": "Esteban Ocon",
+          "points": 0,
+          "position": 17
+        },
+        {
+          "carNumber": 10,
+          "driver": "Pierre Gasly",
+          "points": 0,
+          "position": 18
+        },
+        {
+          "carNumber": 77,
+          "driver": "Valtteri Bottas",
+          "points": 0,
+          "position": 19
+        },
+        {
+          "carNumber": 2,
+          "driver": "Logan Sargeant",
+          "points": 0,
+          "position": 20
+        }
+      ]
+    },
+    {
+      "id": "2024-china-sprint",
+      "season": 2024,
+      "meeting": "Chinese",
+      "sessionType": "Sprint",
+      "notes": "First sprint of 2024; points 8-7-6-5-4-3-2-1.",
+      "sources": [
+        "https://en.wikipedia.org/wiki/2024_Chinese_Grand_Prix"
+      ],
+      "results": [
+        {
+          "carNumber": 1,
+          "driver": "Max Verstappen",
+          "points": 8,
+          "position": 1
+        },
+        {
+          "carNumber": 44,
+          "driver": "Lewis Hamilton",
+          "points": 7,
+          "position": 2
+        },
+        {
+          "carNumber": 11,
+          "driver": "Sergio Pérez",
+          "points": 6,
+          "position": 3
+        },
+        {
+          "carNumber": 16,
+          "driver": "Charles Leclerc",
+          "points": 5,
+          "position": 4
+        },
+        {
+          "carNumber": 55,
+          "driver": "Carlos Sainz",
+          "points": 4,
+          "position": 5
+        },
+        {
+          "carNumber": 4,
+          "driver": "Lando Norris",
+          "points": 3,
+          "position": 6
+        },
+        {
+          "carNumber": 81,
+          "driver": "Oscar Piastri",
+          "points": 2,
+          "position": 7
+        },
+        {
+          "carNumber": 63,
+          "driver": "George Russell",
+          "points": 1,
+          "position": 8
+        },
+        {
+          "carNumber": 24,
+          "driver": "Zhou Guanyu",
+          "points": 0,
+          "position": 9
+        },
+        {
+          "carNumber": 20,
+          "driver": "Kevin Magnussen",
+          "points": 0,
+          "position": 10
+        },
+        {
+          "carNumber": 3,
+          "driver": "Daniel Ricciardo",
+          "points": 0,
+          "position": 11
+        },
+        {
+          "carNumber": 77,
+          "driver": "Valtteri Bottas",
+          "points": 0,
+          "position": 12
+        },
+        {
+          "carNumber": 31,
+          "driver": "Esteban Ocon",
+          "points": 0,
+          "position": 13
+        },
+        {
+          "carNumber": 18,
+          "driver": "Lance Stroll",
+          "points": 0,
+          "position": 14
+        },
+        {
+          "carNumber": 10,
+          "driver": "Pierre Gasly",
+          "points": 0,
+          "position": 15
+        },
+        {
+          "carNumber": 22,
+          "driver": "Yuki Tsunoda",
+          "points": 0,
+          "position": 16
+        },
+        {
+          "carNumber": 23,
+          "driver": "Alexander Albon",
+          "points": 0,
+          "position": 17
+        },
+        {
+          "carNumber": 2,
+          "driver": "Logan Sargeant",
+          "points": 0,
+          "position": 18
+        },
+        {
+          "carNumber": 27,
+          "driver": "Nico Hülkenberg",
+          "points": 0,
+          "position": 19
+        },
+        {
+          "carNumber": 14,
+          "driver": "Fernando Alonso",
+          "points": 0,
+          "status": "retired"
+        }
+      ]
+    },
+    {
+      "id": "2023-australia-race",
+      "season": 2023,
+      "meeting": "Australian",
+      "sessionType": "Race",
+      "notes": "Pérez's 11 is 10 for fifth plus the fastest-lap point. Magnussen retired but was classified 17th (over 90% distance).",
+      "sources": [
+        "https://en.wikipedia.org/wiki/2023_Australian_Grand_Prix"
+      ],
+      "results": [
+        {
+          "carNumber": 1,
+          "driver": "Max Verstappen",
+          "points": 25,
+          "position": 1
+        },
+        {
+          "carNumber": 44,
+          "driver": "Lewis Hamilton",
+          "points": 18,
+          "position": 2
+        },
+        {
+          "carNumber": 14,
+          "driver": "Fernando Alonso",
+          "points": 15,
+          "position": 3
+        },
+        {
+          "carNumber": 18,
+          "driver": "Lance Stroll",
+          "points": 12,
+          "position": 4
+        },
+        {
+          "carNumber": 11,
+          "driver": "Sergio Pérez",
+          "points": 11,
+          "position": 5
+        },
+        {
+          "carNumber": 4,
+          "driver": "Lando Norris",
+          "points": 8,
+          "position": 6
+        },
+        {
+          "carNumber": 27,
+          "driver": "Nico Hülkenberg",
+          "points": 6,
+          "position": 7
+        },
+        {
+          "carNumber": 81,
+          "driver": "Oscar Piastri",
+          "points": 4,
+          "position": 8
+        },
+        {
+          "carNumber": 24,
+          "driver": "Zhou Guanyu",
+          "points": 2,
+          "position": 9
+        },
+        {
+          "carNumber": 22,
+          "driver": "Yuki Tsunoda",
+          "points": 1,
+          "position": 10
+        },
+        {
+          "carNumber": 77,
+          "driver": "Valtteri Bottas",
+          "points": 0,
+          "position": 11
+        },
+        {
+          "carNumber": 55,
+          "driver": "Carlos Sainz",
+          "points": 0,
+          "position": 12
+        },
+        {
+          "carNumber": 10,
+          "driver": "Pierre Gasly",
+          "points": 0,
+          "position": 13
+        },
+        {
+          "carNumber": 31,
+          "driver": "Esteban Ocon",
+          "points": 0,
+          "position": 14
+        },
+        {
+          "carNumber": 21,
+          "driver": "Nyck de Vries",
+          "points": 0,
+          "position": 15
+        },
+        {
+          "carNumber": 2,
+          "driver": "Logan Sargeant",
+          "points": 0,
+          "position": 16
+        },
+        {
+          "carNumber": 20,
+          "driver": "Kevin Magnussen",
+          "points": 0,
+          "position": 17
+        },
+        {
+          "carNumber": 63,
+          "driver": "George Russell",
+          "points": 0,
+          "status": "retired"
+        },
+        {
+          "carNumber": 23,
+          "driver": "Alexander Albon",
+          "points": 0,
+          "status": "retired"
+        },
+        {
+          "carNumber": 16,
+          "driver": "Charles Leclerc",
+          "points": 0,
+          "status": "retired"
+        }
+      ]
+    },
+    {
+      "id": "2025-australia-race",
+      "season": 2025,
+      "meeting": "Australian",
+      "sessionType": "Race",
+      "notes": "No fastest-lap point from 2025. Also used to adjust the 2025 season totals when this session has not been ingested.",
+      "sources": [
+        "https://en.wikipedia.org/wiki/2025_Australian_Grand_Prix"
+      ],
+      "results": [
+        {
+          "carNumber": 4,
+          "driver": "Lando Norris",
+          "points": 25,
+          "position": 1,
+          "team": "McLaren"
+        },
+        {
+          "carNumber": 1,
+          "driver": "Max Verstappen",
+          "points": 18,
+          "position": 2,
+          "team": "Red Bull Racing"
+        },
+        {
+          "carNumber": 63,
+          "driver": "George Russell",
+          "points": 15,
+          "position": 3,
+          "team": "Mercedes"
+        },
+        {
+          "carNumber": 12,
+          "driver": "Kimi Antonelli",
+          "points": 12,
+          "position": 4,
+          "team": "Mercedes"
+        },
+        {
+          "carNumber": 23,
+          "driver": "Alexander Albon",
+          "points": 10,
+          "position": 5,
+          "team": "Williams"
+        },
+        {
+          "carNumber": 18,
+          "driver": "Lance Stroll",
+          "points": 8,
+          "position": 6,
+          "team": "Aston Martin"
+        },
+        {
+          "carNumber": 27,
+          "driver": "Nico Hülkenberg",
+          "points": 6,
+          "position": 7,
+          "team": "Kick Sauber"
+        },
+        {
+          "carNumber": 16,
+          "driver": "Charles Leclerc",
+          "points": 4,
+          "position": 8,
+          "team": "Ferrari"
+        },
+        {
+          "carNumber": 81,
+          "driver": "Oscar Piastri",
+          "points": 2,
+          "position": 9,
+          "team": "McLaren"
+        },
+        {
+          "carNumber": 44,
+          "driver": "Lewis Hamilton",
+          "points": 1,
+          "position": 10,
+          "team": "Ferrari"
+        },
+        {
+          "carNumber": 10,
+          "driver": "Pierre Gasly",
+          "points": 0,
+          "position": 11,
+          "team": "Alpine"
+        },
+        {
+          "carNumber": 22,
+          "driver": "Yuki Tsunoda",
+          "points": 0,
+          "position": 12,
+          "team": "Racing Bulls"
+        },
+        {
+          "carNumber": 31,
+          "driver": "Esteban Ocon",
+          "points": 0,
+          "position": 13,
+          "team": "Haas F1 Team"
+        },
+        {
+          "carNumber": 87,
+          "driver": "Oliver Bearman",
+          "points": 0,
+          "position": 14,
+          "team": "Haas F1 Team"
+        },
+        {
+          "carNumber": 30,
+          "driver": "Liam Lawson",
+          "points": 0,
+          "status": "retired",
+          "team": "Red Bull Racing"
+        },
+        {
+          "carNumber": 5,
+          "driver": "Gabriel Bortoleto",
+          "points": 0,
+          "status": "retired",
+          "team": "Kick Sauber"
+        },
+        {
+          "carNumber": 14,
+          "driver": "Fernando Alonso",
+          "points": 0,
+          "status": "retired",
+          "team": "Aston Martin"
+        },
+        {
+          "carNumber": 55,
+          "driver": "Carlos Sainz",
+          "points": 0,
+          "status": "retired",
+          "team": "Williams"
+        },
+        {
+          "carNumber": 7,
+          "driver": "Jack Doohan",
+          "points": 0,
+          "status": "retired",
+          "team": "Alpine"
+        },
+        {
+          "carNumber": 6,
+          "driver": "Isack Hadjar",
+          "points": 0,
+          "status": "did_not_start",
+          "team": "Racing Bulls"
+        }
+      ]
+    }
+  ],
+  "seasons": [
+    {
+      "season": 2025,
+      "pointsSessions": 30,
+      "notes": "Final standings after Abu Dhabi. 24 Grands Prix + 6 Sprints. Points include sprint points; wins are Grands Prix only.",
+      "sources": [
+        "https://en.wikipedia.org/wiki/2025_Formula_One_World_Championship",
+        "https://www.racefans.net/2025/12/07/2025-abu-dhabi-grand-prix-race-result-and-final-f1-world-championship-standings/",
+        "https://racingnews365.com/final-2025-f1-championship-standings-after-abu-dhabi-grand-prix"
+      ],
+      "drivers": [
+        {
+          "carNumber": 4,
+          "driver": "Lando Norris",
+          "points": 423,
+          "wins": 7
+        },
+        {
+          "carNumber": 1,
+          "driver": "Max Verstappen",
+          "points": 421,
+          "wins": 8
+        },
+        {
+          "carNumber": 81,
+          "driver": "Oscar Piastri",
+          "points": 410,
+          "wins": 7
+        },
+        {
+          "carNumber": 63,
+          "driver": "George Russell",
+          "points": 319,
+          "wins": 2
+        },
+        {
+          "carNumber": 16,
+          "driver": "Charles Leclerc",
+          "points": 242,
+          "wins": 0
+        },
+        {
+          "carNumber": 44,
+          "driver": "Lewis Hamilton",
+          "points": 156,
+          "wins": 0
+        },
+        {
+          "carNumber": 12,
+          "driver": "Kimi Antonelli",
+          "points": 150,
+          "wins": 0
+        },
+        {
+          "carNumber": 23,
+          "driver": "Alexander Albon",
+          "points": 73,
+          "wins": 0
+        },
+        {
+          "carNumber": 55,
+          "driver": "Carlos Sainz",
+          "points": 64,
+          "wins": 0
+        },
+        {
+          "carNumber": 14,
+          "driver": "Fernando Alonso",
+          "points": 56,
+          "wins": 0
+        },
+        {
+          "carNumber": 27,
+          "driver": "Nico Hülkenberg",
+          "points": 51,
+          "wins": 0
+        },
+        {
+          "carNumber": 6,
+          "driver": "Isack Hadjar",
+          "points": 51,
+          "wins": 0
+        },
+        {
+          "carNumber": 87,
+          "driver": "Oliver Bearman",
+          "points": 41,
+          "wins": 0
+        },
+        {
+          "carNumber": 30,
+          "driver": "Liam Lawson",
+          "points": 38,
+          "wins": 0
+        },
+        {
+          "carNumber": 31,
+          "driver": "Esteban Ocon",
+          "points": 38,
+          "wins": 0
+        },
+        {
+          "carNumber": 18,
+          "driver": "Lance Stroll",
+          "points": 33,
+          "wins": 0
+        },
+        {
+          "carNumber": 22,
+          "driver": "Yuki Tsunoda",
+          "points": 33,
+          "wins": 0
+        },
+        {
+          "carNumber": 10,
+          "driver": "Pierre Gasly",
+          "points": 22,
+          "wins": 0
+        },
+        {
+          "carNumber": 5,
+          "driver": "Gabriel Bortoleto",
+          "points": 19,
+          "wins": 0
+        },
+        {
+          "carNumber": 43,
+          "driver": "Franco Colapinto",
+          "points": 0,
+          "wins": 0
+        },
+        {
+          "carNumber": 7,
+          "driver": "Jack Doohan",
+          "points": 0,
+          "wins": 0
+        }
+      ],
+      "teams": [
+        {
+          "team": "McLaren",
+          "aliases": [
+            "mclaren"
+          ],
+          "points": 833
+        },
+        {
+          "team": "Mercedes",
+          "aliases": [
+            "mercedes"
+          ],
+          "points": 469
+        },
+        {
+          "team": "Red Bull Racing",
+          "aliases": [
+            "red bull racing",
+            "oracle red bull"
+          ],
+          "points": 451
+        },
+        {
+          "team": "Ferrari",
+          "aliases": [
+            "ferrari"
+          ],
+          "points": 398
+        },
+        {
+          "team": "Williams",
+          "aliases": [
+            "williams"
+          ],
+          "points": 137
+        },
+        {
+          "team": "Racing Bulls",
+          "aliases": [
+            "racing bulls",
+            "visa cash app",
+            "rb f1"
+          ],
+          "points": 92
+        },
+        {
+          "team": "Aston Martin",
+          "aliases": [
+            "aston martin"
+          ],
+          "points": 89
+        },
+        {
+          "team": "Haas F1 Team",
+          "aliases": [
+            "haas"
+          ],
+          "points": 79
+        },
+        {
+          "team": "Kick Sauber",
+          "aliases": [
+            "sauber"
+          ],
+          "points": 70
+        },
+        {
+          "team": "Alpine",
+          "aliases": [
+            "alpine"
+          ],
+          "points": 22
+        }
+      ]
+    }
+  ]
+}
