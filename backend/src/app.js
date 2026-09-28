@@ -12,6 +12,7 @@ import { driversRouter } from './routes/drivers.js';
 import { openF1Router } from './routes/openf1.js';
 import { raceReplayRouter } from './routes/raceReplay.js';
 import { imagesRouter } from './routes/images.js';
+import { newsRouter } from './routes/news.js';
 import { telemetryTVRouter } from './routes/telemetryTV.js';
 
 export function createApp() {
@@ -64,6 +65,7 @@ export function createApp() {
   app.use('/api/openf1', openF1Router);
   app.use('/api/race-replay', raceReplayRouter);
   app.use('/api/images', imagesRouter);
+  app.use('/api/news', newsRouter);
   app.use('/api/telemetry-tv', telemetryTVRouter);
 
   // 404 for anything else under /api
