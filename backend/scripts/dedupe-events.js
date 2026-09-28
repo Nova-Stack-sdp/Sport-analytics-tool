@@ -5,9 +5,11 @@
  * a 22-car race).
  *
  * What it does, per session (see src/ingestion/planDuplicateCleanup.js):
- *   - deletes exact copies of an event, keeping the first one ingested;
- *   - where two copies differ, keeps both and marks the older one as
- *     superseded by the newer (recorded as a correction);
+ *   - keeps everything the FIRST sync of the session stored, untouched —
+ *     including separate records that share a timestamp;
+ *   - deletes events a later sync re-inserted unchanged;
+ *   - where a later sync brought a changed value, keeps both and marks the
+ *     older one as superseded by the newer (recorded as a correction);
  *   - then re-runs the derivation for every session it changed, so the
  *     statistics stop counting the duplicates.
  *
@@ -65,7 +67,7 @@ async function main() {
       where: { sessionId: session.id },
       select: {
         id: true, eventType: true, entryId: true, lapNumber: true, occurredAt: true,
-        payload: true, ingestedAt: true, supersededById: true,
+        payload: true, ingestedAt: true, supersededById: true, sourceSubmissionId: true,
       },
     });
     const plan = planDuplicateCleanup(events);

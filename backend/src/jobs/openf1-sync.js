@@ -496,7 +496,7 @@ async function syncSession(sessionKeyRaw) {
     ...plan.duplicates.map(({ event, identity }) => ({
       eventType: event.eventType,
       rule: 'duplicate_in_batch',
-      reason: `the same event appears more than once in this submission (${identity})`,
+      reason: `this ${event.eventType.replaceAll('_', ' ')} appears more than once in this submission (${identity})`,
       record: event,
     })),
   ];

@@ -75,6 +75,22 @@ export function eventIdentity(event) {
 }
 
 /**
+ * "Singular" event types can happen at most once per identity: a car has one
+ * lap 5, one result, one grid slot, one stint 2, one pit stop at a given
+ * instant. A second one with the same identity is a conflict, and a
+ * different value on a later submission is a correction.
+ *
+ * Every other type is repeatable: a car can have two position changes
+ * stamped at the same instant, several flags can go out in the same second.
+ * Those are compared as a set — see planIngestion.js.
+ */
+const SINGULAR_TYPES = new Set(['lap_completed', 'classification', 'grid_position', 'tyre_stint', 'pit_stop']);
+
+export function isSingular(eventType) {
+  return SINGULAR_TYPES.has(eventType);
+}
+
+/**
  * True when two events with the same identity also carry the same data —
  * i.e. the second one is an exact re-send, not a correction.
  */

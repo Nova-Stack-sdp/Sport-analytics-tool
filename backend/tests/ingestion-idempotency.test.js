@@ -77,7 +77,32 @@ describe('planIngestion (re-submitting must not double-count)', () => {
     expect(plan.unchanged).toHaveLength(1);
   });
 
-  test('the same event twice in one batch is reported, not inserted twice', () => {
+  test('separate records that share an identity are each stored, and each matched on re-sync', () => {
+    // Two position changes for the same car at the same instant.
+    const at = new Date('2026-05-24T13:20:00Z');
+    const change = (from, to) => ({ eventType: 'position_change', entryId: 'e44', lapNumber: null, occurredAt: at, payload: { from_position: from, to_position: to } });
+
+    const first = planIngestion([change(5, 4), change(4, 3)], []);
+    expect(first.insert).toHaveLength(2);
+    expect(first.duplicates).toHaveLength(0);
+
+    const stored = first.insert.map((e, i) => ({ ...e, id: `db-${i}`, ingestedAt: '2026-05-25T00:00:00Z' }));
+    const again = planIngestion([change(5, 4), change(4, 3)], stored);
+    expect(summarizePlan(again)).toEqual({ inserted: 0, corrected: 0, unchanged: 2, duplicatesInBatch: 0, rejected: 0 });
+  });
+
+  test('re-syncing a session that still holds old duplicate copies adds nothing more', () => {
+    const at = new Date('2026-05-24T13:20:00Z');
+    const flag = { eventType: 'flag_event', entryId: null, lapNumber: 12, occurredAt: at, payload: { flag: 'yellow', start_lap: 12, end_lap: null } };
+    const stored = [
+      { ...flag, id: 'f-run1', ingestedAt: '2026-05-01' },
+      { ...flag, id: 'f-run2', ingestedAt: '2026-05-02' },
+    ];
+    const plan = planIngestion([flag], stored);
+    expect(summarizePlan(plan)).toEqual({ inserted: 0, corrected: 0, unchanged: 1, duplicatesInBatch: 0, rejected: 0 });
+  });
+
+  test('the same lap twice in one batch is reported, not inserted twice', () => {
     const plan = planIngestion([lap('e2', 1, 90_000), lap('e2', 1, 90_000)], []);
     expect(plan.insert).toHaveLength(1);
     expect(plan.duplicates).toHaveLength(1);
