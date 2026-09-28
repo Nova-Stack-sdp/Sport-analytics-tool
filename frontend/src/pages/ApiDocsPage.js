@@ -152,6 +152,10 @@ function ApiDocsPage() {
           <div className="card-note">
             Example: <span className="mono">/api/v1/exports/events?season=2024&amp;type=pit_stop&amp;format=csv</span> downloads every 2024 pit stop as a spreadsheet-ready file.
           </div>
+          <div className="card-note">
+            <b>Fair use:</b> each client may make 120 requests a minute to <span className="mono">/api/v1</span> and 10 exports a minute; beyond that the API answers <span className="mono">429</span> with a <span className="mono">Retry-After</span> header. Every response carries <span className="mono">RateLimit-Limit / -Remaining / -Reset</span> so a client can slow down before it gets there.
+            {' '}<b>Caching:</b> repeated reads are served from memory for up to 60 seconds (<span className="mono">X-Cache: HIT</span>), so figures can lag a new sync by up to a minute. Responses carry an <span className="mono">ETag</span> — send it back as <span className="mono">If-None-Match</span> to get <span className="mono">304 Not Modified</span> instead of the same data again.
+          </div>
         </div>
 
         <div className="grid grid-2" style={{ marginBottom: 16 }}>
