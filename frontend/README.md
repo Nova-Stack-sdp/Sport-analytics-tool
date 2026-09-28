@@ -9,6 +9,7 @@ React frontend for the NovaStack Sport Analytics Tool — a platform for browsin
 * Bootstrapped with Create React App (`react-scripts`)
 * Firebase Auth (email/password + Google/GitHub OAuth) for sign up, sign in, and password reset
 * Jest + React Testing Library for tests
+* Playwright for browser-level end-to-end tests
 
 ## Getting Started
 
@@ -50,6 +51,20 @@ Opens [http://localhost:3000](http://localhost:3000). Hot-reloads on save.
 npm test
 ```
 Runs Jest + React Testing Library in watch mode. CI runs this non-interactively with coverage (`npm test -- --watchAll=false --coverage`), same as `frontend/Dockerfile`'s `CMD` — see `.gitea/workflows/ci.yml`.
+
+Run the Playwright end-to-end suite across Chromium, Firefox, WebKit, tablet,
+and mobile projects with:
+
+```bash
+npm run test:e2e
+```
+
+The browser tests start the frontend automatically and stub external telemetry
+and YouTube responses at the browser boundary. Install the Playwright browsers
+once on a new machine with `npx playwright install`.
+
+Protected authenticated pages are not currently covered end to end because
+they require a persisted Firebase test session or a Firebase Auth Emulator.
 
 ### Build for production
 ```bash

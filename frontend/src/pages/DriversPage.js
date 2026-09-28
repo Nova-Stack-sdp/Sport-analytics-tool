@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getCachedImageUrl, getDrivers } from '../api/client';
+import { getCachedImageUrl, getDriverImageUrl, getDrivers } from '../api/client';
 
-const INITIAL_PAGE_SIZE = 2;
+const INITIAL_PAGE_SIZE = 8;
 const PREFETCH_PAGE_SIZE = 100;
 
 // Runs background work as soon as the browser is idle, with a timer fallback
@@ -21,22 +21,38 @@ function scheduleIdle(callback) {
   return () => clearTimeout(timer);
 }
 
-// Tries the OpenF1 headshot first, then the API-Sports fallback, and finally
-// gives up on images and shows the bare race number.
-function DriverPhoto({ driver }) {
+// A photo someone uploaded always wins. After that: the Firestore-cached
+// headshot, then the OpenF1 headshot, then the API-Sports fallback, and
+// finally the bare race number.
+function DriverPhoto({ driver, uploadedVersion }) {
   const [attempt, setAttempt] = useState(0);
-  const sources = [driver.imageUrl, driver.fallbackImageUrl].filter(Boolean);
 
-  if (attempt >= sources.length) {
+  // The uploaded photo (stored in our own database) is tried first. Next is
+  // the Firestore-cached copy (once a driver's detail page has been opened at
+  // least once), served directly — no proxying needed, it's already ours and
+  // immutable. Anything after that falls back to the live OpenF1/API-Sports
+  // URLs via the caching image proxy, same as before.
+  const srcs = [
+    uploadedVersion ? getDriverImageUrl(driver.id, uploadedVersion) : null,
+    driver.cachedImageUrl ? getDriverImageUrl(driver.id) : null,
+    ...[driver.imageUrl, driver.fallbackImageUrl].filter(Boolean).map((url) => getCachedImageUrl(url)),
+  ].filter(Boolean);
+
+  if (attempt >= srcs.length) {
     return <span className="driver-num">{driver.number}</span>;
   }
 
   return (
-    <img
-      src={getCachedImageUrl(sources[attempt])}
-      alt={driver.name}
-      onError={() => setAttempt((current) => current + 1)}
-    />
+    <>
+      {/* Big race number sitting behind the driver, visible around a
+          transparent cut-out headshot. */}
+      <span className="driver-bg-num" aria-hidden="true">{driver.number}</span>
+      <img
+        src={srcs[attempt]}
+        alt={driver.name}
+        onError={() => setAttempt((current) => current + 1)}
+      />
+    </>
   );
 }
 
@@ -125,14 +141,17 @@ function DriversPage() {
               >
                 <div className="driver-photo">
                   <span className="driver-rank">{index + 1}</span>
-                  <DriverPhoto driver={driver} />
+                  <DriverPhoto driver={driver} uploadedVersion={driver.uploadedImageVersion ?? null} />
                 </div>
                 <div className="driver-strip">
                   <div>
                     <div className="driver-name">{driver.name}</div>
                     <div className="driver-team">{driver.teamName}</div>
                   </div>
-                  <span className="flag">{driver.flag}</span>
+                  <div className="driver-strip-right">
+                    <span className="driver-strip-num">{driver.number}</span>
+                    <span className="flag">{driver.flag}</span>
+                  </div>
                 </div>
               </Link>
             ))}

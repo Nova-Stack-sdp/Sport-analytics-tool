@@ -108,4 +108,27 @@ describe('GET /api/openf1/races/barcelona-2026/raw', () => {
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
+  test('returns 502 for invalid JSON upstream payloads', async () => {
+    global.fetch.mockResolvedValue({
+      status: 200,
+      text: async () => '{not valid json',
+    });
+
+    const response = await request(createApp()).get('/api/openf1/races/barcelona-2026/raw');
+
+    expect(response.status).toBe(502);
+    expect(response.body).toEqual({ error: 'OpenF1 returned an invalid JSON response' });
+  });
+
+  test('rejects non-race session types before any bundle is built', async () => {
+    global.fetch.mockResolvedValue({
+      status: 200,
+      text: async () => JSON.stringify([{ session_key: 11307, session_type: 'Practice', session_name: 'Practice 1', meeting_key: 1287 }]),
+    });
+
+    const response = await request(createApp()).get('/api/openf1/races/barcelona-2026/raw');
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'The requested session is not a race' });
+  });
 });

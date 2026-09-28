@@ -1,6 +1,21 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { apiSportsOrEmpty } from '../lib/apiSports.js';
+import {
+  getCachedDriverImage,
+  getCachedDriverImageFlags,
+  ensureDriverImageCached,
+} from '../lib/driverImageCache.js';
+import {
+  ALLOWED_IMAGE_TYPES,
+  MAX_UPLOAD_BYTES,
+  detectImageType,
+  getUploadedDriverImage,
+  getUploadedImageVersion,
+  getUploadedImageVersions,
+  saveUploadedDriverImage,
+} from '../lib/driverUploadedImage.js';
+import { requireAuth } from '../middleware/requireAuth.js';
 
 export const driversRouter = Router();
 
@@ -207,13 +222,114 @@ driversRouter.get('/', async (req, res, next) => {
 
     const { offset, limit } = parsePagination(req.query);
     const page = enriched.slice(offset, offset + limit);
+
+    // Only the page actually being returned needs a cache check — the grid
+    // never renders more than that. Caching itself only happens from the
+    // driver detail route (on first click); this just reports what's
+    // already there so the grid can use it.
+    const pageIds = page.map((driver) => driver.id);
+    const [cachedFlags, uploadedVersions] = await Promise.all([
+      getCachedDriverImageFlags(pageIds),
+      getUploadedImageVersions(pageIds),
+    ]);
+    const pageWithCache = page.map((driver) => ({
+      ...driver,
+      cachedImageUrl: cachedFlags.has(driver.id) ? `/api/drivers/${driver.id}/image` : null,
+      // Set only when someone has uploaded a photo for this driver. It's the
+      // photo's last-updated time in ms; the client puts it in the image URL
+      // so a replaced photo isn't served from a stale browser cache.
+      uploadedImageVersion: uploadedVersions.get(driver.id) ?? null,
+    }));
+
     res.json({
       season,
-      drivers: page,
+      drivers: pageWithCache,
       total: enriched.length,
       offset,
       limit,
       hasMore: offset + page.length < enriched.length,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Serves a driver's photo. An uploaded photo (Postgres) always wins; if there
+// isn't one, this falls back to the headshot cached in Firestore. 404 when
+// neither exists — the frontend then falls back to the raw OpenF1/API-Sports
+// URL.
+driversRouter.get('/:id/image', async (req, res) => {
+  const uploaded = await getUploadedDriverImage(req.params.id);
+  if (uploaded) {
+    res.set('Content-Type', uploaded.contentType);
+    res.set('X-Content-Type-Options', 'nosniff');
+    // Clients request uploaded photos with ?v=<version>, so a versioned URL
+    // can be cached forever. A bare URL must always be revalidated because
+    // the photo behind it can be replaced.
+    res.set(
+      'Cache-Control',
+      req.query.v ? 'public, max-age=31536000, immutable' : 'no-cache'
+    );
+    return res.send(uploaded.buffer);
+  }
+
+  const cached = await getCachedDriverImage(req.params.id);
+  if (!cached) {
+    return res.status(404).json({ error: 'No image for this driver yet' });
+  }
+  res.set('Content-Type', cached.contentType);
+  res.set('Cache-Control', 'public, max-age=31536000, immutable');
+  res.send(Buffer.from(cached.base64, 'base64'));
+});
+
+// Reads the raw image bytes from the request body (the client PUTs the file
+// itself, not multipart form data) and turns body-parser's size error into a
+// proper 413 instead of the generic 500 from the central error handler.
+function readImageBody(req, res, next) {
+  express.raw({ type: () => true, limit: MAX_UPLOAD_BYTES })(req, res, (err) => {
+    if (!err) return next();
+    if (err.type === 'entity.too.large') {
+      return res.status(413).json({
+        error: `Image is too large (max ${MAX_UPLOAD_BYTES / (1024 * 1024)} MB)`,
+      });
+    }
+    return next(err);
+  });
+}
+
+// Upload (or replace) a driver's photo. Requires a signed-in user. The photo
+// is stored in the same Postgres database as the driver rows.
+driversRouter.put('/:id/image', requireAuth, readImageBody, async (req, res, next) => {
+  try {
+    const driverId = req.params.id;
+
+    const driver = await prisma.driver.findUnique({ where: { id: driverId }, select: { id: true } });
+    if (!driver) return res.status(404).json({ error: 'Driver not found' });
+
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+      return res.status(400).json({ error: 'No image data received' });
+    }
+
+    // Trust the file's bytes, not the Content-Type header the client sent.
+    const contentType = detectImageType(req.body);
+    if (!contentType) {
+      return res.status(415).json({
+        error: `Unsupported image type — use ${ALLOWED_IMAGE_TYPES.join(', ')}`,
+      });
+    }
+
+    const uploadedImageVersion = await saveUploadedDriverImage({
+      driverId,
+      data: req.body,
+      contentType,
+      uploadedBy: req.user?.uid ?? null,
+    });
+
+    res.status(201).json({
+      driverId,
+      uploadedImageVersion,
+      contentType,
+      sizeBytes: req.body.length,
     });
   } catch (err) {
     next(err);
@@ -290,6 +406,19 @@ driversRouter.get('/:id', async (req, res, next) => {
         .sort((a, b) => new Date(b.session.startTime) - new Date(a.session.startTime))[0]?.team;
     const countryCode = openF1Profile?.country_code || apiDriver?.country?.code || null;
     const resolvedTeamName = openF1Profile?.team_name || currentTeam?.name || apiDriver?.teams?.[0]?.team?.name || 'Unknown';
+    const rawImageUrl = openF1Profile?.headshot_url || apiDriver?.image || null;
+
+    // First time this driver's page is opened, pull the headshot down and
+    // store it in Firestore; every visit after that (here and on the
+    // drivers grid) is served from the cache instead of hitting OpenF1/
+    // API-Sports again. Best-effort — a caching failure just means the raw
+    // imageUrl below is used instead.
+    // An uploaded photo takes priority, so there's no point caching the
+    // remote headshot for a driver who has one.
+    const uploadedImageVersion = await getUploadedImageVersion(driver.id);
+    const cached = uploadedImageVersion
+      ? null
+      : await ensureDriverImageCached(driver.id, rawImageUrl);
 
     res.json({
       id: driver.id,
@@ -305,7 +434,9 @@ driversRouter.get('/:id', async (req, res, next) => {
       flag: flagEmoji(countryCode || ''),
       birthdate: apiDriver?.birthdate || null,
       birthplace: apiDriver?.birthplace || null,
-      imageUrl: openF1Profile?.headshot_url || apiDriver?.image || null,
+      imageUrl: rawImageUrl,
+      cachedImageUrl: cached ? `/api/drivers/${driver.id}/image` : null,
+      uploadedImageVersion,
       teamName: resolvedTeamName,
       teamColor: openF1TeamColor(openF1Profile?.team_colour) || teamColor(resolvedTeamName),
       grandsPrixEntered: apiDriver?.grands_prix_entered || trackedHistoryStats.starts,

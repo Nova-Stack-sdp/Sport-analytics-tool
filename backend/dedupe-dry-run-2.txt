@@ -1,0 +1,22 @@
+DRY RUN — nothing will be changed. Add --apply to repair.
+
+┌─────────┬──────────────────────────────────────┬────────────────────────────────────────┬────────┬─────────────────┬──────────┬─────────────────┬─────────┐
+│ (index) │ session                              │ sessionId                              │ events │ duplicateGroups │ toDelete │ toMarkCorrected │ skipped │
+├─────────┼──────────────────────────────────────┼────────────────────────────────────────┼────────┼─────────────────┼──────────┼─────────────────┼─────────┤
+│ 0       │ 'Italian Grand Prix 2026 · Race'     │ 'c92248de-29dc-42d8-8f12-876c1da3ced3' │ 4340   │ 2157            │ 2170     │ 0               │ 0       │
+│ 1       │ 'Dutch Grand Prix 2026 · Race'       │ 'e524f2c3-1ae4-4dbe-ae88-b636bca49eea' │ 5350   │ 2662            │ 2675     │ 0               │ 0       │
+│ 2       │ 'British Grand Prix 2026 · Race'     │ '56bff47a-bd50-4a3c-bdfc-8cc91e8e67fc' │ 4266   │ 2132            │ 2133     │ 0               │ 0       │
+│ 3       │ 'Monaco Grand Prix 2026 · Race'      │ '25ee71eb-1363-4c29-9758-486ac3d3f22f' │ 4872   │ 2433            │ 2436     │ 0               │ 0       │
+│ 4       │ 'Miami Grand Prix 2026 · Sprint'     │ '0622e04c-0e15-4220-b6d1-9549b31b47f6' │ 1510   │ 746             │ 755      │ 0               │ 0       │
+│ 5       │ 'Chinese Grand Prix 2026 · Sprint'   │ '7bc18c52-ad6e-4d36-b3ce-c2b26389d63f' │ 1880   │ 939             │ 940      │ 0               │ 0       │
+│ 6       │ 'Australian Grand Prix 2026 · Q'     │ '4cc1a481-7290-4d7c-8879-8ffc9ec0f6d1' │ 1832   │ 1               │ 1        │ 0               │ 0       │
+│ 7       │ 'Qatar Grand Prix 2025 · Sprint'     │ 'effedac4-078a-4ea2-9ce9-0f4355a2063d' │ 1498   │ 749             │ 749      │ 0               │ 0       │
+│ 8       │ 'São Paulo Grand Prix 2025 · Sprint' │ 'ea26f5c0-9bb8-44c2-ac62-407283fe9b56' │ 1616   │ 803             │ 808      │ 0               │ 0       │
+│ 9       │ 'Miami Grand Prix 2025 · Sprint'     │ 'ec10c523-ea72-4276-86dd-c8b61049966d' │ 1940   │ 962             │ 970      │ 0               │ 0       │
+│ 10      │ 'Chinese Grand Prix 2025 · Sprint'   │ 'b52c3e80-ef95-4cef-9140-2700b3db4b7d' │ 1298   │ 649             │ 649      │ 0               │ 0       │
+│ 11      │ 'Bahrain Grand Prix 2023 · Race'     │ '0967e527-158c-452e-83c0-97c050873684' │ 8088   │ 2027            │ 6061     │ 0               │ 0       │
+└─────────┴──────────────────────────────────────┴────────────────────────────────────────┴────────┴─────────────────┴──────────┴─────────────────┴─────────┘
+
+12 session(s) affected: 20347 duplicate event(s) to delete, 0 to mark as corrected, 0 skipped.
+
+Re-run with --apply to make these changes.

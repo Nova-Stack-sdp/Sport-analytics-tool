@@ -2,14 +2,26 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import TopNav from '../components/TopNavigation';
 import { signOut } from 'firebase/auth';
+import { clearSession } from '../api/client';
 
 let mockUser = null;
+let mockIsDeveloperMode = false;
+let mockIsAdmin = false;
 
 jest.mock('../context/AuthContext', () => ({
-  useAuth: () => ({ user: mockUser }),
+  // signOut is destructured by TopNavigation's handleSignOut (as clearAuth) —
+  // omitting it here makes that call throw a TypeError and silently skip the
+  // real firebase signOut() call it's supposed to trigger.
+  useAuth: () => ({ user: mockUser, isAdmin: mockIsAdmin, signOut: jest.fn() }),
+}));
+jest.mock('../context/DeveloperModeContext', () => ({
+  useDeveloperMode: () => ({ isDeveloperMode: mockIsDeveloperMode, setDeveloperMode: jest.fn() }),
 }));
 jest.mock('../firebase', () => ({ auth: {} }));
 jest.mock('firebase/auth', () => ({ signOut: jest.fn() }));
+// The real client goes over the network via fetch — mock it so these tests
+// exercise the component's sign-out behavior rather than a live backend.
+jest.mock('../api/client', () => ({ clearSession: jest.fn() }));
 
 function LocationDisplay() {
   const location = useLocation();
@@ -30,12 +42,16 @@ function renderNav({ user = null, path = '/teams', theme = 'dark' } = {}) {
 
 describe('TopNavigation', () => {
   beforeEach(() => {
+    window.localStorage.clear();
     signOut.mockResolvedValue();
+    clearSession.mockResolvedValue({ status: 'ok' });
   });
 
   afterEach(() => {
     jest.clearAllMocks();
     mockUser = null;
+    mockIsDeveloperMode = false;
+    mockIsAdmin = false;
   });
 
   test('renders public Teams and Drivers links, highlights the active route, and lets guests toggle the theme', () => {
@@ -47,13 +63,16 @@ describe('TopNavigation', () => {
     expect(screen.queryByRole('link', { name: 'Submissions' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'SignIn' })).toHaveAttribute('href', '/sign-in');
     expect(screen.getByText('☀')).toBeInTheDocument();
+    // The static "2026 Season ▾" pill was removed — it looked like a picker
+    // but didn't do anything.
+    expect(screen.queryByText(/2026 Season/)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByTitle('Toggle dark mode'));
 
     expect(onToggleTheme).toHaveBeenCalledTimes(1);
   });
 
-  test('shows protected links, display-name initials, and signs a user out', async () => {
+  test('shows logged-in links but hides developer-only links until developer mode is on', () => {
     renderNav({
       user: { displayName: 'Max Verstappen', email: 'max@example.test' },
       path: '/overview',
@@ -61,20 +80,162 @@ describe('TopNavigation', () => {
     });
 
     expect(screen.getByRole('link', { name: 'Overview' })).toHaveClass('active');
-    expect(screen.getByRole('link', { name: 'Submissions' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Datasets' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Developer' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Admin' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Profile' })).toHaveAttribute('href', '/profile');
+    // Settings is a tab inside Profile now, not its own nav item.
+    expect(screen.queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument();
+    // Not on the admin list -> no Admin link.
+    expect(screen.queryByRole('link', { name: 'Admin' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Submissions' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Datasets' })).not.toBeInTheDocument();
+  });
+
+  test('places Profile where Settings used to be — after Developer, before Admin', () => {
+    mockIsAdmin = true;
+    renderNav({
+      user: { uid: 'user-123', displayName: 'Max Verstappen', email: 'max@example.test' },
+    });
+
+    const navLinks = screen.getByLabelText('Main navigation').querySelectorAll('.nav-items a');
+    const labels = Array.from(navLinks).map((link) => link.textContent);
+    expect(labels[1]).not.toBe('Profile');
+    expect(labels.slice(-3)).toEqual(['Developer', 'Profile', 'Admin']);
+  });
+
+  test('keeps Datasets and Submissions out of the nav even in developer mode (they are Developer tabs), plus display-name initials', () => {
+    mockIsDeveloperMode = true;
+    renderNav({
+      user: { displayName: 'Max Verstappen', email: 'max@example.test' },
+      path: '/overview',
+      theme: 'light',
+    });
+
+    expect(screen.getByRole('link', { name: 'Overview' })).toHaveClass('active');
+    expect(screen.queryByRole('link', { name: 'Submissions' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Datasets' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Developer' })).toBeInTheDocument();
+    // Developer mode doesn't make you an admin.
+    expect(screen.queryByRole('link', { name: 'Admin' })).not.toBeInTheDocument();
+    // Clicking the avatar opens the account menu now, so the title only
+    // states who is signed in.
     expect(screen.getByRole('button', { name: 'M' })).toHaveAttribute(
       'title',
-      'Signed in as max@example.test · Sign out'
+      'Signed in as max@example.test'
     );
     expect(screen.getByText('☾')).toBeInTheDocument();
+  });
+
+  test('shows the Admin link only to users the backend reports as admins', () => {
+    mockIsAdmin = true;
+    renderNav({ user: { uid: 'boss', displayName: 'Boss', email: 'boss@example.test' }, path: '/overview' });
+
+    expect(screen.getByRole('link', { name: 'Admin' })).toHaveAttribute('href', '/admin');
+  });
+
+  test('never shows the Admin link to signed-out visitors', () => {
+    mockIsAdmin = true; // even if the flag were somehow stale
+    renderNav();
+
+    expect(screen.queryByRole('link', { name: 'Admin' })).not.toBeInTheDocument();
+  });
+
+  test('opens an account menu on click instead of signing the user out', () => {
+    renderNav({
+      user: { displayName: 'Max Verstappen', email: 'max@example.test' },
+      path: '/overview',
+    });
+
+    expect(screen.queryByRole('button', { name: 'Log out' })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'M' }));
 
+    expect(screen.getByText('Signed in as max@example.test')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'View profile' })).toHaveAttribute('href', '/profile');
+    expect(screen.getByRole('button', { name: 'Log out' })).toBeInTheDocument();
+    // The point of the menu: opening it must not touch the session.
+    expect(signOut).not.toHaveBeenCalled();
+    expect(clearSession).not.toHaveBeenCalled();
+  });
+
+  test('closes the account menu on Escape and on an outside click', () => {
+    renderNav({ user: { displayName: 'Max Verstappen', email: 'max@example.test' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'M' }));
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(screen.queryByRole('button', { name: 'Log out' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'M' })).toHaveFocus();
+
+    fireEvent.click(screen.getByRole('button', { name: 'M' }));
+    fireEvent.mouseDown(document.body);
+
+    expect(screen.queryByRole('button', { name: 'Log out' })).not.toBeInTheDocument();
+    expect(signOut).not.toHaveBeenCalled();
+  });
+
+  test('asks for confirmation before logging out, and No only clears the question', () => {
+    renderNav({
+      user: { displayName: 'Max Verstappen', email: 'max@example.test' },
+      path: '/overview',
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'M' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
+
+    expect(screen.getByText('Are you sure you want to log out?')).toBeInTheDocument();
+    expect(signOut).not.toHaveBeenCalled();
+    expect(clearSession).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'No' }));
+
+    // "No" clears the question and leaves the session alone: same route, no
+    // sign-out, no cookie clear, and focus back on the avatar.
+    expect(screen.queryByText('Are you sure you want to log out?')).not.toBeInTheDocument();
+    expect(screen.getByTestId('location')).toHaveTextContent(/^\/overview$/);
+    expect(signOut).not.toHaveBeenCalled();
+    expect(clearSession).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'M' })).toHaveFocus();
+  });
+
+  test('logs out and redirects only after confirming with Yes', async () => {
+    renderNav({
+      user: { displayName: 'Max Verstappen', email: 'max@example.test' },
+      path: '/overview',
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'M' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes' }));
+
     await waitFor(() => expect(signOut).toHaveBeenCalledWith({}));
-    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/sign-in'));
+    expect(clearSession).toHaveBeenCalled();
+    // handleSignOut navigates to '/' (the welcome page), not '/sign-in'.
+    // Anchored: toHaveTextContent does a substring match for a string
+    // argument, so a plain '/' would also be satisfied by the '/overview'
+    // path we started from and the assertion would never fail.
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(/^\/$/));
+  });
+
+  test('still signs out and redirects when the backend session cookie cannot be cleared', async () => {
+    // Reproduces the "Uncaught runtime errors: Failed to fetch" overlay: with
+    // the API unreachable, clearSession() rejects. A rejected Promise.all used
+    // to skip the redirect entirely and leave an unhandled rejection behind.
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    clearSession.mockRejectedValue(new TypeError('Failed to fetch'));
+    renderNav({
+      user: { displayName: 'Max Verstappen', email: 'max@example.test' },
+      path: '/overview',
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'M' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes' }));
+
+    await waitFor(() => expect(signOut).toHaveBeenCalledWith({}));
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(/^\/$/));
+    expect(warn).toHaveBeenCalled();
+
+    warn.mockRestore();
   });
 
   test('uses an email initial when display name is absent', () => {
@@ -82,7 +243,7 @@ describe('TopNavigation', () => {
 
     expect(screen.getByRole('button', { name: 'L' })).toHaveAttribute(
       'title',
-      'Signed in as lando@example.test · Sign out'
+      'Signed in as lando@example.test'
     );
   });
 
@@ -91,7 +252,7 @@ describe('TopNavigation', () => {
 
     expect(screen.getByRole('button', { name: '?' })).toHaveAttribute(
       'title',
-      'Signed in as you · Sign out'
+      'Signed in as you'
     );
   });
 });

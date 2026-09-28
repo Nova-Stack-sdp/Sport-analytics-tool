@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth } from '../firebase';
+import { establishSession } from '../api/client';
+import { usePreferences } from '../context/PreferencesContext';
 import '../styles/auth.css';
 
 const initialForm = {
@@ -27,6 +29,9 @@ function friendlyAuthError(error) {
 
 function SignUpPage() {
   const navigate = useNavigate();
+  // Where to land after signing in — "Start page" in Profile → Settings.
+  const { preferences } = usePreferences();
+  const startPage = preferences.startPage;
   const [form, setForm] = useState(initialForm);
   const [fieldErrors, setFieldErrors] = useState({});
   const [status, setStatus] = useState('idle'); // idle | submitting | error
@@ -61,8 +66,11 @@ function SignUpPage() {
         displayName: `${form.firstName} ${form.lastName}`,
       });
       // Firebase signs the account in immediately on creation, so there's
-      // no separate "now go sign in" step.
-      navigate('/overview', { replace: true });
+      // no separate "now go sign in" step.  Exchange the token for a
+      // backend cookie before navigating.
+      const idToken = await credential.user.getIdToken();
+      await establishSession(idToken);
+      navigate(startPage, { replace: true });
     } catch (error) {
       setStatus('error');
       setMessage(friendlyAuthError(error));

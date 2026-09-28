@@ -25,6 +25,12 @@
  *    it in the free API tier.
  *  - Sprint Qualifying / Sprint Shootout sessions are mapped to `Q` since the
  *    SessionType enum has no dedicated slot for them.
+ *
+ * RE-RUNNING IS SAFE: every run is compared against what's already stored
+ * (see src/ingestion/planIngestion.js). Events already stored unchanged are
+ * skipped, new ones are inserted, and changed ones are stored as corrections
+ * that supersede the old version — so syncing a session twice never
+ * double-counts. Each run's counts are saved on its Submission (`summary`).
  */
 
 import net from 'node:net';
@@ -32,7 +38,8 @@ import pkg from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import 'dotenv/config';
 import { runDerivationForSession } from '../derivation/index.js';
-import { mapLap, mapPitStop, mapTyreStint, mapPositionChanges, mapRaceControlRecord, mapWeather, mapGridPosition, mapClassification } from '../validation/event-records.js';
+import { planIngestion, summarizePlan } from '../ingestion/planIngestion.js';
+import { validateEvents } from '../ingestion/validationRules.js';
 
 const { PrismaClient, SubmissionSource, SubmissionStatus, EventType } = pkg;
 
@@ -90,6 +97,23 @@ function mapSessionType(sessionName) {
     return 'Q';
   }
   return mapped;
+}
+
+function mapFlag(flag) {
+  if (!flag) return null;
+  const map = {
+    GREEN: 'green',
+    CLEAR: 'green',
+    YELLOW: 'yellow',
+    'DOUBLE YELLOW': 'yellow',
+    RED: 'red',
+    'SAFETY CAR': 'safety_car',
+    'VIRTUAL SAFETY CAR': 'vsc',
+    CHEQUERED: 'chequered',
+    BLUE: 'blue',
+    'BLACK AND WHITE': 'black_and_white',
+  };
+  return map[flag.toUpperCase()] ?? null;
 }
 
 /**
@@ -185,6 +209,9 @@ async function syncDimensions(sessionKey) {
     entryByDriverNumber,
     meetingKey: sessionData.meeting_key,
     sessionName: sessionData.session_name,
+    sessionType: session.type,
+    sessionStart: session.startTime,
+    sessionEnd: session.endTime ?? session.startTime,
   };
 }
 
@@ -220,7 +247,11 @@ async function resolveGridSessionKey(meetingKey, sessionName) {
  * a normalized { eventType, entryId, lapNumber, occurredAt, payload } shape,
  * or null if the record fails basic validation (with a reason logged).
  */
-async function collectEvents(sessionKey, entryByDriverNumber, gridSessionKey) {
+async function collectEvents(sessionKey, entryByDriverNumber, gridSessionKey, timing) {
+  // Records with no timestamp of their own (stints, the grid, the result)
+  // get a fixed one from the session instead of "now" — using the time of
+  // the sync made the same record look different on every run.
+  const { sessionStart, sessionEnd } = timing;
   const events = [];
   const rejections = [];
 
@@ -230,50 +261,203 @@ async function collectEvents(sessionKey, entryByDriverNumber, gridSessionKey) {
 
   const entryFor = (driverNumber) => entryByDriverNumber.get(driverNumber) ?? null;
 
+  // lap_completed
   const laps = await fetchOpenF1('laps', { session_key: sessionKey });
   for (const l of laps) {
-    const event = mapLap(l, entryFor, reject);
-    if (event) events.push(event);
+    if (!entryFor(l.driver_number)) {
+      reject('lap_completed', l, `unknown driver_number ${l.driver_number}`);
+      continue;
+    }
+    if (l.lap_duration != null && l.lap_duration <= 0) {
+      reject('lap_completed', l, 'lap_duration is not positive');
+      continue;
+    }
+    events.push({
+      eventType: EventType.lap_completed,
+      entryId: entryFor(l.driver_number),
+      lapNumber: l.lap_number,
+      // A few laps (often lap 1) come without a start time; fall back to the
+      // session start rather than an invalid date — laps order by number anyway.
+      occurredAt: l.date_start ? new Date(l.date_start) : sessionStart,
+      payload: {
+        lap_time_ms: l.lap_duration != null ? Math.round(l.lap_duration * 1000) : null,
+        sector1_ms: l.duration_sector_1 != null ? Math.round(l.duration_sector_1 * 1000) : null,
+        sector2_ms: l.duration_sector_2 != null ? Math.round(l.duration_sector_2 * 1000) : null,
+        sector3_ms: l.duration_sector_3 != null ? Math.round(l.duration_sector_3 * 1000) : null,
+        // Not available from /laps — see file header note.
+        position: null,
+        is_pit_out_lap: l.is_pit_out_lap ?? false,
+      },
+    });
   }
 
+  // pit_stop
   const pits = await fetchOpenF1('pit', { session_key: sessionKey });
   for (const p of pits) {
-    const event = mapPitStop(p, entryFor, reject);
-    if (event) events.push(event);
+    if (!entryFor(p.driver_number)) {
+      reject('pit_stop', p, `unknown driver_number ${p.driver_number}`);
+      continue;
+    }
+    if (p.pit_duration != null && p.pit_duration < 0) {
+      reject('pit_stop', p, 'pit_duration is negative');
+      continue;
+    }
+    const entryTime = new Date(p.date);
+    const durationMs = p.pit_duration != null ? Math.round(p.pit_duration * 1000) : null;
+    events.push({
+      eventType: EventType.pit_stop,
+      entryId: entryFor(p.driver_number),
+      lapNumber: p.lap_number,
+      occurredAt: entryTime,
+      payload: {
+        pit_duration_ms: durationMs,
+        entry_time: entryTime.toISOString(),
+        // Approximated — OpenF1 doesn't give entry/exit separately.
+        exit_time: durationMs != null ? new Date(entryTime.getTime() + durationMs).toISOString() : null,
+      },
+    });
   }
 
+  // tyre_stint
   const stints = await fetchOpenF1('stints', { session_key: sessionKey });
   for (const s of stints) {
-    const event = mapTyreStint(s, entryFor, reject);
-    if (event) events.push(event);
+    if (!entryFor(s.driver_number)) {
+      reject('tyre_stint', s, `unknown driver_number ${s.driver_number}`);
+      continue;
+    }
+    events.push({
+      eventType: EventType.tyre_stint,
+      entryId: entryFor(s.driver_number),
+      lapNumber: s.lap_start,
+      occurredAt: sessionStart, // stints have no timestamp; ordered by lap range instead
+      payload: {
+        compound: s.compound,
+        stint_number: s.stint_number,
+        start_lap: s.lap_start,
+        end_lap: s.lap_end,
+        tyre_age_at_start: s.tyre_age_at_start,
+      },
+    });
   }
 
+  // position_change — only emit when a driver's position actually changes
   const positions = await fetchOpenF1('position', { session_key: sessionKey });
-  events.push(...mapPositionChanges(positions, entryFor, reject));
+  const byDriver = new Map();
+  for (const p of positions) {
+    if (!byDriver.has(p.driver_number)) byDriver.set(p.driver_number, []);
+    byDriver.get(p.driver_number).push(p);
+  }
+  for (const [driverNumber, records] of byDriver) {
+    if (!entryFor(driverNumber)) {
+      reject('position_change', records[0], `unknown driver_number ${driverNumber}`);
+      continue;
+    }
+    records.sort((a, b) => new Date(a.date) - new Date(b.date));
+    let prev = null;
+    for (const r of records) {
+      if (prev !== null && prev !== r.position) {
+        events.push({
+          eventType: EventType.position_change,
+          entryId: entryFor(driverNumber),
+          lapNumber: null,
+          occurredAt: new Date(r.date),
+          payload: {
+            from_position: prev,
+            to_position: r.position,
+            // Not distinguished by OpenF1 — see file header note.
+            cause: 'on_track',
+          },
+        });
+      }
+      prev = r.position;
+    }
+  }
 
+  // flag_event + race_control_message
   const raceControl = await fetchOpenF1('race_control', { session_key: sessionKey });
   for (const rc of raceControl) {
-    const event = mapRaceControlRecord(rc, reject);
-    if (event) events.push(event);
+    if (rc.category === 'Flag') {
+      const flag = mapFlag(rc.flag);
+      if (!flag) {
+        reject('flag_event', rc, `unrecognized flag value "${rc.flag}"`);
+        continue;
+      }
+      events.push({
+        eventType: EventType.flag_event,
+        entryId: null,
+        lapNumber: rc.lap_number,
+        occurredAt: new Date(rc.date),
+        payload: { flag, start_lap: rc.lap_number, end_lap: null },
+      });
+    } else {
+      events.push({
+        eventType: EventType.race_control_message,
+        entryId: null,
+        lapNumber: rc.lap_number,
+        occurredAt: new Date(rc.date),
+        payload: { category: rc.category, message_text: rc.message, lap_number: rc.lap_number },
+      });
+    }
   }
 
+  // weather_snapshot
   const weather = await fetchOpenF1('weather', { session_key: sessionKey });
   for (const w of weather) {
-    events.push(mapWeather(w));
+    events.push({
+      eventType: EventType.weather_snapshot,
+      entryId: null,
+      lapNumber: null,
+      occurredAt: new Date(w.date),
+      payload: {
+        air_temp: w.air_temperature,
+        track_temp: w.track_temperature,
+        humidity: w.humidity,
+        rainfall: w.rainfall,
+        wind_speed: w.wind_speed,
+      },
+    });
   }
 
+  // grid_position — the actual sourced starting position, replacing the old
+  // guess-from-lap-data approach with a real event. Queried against
+  // gridSessionKey (the meeting's qualifying session), not sessionKey — see
+  // resolveGridSessionKey for why.
   const grid = gridSessionKey
     ? await fetchOpenF1('starting_grid', { session_key: gridSessionKey })
     : [];
   for (const g of grid) {
-    const event = mapGridPosition(g, entryFor, reject);
-    if (event) events.push(event);
+    if (!entryFor(g.driver_number)) {
+      reject('grid_position', g, `unknown driver_number ${g.driver_number}`);
+      continue;
+    }
+    events.push({
+      eventType: EventType.grid_position,
+      entryId: entryFor(g.driver_number),
+      lapNumber: null,
+      occurredAt: sessionStart, // grid is set pre-race, no natural timestamp
+      payload: { position: g.position },
+    });
   }
 
+  // classification
   const results = await fetchOpenF1('session_result', { session_key: sessionKey });
   for (const r of results) {
-    const event = mapClassification(r, entryFor, reject);
-    if (event) events.push(event);
+    if (!entryFor(r.driver_number)) {
+      reject('classification', r, `unknown driver_number ${r.driver_number}`);
+      continue;
+    }
+    events.push({
+      eventType: EventType.classification,
+      entryId: entryFor(r.driver_number),
+      lapNumber: null,
+      occurredAt: sessionEnd, // the result stands as of the end of the session
+      payload: {
+        final_position: r.position ?? null,
+        points: r.points ?? 0,
+        status: r.dsq ? 'dsq' : r.dnf ? 'dnf' : 'finished',
+        reason: r.dnf_reason ?? null,
+      },
+    });
   }
 
   return { events, rejections };
@@ -283,21 +467,64 @@ async function syncSession(sessionKeyRaw) {
   const sessionKey = Number(sessionKeyRaw);
   console.log(`Syncing session_key=${sessionKey}...`);
 
-  const { sessionId, entryByDriverNumber, meetingKey, sessionName } = await syncDimensions(sessionKey);
+  const dims = await syncDimensions(sessionKey);
+  const { sessionId, entryByDriverNumber, meetingKey, sessionName } = dims;
   const gridSessionKey = await resolveGridSessionKey(meetingKey, sessionName);
-  const { events, rejections } = await collectEvents(sessionKey, entryByDriverNumber, gridSessionKey);
+  const collected = await collectEvents(sessionKey, entryByDriverNumber, gridSessionKey, dims);
+
+  // Rules for impossible / conflicting data (lap times, positions, points...).
+  const validated = validateEvents(collected.events, {
+    entryCount: entryByDriverNumber.size,
+    sessionType: dims.sessionType,
+    sessionStart: dims.sessionStart,
+    sessionEnd: dims.sessionEnd,
+  });
+
+  // Compare against what's already stored, so a re-run only adds what's new.
+  const existingLive = await prisma.event.findMany({
+    where: { sessionId, supersededById: null },
+    select: {
+      id: true, eventType: true, entryId: true, lapNumber: true,
+      occurredAt: true, payload: true, ingestedAt: true,
+    },
+  });
+  const plan = planIngestion(validated.accepted, existingLive);
+
+  const rejections = [
+    ...collected.rejections,
+    ...validated.rejections,
+    ...plan.duplicates.map(({ event, identity }) => ({
+      eventType: event.eventType,
+      rule: 'duplicate_in_batch',
+      reason: `this ${event.eventType.replaceAll('_', ' ')} appears more than once in this submission (${identity})`,
+      record: event,
+    })),
+  ];
+  const summary = summarizePlan(plan, rejections.length);
 
   if (rejections.length > 0) {
     console.warn(`${rejections.length} record(s) rejected:`);
-    for (const r of rejections) console.warn(`  [${r.eventType}] ${r.reason}`);
+    for (const r of rejections.slice(0, 50)) console.warn(`  [${r.eventType}] ${r.reason}`);
+    if (rejections.length > 50) console.warn(`  ...and ${rejections.length - 50} more (all saved on the submission)`);
   }
 
+  const acceptedCount = plan.insert.length + plan.corrections.length + plan.unchanged.length;
   const status =
-    events.length === 0
+    acceptedCount === 0 && rejections.length > 0
       ? SubmissionStatus.rejected
       : rejections.length === 0
       ? SubmissionStatus.accepted
       : SubmissionStatus.partially_accepted;
+
+  const toRow = (e, submissionId) => ({
+    sessionId,
+    entryId: e.entryId,
+    eventType: e.eventType,
+    lapNumber: e.lapNumber,
+    occurredAt: e.occurredAt,
+    payload: e.payload,
+    sourceSubmissionId: submissionId,
+  });
 
   const result = await prisma.$transaction(async (tx) => {
     const submission = await tx.submission.create({
@@ -308,39 +535,40 @@ async function syncSession(sessionKeyRaw) {
         fileRef: null,
         status,
         validationErrors: rejections.length > 0 ? rejections : undefined,
+        summary,
       },
     });
 
-    if (events.length > 0) {
-      await tx.event.createMany({
-        data: events.map((e) => ({
-          sessionId,
-          entryId: e.entryId,
-          eventType: e.eventType,
-          lapNumber: e.lapNumber,
-          occurredAt: e.occurredAt,
-          payload: e.payload,
-          sourceSubmissionId: submission.id,
-        })),
-      });
+    if (plan.insert.length > 0) {
+      await tx.event.createMany({ data: plan.insert.map((e) => toRow(e, submission.id)) });
+    }
+
+    // A correction is a new event plus a pointer from the old one to it; the
+    // old row stays in the log so the change has a history.
+    for (const { event, supersedesId } of plan.corrections) {
+      const created = await tx.event.create({ data: toRow(event, submission.id) });
+      await tx.event.update({ where: { id: supersedesId }, data: { supersededById: created.id } });
     }
 
     return submission;
-  }, { maxWait: 15000, timeout: 30000 });
+  }, { maxWait: 15000, timeout: 60000 });
 
-    console.log(`Submission ${result.id} created — status: ${result.status}, events written: ${events.length}`);
+  console.log(
+    `Submission ${result.id} — status: ${result.status}. `
+    + `Inserted ${summary.inserted}, corrected ${summary.corrected}, `
+    + `already stored ${summary.unchanged}, rejected ${summary.rejected}.`
+  );
 
-  // Derivation cascade was previously never triggered anywhere — submissions
-  // landed as accepted/partially_accepted with real events, but the
-  // projection tables (driver_career_stats, team_season_stats, etc.) stayed
-  // empty forever, which is why the Overview/Statistics pages showed no
-  // leaderboard despite having real data. Mirrors the doc comment on
-  // runDerivationForSession: run it whenever a submission touching this
-  // session moves to accepted or partially_accepted.
-  if (result.status === SubmissionStatus.accepted || result.status === SubmissionStatus.partially_accepted) {
+  // Derivation cascade: run it whenever this submission actually changed
+  // the session's events. (Previously it never ran at all, which is why the
+  // projection tables stayed empty — see runDerivationForSession.) Skipped
+  // when nothing changed, since the derived figures would be identical.
+  if (summary.inserted + summary.corrected > 0) {
     console.log(`Running derivation for session ${sessionId}...`);
     await runDerivationForSession(prisma, sessionId);
     console.log('Derivation complete.');
+  } else {
+    console.log('Nothing new for this session — derived statistics are already up to date.');
   }
 
   return result;

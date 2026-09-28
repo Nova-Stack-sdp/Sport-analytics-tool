@@ -6,10 +6,23 @@ jest.mock('../pages/WelcomePage', () => ({ __esModule: true, default: () => <div
 jest.mock('../pages/OverviewPage', () => ({ __esModule: true, default: () => <div>Overview route</div> }));
 jest.mock('../pages/FixturesEventsPage', () => ({ __esModule: true, default: () => <div>Fixtures route</div> }));
 jest.mock('../pages/StatisticsPage', () => ({ __esModule: true, default: () => <div>Statistics route</div> }));
-jest.mock('../pages/SubmissionsPage', () => ({ __esModule: true, default: () => <div>Submissions route</div> }));
 jest.mock('../pages/TimeTravelPage', () => ({ __esModule: true, default: () => <div>Time travel route</div> }));
-jest.mock('../pages/DatasetsPage', () => ({ __esModule: true, default: () => <div>Datasets route</div> }));
-jest.mock('../pages/DeveloperPage', () => ({ __esModule: true, default: () => <div>Developer route</div> }));
+jest.mock('../pages/DeveloperPage', () => ({
+  __esModule: true,
+  default: function MockDeveloper() {
+    const { useLocation } = require('react-router-dom');
+    const location = useLocation();
+    return <div>Developer route {location.search}</div>;
+  },
+}));
+jest.mock('../pages/ProfilePage', () => ({
+  __esModule: true,
+  default: function MockProfile() {
+    const { useLocation } = require('react-router-dom');
+    const location = useLocation();
+    return <div>Profile route {location.search}</div>;
+  },
+}));
 jest.mock('../pages/AdminPage', () => ({ __esModule: true, default: () => <div>Admin route</div> }));
 jest.mock('../pages/SignInPage', () => ({ __esModule: true, default: () => <div>Sign in route</div> }));
 jest.mock('../pages/SignUpPage', () => ({ __esModule: true, default: () => <div>Sign up route</div> }));
@@ -41,5 +54,20 @@ describe('AppRoutes', () => {
     renderRoutes(path);
 
     expect(screen.getByText(page)).toBeInTheDocument();
+  });
+
+  test.each([
+    ['/datasets', 'Developer route ?tab=datasets'],
+    ['/submissions', 'Developer route ?tab=submissions'],
+  ])('redirects the old %s URL to its tab on Developer', (path, page) => {
+    renderRoutes(path);
+
+    expect(screen.getByText(page)).toBeInTheDocument();
+  });
+
+  test('redirects the old /settings URL to the Settings tab on Profile', () => {
+    renderRoutes('/settings');
+
+    expect(screen.getByText('Profile route ?tab=settings')).toBeInTheDocument();
   });
 });

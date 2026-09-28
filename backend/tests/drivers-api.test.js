@@ -5,6 +5,7 @@ const mockPrisma = {
   driverCareerStats: { findMany: jest.fn() },
   driver: { findUnique: jest.fn() },
   entry: { findMany: jest.fn() },
+  driverImage: { findMany: jest.fn().mockResolvedValue([]), findUnique: jest.fn().mockResolvedValue(null) },
 };
 
 jest.unstable_mockModule('../src/lib/prisma.js', () => ({ prisma: mockPrisma }));

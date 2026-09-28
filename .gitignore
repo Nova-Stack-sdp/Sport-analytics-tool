@@ -3,3 +3,4 @@
 
 # Local frontend and backend configuration
 .env.local
+backend/scripts/.fastf1-cache/

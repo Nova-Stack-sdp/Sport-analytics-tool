@@ -1,42 +1,53 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import TopNav from './components/TopNavigation';
 import AppRoutes from './navigation/AppRoutes';
 import { AuthProvider } from './context/AuthContext';
+import { DeveloperModeProvider } from './context/DeveloperModeContext';
+import { PreferencesProvider, usePreferences } from './context/PreferencesContext';
 
-const THEME_STORAGE_KEY = 'f1-analytics-theme';
+function AppShell() {
+  const { preferences, resolvedTheme, updatePreference } = usePreferences();
 
-function AppShell({ theme, onToggleTheme }) {
+  // Theme, density and motion are applied as attributes on <html> so plain
+  // CSS can react to them (see globals.css). Theme is also mirrored on the
+  // .app-shell div, which is where it has always been set.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.theme = resolvedTheme;
+    root.dataset.density = preferences.density;
+    root.dataset.reduceMotion = String(preferences.reduceMotion);
+  }, [resolvedTheme, preferences.density, preferences.reduceMotion]);
+
   return (
-    <>
-      <TopNav theme={theme} onToggleTheme={onToggleTheme} />
-      <AppRoutes />
-    </>
+    <div
+      className="app-shell"
+      data-theme={resolvedTheme}
+      data-density={preferences.density}
+      data-reduce-motion={String(preferences.reduceMotion)}
+    >
+      <BrowserRouter>
+        <AuthProvider>
+          <DeveloperModeProvider>
+            <TopNav
+              theme={resolvedTheme}
+              // The nav's ☀/☾ button is a quick flip between light and dark;
+              // it sets an explicit theme (leaving "Match system" if it was on).
+              onToggleTheme={() => updatePreference('theme', resolvedTheme === 'dark' ? 'light' : 'dark')}
+            />
+            <AppRoutes />
+          </DeveloperModeProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </div>
   );
 }
 
 function App() {
-  const [theme, setTheme] = useState(() => {
-    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
-    return savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : 'dark';
-  });
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    localStorage.setItem(THEME_STORAGE_KEY, theme);
-  }, [theme]);
-
   return (
-    <div className="app-shell" data-theme={theme}>
-      <BrowserRouter>
-        <AuthProvider>
-          <AppShell
-            theme={theme}
-            onToggleTheme={() => setTheme((currentTheme) => (currentTheme === 'dark' ? 'light' : 'dark'))}
-          />
-        </AuthProvider>
-      </BrowserRouter>
-    </div>
+    <PreferencesProvider>
+      <AppShell />
+    </PreferencesProvider>
   );
 }
 

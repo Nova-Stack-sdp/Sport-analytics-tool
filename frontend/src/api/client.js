@@ -7,14 +7,20 @@
  * https://sport--backend-api--7kcwxz9xblx5.code.run
  *
  * Falls back to that same Northflank URL for local dev convenience — override
- * it locally via a .env.local file if you're running the backend elsewhere
+ * it locally via a .env.Local file if you're running the backend elsewhere
  * (e.g. http://localhost:8080).
+ *
+ * All requests include credentials: 'include' so the httpOnly __session
+ * cookie set by POST /api/auth/session is sent automatically on every call.
  */
 const API_BASE_URL =
   process.env.REACT_APP_API_URL || 'https://sport--backend-api--7kcwxz9xblx5.code.run';
 
-async function request(path) {
-  const res = await fetch(`${API_BASE_URL}${path}`);
+async function request(path, options = {}) {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    credentials: 'include',
+    ...options,
+  });
   if (!res.ok) {
     const error = new Error(`Request to ${path} failed with status ${res.status}`);
     error.status = res.status;
@@ -29,9 +35,77 @@ async function request(path) {
   return res.json();
 }
 
+// ---------------------------------------------------------------------------
+// Auth session helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Exchange a Firebase ID token for an httpOnly cookie on the backend.
+ * Call this after any successful Firebase sign-in (email/password, Google,
+ * GitHub) so subsequent API requests carry the cookie automatically.
+ */
+export function establishSession(idToken) {
+  return request('/api/auth/session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idToken }),
+  });
+}
+
+/**
+ * Clear the httpOnly session cookie on the backend.
+ * Call this alongside Firebase signOut() for a full logout.
+ */
+export function clearSession() {
+  return request('/api/auth/logout', { method: 'POST' });
+}
+
+/**
+ * Check whether the backend cookie is still valid.
+ * Returns the user object ({ uid, email, developer, admin }) or throws if no
+ * valid session exists.
+ *
+ * `idToken` is optional: pass the live Firebase ID token to authenticate
+ * with an explicit Bearer header instead of relying on the cookie — needed
+ * right after sign-in, when the cookie may not have been set yet.
+ */
+export function getSession(idToken) {
+  return request('/api/auth/me', idToken ? { headers: { Authorization: `Bearer ${idToken}` } } : {});
+}
+
+/**
+ * Set the `developer` custom claim on the signed-in user's own Firebase
+ * account. This is self-service (any signed-in user can toggle their own
+ * flag) — see the backend route for the reasoning. The frontend still
+ * needs to force a fresh ID token afterwards (see AuthContext's
+ * refreshDeveloperMode) for the new claim to actually be visible locally.
+ *
+ * `idToken` is optional and, when provided, is sent as an explicit
+ * `Authorization: Bearer` header (same pattern as uploadDriverImage
+ * below) alongside the usual `credentials: 'include'` cookie. requireAuth
+ * on the backend checks the header first and falls back to the cookie, so
+ * this covers both transports — useful because the httpOnly cookie set at
+ * sign-in doesn't always make it onto every request in local dev (e.g. a
+ * Firebase session restored from a previous visit, without a fresh trip
+ * through the sign-in page that re-establishes the cookie).
+ */
+export function setDeveloperModeOnServer(enabled, idToken) {
+  return request('/api/auth/developer-mode', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+    },
+    body: JSON.stringify({ enabled }),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Data endpoints
+// ---------------------------------------------------------------------------
+
 export function getOverview() {
   return request('/api/overview');
-
 }
 
 export function getStatistics({ view, season, sessionId } = {}) {
@@ -71,8 +145,12 @@ export function getPopularVideos() {
   return request('/api/videos/popular');
 }
 
-export function getLiveVideo() {
-  return request('/api/watch-live');
+export function getTelemetryTVRaces() {
+  return request('/api/telemetry-tv/races');
+}
+
+export function getTelemetryTVRace(slug) {
+  return request(`/api/telemetry-tv/races/${encodeURIComponent(slug)}`);
 }
 
 export function getTeams({ limit, offset } = {}) {
@@ -105,15 +183,65 @@ export function getCachedImageUrl(source) {
   return `${API_BASE_URL}/api/images?source=${encodeURIComponent(source)}`;
 }
 
-// Fetches one replay state or a short playback buffer.
-export function getWatchLiveState({ videoSeconds, bufferSeconds } = {}) {
-  const params = new URLSearchParams({ videoSeconds: String(videoSeconds) });
-  if (bufferSeconds != null) params.set('bufferSeconds', String(bufferSeconds));
-  return request(`/api/watch-live/state?${params.toString()}`);
+// A driver's headshot once it's been persisted server-side (Firestore) —
+// same URL forever for a given driver, no source param needed.
+// `version` is the uploaded photo's last-updated time (from the drivers API).
+// It's part of the URL so a replaced photo is never served from a stale
+// browser cache.
+export function getDriverImageUrl(driverId, version) {
+  const url = `${API_BASE_URL}/api/drivers/${driverId}/image`;
+  return version ? `${url}?v=${version}` : url;
 }
 
-// Real track outline derived from one driver's actual location telemetry —
-// see deriveTrackShape() in the backend for how this is picked.
-export function getTrackShape() {
-  return request('/api/watch-live/track-shape');
+// Uploads (or replaces) a driver's photo; it's stored in the backend's
+// database next to the driver record. The file is sent as the raw request
+// body, and the caller's Firebase ID token proves they're signed in.
+export async function uploadDriverImage(driverId, file, idToken) {
+  const res = await fetch(`${API_BASE_URL}/api/drivers/${driverId}/image`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      'Content-Type': file.type || 'application/octet-stream',
+    },
+    body: file,
+  });
+
+  let body = null;
+  try {
+    body = await res.json();
+  } catch {
+    // Non-JSON error page — fall through to the generic message below.
+  }
+  if (!res.ok) {
+    const error = new Error(body?.error || `Upload failed with status ${res.status}`);
+    error.status = res.status;
+    throw error;
+  }
+  return body;
+}
+
+export function getF1News() {
+  return request('/api/news');
+}
+
+export function getF1NewsStreamUrl() {
+  return `${API_BASE_URL}/api/news/stream`;
+}
+// ---------------------------------------------------------------------------
+// Race Replay — decoupled from Watch Live, works for any synced fixture
+// (see /api/fixtures' `replayReady` flag for which ones qualify), not just
+// the one hardcoded Barcelona session Watch Live is built around.
+// ---------------------------------------------------------------------------
+
+// Leaderboard reconstructed from the Event log as of the end of `lap`.
+export function getRaceReplayState(sessionId, { lap } = {}) {
+  const params = new URLSearchParams({ lap: String(lap) });
+  return request(`/api/race-replay/${sessionId}/state?${params.toString()}`);
+}
+
+// Real track outline for this session's circuit — live OpenF1 telemetry
+// when available, else a static FastF1-generated shape for the circuit,
+// else a 404 so the caller can use its illustrative fallback.
+export function getRaceReplayTrackShape(sessionId) {
+  return request(`/api/race-replay/${sessionId}/track-shape`);
 }

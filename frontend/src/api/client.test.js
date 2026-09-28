@@ -81,7 +81,8 @@ describe('API client', () => {
 
     await client.getTeams();
 
-    expect(global.fetch).toHaveBeenCalledWith('https://api.example.test/api/teams');
+    // Every request also carries { credentials: 'include' } for the session cookie.
+    expect(global.fetch).toHaveBeenCalledWith('https://api.example.test/api/teams', expect.any(Object));
   });
 
   test('rejects with a useful status message when the backend responds unsuccessfully', async () => {
@@ -92,5 +93,53 @@ describe('API client', () => {
     await expect(client.getDrivers()).rejects.toThrow(
       'Request to /api/drivers failed with status 503'
     );
+  });
+
+  test('builds versioned driver image URLs so a replaced photo is not stale-cached', () => {
+    delete process.env.REACT_APP_API_URL;
+    const client = loadClient();
+
+    expect(client.getDriverImageUrl('d1')).toBe(`${FALLBACK_API_URL}/api/drivers/d1/image`);
+    expect(client.getDriverImageUrl('d1', 123)).toBe(`${FALLBACK_API_URL}/api/drivers/d1/image?v=123`);
+  });
+
+  test('getSession uses the cookie by default and a Bearer header when given an ID token', async () => {
+    delete process.env.REACT_APP_API_URL;
+    global.fetch.mockResolvedValue(successfulResponse({ uid: 'u1', admin: true }));
+    const client = loadClient();
+
+    await client.getSession();
+    await expect(client.getSession('tok')).resolves.toEqual({ uid: 'u1', admin: true });
+
+    expect(global.fetch).toHaveBeenNthCalledWith(1, `${FALLBACK_API_URL}/api/auth/me`, { credentials: 'include' });
+    expect(global.fetch).toHaveBeenNthCalledWith(2, `${FALLBACK_API_URL}/api/auth/me`, {
+      credentials: 'include',
+      headers: { Authorization: 'Bearer tok' },
+    });
+  });
+
+  test('uploadDriverImage PUTs the raw file with the caller\'s ID token', async () => {
+    delete process.env.REACT_APP_API_URL;
+    global.fetch.mockResolvedValue({ ok: true, status: 201, json: jest.fn().mockResolvedValue({ uploadedImageVersion: 5 }) });
+    const client = loadClient();
+    const file = new File([new Uint8Array(4)], 'max.png', { type: 'image/png' });
+
+    const result = await client.uploadDriverImage('d1', file, 'tok');
+
+    expect(result).toEqual({ uploadedImageVersion: 5 });
+    expect(global.fetch).toHaveBeenCalledWith(`${FALLBACK_API_URL}/api/drivers/d1/image`, {
+      method: 'PUT',
+      headers: { Authorization: 'Bearer tok', 'Content-Type': 'image/png' },
+      body: file,
+    });
+  });
+
+  test('uploadDriverImage surfaces the server\'s error message', async () => {
+    delete process.env.REACT_APP_API_URL;
+    global.fetch.mockResolvedValue({ ok: false, status: 413, json: jest.fn().mockResolvedValue({ error: 'Image is too large (max 2 MB)' }) });
+    const client = loadClient();
+    const file = new File([new Uint8Array(4)], 'max.png', { type: 'image/png' });
+
+    await expect(client.uploadDriverImage('d1', file, 'tok')).rejects.toThrow('Image is too large (max 2 MB)');
   });
 });
