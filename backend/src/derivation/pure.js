@@ -53,25 +53,38 @@ export function computeSessionStatsForEntry(events) {
 }
 
 /**
- * @param {Array<{finalPosition:number|null, points:number, status:string}>} sessionResults
- *   one entry per race session the driver competed in during the season
+ * Season totals for one driver.
+ *
+ * Championship points come from every points-paying session — Grands Prix
+ * and Sprints — because that is how the official standings are counted.
+ * Wins, podiums and DNFs are Grand Prix results only: a sprint win is not a
+ * race win in the record books. A result without a sessionType is treated
+ * as a Grand Prix (older callers only passed race results).
+ *
+ * @param {Array<{finalPosition:number|null, points:number, status:string, sessionType?:string}>} sessionResults
+ *   one entry per Race/Sprint session the driver competed in during the season
  */
 export function computeCareerAggregate(sessionResults) {
-  const wins = sessionResults.filter((r) => r.finalPosition === 1).length;
-  const podiums = sessionResults.filter(
+  const races = sessionResults.filter(isGrandPrix);
+  const wins = races.filter((r) => r.finalPosition === 1).length;
+  const podiums = races.filter(
     (r) => r.finalPosition != null && r.finalPosition <= 3
   ).length;
   const points = sessionResults.reduce((s, r) => s + (r.points || 0), 0);
-  const dnfCount = sessionResults.filter((r) => r.status === "dnf").length;
+  const dnfCount = races.filter((r) => r.status === "dnf").length;
   return { wins, podiums, points, dnfCount };
 }
 
-/** Same shape as computeCareerAggregate, plus a reliability rate. */
+/** Same shape as computeCareerAggregate, plus a reliability rate (Grands Prix only). */
 export function computeSeasonAggregate(sessionResults) {
   const { wins, points, dnfCount } = computeCareerAggregate(sessionResults);
-  const starts = sessionResults.length;
+  const starts = sessionResults.filter(isGrandPrix).length;
   const reliabilityRate = starts > 0 ? 1 - dnfCount / starts : null;
   return { wins, points, reliabilityRate };
+}
+
+function isGrandPrix(result) {
+  return result.sessionType === undefined || result.sessionType === "Race";
 }
 
 /**

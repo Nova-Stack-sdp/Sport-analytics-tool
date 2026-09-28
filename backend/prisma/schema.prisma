@@ -4,7 +4,12 @@
 // ============================================================
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  // Loads `include`d relations in the same SQL query (JOINs) instead of one
+  // query per relation level. Each query is a network round trip to Neon,
+  // so this cuts most API responses from 2-3 round trips to 1. Responses
+  // were checked to be byte-for-byte identical — see docs/PERFORMANCE.md.
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {
@@ -216,6 +221,9 @@ model Event {
   @@index([entryId])
   @@index([sourceSubmissionId])
   @@index([sessionId, lapNumber])
+  // The v1 API's cursor order — see migration 20261001090000_add_event_time_indexes.
+  @@index([occurredAt, id])
+  @@index([sessionId, occurredAt, id])
   @@map("event")
 }
 

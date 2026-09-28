@@ -11,18 +11,20 @@ function sessionLabel(session) {
  * name, is keyed by driverId+season — see schema.prisma), enriched with
  * team and fastest-lap info pulled from that season's entries. */
 async function getSeasonRows(season) {
-  const careerRows = await prisma.driverCareerStats.findMany({
-    where: { season },
-    orderBy: { points: 'desc' },
-    include: { driver: true },
-  });
+  // Both reads only need the season, so they go to the database together
+  // (one round trip). Entries of drivers without a stats row are ignored below.
+  const [careerRows, entries] = await Promise.all([
+    prisma.driverCareerStats.findMany({
+      where: { season },
+      orderBy: { points: 'desc' },
+      include: { driver: true },
+    }),
+    prisma.entry.findMany({
+      where: { session: { meeting: { season } } },
+      include: { team: true, sessionStats: true },
+    }),
+  ]);
   if (careerRows.length === 0) return [];
-
-  const driverIds = careerRows.map((r) => r.driverId);
-  const entries = await prisma.entry.findMany({
-    where: { driverId: { in: driverIds }, session: { meeting: { season } } },
-    include: { team: true, sessionStats: true },
-  });
 
   const byDriver = new Map();
   for (const e of entries) {
@@ -54,7 +56,11 @@ async function getSeasonRows(season) {
  * driver raced) summed together per driver — this table is per-season, so
  * "career" means aggregating across all of a driver's season rows. */
 async function getCareerRows() {
-  const careerRows = await prisma.driverCareerStats.findMany({ include: { driver: true } });
+  // Sent together, as in getSeasonRows.
+  const [careerRows, entries] = await Promise.all([
+    prisma.driverCareerStats.findMany({ include: { driver: true } }),
+    prisma.entry.findMany({ include: { team: true, sessionStats: true, session: true } }),
+  ]);
   if (careerRows.length === 0) return [];
 
   const totals = new Map();
@@ -75,12 +81,6 @@ async function getCareerRows() {
     t.podiums += r.podiums;
     t.seasonsCount += 1;
   }
-
-  const driverIds = [...totals.keys()];
-  const entries = await prisma.entry.findMany({
-    where: { driverId: { in: driverIds } },
-    include: { team: true, sessionStats: true, session: true },
-  });
 
   const byDriver = new Map();
   for (const e of entries) {
@@ -143,14 +143,20 @@ statisticsRouter.get('/', async (req, res, next) => {
       : 'season';
 
     if (view === 'season') {
-      const meetings = await prisma.meeting.findMany({
+      const seasonsQuery = prisma.meeting.findMany({
         distinct: ['season'],
         select: { season: true },
         orderBy: { season: 'desc' },
       });
+      // With ?season= the rows don't depend on the season list: fetch both at once.
+      const requested = req.query.season ? Number(req.query.season) : null;
+      const [meetings, requestedRows] = await Promise.all([
+        seasonsQuery,
+        requested !== null ? getSeasonRows(requested) : null,
+      ]);
       const availableSeasons = meetings.map((m) => m.season);
-      const season = req.query.season ? Number(req.query.season) : availableSeasons[0] ?? null;
-      const rows = season !== null ? await getSeasonRows(season) : [];
+      const season = requested ?? availableSeasons[0] ?? null;
+      const rows = requestedRows ?? (season !== null ? await getSeasonRows(season) : []);
       return res.json({ view, season, availableSeasons, rows });
     }
 

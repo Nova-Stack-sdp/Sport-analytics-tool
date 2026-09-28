@@ -86,6 +86,32 @@ describe("computeSeasonAggregate", () => {
   });
 });
 
+describe("sprints in the season totals", () => {
+  const season = [
+    { sessionType: "Sprint", finalPosition: 1, points: 8, status: "finished" },
+    { sessionType: "Race", finalPosition: 2, points: 18, status: "finished" },
+    { sessionType: "Sprint", finalPosition: null, points: 0, status: "dnf" },
+    { sessionType: "Race", finalPosition: 1, points: 25, status: "finished" },
+  ];
+
+  test("sprint points count toward the championship total", () => {
+    expect(computeCareerAggregate(season).points).toBe(51);
+  });
+
+  test("a sprint win, podium or retirement is not a Grand Prix one", () => {
+    expect(computeCareerAggregate(season)).toEqual({ wins: 1, podiums: 2, points: 51, dnfCount: 0 });
+  });
+
+  test("reliability is measured over Grand Prix starts", () => {
+    const agg = computeSeasonAggregate([
+      ...season,
+      { sessionType: "Race", finalPosition: null, points: 0, status: "dnf" },
+    ]);
+    expect(agg.reliabilityRate).toBeCloseTo(2 / 3);
+    expect(agg.points).toBe(51);
+  });
+});
+
 describe("computeHeadToHead", () => {
   test("counts a win for whoever finished ahead each shared session", () => {
     const resultsA = [{ finalPosition: 2 }, { finalPosition: 7 }, { finalPosition: 1 }];
