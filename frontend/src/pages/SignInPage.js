@@ -61,7 +61,7 @@ function SignInPage() {
       await signInWithPopup(auth, googleProvider);
       const idToken = await auth.currentUser.getIdToken();
       await establishSession(idToken);
-      navigate('/overview', { replace: true });
+      navigate('/', { replace: true });
     } catch (error) {
       const friendly = friendlyAuthError(error);
       if (friendly) {
@@ -81,7 +81,7 @@ function SignInPage() {
       await signInWithPopup(auth, githubProvider);
       const idToken = await auth.currentUser.getIdToken();
       await establishSession(idToken);
-      navigate('/overview', { replace: true });
+      navigate('/', { replace: true });
     } catch (error) {
       const friendly = friendlyAuthError(error);
       if (friendly) {
@@ -112,7 +112,7 @@ function SignInPage() {
       await signInWithEmailAndPassword(auth, email, password);
       const idToken = await auth.currentUser.getIdToken();
       await establishSession(idToken);
-      navigate('/overview', { replace: true });
+      navigate('/', { replace: true });
     } catch (error) {
       setStatus('error');
       setMessage(friendlyAuthError(error) ?? 'Something went wrong signing in. Try again.');

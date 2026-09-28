@@ -14,9 +14,9 @@
   align-items: center;
   gap: 24px;
   max-width: 1460px;
-  height: 80px;
+  height: var(--nav-height);
   margin: 0 auto;
-  padding: 0 24px;
+  padding: 0 var(--page-margin);
 }
 
 .brand {
@@ -35,7 +35,7 @@
   border-radius: 8px;
   background: #f5f5f5;
   color: #b40d18;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 900;
   letter-spacing: -0.5px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.8);
@@ -43,7 +43,7 @@
 
 .brand-text {
   color: #fff6f6;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 800;
   letter-spacing: 0.02em;
 }
@@ -53,13 +53,17 @@
   align-items: center;
   gap: 6px;
   flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
 }
 
 .nav-item {
   padding: 10px 12px;
   border-radius: 10px;
   color: rgba(255, 255, 255, 0.9);
-  font-size: 12.5px;
+  font-size: 14.5px;
   font-weight: 700;
   text-decoration: none;
   white-space: nowrap;
@@ -97,7 +101,7 @@
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
   color: #fff5f5;
-  font-size: 11.5px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-decoration: none;
@@ -132,7 +136,7 @@
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.06);
   color: #fff5f5;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
 }
 
@@ -146,7 +150,7 @@
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.2);
   color: #ffffff;
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 800;
   text-decoration: none;
   flex-shrink: 0;
@@ -200,7 +204,7 @@
   padding: 4px 10px 8px;
   border-bottom: 1px solid var(--border-soft);
   color: var(--text-tertiary);
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 700;
   letter-spacing: 0.02em;
   word-break: break-word;
@@ -215,7 +219,7 @@
   background: transparent;
   color: var(--text-primary);
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: 14.5px;
   font-weight: 700;
   text-align: left;
   cursor: pointer;
@@ -240,7 +244,7 @@
 .avatar-menu-question {
   margin: 6px 10px 10px;
   color: var(--text-primary);
-  font-size: 12.5px;
+  font-size: 14.5px;
   font-weight: 700;
   line-height: 1.4;
 }
@@ -259,7 +263,7 @@
   border-color: var(--accent);
   background: var(--accent);
   color: var(--accent-contrast);
-  font-size: 11.5px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -292,7 +296,7 @@
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.08);
   color: #fff5f5;
-  font-size: 20px;
+  font-size: 23px;
   cursor: pointer;
   flex-shrink: 0;
   transition: background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
@@ -344,23 +348,18 @@
   }
 }
 
-@media (max-width: 768px) {
+/* The bar never wraps to a second row at any width — items that don't fit
+   are measured out into the "More" dropdown instead (see TopNavigation.js),
+   so it always stays a single row at --nav-height, which is what every
+   page's top padding is offset against. */
+@media (max-width: 1100px) {
   .topnav-inner {
-    flex-wrap: wrap;
-    height: auto;
-    min-height: 72px;
-    gap: 10px 16px;
-    padding: 10px 16px;
+    gap: 14px;
   }
+}
 
-  .nav-items {
-    order: 3;
-    width: 100%;
-    overflow-x: auto;
-    padding-bottom: 2px;
-  }
-
-  .topnav-right {
-    margin-left: auto;
+@media (max-width: 480px) {
+  .season-pill {
+    display: none;
   }
 }

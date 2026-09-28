@@ -51,6 +51,12 @@ function TopNav({ theme, onToggleTheme }) {
   const avatarRef = useRef(null);
   const confirmRef = useRef(null);
 
+  const visibleNavItems = NAV_ITEMS.filter((item) => {
+    if (item.requiresAuth && !user) return false;
+    if (item.requiresDeveloper && !isDeveloperMode) return false;
+    return true;
+  });
+
   useEffect(() => {
     const refreshLocalProfile = () => setLocalProfile(readLocalProfile(user));
     refreshLocalProfile();
@@ -138,11 +144,7 @@ function TopNav({ theme, onToggleTheme }) {
           <div className="brand-text">Analytics</div>
         </NavLink>
         <div className="nav-items">
-          {NAV_ITEMS.filter((item) => {
-            if (item.requiresAuth && !user) return false;
-            if (item.requiresDeveloper && !isDeveloperMode) return false;
-            return true;
-          }).map((item) => (
+          {visibleNavItems.map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end} className={navItemClass}>
               {item.label}
             </NavLink>

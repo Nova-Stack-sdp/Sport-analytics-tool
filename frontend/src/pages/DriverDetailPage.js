@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { getCachedImageUrl, getDriver, getDriverImageUrl } from '../api/client';
+import FollowButton from '../components/FollowButton';
 
 // Prefers a photo uploaded for this driver (stored in our database), then the
 // Firestore-cached headshot (populated by this very page load the first time
@@ -34,12 +35,6 @@ function position(value) {
 function points(value) {
   const numeric = Number(value || 0);
   return Number.isInteger(numeric) ? numeric : numeric.toFixed(1);
-}
-
-function gap(value) {
-  if (value == null) return '—';
-  if (value === 0 || value === '0') return 'Winner';
-  return String(value).startsWith('+') ? value : `+${value}`;
 }
 
 function DriverDetailPage() {
@@ -81,7 +76,19 @@ function DriverDetailPage() {
           </div>
           <div>
             <div className="dd-team">{driver.teamName}</div>
-            <h1 className="dd-name">{driver.name}</h1>
+            <div className="dd-name-row">
+              <h1 className="dd-name">{driver.name}</h1>
+              <FollowButton
+                type="driver"
+                entity={{
+                  id: driver.id,
+                  name: driver.name,
+                  number: driver.number,
+                  teamName: driver.teamName,
+                  teamColor: driver.teamColor,
+                }}
+              />
+            </div>
             {(driver.broadcastName || driver.acronym) && (
               <div className="dd-broadcast">{[driver.broadcastName, driver.acronym].filter(Boolean).join(' · ')}</div>
             )}
@@ -127,34 +134,38 @@ function DriverDetailPage() {
           </div>
         </div>
 
-        {driver.results?.length > 0 && (
-          <div className="dd-results-wrap">
-            <div className="dd-results-head">
-              <h2>Tracked results</h2>
-              <span>{driver.results.length} Race / Sprint sessions</span>
+        {driver.results?.length > 0 && (() => {
+          // "Unknown" rows are sessions that haven't happened yet — the
+          // calendar entry exists but there's no result to show, so they're
+          // filtered out here rather than rendered as a row of dashes.
+          const finishedResults = driver.results.filter((result) => result.status !== 'Unknown');
+          if (finishedResults.length === 0) return null;
+          return (
+            <div className="dd-results-wrap">
+              <div className="dd-results-head">
+                <h2>Tracked results</h2>
+                <span>{finishedResults.length} Race / Sprint sessions</span>
+              </div>
+              <div className="dd-results-scroll">
+                <table className="results">
+                  <thead>
+                    <tr><th>Race</th><th>Finish</th><th>Status</th><th>Points</th></tr>
+                  </thead>
+                  <tbody>
+                    {finishedResults.map((result) => (
+                      <tr key={result.sessionId}>
+                        <td>{result.meetingName} · {result.type}</td>
+                        <td>{position(result.result)}</td>
+                        <td>{result.status}</td>
+                        <td>{points(result.points)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <div className="dd-results-scroll">
-              <table className="results">
-                <thead>
-                  <tr><th>Race</th><th>Grid</th><th>Finish</th><th>Status</th><th>Laps</th><th>Gap</th><th>Points</th></tr>
-                </thead>
-                <tbody>
-                  {driver.results.map((result) => (
-                    <tr key={result.sessionId}>
-                      <td>{result.meetingName} · {result.type}</td>
-                      <td>{position(result.qualified)}</td>
-                      <td>{position(result.result)}</td>
-                      <td>{result.status}</td>
-                      <td>{result.laps ?? '—'}</td>
-                      <td>{gap(result.gapToLeader)}</td>
-                      <td>{points(result.points)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
     </div>
   );

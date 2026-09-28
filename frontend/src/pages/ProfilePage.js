@@ -11,6 +11,9 @@ import {
   saveLocalProfile,
   validateProfileImage,
 } from '../services/userProfile';
+import { readFollows, subscribeToFollows, unfollowDriver, unfollowTeam } from '../services/followService';
+import FollowingListModal from '../components/FollowingListModal';
+import ProfileCalendar from '../components/ProfileCalendar';
 
 const PROFILE_TABS = ['User Profile', 'News Feed', 'Calendar'];
 
@@ -49,6 +52,15 @@ function ProfilePage() {
   const [saveState, setSaveState] = useState('idle');
   const [message, setMessage] = useState('');
   const [activeTab, setActiveTab] = useState('User Profile');
+  const [follows, setFollows] = useState(() => readFollows(user?.uid));
+  const [followModalOpen, setFollowModalOpen] = useState(false);
+
+  useEffect(() => {
+    setFollows(readFollows(user?.uid));
+    return subscribeToFollows(user?.uid, () => setFollows(readFollows(user?.uid)));
+  }, [user?.uid]);
+
+  const followCount = follows.drivers.length + follows.teams.length;
 
   useEffect(() => {
     const savedProfile = readLocalProfile(user);
@@ -175,8 +187,21 @@ function ProfilePage() {
               </span>
             </div>
           </div>
+          <button type="button" className="btn btn-ghost profile-following-btn" onClick={() => setFollowModalOpen(true)}>
+            Following <span className="profile-following-count">{followCount}</span>
+          </button>
           <Link to="/settings" className="btn btn-ghost profile-settings-link">Account settings</Link>
         </section>
+
+        {followModalOpen && (
+          <FollowingListModal
+            drivers={follows.drivers}
+            teams={follows.teams}
+            onUnfollowDriver={(driverId) => setFollows(unfollowDriver(user.uid, driverId))}
+            onUnfollowTeam={(teamId) => setFollows(unfollowTeam(user.uid, teamId))}
+            onClose={() => setFollowModalOpen(false)}
+          />
+        )}
 
         <div className="profile-grid">
           <section className="card profile-card">
@@ -269,6 +294,18 @@ function ProfilePage() {
           <button className="btn btn-ghost" type="button" onClick={handleSignOut}>Sign out</button>
         </section>
           </>
+        )}
+
+        {activeTab === 'Calendar' && (
+          <section className="card profile-card profile-calendar-card">
+            <div className="card-head">
+              <div>
+                <div className="card-title">Season calendar</div>
+                <div className="card-title-sub">Every tracked race weekend this season.</div>
+              </div>
+            </div>
+            <ProfileCalendar />
+          </section>
         )}
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getTeam } from '../api/client';
+import FollowButton from '../components/FollowButton';
 
 function TeamDetailPage() {
   const { id } = useParams();
@@ -33,6 +34,11 @@ function TeamDetailPage() {
       <div className="content">
         <div className="tag">Constructor profile</div>
         <div className="td-hero" style={{ '--tc': team.color }}>
+          <FollowButton
+            type="team"
+            entity={{ id: team.id, name: team.name, color: team.color, logoUrl: team.logoUrl }}
+            className="td-follow-btn"
+          />
           {team.logoUrl && <img className="td-logo" src={team.logoUrl} alt={team.name} />}
           <h1>{team.name}</h1>
           <div className="td-drivers-row">
