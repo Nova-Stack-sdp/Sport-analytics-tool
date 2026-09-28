@@ -304,7 +304,7 @@ function ProfilePage() {
                 <div className="card-title-sub">Every tracked race weekend this season.</div>
               </div>
             </div>
-            <ProfileCalendar />
+            <ProfileCalendar follows={follows} />
           </section>
         )}
       </div>
