@@ -1,0 +1,3199 @@
+{
+ "meta": {
+  "race": "Ontario Honda Dealers Indy Toronto 2025 (NTT IndyCar Series)",
+  "circuit": "Streets of Toronto, 1.7 mi, 11 turns, concrete walls, notoriously bumpy, tight pit lane",
+  "race_laps": 90,
+  "green_flag_video_s": 535,
+  "video_length_hint_s": 7747,
+  "timebase_note": "Caption timestamps are video time. Ad breaks are live. Official race time was 1:48:23.9 from green; video time at the checkered is a few minutes earlier than green+1:48 would predict, so drift of up to ~3 min is possible late in the race. Prefer lap_calibration and official_time_anchors over race_elapsed_s_est. Green laps are ~62-64 s.",
+  "source_caveats": [
+   "Auto-captions: names, numbers and some laps are wrong; use driver aliases to normalize.",
+   "Lap numbers are only filled where the broadcast stated or clearly implied them; others are null or marked estimates.",
+   "The transcript has NO continuous brake, pressure or speed telemetry. braking_related events are qualitative (late/early/lockup/defense). Tire pressure only appears as two setup remarks. Use IndyCar API for real telemetry and use these events as labelled context.",
+   "Conflicting statements are flagged with stop_lap_conflict or confidence: low."
+  ],
+  "corrections_log": [
+   "Grid/finish/stops now taken from the official classification (Palou started 2nd, not top-12 unknown; Armstrong 3rd; Simpson 2 stops).",
+   "Caution 4 start lap set to 37 and caution 5 to 89 per Fox RaceTrax.",
+   "Foster finished 21st (67 laps), not a DNF at the pileup; Daly and Robb are Juncos Hollinger, not ECR.",
+   "'Seagull' renamed to Siegel."
+  ],
+  "sections": [
+   "meta",
+   "race_facts",
+   "official_results",
+   "derived_stats",
+   "official_time_anchors",
+   "drivers",
+   "lap_calibration",
+   "cautions",
+   "dead_air_windows",
+   "events",
+   "derived_metric_hints"
+  ]
+ },
+ "race_facts": {
+  "event": "Ontario Honda Dealers Indy Toronto, round 13 of 2025 NTT IndyCar Series",
+  "date": "2025-07-20",
+  "scheduled_start": "12:00 PM ET (FOX broadcast)",
+  "venue": "Exhibition Place street circuit, Toronto",
+  "length_mi": 1.786,
+  "length_km": 2.874,
+  "turns": 11,
+  "distance": {
+   "laps": 90,
+   "miles": 160.72,
+   "km": 258.66
+  },
+  "circuit_history": "Toronto street circuit spectator capacity ~73,000; 2025 was the last IndyCar race held at Exhibition Place per the circuit article.",
+  "pole": {
+   "driver": "Herta",
+   "time_s": 59.832,
+   "team": "Andretti Global"
+  },
+  "fastest_lap": {
+   "driver": "Herta",
+   "time": "1:01.6540",
+   "lap": 66
+  },
+  "official_race_time": "1:48:23.9092",
+  "winning_margin_note": "O'Ward won under yellow; VeeKay listed +0.4843 s, Simpson +1.5343 s (gaps compressed by the final caution).",
+  "weather": {
+   "forecast_only": {
+    "race_day_high_c": 26,
+    "race_day_high_f": 79,
+    "sky": "partly cloudy",
+    "source": "AccuWeather forecast quoted by openwheelworld.net; a forecast, not an observed reading"
+   },
+   "observed_from_broadcast": {
+    "overnight": "Rain washed rubber off the circuit (broadcast, 6:34)",
+    "morning_warmup": "Wet-to-dry; added no grip (6:42-6:50)",
+    "race": "Commentary reports a dry race with no rain or wet-tire calls",
+    "grip_evolution": "Fastest warm-up lap 1:06.12 (Lundgaard) vs pole 59.83 = about 6.3 s slower, then cars ran ~1:02 by lap 20; track ramped up quickly from a clean start"
+   },
+   "gap": "No observed race-day air or track temperature was found."
+  },
+  "tires": {
+   "supplier": "Firestone",
+   "primary": "black sidewall (called hard/prime in transcript)",
+   "alternate": "green sidewall (soft/alternate in transcript)",
+   "transcript_estimates": {
+    "soft_life_laps_pre_race": "<10",
+    "soft_cliff_observed": "7-12 laps",
+    "hard_stint_max_est": "~30 laps"
+   },
+   "note": "Qualifying: O'Ward said the alternate was 0.7 s slower in Q2 than Q1 with no explanation (Crash.net)."
+  },
+  "fuel": {
+   "supplier": "Shell 100% renewable fuel (mentioned in transcript)",
+   "laps_per_tank_est": 35,
+   "stops_needed": "2 (mathematically), 3 for most cars",
+   "home_lap_fuel_target_note": "Palou team target: reach lap ~56 on the tank from the second stop"
+  },
+  "championship": {
+   "before": {
+    "leader": "Palou",
+    "gap_to_O'Ward": 129
+   },
+   "after": {
+    "Palou": 536,
+    "O'Ward": 437,
+    "Kirkwood": 363,
+    "Dixon": 362,
+    "Lundgaard": 317
+   },
+   "gap_after": 99,
+   "races_remaining": 4
+  },
+  "storylines": [
+   "O'Ward's back-to-back wins (Iowa then Toronto); Arrow McLaren's first win at Toronto in the transcript's telling.",
+   "Simpson's first IndyCar podium after starting 13th; VeeKay's second place for Dale Coyne.",
+   "Ferrucci did not start after a hard warm-up crash (not cleared by IndyCar medical).",
+   "Newgarden's fourth crash in six races, per the broadcast.",
+   "Bird dropped on O'Ward's car before warm-up; he called it good luck (broadcast 1:59:03, Crash.net).",
+   "Rossi's wall contact: a lip in the concrete wall sheared the right rear (heavy debris, pits held closed).",
+   "Wheel-nut failure on McLaughlin's car on lap 2-3 triggered caution 1; Malukas had a wheel-fitting issue at his last stop (~lap 75)."
+  ],
+  "sources": [
+   "https://en.wikipedia.org/wiki/2025_Ontario_Honda_Dealers_Indy_Toronto",
+   "https://www.foxsports.com/motor/ontario-honda-dealers-indy-toronto-ntt-indycar-series-jul-20-2025-racetrax-5864",
+   "https://www.crash.net/indycar/news/1077580/1/indycar-indy-toronto-2025-race-results",
+   "https://www.openwheelworld.net/en/news/16940/whatsapp:/send",
+   "https://en.wikipedia.org/wiki/Toronto_Street_Circuit"
+  ]
+ },
+ "official_results": [
+  {
+   "finish_pos": 1,
+   "driver": "O'Ward",
+   "car": 5,
+   "team": "Arrow McLaren",
+   "laps_completed": 90,
+   "status_or_gap": "1:48:23.9092",
+   "pit_stops": 3,
+   "grid": 10,
+   "laps_led": 30,
+   "points": 51,
+   "positions_gained": 9
+  },
+  {
+   "finish_pos": 2,
+   "driver": "VeeKay",
+   "car": 18,
+   "team": "Dale Coyne Racing",
+   "laps_completed": 90,
+   "status_or_gap": "+0.4843",
+   "pit_stops": 2,
+   "grid": 9,
+   "laps_led": 16,
+   "points": 41,
+   "positions_gained": 7
+  },
+  {
+   "finish_pos": 3,
+   "driver": "Simpson",
+   "car": 8,
+   "team": "Chip Ganassi Racing",
+   "laps_completed": 90,
+   "status_or_gap": "+1.5343",
+   "pit_stops": 2,
+   "grid": 13,
+   "laps_led": 0,
+   "points": 35,
+   "positions_gained": 10
+  },
+  {
+   "finish_pos": 4,
+   "driver": "Herta",
+   "car": 26,
+   "team": "Andretti Global",
+   "laps_completed": 90,
+   "status_or_gap": "+2.1607",
+   "pit_stops": 3,
+   "grid": 1,
+   "laps_led": 6,
+   "points": 34,
+   "positions_gained": -3
+  },
+  {
+   "finish_pos": 5,
+   "driver": "Ericsson",
+   "car": 28,
+   "team": "Andretti Global",
+   "laps_completed": 90,
+   "status_or_gap": "+3.7515",
+   "pit_stops": 3,
+   "grid": 8,
+   "laps_led": 1,
+   "points": 31,
+   "positions_gained": 3
+  },
+  {
+   "finish_pos": 6,
+   "driver": "Kirkwood",
+   "car": 27,
+   "team": "Andretti Global",
+   "laps_completed": 90,
+   "status_or_gap": "+4.9472",
+   "pit_stops": 3,
+   "grid": 6,
+   "laps_led": 0,
+   "points": 28,
+   "positions_gained": 0
+  },
+  {
+   "finish_pos": 7,
+   "driver": "Rahal",
+   "car": 15,
+   "team": "Rahal Letterman Lanigan",
+   "laps_completed": 90,
+   "status_or_gap": "+5.5657",
+   "pit_stops": 3,
+   "grid": 5,
+   "laps_led": 0,
+   "points": 26,
+   "positions_gained": -2
+  },
+  {
+   "finish_pos": 8,
+   "driver": "Ilott",
+   "car": 90,
+   "team": "Prema Racing",
+   "laps_completed": 90,
+   "status_or_gap": "+6.5438",
+   "pit_stops": 3,
+   "grid": 11,
+   "laps_led": 0,
+   "points": 24,
+   "positions_gained": 3
+  },
+  {
+   "finish_pos": 9,
+   "driver": "Malukas",
+   "car": 4,
+   "team": "A. J. Foyt Racing",
+   "laps_completed": 90,
+   "status_or_gap": "+7.6451",
+   "pit_stops": 3,
+   "grid": 15,
+   "laps_led": 0,
+   "points": 22,
+   "positions_gained": 6
+  },
+  {
+   "finish_pos": 10,
+   "driver": "Dixon",
+   "car": 9,
+   "team": "Chip Ganassi Racing",
+   "laps_completed": 90,
+   "status_or_gap": "+8.6954",
+   "pit_stops": 2,
+   "grid": 17,
+   "laps_led": 0,
+   "points": 20,
+   "positions_gained": 7
+  },
+  {
+   "finish_pos": 11,
+   "driver": "Power",
+   "car": 12,
+   "team": "Team Penske",
+   "laps_completed": 90,
+   "status_or_gap": "+14.0964",
+   "pit_stops": 3,
+   "grid": 4,
+   "laps_led": 0,
+   "points": 19,
+   "positions_gained": -7
+  },
+  {
+   "finish_pos": 12,
+   "driver": "Palou",
+   "car": 10,
+   "team": "Chip Ganassi Racing",
+   "laps_completed": 90,
+   "status_or_gap": "+14.9701",
+   "pit_stops": 2,
+   "grid": 2,
+   "laps_led": 37,
+   "points": 21,
+   "positions_gained": -10
+  },
+  {
+   "finish_pos": 13,
+   "driver": "Lundgaard",
+   "car": 7,
+   "team": "Arrow McLaren",
+   "laps_completed": 90,
+   "status_or_gap": "+17.3640",
+   "pit_stops": 2,
+   "grid": 19,
+   "laps_led": 0,
+   "points": 17,
+   "positions_gained": 6
+  },
+  {
+   "finish_pos": 14,
+   "driver": "Armstrong",
+   "car": 66,
+   "team": "Meyer Shank Racing",
+   "laps_completed": 90,
+   "status_or_gap": "+43.9148",
+   "pit_stops": 3,
+   "grid": 3,
+   "laps_led": 0,
+   "points": 16,
+   "positions_gained": -11
+  },
+  {
+   "finish_pos": 15,
+   "driver": "Daly",
+   "car": 76,
+   "team": "Juncos Hollinger Racing",
+   "laps_completed": 90,
+   "status_or_gap": "+45.4310",
+   "pit_stops": 3,
+   "grid": 21,
+   "laps_led": 0,
+   "points": 15,
+   "positions_gained": 6
+  },
+  {
+   "finish_pos": 16,
+   "driver": "Shwartzman",
+   "car": 83,
+   "team": "Prema Racing",
+   "laps_completed": 90,
+   "status_or_gap": "+46.0249",
+   "pit_stops": 3,
+   "grid": 20,
+   "laps_led": 0,
+   "points": 14,
+   "positions_gained": 4
+  },
+  {
+   "finish_pos": 17,
+   "driver": "Robb",
+   "car": 77,
+   "team": "Juncos Hollinger Racing",
+   "laps_completed": 89,
+   "status_or_gap": "-1 lap",
+   "pit_stops": 2,
+   "grid": 25,
+   "laps_led": 0,
+   "points": 13,
+   "positions_gained": 8
+  },
+  {
+   "finish_pos": 18,
+   "driver": "Siegel",
+   "car": 6,
+   "team": "Arrow McLaren",
+   "laps_completed": 87,
+   "status_or_gap": "Accident",
+   "pit_stops": 3,
+   "grid": 12,
+   "laps_led": 0,
+   "points": 12
+  },
+  {
+   "finish_pos": 19,
+   "driver": "Rosenqvist",
+   "car": 60,
+   "team": "Meyer Shank Racing",
+   "laps_completed": 86,
+   "status_or_gap": "Accident",
+   "pit_stops": 3,
+   "grid": 16,
+   "laps_led": 0,
+   "points": 11
+  },
+  {
+   "finish_pos": 20,
+   "driver": "Rasmussen",
+   "car": 21,
+   "team": "ECR",
+   "laps_completed": 82,
+   "status_or_gap": "Retired",
+   "pit_stops": 2,
+   "grid": 22,
+   "laps_led": 0,
+   "points": 10
+  },
+  {
+   "finish_pos": 21,
+   "driver": "Foster",
+   "car": 45,
+   "team": "Rahal Letterman Lanigan",
+   "laps_completed": 67,
+   "status_or_gap": "-23 laps",
+   "pit_stops": 2,
+   "grid": 7,
+   "laps_led": 0,
+   "points": 9
+  },
+  {
+   "finish_pos": 22,
+   "driver": "DeFrancesco",
+   "car": 30,
+   "team": "Rahal Letterman Lanigan",
+   "laps_completed": 57,
+   "status_or_gap": "Retired",
+   "pit_stops": 2,
+   "grid": 26,
+   "laps_led": 0,
+   "points": 8
+  },
+  {
+   "finish_pos": 23,
+   "driver": "Abel",
+   "car": 51,
+   "team": "Dale Coyne Racing",
+   "laps_completed": 36,
+   "status_or_gap": "Accident",
+   "pit_stops": 2,
+   "grid": 27,
+   "laps_led": 0,
+   "points": 7
+  },
+  {
+   "finish_pos": 24,
+   "driver": "Newgarden",
+   "car": 2,
+   "team": "Team Penske",
+   "laps_completed": 36,
+   "status_or_gap": "Accident",
+   "pit_stops": 1,
+   "grid": 18,
+   "laps_led": 0,
+   "points": 6
+  },
+  {
+   "finish_pos": 25,
+   "driver": "Rossi",
+   "car": 20,
+   "team": "ECR",
+   "laps_completed": 29,
+   "status_or_gap": "Accident",
+   "pit_stops": 0,
+   "grid": 24,
+   "laps_led": 0,
+   "points": 5
+  },
+  {
+   "finish_pos": 26,
+   "driver": "McLaughlin",
+   "car": 3,
+   "team": "Team Penske",
+   "laps_completed": 2,
+   "status_or_gap": "Accident",
+   "pit_stops": 1,
+   "grid": 14,
+   "laps_led": 0,
+   "points": 5
+  },
+  {
+   "finish_pos": 27,
+   "driver": "Ferrucci",
+   "car": 14,
+   "team": "A. J. Foyt Racing",
+   "laps_completed": 0,
+   "status_or_gap": "Did not start",
+   "pit_stops": 0,
+   "grid": 23,
+   "laps_led": 0,
+   "points": 3
+  }
+ ],
+ "derived_stats": {
+  "laps_led": {
+   "Palou": 37,
+   "O'Ward": 30,
+   "VeeKay": 16,
+   "Herta": 6,
+   "Ericsson": 1,
+   "total_check": 90
+  },
+  "stops_vs_finish_lead_lap": {
+   "two_stop": {
+    "drivers": [
+     "VeeKay",
+     "Simpson",
+     "Dixon",
+     "Palou",
+     "Lundgaard"
+    ],
+    "finishes": [
+     2,
+     3,
+     10,
+     12,
+     13
+    ],
+    "avg_finish": 8.0
+   },
+   "three_stop": {
+    "n": 11,
+    "avg_finish": 8.73
+   },
+   "note": "Averages are nearly identical; the spread within two-stoppers (P2 to P13) shows caution timing mattered more than stop count."
+  },
+  "biggest_movers": [
+   {
+    "driver": "Simpson",
+    "grid": 13,
+    "finish": 3,
+    "gained": 10
+   },
+   {
+    "driver": "O'Ward",
+    "grid": 10,
+    "finish": 1,
+    "gained": 9
+   },
+   {
+    "driver": "Robb",
+    "grid": 25,
+    "finish": 17,
+    "gained": 8
+   },
+   {
+    "driver": "VeeKay",
+    "grid": 9,
+    "finish": 2,
+    "gained": 7
+   },
+   {
+    "driver": "Dixon",
+    "grid": 17,
+    "finish": 10,
+    "gained": 7
+   }
+  ],
+  "biggest_losers": [
+   {
+    "driver": "Armstrong",
+    "grid": 3,
+    "finish": 14,
+    "gained": -11
+   },
+   {
+    "driver": "Palou",
+    "grid": 2,
+    "finish": 12,
+    "gained": -10
+   },
+   {
+    "driver": "Power",
+    "grid": 4,
+    "finish": 11,
+    "gained": -7
+   },
+   {
+    "driver": "Herta",
+    "grid": 1,
+    "finish": 4,
+    "gained": -3
+   }
+  ],
+  "led_most_laps_but_finished": {
+   "driver": "Palou",
+   "laps_led": 37,
+   "finish": 12,
+   "grid": 2
+  },
+  "winner_profile": {
+   "driver": "O'Ward",
+   "grid": 10,
+   "stops": 3,
+   "laps_led": 30,
+   "first_stop_lap": 2,
+   "stop_condition": "early green stop then two caution/green stops"
+  },
+  "dnfs": [
+   "Rasmussen",
+   "Foster",
+   "DeFrancesco",
+   "Abel",
+   "Newgarden",
+   "Rossi",
+   "McLaughlin"
+  ],
+  "caution_related_dnfs": {
+   "caution_1": [
+    "McLaughlin"
+   ],
+   "caution_3": [
+    "Rossi"
+   ],
+   "caution_4": [
+    "Newgarden",
+    "Abel"
+   ]
+  }
+ },
+ "official_time_anchors": [
+  {
+   "lap": 23,
+   "note": "Palou leads by 3.0255 s; Palou fastest lap so far 61.7591 (lap 23); Palou has led 20 laps",
+   "source": "Fox RaceTrax"
+  },
+  {
+   "lap": 30,
+   "clock_et": "12:56 PM",
+   "note": "Caution 3 (Rossi) raised during lap 30",
+   "source": "Fox RaceTrax"
+  },
+  {
+   "lap": 30,
+   "clock_et": "1:08 PM",
+   "note": "Caution 3 lifted",
+   "source": "Fox RaceTrax"
+  },
+  {
+   "lap": 37,
+   "clock_et": "1:08 PM",
+   "note": "Caution 4 raised during lap 37 (restart pileup)",
+   "source": "Fox RaceTrax"
+  },
+  {
+   "lap": 66,
+   "note": "Herta's race fastest lap 1:01.654",
+   "source": "Fox RaceTrax / Wikipedia"
+  },
+  {
+   "lap": 80,
+   "note": "O'Ward leads by 2.6677 s after 80 laps",
+   "source": "Fox RaceTrax"
+  },
+  {
+   "lap": 89,
+   "clock_et": "2:07 PM",
+   "note": "Final caution (Rosenqvist/Siegel) raised during lap 89",
+   "source": "Fox RaceTrax"
+  }
+ ],
+ "drivers": {
+  "Palou": {
+   "aliases": [
+    "Alex Po",
+    "Pollo",
+    "Palo",
+    "Alex Pollo",
+    "Po"
+   ],
+   "team": "Chip Ganassi Racing",
+   "finish": 12,
+   "role": "championship leader, led most laps",
+   "car": 10,
+   "start_pos": 2,
+   "laps_completed": 90,
+   "pit_stops_total": 2,
+   "laps_led": 37,
+   "note": "Started on hard, led 37 laps, finished 12th; championship leader",
+   "tire_start": "hard"
+  },
+  "O'Ward": {
+   "aliases": [
+    "Pato O'Ward",
+    "Paw Award",
+    "P a Ward",
+    "Patard",
+    "Pau Ward",
+    "Po Award",
+    "PTO Award"
+   ],
+   "team": "Arrow McLaren",
+   "finish": 1,
+   "car": 5,
+   "start_pos": 10,
+   "laps_completed": 90,
+   "pit_stops_total": 3,
+   "laps_led": 30
+  },
+  "VeeKay": {
+   "aliases": [
+    "Rinus VeeKay",
+    "Reus VK",
+    "VK",
+    "Reena's VK"
+   ],
+   "team": "Dale Coyne Racing",
+   "start_pos": 9,
+   "finish": 2,
+   "car": 18,
+   "laps_completed": 90,
+   "pit_stops_total": 2,
+   "laps_led": 16
+  },
+  "Simpson": {
+   "aliases": [
+    "Kyffin Simpson",
+    "Kein Simpson",
+    "Keifin Simpson"
+   ],
+   "team": "Chip Ganassi Racing",
+   "start_pos": 13,
+   "finish": 3,
+   "note": "First IndyCar podium; biggest mover, 13th to 3rd (+10)",
+   "car": 8,
+   "laps_completed": 90,
+   "pit_stops_total": 2,
+   "laps_led": 0
+  },
+  "Herta": {
+   "aliases": [
+    "Colton Herta",
+    "Colton Hera",
+    "Coen Herd",
+    "Colton Herder"
+   ],
+   "team": "Andretti Global",
+   "start_pos": 1,
+   "finish": 4,
+   "car": 26,
+   "laps_completed": 90,
+   "pit_stops_total": 3,
+   "laps_led": 6
+  },
+  "Ericsson": {
+   "aliases": [
+    "Marcus Ericsson",
+    "Marcus Erikson",
+    "Erikson"
+   ],
+   "team": "Andretti Global",
+   "finish": 5,
+   "car": 28,
+   "start_pos": 8,
+   "laps_completed": 90,
+   "pit_stops_total": 3,
+   "laps_led": 1
+  },
+  "Kirkwood": {
+   "aliases": [
+    "Kyle Kirkwood"
+   ],
+   "team": "Andretti Global",
+   "finish": 6,
+   "car": 27,
+   "start_pos": 6,
+   "laps_completed": 90,
+   "pit_stops_total": 3,
+   "laps_led": 0
+  },
+  "Rahal": {
+   "aliases": [
+    "Graham Rahal",
+    "Ray Hall",
+    "Rayhall"
+   ],
+   "team": "Rahal Letterman Lanigan",
+   "start_pos": 5,
+   "finish": 7,
+   "car": 15,
+   "laps_completed": 90,
+   "pit_stops_total": 3,
+   "laps_led": 0
+  },
+  "Ilott": {
+   "aliases": [
+    "Callum Ilott",
+    "Calamo",
+    "Callumot",
+    "Elock"
+   ],
+   "team": "Prema Racing",
+   "finish": 8,
+   "car": 90,
+   "start_pos": 11,
+   "laps_completed": 90,
+   "pit_stops_total": 3,
+   "laps_led": 0
+  },
+  "Malukas": {
+   "aliases": [
+    "David Malukas",
+    "Mucas",
+    "Malucas",
+    "Lucas"
+   ],
+   "team": "A. J. Foyt Racing",
+   "finish": 9,
+   "car": 4,
+   "start_pos": 15,
+   "laps_completed": 90,
+   "pit_stops_total": 3,
+   "laps_led": 0
+  },
+  "Dixon": {
+   "aliases": [
+    "Scott Dixon"
+   ],
+   "team": "Chip Ganassi Racing",
+   "start_pos": 17,
+   "finish": 10,
+   "car": 9,
+   "laps_completed": 90,
+   "pit_stops_total": 2,
+   "laps_led": 0
+  },
+  "Power": {
+   "aliases": [
+    "Will Power",
+    "Willpower"
+   ],
+   "team": "Team Penske",
+   "finish": 11,
+   "car": 12,
+   "start_pos": 4,
+   "laps_completed": 90,
+   "pit_stops_total": 3,
+   "laps_led": 0
+  },
+  "Foster": {
+   "aliases": [
+    "Louis Foster"
+   ],
+   "team": "Rahal Letterman Lanigan",
+   "start_pos": 7,
+   "finish": 21,
+   "note": "Hard-hard plan; involved in caution-4 pileup, later hit wall again, 23 laps down",
+   "car": 45,
+   "laps_completed": 67,
+   "pit_stops_total": 2,
+   "laps_led": 0,
+   "tire_start": "hard"
+  },
+  "Armstrong": {
+   "aliases": [
+    "Marcus Armstrong"
+   ],
+   "team": "Meyer Shank Racing",
+   "start_pos": 3,
+   "car": 66,
+   "finish": 14,
+   "laps_completed": 90,
+   "pit_stops_total": 3,
+   "laps_led": 0
+  },
+  "Rosenqvist": {
+   "aliases": [
+    "Felix Rosenquist",
+    "Rosenquist",
+    "Rosquist"
+   ],
+   "team": "Meyer Shank Racing",
+   "note": "drove most of race with damaged front wing",
+   "car": 60,
+   "start_pos": 16,
+   "finish": "19 (Accident)",
+   "laps_completed": 86,
+   "pit_stops_total": 3,
+   "laps_led": 0
+  },
+  "Lundgaard": {
+   "aliases": [
+    "Christian Lundgaard",
+    "Lunard",
+    "Lungard",
+    "Lindgard"
+   ],
+   "team": "Arrow McLaren",
+   "car": 7,
+   "start_pos": 19,
+   "finish": 13,
+   "laps_completed": 90,
+   "pit_stops_total": 2,
+   "laps_led": 0
+  },
+  "Shwartzman": {
+   "aliases": [
+    "Robert Schwarzman",
+    "Schwarzman"
+   ],
+   "team": "Prema Racing",
+   "strategy": "hard-hard-soft (3 stops per transcript)",
+   "car": 83,
+   "start_pos": 20,
+   "finish": 16,
+   "laps_completed": 90,
+   "pit_stops_total": 3,
+   "laps_led": 0
+  },
+  "Newgarden": {
+   "aliases": [
+    "Josef Newgarden",
+    "Joseph New Garden",
+    "New Garden"
+   ],
+   "team": "Team Penske",
+   "finish": "24 (Accident)",
+   "car": 2,
+   "start_pos": 18,
+   "laps_completed": 36,
+   "pit_stops_total": 1,
+   "laps_led": 0,
+   "note": "Caught in caution-4 restart pileup, 36 laps"
+  },
+  "McLaughlin": {
+   "aliases": [
+    "Scott McLaughlin",
+    "McLolin",
+    "Mclin"
+   ],
+   "team": "Team Penske",
+   "finish": "26 (Accident)",
+   "car": 3,
+   "start_pos": 14,
+   "laps_completed": 2,
+   "pit_stops_total": 1,
+   "laps_led": 0,
+   "note": "Wheel came off after stop on lap 2-3 (caution 1)"
+  },
+  "Rossi": {
+   "aliases": [
+    "Alexander Rossi",
+    "Rossy"
+   ],
+   "team": "ECR",
+   "finish": "25 (Accident)",
+   "car": 20,
+   "start_pos": 24,
+   "laps_completed": 29,
+   "pit_stops_total": 0,
+   "laps_led": 0,
+   "note": "Wall lip destroyed right rear on lap 29-30 (caution 3)"
+  },
+  "Abel": {
+   "aliases": [
+    "Jacob Abel",
+    "Ael",
+    "Able"
+   ],
+   "team": "Dale Coyne Racing",
+   "finish": "23 (Accident)",
+   "car_no": 51,
+   "car": 51,
+   "start_pos": 27,
+   "laps_completed": 36,
+   "pit_stops_total": 2,
+   "laps_led": 0
+  },
+  "Rasmussen": {
+   "aliases": [
+    "Christian Rasmussen",
+    "Rasmusen",
+    "Rasmmanson"
+   ],
+   "team": "ECR",
+   "car": 21,
+   "start_pos": 22,
+   "finish": "20 (Retired)",
+   "laps_completed": 82,
+   "pit_stops_total": 2,
+   "laps_led": 0
+  },
+  "DeFrancesco": {
+   "aliases": [
+    "Devlin DeFrancesco",
+    "D Franchesco",
+    "De Franchesco"
+   ],
+   "team": "Rahal Letterman Lanigan",
+   "car": 30,
+   "start_pos": 26,
+   "finish": "22 (Retired)",
+   "laps_completed": 57,
+   "pit_stops_total": 2,
+   "laps_led": 0
+  },
+  "Siegel": {
+   "aliases": [
+    "Nolan Siegel",
+    "Seagull",
+    "Seagul"
+   ],
+   "team": "Arrow McLaren",
+   "car": 6,
+   "start_pos": 12,
+   "finish": "18 (Accident)",
+   "laps_completed": 87,
+   "pit_stops_total": 3,
+   "laps_led": 0
+  },
+  "Daly": {
+   "aliases": [
+    "Conor Daly",
+    "Connor Daly",
+    "Dailyy"
+   ],
+   "team": "Juncos Hollinger Racing",
+   "car": 76,
+   "start_pos": 21,
+   "finish": 15,
+   "laps_completed": 90,
+   "pit_stops_total": 3,
+   "laps_led": 0
+  },
+  "Robb": {
+   "aliases": [
+    "Sting Ray Robb",
+    "Stingray Rob"
+   ],
+   "team": "Juncos Hollinger Racing",
+   "car": 77,
+   "start_pos": 25,
+   "finish": 17,
+   "laps_completed": 89,
+   "pit_stops_total": 2,
+   "laps_led": 0
+  },
+  "Ferrucci": {
+   "aliases": [
+    "Santino Ferrucci",
+    "Santina Fucci",
+    "Fuchi"
+   ],
+   "team": "A. J. Foyt Racing",
+   "finish": "DNS",
+   "car": 14,
+   "start_pos": 23,
+   "laps_completed": 0,
+   "pit_stops_total": 0,
+   "laps_led": 0
+  }
+ },
+ "lap_calibration": [
+  {
+   "video_time": "8:55",
+   "video_s": 535,
+   "lap": 1,
+   "basis": "green flag"
+  },
+  {
+   "video_time": "32:37",
+   "video_s": 1957,
+   "lap": 21,
+   "basis": "stated lap 21 of 90"
+  },
+  {
+   "video_time": "43:45",
+   "video_s": 2625,
+   "lap": 30,
+   "basis": "stated lap 30"
+  },
+  {
+   "video_time": "58:12",
+   "video_s": 3492,
+   "lap": 39,
+   "basis": "stint of 39 laps"
+  },
+  {
+   "video_time": "1:11:15",
+   "video_s": 4275,
+   "lap": 51,
+   "basis": "VeeKay running lap 51"
+  },
+  {
+   "video_time": "1:18:30",
+   "video_s": 4710,
+   "lap": 57,
+   "basis": "33 laps to go"
+  },
+  {
+   "video_time": "1:27:27",
+   "video_s": 5247,
+   "lap": 66,
+   "basis": "lap 66"
+  },
+  {
+   "video_time": "1:29:00",
+   "video_s": 5340,
+   "lap": 67,
+   "basis": "23 to go"
+  },
+  {
+   "video_time": "1:32:47",
+   "video_s": 5567,
+   "lap": 70,
+   "basis": "20 to go"
+  },
+  {
+   "video_time": "1:36:34",
+   "video_s": 5794,
+   "lap": 73,
+   "basis": "17 to go"
+  },
+  {
+   "video_time": "1:40:51",
+   "video_s": 6051,
+   "lap": 77,
+   "basis": "13 to go"
+  },
+  {
+   "video_time": "1:43:21",
+   "video_s": 6201,
+   "lap": 80,
+   "basis": "10 to go"
+  },
+  {
+   "video_time": "1:44:38",
+   "video_s": 6278,
+   "lap": 81,
+   "basis": "9 to go"
+  },
+  {
+   "video_time": "1:46:30",
+   "video_s": 6390,
+   "lap": 83,
+   "basis": "7 to go"
+  },
+  {
+   "video_time": "1:50:32",
+   "video_s": 6632,
+   "lap": 87,
+   "basis": "3 to go"
+  }
+ ],
+ "cautions": [
+  {
+   "no": 1,
+   "start": "11:47",
+   "end": "17:42",
+   "lap_start": 3,
+   "cause": "McLaughlin wheel-off after pit stop",
+   "pit_window": "open",
+   "start_s": 707,
+   "end_s": 1062,
+   "duration_s": 355
+  },
+  {
+   "no": 2,
+   "start": "25:08",
+   "end": "28:31",
+   "lap_start_est": 14,
+   "cause": "Power/Rasmussen contact, flat tire",
+   "pit_window": "open",
+   "start_s": 1508,
+   "end_s": 1711,
+   "duration_s": 203
+  },
+  {
+   "no": 3,
+   "start": "41:22",
+   "end": "52:50",
+   "lap_start": 30,
+   "cause": "Rossi wall impact, debris; pits held closed until cleared",
+   "pit_window": "delayed",
+   "start_s": 2482,
+   "end_s": 3170,
+   "duration_s": 688,
+   "lap_source": "Fox RaceTrax"
+  },
+  {
+   "no": 4,
+   "start": "52:50",
+   "end": "1:02:43",
+   "cause": "Restart multi-car pileup (Abel/Foster/Newgarden/DeFrancesco/Armstrong)",
+   "pit_window": "open",
+   "start_s": 3170,
+   "end_s": 3763,
+   "duration_s": 593,
+   "lap_start": 37,
+   "lap_source": "Fox RaceTrax"
+  },
+  {
+   "no": 5,
+   "start": "1:51:15",
+   "end": null,
+   "lap_start": 89,
+   "cause": "Rosenqvist/Siegel incident at turn 10, race ends under yellow",
+   "start_s": 6675,
+   "end_s": null,
+   "duration_s": null,
+   "lap_source": "Fox RaceTrax"
+  }
+ ],
+ "dead_air_windows": [
+  {
+   "from": "14:23",
+   "to": "16:17",
+   "from_s": 863,
+   "to_s": 977,
+   "gap_s": 114,
+   "note": "no commentary; race continues in real time (commercial/music)"
+  },
+  {
+   "from": "25:26",
+   "to": "27:10",
+   "from_s": 1526,
+   "to_s": 1630,
+   "gap_s": 104,
+   "note": "no commentary; race continues in real time (commercial/music)"
+  },
+  {
+   "from": "34:08",
+   "to": "37:10",
+   "from_s": 2048,
+   "to_s": 2230,
+   "gap_s": 182,
+   "note": "no commentary; race continues in real time (commercial/music)"
+  },
+  {
+   "from": "49:49",
+   "to": "52:50",
+   "from_s": 2989,
+   "to_s": 3170,
+   "gap_s": 181,
+   "note": "no commentary; race continues in real time (commercial/music)"
+  },
+  {
+   "from": "54:03",
+   "to": "56:57",
+   "from_s": 3243,
+   "to_s": 3417,
+   "gap_s": 174,
+   "note": "no commentary; race continues in real time (commercial/music)"
+  },
+  {
+   "from": "1:06:30",
+   "to": "1:09:43",
+   "from_s": 3990,
+   "to_s": 4183,
+   "gap_s": 193,
+   "note": "no commentary; race continues in real time (commercial/music)"
+  },
+  {
+   "from": "1:13:10",
+   "to": "1:16:09",
+   "from_s": 4390,
+   "to_s": 4569,
+   "gap_s": 179,
+   "note": "no commentary; race continues in real time (commercial/music)"
+  },
+  {
+   "from": "1:21:27",
+   "to": "1:24:26",
+   "from_s": 4887,
+   "to_s": 5066,
+   "gap_s": 179,
+   "note": "no commentary; race continues in real time (commercial/music)"
+  },
+  {
+   "from": "1:29:08",
+   "to": "1:32:04",
+   "from_s": 5348,
+   "to_s": 5524,
+   "gap_s": 176,
+   "note": "no commentary; race continues in real time (commercial/music)"
+  },
+  {
+   "from": "1:36:34",
+   "to": "1:39:38",
+   "from_s": 5794,
+   "to_s": 5978,
+   "gap_s": 184,
+   "note": "no commentary; race continues in real time (commercial/music)"
+  },
+  {
+   "from": "2:03:14",
+   "to": "2:05:05",
+   "from_s": 7394,
+   "to_s": 7505,
+   "gap_s": 111,
+   "note": "no commentary; race continues in real time (commercial/music)"
+  }
+ ],
+ "events": [
+  {
+   "id": "e001",
+   "video_time": "2:36",
+   "video_s": 156,
+   "race_elapsed_s_est": -379,
+   "type": "field",
+   "drivers": [],
+   "lap": null,
+   "detail": "Ferrucci (23rd on grid) does not start; 26 starters, empty slot 23.",
+   "confidence": "high"
+  },
+  {
+   "id": "e002",
+   "video_time": "6:34",
+   "video_s": 394,
+   "race_elapsed_s_est": -141,
+   "type": "track_condition",
+   "drivers": [],
+   "lap": null,
+   "detail": "Overnight rain washed rubber off the circuit; wet-to-dry warm-up added no grip, so everyone effectively starts on a green track.",
+   "confidence": "high"
+  },
+  {
+   "id": "e003",
+   "video_time": "6:54",
+   "video_s": 414,
+   "race_elapsed_s_est": -121,
+   "type": "strategy_setup",
+   "drivers": [
+    "Palou",
+    "Foster"
+   ],
+   "lap": null,
+   "detail": "Only two of the top 12 start on the hard (black) tire: Palou and Foster (RLL). Everyone else on softs (green sidewall).",
+   "confidence": "high",
+   "tire": {
+    "Palou": "hard",
+    "Foster": "hard",
+    "others_top12": "soft"
+   }
+  },
+  {
+   "id": "e004",
+   "video_time": "7:01",
+   "video_s": 421,
+   "race_elapsed_s_est": -114,
+   "type": "tire_model",
+   "drivers": [],
+   "lap": null,
+   "detail": "Broadcast estimate: soft tire lasts under 10 laps; teams hope for an early yellow to dump softs.",
+   "confidence": "medium",
+   "soft_life_laps_est": "<10"
+  },
+  {
+   "id": "e005",
+   "video_time": "7:13",
+   "video_s": 433,
+   "race_elapsed_s_est": -102,
+   "type": "fuel_model",
+   "drivers": [],
+   "lap": null,
+   "detail": "90-lap race; about 35 laps per tank of fuel. One stop only reaches ~70 laps, so at least two stops are needed.",
+   "confidence": "high",
+   "race_laps": 90,
+   "laps_per_tank": 35
+  },
+  {
+   "id": "e006",
+   "video_time": "8:14",
+   "video_s": 494,
+   "race_elapsed_s_est": -41,
+   "type": "grid",
+   "drivers": [
+    "Rahal",
+    "Foster"
+   ],
+   "lap": null,
+   "detail": "Qualifying: Rahal starts 5th, Foster 7th.",
+   "confidence": "high"
+  },
+  {
+   "id": "e007",
+   "video_time": "8:55",
+   "video_s": 535,
+   "race_elapsed_s_est": 0,
+   "type": "green_flag",
+   "drivers": [
+    "Herta"
+   ],
+   "lap": 1,
+   "detail": "Green flag. Herta (pole) leads. Lap 1 clean with no cautions.",
+   "confidence": "high"
+  },
+  {
+   "id": "e008",
+   "video_time": "9:12",
+   "video_s": 552,
+   "race_elapsed_s_est": 17,
+   "type": "contact",
+   "drivers": [
+    "Rosenqvist"
+   ],
+   "lap": 1,
+   "detail": "Light wall nudge for Rosenqvist at turn 1 on lap 1.",
+   "confidence": "medium",
+   "severity": "minor"
+  },
+  {
+   "id": "e009",
+   "video_time": "9:27",
+   "video_s": 567,
+   "race_elapsed_s_est": 32,
+   "type": "overtake",
+   "drivers": [
+    "Kirkwood",
+    "Palou"
+   ],
+   "lap": 1,
+   "detail": "Kirkwood passes Palou for 3rd on lap 1 (turn 3 area).",
+   "confidence": "high",
+   "turn": 3
+  },
+  {
+   "id": "e010",
+   "video_time": "9:35",
+   "video_s": 575,
+   "race_elapsed_s_est": 40,
+   "type": "defense",
+   "drivers": [
+    "Rahal",
+    "Power"
+   ],
+   "lap": 1,
+   "detail": "Rahal defends against Will Power on lap 1.",
+   "confidence": "high"
+  },
+  {
+   "id": "e011",
+   "video_time": "10:36",
+   "video_s": 636,
+   "race_elapsed_s_est": 101,
+   "type": "defense",
+   "drivers": [
+    "Armstrong",
+    "Kirkwood"
+   ],
+   "lap": 1,
+   "detail": "Armstrong defended hard in the turn-3 brake zone against Kirkwood; commentary flags possible defending-rule scrutiny (moving under braking).",
+   "confidence": "medium",
+   "turn": 3,
+   "braking_related": true
+  },
+  {
+   "id": "e012",
+   "video_time": "11:17",
+   "video_s": 677,
+   "race_elapsed_s_est": 142,
+   "type": "pit_stop",
+   "drivers": [
+    "O'Ward",
+    "Ericsson",
+    "McLaughlin"
+   ],
+   "lap": 2,
+   "detail": "Earliest stops after 2 laps: O'Ward, Ericsson, McLaughlin dump soft tires under green. Signals teams did not believe soft would last.",
+   "confidence": "high",
+   "stop_no": 1,
+   "tire_from": "soft",
+   "tire_to": "hard",
+   "trigger": "green_flag_early_stop"
+  },
+  {
+   "id": "e013",
+   "video_time": "11:47",
+   "video_s": 707,
+   "race_elapsed_s_est": 172,
+   "type": "caution_start",
+   "drivers": [
+    "McLaughlin"
+   ],
+   "lap": 3,
+   "detail": "Caution 1: McLaughlin loses rear-left wheel after his stop and hits the wall. Broadcast: wheel nut not fully tightened (two attempts, released on third).",
+   "confidence": "high",
+   "caution_no": 1,
+   "cause": "loose_wheel_after_pit_stop",
+   "pit_stop_quality": "fail"
+  },
+  {
+   "id": "e014",
+   "video_time": "13:10",
+   "video_s": 790,
+   "race_elapsed_s_est": 255,
+   "type": "pits_open",
+   "drivers": [],
+   "lap": null,
+   "detail": "Pit lane opens under caution; O'Ward/Ericsson (already in), plus most of the field piles in.",
+   "confidence": "high"
+  },
+  {
+   "id": "e015",
+   "video_time": "13:49",
+   "video_s": 829,
+   "race_elapsed_s_est": 294,
+   "type": "pit_stop",
+   "drivers": [
+    "Herta"
+   ],
+   "lap": 3,
+   "detail": "Herta stop: clean, softs to hards, no adjustments. Exits first from pit lane.",
+   "confidence": "high",
+   "stop_no": 1,
+   "tire_from": "soft",
+   "tire_to": "hard",
+   "quality": "clean",
+   "pit_exit_pos_gain": true
+  },
+  {
+   "id": "e016",
+   "video_time": "13:57",
+   "video_s": 837,
+   "race_elapsed_s_est": 302,
+   "type": "pit_stop",
+   "drivers": [
+    "Kirkwood",
+    "Armstrong",
+    "Rahal"
+   ],
+   "lap": 3,
+   "detail": "Kirkwood smooth stop; Armstrong had a clear box and exits 2nd; Rahal described as a great stop (exits just behind Kirkwood).",
+   "confidence": "medium",
+   "quality": "good"
+  },
+  {
+   "id": "e017",
+   "video_time": "16:49",
+   "video_s": 1009,
+   "race_elapsed_s_est": 474,
+   "type": "order_note",
+   "drivers": [
+    "O'Ward",
+    "Ericsson",
+    "Siegel",
+    "Herta"
+   ],
+   "lap": null,
+   "detail": "Among drivers who stopped: O'Ward leads them (running 14th), then Ericsson, Siegel, Herta from 17th.",
+   "confidence": "medium"
+  },
+  {
+   "id": "e018",
+   "video_time": "17:24",
+   "video_s": 1044,
+   "race_elapsed_s_est": 509,
+   "type": "strategy_split",
+   "drivers": [
+    "Palou",
+    "VeeKay",
+    "Foster",
+    "Simpson"
+   ],
+   "lap": null,
+   "detail": "Non-stoppers at restart: Palou (hard) leads, VeeKay 2nd (soft), Foster (hard), Simpson 4th (soft). Malukas 5th, Dixon 6th. Stoppers are now behind, giving the \"early stop\" group clean-air disadvantage but a different strategy.",
+   "confidence": "high",
+   "restart_order": [
+    "Palou",
+    "VeeKay",
+    "Foster",
+    "Simpson",
+    "Malukas",
+    "Dixon"
+   ]
+  },
+  {
+   "id": "e019",
+   "video_time": "17:42",
+   "video_s": 1062,
+   "race_elapsed_s_est": 527,
+   "type": "restart",
+   "drivers": [
+    "Palou"
+   ],
+   "lap": null,
+   "detail": "Restart 1: Palou leads on hards; excellent restart.",
+   "confidence": "high",
+   "caution_no": 1
+  },
+  {
+   "id": "e020",
+   "video_time": "18:09",
+   "video_s": 1089,
+   "race_elapsed_s_est": 554,
+   "type": "overtake",
+   "drivers": [
+    "O'Ward",
+    "Robb"
+   ],
+   "lap": null,
+   "detail": "O'Ward passes Sting Ray Robb early after restart; makes up several places from the back.",
+   "confidence": "medium"
+  },
+  {
+   "id": "e021",
+   "video_time": "18:57",
+   "video_s": 1137,
+   "race_elapsed_s_est": 602,
+   "type": "gap",
+   "drivers": [
+    "Palou",
+    "VeeKay"
+   ],
+   "lap": null,
+   "detail": "Palou pulls 1.5 s clear of VeeKay in one lap after restart.",
+   "confidence": "high",
+   "gap_s": 1.5
+  },
+  {
+   "id": "e022",
+   "video_time": "19:05",
+   "video_s": 1145,
+   "race_elapsed_s_est": 610,
+   "type": "fuel_tire_window",
+   "drivers": [
+    "Palou"
+   ],
+   "lap": null,
+   "detail": "Palou estimated able to run about 30 laps on fuel and hard tires.",
+   "confidence": "medium",
+   "stint_target_laps": 30
+  },
+  {
+   "id": "e023",
+   "video_time": "20:18",
+   "video_s": 1218,
+   "race_elapsed_s_est": 683,
+   "type": "pace_delta",
+   "drivers": [
+    "VeeKay",
+    "Palou"
+   ],
+   "lap": null,
+   "detail": "VeeKay on softs runs roughly a second per lap slower than Palou on hards.",
+   "confidence": "high",
+   "delta_s_per_lap": 1.0,
+   "tire_matchup": "soft_vs_hard"
+  },
+  {
+   "id": "e024",
+   "video_time": "21:01",
+   "video_s": 1261,
+   "race_elapsed_s_est": 726,
+   "type": "gap",
+   "drivers": [
+    "Palou",
+    "VeeKay"
+   ],
+   "lap": null,
+   "detail": "Palou leads VeeKay by 3.4 s.",
+   "confidence": "high",
+   "gap_s": 3.4
+  },
+  {
+   "id": "e025",
+   "video_time": "22:22",
+   "video_s": 1342,
+   "race_elapsed_s_est": 807,
+   "type": "tire_degradation",
+   "drivers": [
+    "Simpson"
+   ],
+   "lap": null,
+   "detail": "Soft tire on Simpson expected to fall off around lap 7-8 of the stint.",
+   "confidence": "medium",
+   "tire": "soft",
+   "cliff_laps_est": "7-8"
+  },
+  {
+   "id": "e026",
+   "video_time": "22:53",
+   "video_s": 1373,
+   "race_elapsed_s_est": 838,
+   "type": "tire_degradation",
+   "drivers": [
+    "VeeKay"
+   ],
+   "lap": null,
+   "detail": "VeeKay soft tires fall off a cliff; pace dropping fast, he is passed by Malukas, Dixon, Schwarzman, Lundgaard, Newgarden, Rossi.",
+   "confidence": "high",
+   "tire": "soft",
+   "positions_lost_est": 5,
+   "cliff_laps_est": "8-10"
+  },
+  {
+   "id": "e027",
+   "video_time": "24:05",
+   "video_s": 1445,
+   "race_elapsed_s_est": 910,
+   "type": "strategy_window",
+   "drivers": [
+    "Palou",
+    "O'Ward"
+   ],
+   "lap": null,
+   "detail": "Palou needs ~25 s of lead over O'Ward this stint to afford a two-stop plan (extra-stop gap).",
+   "confidence": "medium",
+   "needed_gap_s": 25
+  },
+  {
+   "id": "e028",
+   "video_time": "24:14",
+   "video_s": 1454,
+   "race_elapsed_s_est": 919,
+   "type": "pit_stop",
+   "drivers": [
+    "VeeKay"
+   ],
+   "lap": null,
+   "detail": "VeeKay pits (soft dead) under green. Simpson stays out on dying softs (commentary: a mistake).",
+   "confidence": "high",
+   "tire_from": "soft"
+  },
+  {
+   "id": "e029",
+   "video_time": "24:59",
+   "video_s": 1499,
+   "race_elapsed_s_est": 964,
+   "type": "defense",
+   "drivers": [
+    "Rahal"
+   ],
+   "lap": null,
+   "detail": "Rahal goes around Robb, squeezes through the tight turn 3-4-5 section.",
+   "confidence": "low"
+  },
+  {
+   "id": "e030",
+   "video_time": "25:08",
+   "video_s": 1508,
+   "race_elapsed_s_est": 973,
+   "type": "caution_start",
+   "drivers": [
+    "Rasmussen",
+    "Power"
+   ],
+   "lap": null,
+   "detail": "Caution 2: Power dives inside Rasmussen at turn 1; contact, bump into wall, Rasmussen spins with flat rear right and limps on.",
+   "confidence": "high",
+   "caution_no": 2,
+   "cause": "divebomb_contact",
+   "flat_tire": true
+  },
+  {
+   "id": "e031",
+   "video_time": "27:27",
+   "video_s": 1647,
+   "race_elapsed_s_est": 1112,
+   "type": "contact",
+   "drivers": [
+    "Power",
+    "Rosenqvist"
+   ],
+   "lap": null,
+   "detail": "Contact between Power (#12) and Rosenqvist (#60) damages the right side of Rosenqvist's front wing/end fence.",
+   "confidence": "high",
+   "damage": "front_wing_endplate"
+  },
+  {
+   "id": "e032",
+   "video_time": "27:43",
+   "video_s": 1663,
+   "race_elapsed_s_est": 1128,
+   "type": "tire_degradation",
+   "drivers": [
+    "Simpson"
+   ],
+   "lap": null,
+   "detail": "Simpson lost about 7 seconds in a couple of laps on collapsing softs (tire cliff magnitude).",
+   "confidence": "high",
+   "tire": "soft",
+   "time_loss_s": 7,
+   "laps": 2
+  },
+  {
+   "id": "e033",
+   "video_time": "28:15",
+   "video_s": 1695,
+   "race_elapsed_s_est": 1160,
+   "type": "caution_effect",
+   "drivers": [
+    "Palou"
+   ],
+   "lap": null,
+   "detail": "Caution erases Palou's lead (gap to Foster reset to zero). Broadcasters note Simpson staying out may have slowed the field and aided Palou's gap.",
+   "confidence": "high"
+  },
+  {
+   "id": "e034",
+   "video_time": "28:31",
+   "video_s": 1711,
+   "race_elapsed_s_est": 1176,
+   "type": "restart",
+   "drivers": [
+    "Palou",
+    "Foster"
+   ],
+   "lap": null,
+   "detail": "Restart 2: Palou leads Foster; Dixon defends immediately; Lundgaard and O'Ward make early passes.",
+   "confidence": "high",
+   "caution_no": 2
+  },
+  {
+   "id": "e035",
+   "video_time": "28:46",
+   "video_s": 1726,
+   "race_elapsed_s_est": 1191,
+   "type": "overtake",
+   "drivers": [
+    "Herta",
+    "Armstrong"
+   ],
+   "lap": null,
+   "detail": "Herta passes Armstrong; Kirkwood also passes Armstrong a lap later; Malukas passes Foster for 2nd.",
+   "confidence": "high"
+  },
+  {
+   "id": "e036",
+   "video_time": "28:55",
+   "video_s": 1735,
+   "race_elapsed_s_est": 1200,
+   "type": "overtake",
+   "drivers": [
+    "Malukas",
+    "Foster"
+   ],
+   "lap": null,
+   "detail": "Malukas passes Foster for 2nd place.",
+   "confidence": "high"
+  },
+  {
+   "id": "e037",
+   "video_time": "29:25",
+   "video_s": 1765,
+   "race_elapsed_s_est": 1230,
+   "type": "defense",
+   "drivers": [
+    "Rahal",
+    "Rosenqvist"
+   ],
+   "lap": null,
+   "detail": "Rahal defends turn 5 by braking super deep, taking away the inside from Rosenqvist.",
+   "confidence": "high",
+   "turn": 5,
+   "braking_related": true,
+   "brake_style": "late"
+  },
+  {
+   "id": "e038",
+   "video_time": "29:58",
+   "video_s": 1798,
+   "race_elapsed_s_est": 1263,
+   "type": "overtake",
+   "drivers": [
+    "Herta",
+    "DeFrancesco"
+   ],
+   "lap": null,
+   "detail": "Herta passes DeFrancesco on the run down to turn 3.",
+   "confidence": "high",
+   "turn": 3
+  },
+  {
+   "id": "e039",
+   "video_time": "30:35",
+   "video_s": 1835,
+   "race_elapsed_s_est": 1300,
+   "type": "driver_error",
+   "drivers": [
+    "Herta",
+    "Ericsson"
+   ],
+   "lap": null,
+   "detail": "Someone runs wide (\"overcooked it\") while pushing; Herta chasing Ericsson on different strategy.",
+   "confidence": "low"
+  },
+  {
+   "id": "e040",
+   "video_time": "30:58",
+   "video_s": 1858,
+   "race_elapsed_s_est": 1323,
+   "type": "radio",
+   "drivers": [
+    "Foster"
+   ],
+   "lap": null,
+   "detail": "Foster radio during caution 2: wants more front wing at next stop; tires degrading slightly. Team: needs about 20 more laps on this stint.",
+   "confidence": "high",
+   "setup_change": "more_front_wing",
+   "tire_complaint": "slight_degradation",
+   "stint_target_laps": 20
+  },
+  {
+   "id": "e041",
+   "video_time": "31:32",
+   "video_s": 1892,
+   "race_elapsed_s_est": 1357,
+   "type": "position_gain",
+   "drivers": [
+    "Dixon"
+   ],
+   "lap": null,
+   "detail": "Dixon has gained 13 places from 17th to 4th, on the same strategy as Palou.",
+   "confidence": "high",
+   "start_pos": 17,
+   "current_pos": 4,
+   "places_gained": 13
+  },
+  {
+   "id": "e042",
+   "video_time": "31:59",
+   "video_s": 1919,
+   "race_elapsed_s_est": 1384,
+   "type": "strategy_split",
+   "drivers": [],
+   "lap": null,
+   "detail": "Split: P1-8 (Palou, Malukas, Foster, Dixon, Lundgaard, Newgarden, Schwarzman, Rossi) on a two-stop; P9 backward on three stops. Early stoppers need two more stops.",
+   "confidence": "medium"
+  },
+  {
+   "id": "e043",
+   "video_time": "32:37",
+   "video_s": 1957,
+   "race_elapsed_s_est": 1422,
+   "type": "position_snapshot",
+   "drivers": [],
+   "lap": 21,
+   "detail": "Lap 21 of 90: Palou leads Malukas by 1.6 s.",
+   "confidence": "high",
+   "order": [
+    "Palou",
+    "Malukas",
+    "Foster",
+    "Dixon",
+    "Lundgaard",
+    "Newgarden",
+    "Schwarzman",
+    "Rossi"
+   ],
+   "gap_s_p1_p2": 1.6
+  },
+  {
+   "id": "e044",
+   "video_time": "33:01",
+   "video_s": 1981,
+   "race_elapsed_s_est": 1446,
+   "type": "position_gain",
+   "drivers": [
+    "Rossi"
+   ],
+   "lap": null,
+   "detail": "Rossi up 16 places from start (last car yet to stop at that time).",
+   "confidence": "medium",
+   "places_gained": 16
+  },
+  {
+   "id": "e045",
+   "video_time": "34:08",
+   "video_s": 2048,
+   "race_elapsed_s_est": 1513,
+   "type": "gap",
+   "drivers": [
+    "Palou",
+    "Malukas"
+   ],
+   "lap": null,
+   "detail": "Palou leads Malukas by 2.5 s.",
+   "confidence": "high",
+   "gap_s": 2.5
+  },
+  {
+   "id": "e046",
+   "video_time": "37:42",
+   "video_s": 2262,
+   "race_elapsed_s_est": 1727,
+   "type": "strategy_window",
+   "drivers": [
+    "Palou"
+   ],
+   "lap": null,
+   "detail": "Analysis: Palou likely needs another caution to make a two-stop; last year Dixon pitted lap 37 in a 85-lap race, this year 90 laps so soft stint would be ~20 laps.",
+   "confidence": "medium"
+  },
+  {
+   "id": "e047",
+   "video_time": "38:24",
+   "video_s": 2304,
+   "race_elapsed_s_est": 1769,
+   "type": "pace_snapshot",
+   "drivers": [
+    "O'Ward"
+   ],
+   "lap": null,
+   "detail": "Cars ahead run 1:02s; O'Ward reported running ~1:03s (fuel saving).",
+   "confidence": "low",
+   "laptime_s": [
+    62,
+    63
+   ]
+  },
+  {
+   "id": "e048",
+   "video_time": "38:30",
+   "video_s": 2310,
+   "race_elapsed_s_est": 1775,
+   "type": "radio",
+   "drivers": [
+    "Malukas"
+   ],
+   "lap": null,
+   "detail": "Malukas radio: team tells him not to short-shift out of turn 3 due to powertrain trouble in second gear.",
+   "confidence": "high",
+   "issue": "powertrain_second_gear"
+  },
+  {
+   "id": "e049",
+   "video_time": "39:04",
+   "video_s": 2344,
+   "race_elapsed_s_est": 1809,
+   "type": "pit_stop",
+   "drivers": [
+    "Rosenqvist"
+   ],
+   "lap": null,
+   "detail": "Rosenqvist stops; front wing end fence broken; team leaves the wing unchanged; steady stop.",
+   "confidence": "high",
+   "quality": "steady",
+   "damage_kept": true
+  },
+  {
+   "id": "e050",
+   "video_time": "40:24",
+   "video_s": 2424,
+   "race_elapsed_s_est": 1889,
+   "type": "pit_stop",
+   "drivers": [
+    "Shwartzman"
+   ],
+   "lap": 29,
+   "detail": "Shwartzman first of the leading pack to pit; had not quite reached lap 30.",
+   "confidence": "medium",
+   "stop_no": 2
+  },
+  {
+   "id": "e051",
+   "video_time": "40:47",
+   "video_s": 2447,
+   "race_elapsed_s_est": 1912,
+   "type": "pace_snapshot",
+   "drivers": [
+    "Malukas",
+    "Palou"
+   ],
+   "lap": null,
+   "detail": "Malukas second-fastest car on track, less than 0.1 s per lap slower than Palou, despite powertrain issue.",
+   "confidence": "high",
+   "delta_s_per_lap": 0.1
+  },
+  {
+   "id": "e052",
+   "video_time": "41:03",
+   "video_s": 2463,
+   "race_elapsed_s_est": 1928,
+   "type": "info_gap",
+   "drivers": [
+    "Palou"
+   ],
+   "lap": null,
+   "detail": "Nobody is on softs now, so Palou's team has no live read on how long a soft stint holds up.",
+   "confidence": "medium"
+  },
+  {
+   "id": "e053",
+   "video_time": "41:22",
+   "video_s": 2482,
+   "race_elapsed_s_est": 1947,
+   "type": "caution_start",
+   "drivers": [
+    "Rossi"
+   ],
+   "lap": 30,
+   "detail": "Caution 3: Rossi brushes wall exiting a corner near turn 11; a concrete-wall lip catches the car, right rear destroyed, heavy debris across the front straight. Rossi: he tracked out a bit wide.",
+   "confidence": "high",
+   "caution_no": 3,
+   "cause": "wall_contact_wall_lip",
+   "debris": true
+  },
+  {
+   "id": "e054",
+   "video_time": "43:45",
+   "video_s": 2625,
+   "race_elapsed_s_est": 2090,
+   "type": "lap_marker",
+   "drivers": [],
+   "lap": 30,
+   "detail": "Lap 30 stated as one third of the race.",
+   "confidence": "high"
+  },
+  {
+   "id": "e055",
+   "video_time": "44:13",
+   "video_s": 2653,
+   "race_elapsed_s_est": 2118,
+   "type": "lap_marker",
+   "drivers": [],
+   "lap": 32,
+   "detail": "32 laps completed of 90 at this point in caution 3.",
+   "confidence": "high",
+   "laps_completed": 32
+  },
+  {
+   "id": "e056",
+   "video_time": "45:19",
+   "video_s": 2719,
+   "race_elapsed_s_est": 2184,
+   "type": "strategy_call",
+   "drivers": [
+    "Palou",
+    "Dixon"
+   ],
+   "lap": null,
+   "detail": "Pits closed until debris cleared (series holds pit lane closed so pitting drivers get no unfair advantage). Palou and Dixon told to stay out.",
+   "confidence": "high",
+   "call": "stay_out"
+  },
+  {
+   "id": "e057",
+   "video_time": "46:16",
+   "video_s": 2776,
+   "race_elapsed_s_est": 2241,
+   "type": "radio",
+   "drivers": [
+    "Foster"
+   ],
+   "lap": null,
+   "detail": "Foster: team asks to change front wing and make a tire pressure adjustment at this stop; go to black (hard) again (hard-hard plan).",
+   "confidence": "high",
+   "setup_change": [
+    "front_wing",
+    "tire_pressure"
+   ],
+   "tire_to": "hard"
+  },
+  {
+   "id": "e058",
+   "video_time": "46:34",
+   "video_s": 2794,
+   "race_elapsed_s_est": 2259,
+   "type": "pit_stop",
+   "drivers": [
+    "O'Ward",
+    "Shwartzman",
+    "Rahal"
+   ],
+   "lap": null,
+   "detail": "O'Ward, Shwartzman and Rahal dove into pits just before the yellow (commit-line luck). Broadcast says O'Ward can now reach the end with one more stop.",
+   "confidence": "medium",
+   "lap_range": "27-33",
+   "stop_lap_conflict": true,
+   "note": "transcript quotes lap 27/28 and lap 33 for O'Ward's stop"
+  },
+  {
+   "id": "e059",
+   "video_time": "47:41",
+   "video_s": 2861,
+   "race_elapsed_s_est": 2326,
+   "type": "championship",
+   "drivers": [],
+   "lap": null,
+   "detail": "As-run points snapshot mid race: O'Ward 170 points behind leader Palou.",
+   "confidence": "low"
+  },
+  {
+   "id": "e060",
+   "video_time": "48:57",
+   "video_s": 2937,
+   "race_elapsed_s_est": 2402,
+   "type": "pit_entry",
+   "drivers": [
+    "Palou",
+    "Dixon"
+   ],
+   "lap": null,
+   "detail": "Pits open. Palou and Dixon stay out; everyone else piles in. Foster in and out P2, Newgarden 3rd out.",
+   "confidence": "high"
+  },
+  {
+   "id": "e061",
+   "video_time": "49:10",
+   "video_s": 2950,
+   "race_elapsed_s_est": 2415,
+   "type": "pit_error",
+   "drivers": [
+    "Kirkwood"
+   ],
+   "lap": null,
+   "detail": "Kirkwood spins entering pit lane while cutting inside the cone toward his box; Armstrong then tags him.",
+   "confidence": "high",
+   "error_type": "spin_at_pit_entry",
+   "cost": "lost_track_position"
+  },
+  {
+   "id": "e062",
+   "video_time": "49:49",
+   "video_s": 2989,
+   "race_elapsed_s_est": 2454,
+   "type": "contact",
+   "drivers": [
+    "Armstrong",
+    "Kirkwood"
+   ],
+   "lap": null,
+   "detail": "Armstrong contacts Kirkwood in pit lane.",
+   "confidence": "high"
+  },
+  {
+   "id": "e063",
+   "video_time": "52:50",
+   "video_s": 3170,
+   "race_elapsed_s_est": 2635,
+   "type": "crash",
+   "drivers": [
+    "Abel",
+    "Malukas",
+    "Foster",
+    "Newgarden",
+    "DeFrancesco",
+    "Armstrong",
+    "Siegel",
+    "Kirkwood"
+   ],
+   "lap": 37,
+   "detail": "Restart pileup at turn 1. Abel misjudges turn-in while being passed by Malukas; Foster goes straight into the barrier and up over Newgarden's rear; Abel's car ends on top of Newgarden's. DeFrancesco spins. Armstrong brakes to avoid and gets hit by Siegel. Kirkwood clips debris with left front.",
+   "confidence": "medium",
+   "caution_no": 4,
+   "cause": "restart_multi_car_contact"
+  },
+  {
+   "id": "e064",
+   "video_time": "53:07",
+   "video_s": 3187,
+   "race_elapsed_s_est": 2652,
+   "type": "strategy_snapshot",
+   "drivers": [
+    "Palou",
+    "Dixon",
+    "VeeKay",
+    "Simpson",
+    "Daly",
+    "Power"
+   ],
+   "lap": null,
+   "detail": "At the pileup: cars that had NOT pitted under caution 3 were Palou, Dixon, VeeKay, Simpson, Daly, Power.",
+   "confidence": "medium"
+  },
+  {
+   "id": "e065",
+   "video_time": "56:57",
+   "video_s": 3417,
+   "race_elapsed_s_est": 2882,
+   "type": "dnf",
+   "drivers": [
+    "Newgarden",
+    "Abel"
+   ],
+   "lap": null,
+   "detail": "Newgarden DNF (his 4th crash in the last 6 races, worst stretch since 2014, innocent again). Abel's car lifted off Newgarden's.",
+   "confidence": "high"
+  },
+  {
+   "id": "e066",
+   "video_time": "58:12",
+   "video_s": 3492,
+   "race_elapsed_s_est": 2957,
+   "type": "stint_marker",
+   "drivers": [
+    "Palou",
+    "Dixon"
+   ],
+   "lap": 39,
+   "detail": "Palou and Dixon have run 39 laps without stopping. Simpson, Daly (and Power slightly earlier) have now stopped.",
+   "confidence": "high",
+   "stint_laps": 39
+  },
+  {
+   "id": "e067",
+   "video_time": "58:37",
+   "video_s": 3517,
+   "race_elapsed_s_est": 2982,
+   "type": "radio",
+   "drivers": [
+    "Palou"
+   ],
+   "lap": null,
+   "detail": "Palou radio: yellow is helping fuel mileage; stay out; miles-per-gallon under yellow is what matters.",
+   "confidence": "high",
+   "fuel_save": true
+  },
+  {
+   "id": "e068",
+   "video_time": "58:55",
+   "video_s": 3535,
+   "race_elapsed_s_est": 3000,
+   "type": "strategy_window",
+   "drivers": [
+    "Palou"
+   ],
+   "lap": null,
+   "detail": "Before the pileup plan was ~5 more laps (to lap 40); with the yellow he could reach lap 44-45. Home-lap fuel target ~56, so only ~14 laps or fewer on softs.",
+   "confidence": "high",
+   "fuel_home_lap": 56,
+   "soft_stint_target_laps": "12-14"
+  },
+  {
+   "id": "e069",
+   "video_time": "59:52",
+   "video_s": 3592,
+   "race_elapsed_s_est": 3057,
+   "type": "interview",
+   "drivers": [
+    "Rossi"
+   ],
+   "lap": null,
+   "detail": "Rossi: barely a snap, tracked out slightly wide, car destroyed (suspension cut, gearbox pulled apart).",
+   "confidence": "high"
+  },
+  {
+   "id": "e070",
+   "video_time": "1:01:16",
+   "video_s": 3676,
+   "race_elapsed_s_est": 3141,
+   "type": "pit_stop",
+   "drivers": [
+    "Palou",
+    "Dixon"
+   ],
+   "lap": 40,
+   "detail": "Palou and Dixon pit under yellow after ~40 laps on first stint. Both take softs. Rejoin 18th-19th.",
+   "confidence": "high",
+   "stop_no": 1,
+   "tire_from": "hard",
+   "tire_to": "soft",
+   "stint_laps_before": 40,
+   "rejoin_pos_est": "18-19"
+  },
+  {
+   "id": "e071",
+   "video_time": "1:02:43",
+   "video_s": 3763,
+   "race_elapsed_s_est": 3228,
+   "type": "restart",
+   "drivers": [
+    "VeeKay",
+    "O'Ward"
+   ],
+   "lap": null,
+   "detail": "Restart 5 order VeeKay, Simpson, Daly, Power (top 4). O'Ward passes Power at turn 1. No push-to-pass allowed on first lap after a restart.",
+   "confidence": "high",
+   "caution_no": 4,
+   "rule": "no_p2p_first_restart_lap"
+  },
+  {
+   "id": "e072",
+   "video_time": "1:03:27",
+   "video_s": 3807,
+   "race_elapsed_s_est": 3272,
+   "type": "contact",
+   "drivers": [
+    "Power"
+   ],
+   "lap": null,
+   "detail": "Power hits the wall while fighting; continues, avoiding another caution.",
+   "confidence": "medium"
+  },
+  {
+   "id": "e073",
+   "video_time": "1:03:58",
+   "video_s": 3838,
+   "race_elapsed_s_est": 3303,
+   "type": "overtake",
+   "drivers": [
+    "O'Ward",
+    "Daly",
+    "Power"
+   ],
+   "lap": null,
+   "detail": "O'Ward passes Power and Daly in the first laps after restart; targeted by Team Penske Chevy stack.",
+   "confidence": "medium"
+  },
+  {
+   "id": "e074",
+   "video_time": "1:04:38",
+   "video_s": 3878,
+   "race_elapsed_s_est": 3343,
+   "type": "overtake",
+   "drivers": [
+    "O'Ward",
+    "Foster"
+   ],
+   "lap": null,
+   "detail": "O'Ward gets by Foster after resistance.",
+   "confidence": "medium"
+  },
+  {
+   "id": "e075",
+   "video_time": "1:05:07",
+   "video_s": 3907,
+   "race_elapsed_s_est": 3372,
+   "type": "contact",
+   "drivers": [
+    "Foster"
+   ],
+   "lap": null,
+   "detail": "Foster hits wall, left rear damaged. Dixon gets by.",
+   "confidence": "medium"
+  },
+  {
+   "id": "e076",
+   "video_time": "1:05:48",
+   "video_s": 3948,
+   "race_elapsed_s_est": 3413,
+   "type": "push_to_pass",
+   "drivers": [
+    "O'Ward",
+    "Simpson",
+    "VeeKay"
+   ],
+   "lap": null,
+   "detail": "Push-to-pass seconds remaining: O'Ward 95, Simpson 145, VeeKay 141.",
+   "confidence": "high",
+   "p2p_s": {
+    "O'Ward": 95,
+    "Simpson": 145,
+    "VeeKay": 141
+   }
+  },
+  {
+   "id": "e077",
+   "video_time": "1:06:30",
+   "video_s": 3990,
+   "race_elapsed_s_est": 3455,
+   "type": "position_snapshot",
+   "drivers": [],
+   "lap": null,
+   "detail": "Order: VeeKay, O'Ward, Simpson, Daly, Shwartzman, Rahal, Rosenqvist, Malukas, Lundgaard, Ericsson.",
+   "confidence": "high",
+   "order": [
+    "VeeKay",
+    "O'Ward",
+    "Simpson",
+    "Daly",
+    "Shwartzman",
+    "Rahal",
+    "Rosenqvist",
+    "Malukas",
+    "Lundgaard",
+    "Ericsson"
+   ]
+  },
+  {
+   "id": "e078",
+   "video_time": "1:10:35",
+   "video_s": 4235,
+   "race_elapsed_s_est": 3700,
+   "type": "radio_like",
+   "drivers": [
+    "O'Ward"
+   ],
+   "lap": null,
+   "detail": "O'Ward team boss: one more stop expected; O'Ward strong under braking.",
+   "confidence": "medium",
+   "braking_related": true
+  },
+  {
+   "id": "e079",
+   "video_time": "1:11:15",
+   "video_s": 4275,
+   "race_elapsed_s_est": 3740,
+   "type": "fuel_window",
+   "drivers": [
+    "VeeKay"
+   ],
+   "lap": 51,
+   "detail": "VeeKay needs ~3-4 more laps of fuel savings to make a final stop work; still out at lap 51. He has ~3 laps less fuel than Simpson and Daly.",
+   "confidence": "high"
+  },
+  {
+   "id": "e080",
+   "video_time": "1:11:46",
+   "video_s": 4306,
+   "race_elapsed_s_est": 3771,
+   "type": "strategy_window",
+   "drivers": [
+    "O'Ward"
+   ],
+   "lap": null,
+   "detail": "O'Ward pitted lap ~33; can stretch a ~30-lap stint on hard tires; risk: first car to pit for the last time forces others to cover.",
+   "confidence": "medium",
+   "stint_max_laps": 30
+  },
+  {
+   "id": "e081",
+   "video_time": "1:12:40",
+   "video_s": 4360,
+   "race_elapsed_s_est": 3825,
+   "type": "tire_degradation",
+   "drivers": [
+    "Palou",
+    "Dixon"
+   ],
+   "lap": null,
+   "detail": "On soft stint, Palou/Dixon lap times drop from mid 1:02s to 1:03.8 (twice); Dixon previous lap 1:04.0. Soft cliff after ~10-12 laps.",
+   "confidence": "high",
+   "tire": "soft",
+   "laptime_s": [
+    62.5,
+    63.8,
+    63.8,
+    64.0
+   ],
+   "stint_lap_at_cliff": 11
+  },
+  {
+   "id": "e082",
+   "video_time": "1:13:03",
+   "video_s": 4383,
+   "race_elapsed_s_est": 3848,
+   "type": "strategy_verdict",
+   "drivers": [
+    "Palou",
+    "Dixon"
+   ],
+   "lap": null,
+   "detail": "Ganassi strategy collapsing: falling pace on softs and no options left.",
+   "confidence": "medium"
+  },
+  {
+   "id": "e083",
+   "video_time": "1:16:09",
+   "video_s": 4569,
+   "race_elapsed_s_est": 4034,
+   "type": "pit_stop",
+   "drivers": [
+    "Palou"
+   ],
+   "lap": 53,
+   "detail": "Palou pits (stop 2): Shell renewable fuel and hard Firestone. About a lap or two early to be safe; team target was 12 laps on softs and he got exactly 12.",
+   "confidence": "high",
+   "stop_no": 2,
+   "tire_from": "soft",
+   "tire_to": "hard",
+   "soft_stint_laps": 12
+  },
+  {
+   "id": "e084",
+   "video_time": "1:17:06",
+   "video_s": 4626,
+   "race_elapsed_s_est": 4091,
+   "type": "push_to_pass",
+   "drivers": [
+    "VeeKay",
+    "Simpson",
+    "O'Ward"
+   ],
+   "lap": null,
+   "detail": "VeeKay and Simpson have far more P2P left than O'Ward (89 s for O'Ward).",
+   "confidence": "medium",
+   "p2p_s": {
+    "O'Ward": 89
+   }
+  },
+  {
+   "id": "e085",
+   "video_time": "1:17:12",
+   "video_s": 4632,
+   "race_elapsed_s_est": 4097,
+   "type": "pit_stop",
+   "drivers": [
+    "Dixon"
+   ],
+   "lap": 54,
+   "detail": "Dixon pits one lap after Palou; overcut works, Dixon beats Palou out of pit lane.",
+   "confidence": "high",
+   "stop_no": 2,
+   "overcut": true,
+   "overcut_winner": "Dixon",
+   "overcut_loser": "Palou"
+  },
+  {
+   "id": "e086",
+   "video_time": "1:17:32",
+   "video_s": 4652,
+   "race_elapsed_s_est": 4117,
+   "type": "pace_snapshot",
+   "drivers": [
+    "VeeKay"
+   ],
+   "lap": null,
+   "detail": "VeeKay is 4th-quickest car on track on that lap while burning P2P; fuel mileage on Honda praised.",
+   "confidence": "medium"
+  },
+  {
+   "id": "e087",
+   "video_time": "1:18:13",
+   "video_s": 4693,
+   "race_elapsed_s_est": 4158,
+   "type": "position_snapshot",
+   "drivers": [],
+   "lap": null,
+   "detail": "VeeKay leads O'Ward by 1.1 s; then Simpson, Rahal, Ericsson, Herta, Power, Robb, Siegel.",
+   "confidence": "high",
+   "order": [
+    "VeeKay",
+    "O'Ward",
+    "Simpson",
+    "Rahal",
+    "Ericsson",
+    "Herta",
+    "Power",
+    "Robb",
+    "Siegel"
+   ],
+   "gap_s_p1_p2": 1.1
+  },
+  {
+   "id": "e088",
+   "video_time": "1:18:30",
+   "video_s": 4710,
+   "race_elapsed_s_est": 4175,
+   "type": "lap_marker",
+   "drivers": [],
+   "lap": 57,
+   "detail": "33 laps to go.",
+   "confidence": "high"
+  },
+  {
+   "id": "e089",
+   "video_time": "1:18:39",
+   "video_s": 4719,
+   "race_elapsed_s_est": 4184,
+   "type": "pit_stop",
+   "drivers": [
+    "VeeKay"
+   ],
+   "lap": 57,
+   "detail": "VeeKay final stop; O'Ward stays out one more lap (attempted overcut). Commentary warns of cold hard-tire outlap lock-ups.",
+   "confidence": "high",
+   "stop_no": 2,
+   "overcut_attempt_by": "O'Ward"
+  },
+  {
+   "id": "e090",
+   "video_time": "1:19:37",
+   "video_s": 4777,
+   "race_elapsed_s_est": 4242,
+   "type": "pit_stop",
+   "drivers": [
+    "O'Ward"
+   ],
+   "lap": 58,
+   "detail": "O'Ward final stop: hards and Shell fuel; clean out; driver says car feels good with changes from last stop. Rejoins ahead of VeeKay on strategy.",
+   "confidence": "high",
+   "stop_no": 3,
+   "tire_to": "hard",
+   "overcut": true,
+   "overcut_winner": "O'Ward",
+   "overcut_loser": "VeeKay"
+  },
+  {
+   "id": "e091",
+   "video_time": "1:20:02",
+   "video_s": 4802,
+   "race_elapsed_s_est": 4267,
+   "type": "pit_stop",
+   "drivers": [
+    "Simpson"
+   ],
+   "lap": 58,
+   "detail": "Simpson pits around the same time; VeeKay to the left on pit exit, O'Ward exits ahead of VeeKay.",
+   "confidence": "medium"
+  },
+  {
+   "id": "e092",
+   "video_time": "1:20:18",
+   "video_s": 4818,
+   "race_elapsed_s_est": 4283,
+   "type": "push_to_pass",
+   "drivers": [
+    "VeeKay",
+    "O'Ward"
+   ],
+   "lap": null,
+   "detail": "VeeKay has ~25 s more push-to-pass than O'Ward for the last 31 laps.",
+   "confidence": "high",
+   "p2p_delta_s": 25
+  },
+  {
+   "id": "e093",
+   "video_time": "1:20:33",
+   "video_s": 4833,
+   "race_elapsed_s_est": 4298,
+   "type": "pit_stop",
+   "drivers": [
+    "Herta",
+    "Ericsson"
+   ],
+   "lap": 33,
+   "detail": "Herta and Ericsson had stopped last on lap 33, same lap as O'Ward.",
+   "confidence": "medium"
+  },
+  {
+   "id": "e094",
+   "video_time": "1:24:37",
+   "video_s": 5077,
+   "race_elapsed_s_est": 4542,
+   "type": "gap",
+   "drivers": [
+    "O'Ward",
+    "VeeKay"
+   ],
+   "lap": null,
+   "detail": "O'Ward leads VeeKay by 1.3-1.5 s after stops.",
+   "confidence": "high",
+   "gap_s": 1.4
+  },
+  {
+   "id": "e095",
+   "video_time": "1:25:13",
+   "video_s": 5113,
+   "race_elapsed_s_est": 4578,
+   "type": "tech_note",
+   "drivers": [],
+   "lap": null,
+   "detail": "Broadcast: drivers move brake bias from the cockpit knob as tires wear; on a bumpy track some change it corner-by-corner (clockwise forward, counter-clockwise rearward).",
+   "confidence": "high",
+   "braking_related": true,
+   "brake_bias_note": true
+  },
+  {
+   "id": "e096",
+   "video_time": "1:26:14",
+   "video_s": 5174,
+   "race_elapsed_s_est": 4639,
+   "type": "position_snapshot",
+   "drivers": [
+    "Dixon",
+    "Palou"
+   ],
+   "lap": 65,
+   "detail": "Dixon 14th, Palou 15th: two-stop strategy lost all lead after repeated cautions.",
+   "confidence": "high"
+  },
+  {
+   "id": "e097",
+   "video_time": "1:26:54",
+   "video_s": 5214,
+   "race_elapsed_s_est": 4679,
+   "type": "championship",
+   "drivers": [
+    "Palou"
+   ],
+   "lap": null,
+   "detail": "Running championship lead for Palou 96 points (under 100), four races left.",
+   "confidence": "high",
+   "lead_pts": 96
+  },
+  {
+   "id": "e098",
+   "video_time": "1:27:27",
+   "video_s": 5247,
+   "race_elapsed_s_est": 4712,
+   "type": "lap_marker",
+   "drivers": [],
+   "lap": 66,
+   "detail": "Lap 66 of 90.",
+   "confidence": "high"
+  },
+  {
+   "id": "e099",
+   "video_time": "1:27:52",
+   "video_s": 5272,
+   "race_elapsed_s_est": 4737,
+   "type": "pit_stop",
+   "drivers": [
+    "Malukas"
+   ],
+   "lap": 48,
+   "detail": "Malukas pitted lap 48; commentators doubt he makes the end without another stop.",
+   "confidence": "medium",
+   "stop_no": "earlier"
+  },
+  {
+   "id": "e100",
+   "video_time": "1:27:59",
+   "video_s": 5279,
+   "race_elapsed_s_est": 4744,
+   "type": "pit_stop",
+   "drivers": [
+    "Herta"
+   ],
+   "lap": 66,
+   "detail": "Herta quietly makes his last stop and jumps to 5th ahead of teammate Ericsson.",
+   "confidence": "medium"
+  },
+  {
+   "id": "e101",
+   "video_time": "1:29:00",
+   "video_s": 5340,
+   "race_elapsed_s_est": 4805,
+   "type": "gap",
+   "drivers": [
+    "O'Ward",
+    "VeeKay"
+   ],
+   "lap": 67,
+   "detail": "23 laps to go: O'Ward leads VeeKay by 1.7 s. Malukas is 3rd but needs another stop.",
+   "confidence": "high",
+   "gap_s": 1.7
+  },
+  {
+   "id": "e102",
+   "video_time": "1:32:04",
+   "video_s": 5524,
+   "race_elapsed_s_est": 4989,
+   "type": "recap",
+   "drivers": [
+    "O'Ward"
+   ],
+   "lap": null,
+   "detail": "Recap: O'Ward pitted early under caution and after the green passed Power and Foster at turn 1 repeatedly, brake-pedal heavy overtakes.",
+   "confidence": "medium",
+   "braking_related": true
+  },
+  {
+   "id": "e103",
+   "video_time": "1:32:47",
+   "video_s": 5567,
+   "race_elapsed_s_est": 5032,
+   "type": "gap",
+   "drivers": [
+    "O'Ward",
+    "VeeKay"
+   ],
+   "lap": 70,
+   "detail": "20 laps to go: O'Ward leads VeeKay by 2.5 s.",
+   "confidence": "high",
+   "gap_s": 2.5
+  },
+  {
+   "id": "e104",
+   "video_time": "1:34:52",
+   "video_s": 5692,
+   "race_elapsed_s_est": 5157,
+   "type": "pit_stop",
+   "drivers": [
+    "Shwartzman"
+   ],
+   "lap": 72,
+   "detail": "Shwartzman final (third) stop on soft after hard-hard: drops to 18th. Three stops total, all others made it in two or three.",
+   "confidence": "high",
+   "stop_no": 3,
+   "tire_to": "soft",
+   "pos_after": 18,
+   "stops_total": 3,
+   "strategy": "hard-hard-soft"
+  },
+  {
+   "id": "e105",
+   "video_time": "1:35:17",
+   "video_s": 5717,
+   "race_elapsed_s_est": 5182,
+   "type": "push_to_pass",
+   "drivers": [
+    "Rahal",
+    "Rosenqvist",
+    "Simpson"
+   ],
+   "lap": null,
+   "detail": "Push-to-pass remaining: Rahal 57 s, Rosenqvist ~51-55 s, Simpson most with ~109 s (pitted late, has fuel and P2P to burn).",
+   "confidence": "medium",
+   "p2p_s": {
+    "Rahal": 57,
+    "Rosenqvist": 51,
+    "Simpson": 109
+   }
+  },
+  {
+   "id": "e106",
+   "video_time": "1:36:25",
+   "video_s": 5785,
+   "race_elapsed_s_est": 5250,
+   "type": "pace_delta",
+   "drivers": [
+    "Simpson",
+    "Herta"
+   ],
+   "lap": 73,
+   "detail": "Simpson 0.2-0.3 s per lap slower than Herta; gap to Herta ~1.2 s with 17 to go (lap 73).",
+   "confidence": "high",
+   "delta_s_per_lap": 0.25,
+   "gap_s": 1.2
+  },
+  {
+   "id": "e107",
+   "video_time": "1:39:38",
+   "video_s": 5978,
+   "race_elapsed_s_est": 5443,
+   "type": "pit_issue",
+   "drivers": [
+    "Malukas"
+   ],
+   "lap": 75,
+   "detail": "Malukas final stop bobbled: rear-right wheel not fully attached, outside rear tire changer struggled; car released anyway. He falls from 3rd to about 14th.",
+   "confidence": "high",
+   "stop_no": "final",
+   "issue": "wheel_fitting",
+   "position_loss_est": 11
+  },
+  {
+   "id": "e108",
+   "video_time": "1:40:03",
+   "video_s": 6003,
+   "race_elapsed_s_est": 5468,
+   "type": "lockup",
+   "drivers": [
+    "Rosenqvist"
+   ],
+   "lap": 76,
+   "detail": "Rosenqvist locks up into turn 3, loses part of front wing; squeezes Palou at turn 4 and contacts Power again.",
+   "confidence": "high",
+   "turn": 3,
+   "braking_related": true,
+   "brake_style": "late_lockup"
+  },
+  {
+   "id": "e109",
+   "video_time": "1:40:51",
+   "video_s": 6051,
+   "race_elapsed_s_est": 5516,
+   "type": "gap",
+   "drivers": [
+    "O'Ward",
+    "VeeKay",
+    "Simpson",
+    "Herta"
+   ],
+   "lap": 77,
+   "detail": "13 to go: O'Ward leads VeeKay by 3.0 s; Simpson 3rd, a couple of seconds clear of Herta.",
+   "confidence": "high",
+   "gap_s": 3.0
+  },
+  {
+   "id": "e110",
+   "video_time": "1:42:29",
+   "video_s": 6149,
+   "race_elapsed_s_est": 5614,
+   "type": "overtake",
+   "drivers": [
+    "Malukas"
+   ],
+   "lap": 78,
+   "detail": "Malukas on new tires passes several cars in one corner; on a tear through the field.",
+   "confidence": "high"
+  },
+  {
+   "id": "e111",
+   "video_time": "1:43:05",
+   "video_s": 6185,
+   "race_elapsed_s_est": 5650,
+   "type": "contact",
+   "drivers": [
+    "Malukas",
+    "Lundgaard"
+   ],
+   "lap": 79,
+   "detail": "Tire-to-tire contact between Malukas and Lundgaard in turn 3-5 fight.",
+   "confidence": "high",
+   "severity": "minor"
+  },
+  {
+   "id": "e112",
+   "video_time": "1:44:21",
+   "video_s": 6261,
+   "race_elapsed_s_est": 5726,
+   "type": "driver_behavior",
+   "drivers": [
+    "Palou"
+   ],
+   "lap": 81,
+   "detail": "Palou backs off aggression after Lundgaard squeezed him wide at turn 7; regroups to protect the championship.",
+   "confidence": "high",
+   "turn": 7
+  },
+  {
+   "id": "e113",
+   "video_time": "1:45:10",
+   "video_s": 6310,
+   "race_elapsed_s_est": 5775,
+   "type": "contact",
+   "drivers": [
+    "Lundgaard",
+    "Rosenqvist"
+   ],
+   "lap": 82,
+   "detail": "Lundgaard clips wall (small damage), then sideways moment with Rosenqvist; Armstrong makes it through.",
+   "confidence": "high"
+  },
+  {
+   "id": "e114",
+   "video_time": "1:46:12",
+   "video_s": 6372,
+   "race_elapsed_s_est": 5837,
+   "type": "braking_event",
+   "drivers": [
+    "Armstrong",
+    "Lundgaard"
+   ],
+   "lap": 83,
+   "detail": "Armstrong dives very late on the brakes on Lundgaard; touch.",
+   "confidence": "high",
+   "braking_related": true,
+   "brake_style": "late"
+  },
+  {
+   "id": "e115",
+   "video_time": "1:46:12",
+   "video_s": 6372,
+   "race_elapsed_s_est": 5837,
+   "type": "braking_event",
+   "drivers": [
+    "Power"
+   ],
+   "lap": 83,
+   "detail": "Power makes an outside move on Palou completed under braking.",
+   "confidence": "medium",
+   "braking_related": true,
+   "brake_style": "late_successful"
+  },
+  {
+   "id": "e116",
+   "video_time": "1:47:34",
+   "video_s": 6454,
+   "race_elapsed_s_est": 5919,
+   "type": "push_to_pass",
+   "drivers": [
+    "Power",
+    "Palou"
+   ],
+   "lap": 84,
+   "detail": "P2P: Power 75 s, Palou 65 s. Power pitted 3 laps later than the #10 car, so more fuel to use.",
+   "confidence": "medium",
+   "p2p_s": {
+    "Power": 75,
+    "Palou": 65
+   },
+   "fuel_note": "stop_lap_delta_3"
+  },
+  {
+   "id": "e117",
+   "video_time": "1:48:15",
+   "video_s": 6495,
+   "race_elapsed_s_est": 5960,
+   "type": "gap",
+   "drivers": [
+    "O'Ward",
+    "VeeKay"
+   ],
+   "lap": 85,
+   "detail": "O'Ward 2.3 s ahead of VeeKay.",
+   "confidence": "high",
+   "gap_s": 2.3
+  },
+  {
+   "id": "e118",
+   "video_time": "1:49:45",
+   "video_s": 6585,
+   "race_elapsed_s_est": 6050,
+   "type": "push_to_pass",
+   "drivers": [
+    "Simpson",
+    "Herta"
+   ],
+   "lap": 86,
+   "detail": "P2P: Simpson 46 s vs Herta 34 s. Herta has tires 4 laps fresher (late final stop).",
+   "confidence": "high",
+   "p2p_s": {
+    "Simpson": 46,
+    "Herta": 34
+   },
+   "tire_age_delta_laps": 4
+  },
+  {
+   "id": "e119",
+   "video_time": "1:50:32",
+   "video_s": 6632,
+   "race_elapsed_s_est": 6097,
+   "type": "position_snapshot",
+   "drivers": [],
+   "lap": 87,
+   "detail": "3 laps to go: O'Ward, VeeKay, Simpson, Herta, Ericsson, Kirkwood, Rahal, Ilott, Malukas, Dixon.",
+   "confidence": "high",
+   "order": [
+    "O'Ward",
+    "VeeKay",
+    "Simpson",
+    "Herta",
+    "Ericsson",
+    "Kirkwood",
+    "Rahal",
+    "Ilott",
+    "Malukas",
+    "Dixon"
+   ]
+  },
+  {
+   "id": "e120",
+   "video_time": "1:51:15",
+   "video_s": 6675,
+   "race_elapsed_s_est": 6140,
+   "type": "crash",
+   "drivers": [
+    "Rosenqvist",
+    "Siegel"
+   ],
+   "lap": 89,
+   "detail": "Caution 5 at turn 10: Rosenqvist loses the rear, goes wide, brakes, and Siegel collides. Race finishes under yellow.",
+   "confidence": "medium",
+   "caution_no": 5,
+   "cause": "rear_loss_contact"
+  },
+  {
+   "id": "e121",
+   "video_time": "1:54:19",
+   "video_s": 6859,
+   "race_elapsed_s_est": 6324,
+   "type": "finish",
+   "drivers": [
+    "O'Ward"
+   ],
+   "lap": null,
+   "detail": "O'Ward wins under yellow; no damage to his car all race.",
+   "confidence": "high"
+  },
+  {
+   "id": "e122",
+   "video_time": "1:57:38",
+   "video_s": 7058,
+   "race_elapsed_s_est": 6523,
+   "type": "podium",
+   "drivers": [
+    "O'Ward",
+    "VeeKay",
+    "Simpson"
+   ],
+   "lap": null,
+   "detail": "Podium: O'Ward, VeeKay, Simpson (first IndyCar podium for Simpson, biggest mover 13th to 3rd).",
+   "confidence": "high"
+  },
+  {
+   "id": "e123",
+   "video_time": "2:03:04",
+   "video_s": 7384,
+   "race_elapsed_s_est": 6849,
+   "type": "post_race",
+   "drivers": [
+    "Palou"
+   ],
+   "lap": null,
+   "detail": "Palou: chose the strategy himself; started on hards to avoid traffic; opened a big gap after the first yellow but cautions erased it.",
+   "confidence": "high"
+  },
+  {
+   "id": "e124",
+   "video_time": "2:06:09",
+   "video_s": 7569,
+   "race_elapsed_s_est": 7034,
+   "type": "classification",
+   "drivers": [],
+   "lap": null,
+   "detail": "Final order top 12: O'Ward, VeeKay, Simpson, Herta, Ericsson, Kirkwood, Rahal, Ilott, Malukas, Dixon, Power, Palou.",
+   "confidence": "high",
+   "order": [
+    "O'Ward",
+    "VeeKay",
+    "Simpson",
+    "Herta",
+    "Ericsson",
+    "Kirkwood",
+    "Rahal",
+    "Ilott",
+    "Malukas",
+    "Dixon",
+    "Power",
+    "Palou"
+   ]
+  },
+  {
+   "id": "e125",
+   "video_time": "2:07:49",
+   "video_s": 7669,
+   "race_elapsed_s_est": 7134,
+   "type": "championship",
+   "drivers": [
+    "Palou",
+    "O'Ward"
+   ],
+   "lap": null,
+   "detail": "Palou lead was 129 before the race, cut to 99 after Toronto. Kirkwood back to 3rd, Dixon 4th, Lundgaard 5th.",
+   "confidence": "high",
+   "lead_before": 129,
+   "lead_after": 99
+  }
+ ],
+ "derived_metric_hints": {
+  "tire_life_curve": "events type=tire_degradation + laptime_s arrays: soft cliff onset ~laps 7-12 (VeeKay 8-10, Simpson 7-8 with ~7 s lost in 2 laps, Palou/Dixon ~11-12).",
+  "stint_length_by_compound": "use pit_stop events (tire_from/tire_to, lap, stint_laps_before/soft_stint_laps).",
+  "overcut_undercut_score": "events with overcut=True: Dixon over Palou (lap ~54), O'Ward over VeeKay (lap ~58).",
+  "caution_luck_index": "caution_start/pit windows: who had pitted just before yellow (O'Ward, Shwartzman, Rahal) vs who stayed out (Palou, Dixon).",
+  "pit_quality": "pit_stop.quality/pit_issue/pit_error events: McLaughlin wheel-off (lap 3), Malukas wheel fitting (lap ~75), Kirkwood pit-entry spin, Herta clean stop.",
+  "push_to_pass_budget": "push_to_pass events give seconds remaining for several drivers at several laps.",
+  "gap_trend": "gap events with gap_s for leader battles; join with API timing for lap-level.",
+  "braking_style_counts": "braking_related=True with brake_style in {late, late_lockup, late_successful}; treat as counts per driver, not rates."
+ }
+}
