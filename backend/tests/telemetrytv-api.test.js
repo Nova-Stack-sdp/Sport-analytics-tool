@@ -145,6 +145,10 @@ describe('GET /api/telemetry-tv/races/:slug', () => {
       lapChart: { positions: { 1: { 1: '26' } } },
       stats: { avgSpeedMph: 88.972 },
     });
+    expect(res.body.race.events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: 'crash', lap: 37 }),
+      expect.objectContaining({ type: 'crash', lap: 89 }),
+    ]));
   });
 
   test('returns 404 for a race slug without a cached bundle', async () => {

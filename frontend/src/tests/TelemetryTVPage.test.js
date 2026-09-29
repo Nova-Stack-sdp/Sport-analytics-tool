@@ -84,15 +84,17 @@ describe('TelemetryTVPage', () => {
       screen.getByRole('option', { name: 'Ontario Honda Dealers Indy Toronto · 2025' })
     ).toBeInTheDocument();
     const p1Driver = await screen.findByText('Colton Herta', { selector: '.driver-meta span' });
+    expect(screen.getByText('Race start: Lap 1.')).toBeInTheDocument();
     expect(p1Driver.closest('tr')).toHaveTextContent('P1');
     expect(p1Driver.closest('tr').cells[6]).toHaveTextContent('1');
     expect(p1Driver.closest('tr').cells[7]).toHaveTextContent('100.4 mph');
     const p2Driver = screen.getByText("Pato O'Ward", {
       selector: '.masterboard-table .driver-meta span',
     });
-    expect(p2Driver.closest('tr').cells[7]).toHaveTextContent('--');
+    expect(p2Driver.closest('tr').cells[7]).toHaveTextContent('mph');
+    expect(p2Driver.closest('tr').cells[7]).toHaveTextContent('±2.0');
     expect(screen.getByText('Master Board')).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'Current speed' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Derived speed' })).toBeInTheDocument();
     expect(screen.getByText('Race So Far')).toBeInTheDocument();
     expect(screen.queryByText('Race Analysis')).not.toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Result' })).not.toBeInTheDocument();
@@ -134,15 +136,17 @@ describe('TelemetryTVPage', () => {
     fireEvent.change(lapControl, { target: { value: '2' } });
 
     expect(await screen.findByText('Official order at lap 2')).toBeInTheDocument();
+    expect(screen.getByText("Overtake: Pato O'Ward moves ahead of Colton Herta for P1.")).toBeInTheDocument();
     const leaderRow = screen.getByText("Pato O'Ward", { selector: '.driver-meta span' }).closest('tr');
     expect(leaderRow).toHaveTextContent('P1');
     expect(leaderRow.cells[6]).toHaveTextContent('2');
-    expect(leaderRow.cells[7]).toHaveTextContent('101.2 mph');
+    expect(leaderRow.cells[7]).toHaveTextContent('101.2 mph ±2.0');
     const previousLeaderRow = screen.getByText('Colton Herta', {
       selector: '.masterboard-table .driver-meta span',
     }).closest('tr');
     expect(previousLeaderRow.cells[6]).toHaveTextContent('2');
-    expect(previousLeaderRow.cells[7]).toHaveTextContent('--');
+    expect(previousLeaderRow.cells[7]).toHaveTextContent('101.2 mph');
+    expect(previousLeaderRow.cells[7]).not.toHaveTextContent('±');
     expect(screen.getByText('Yellow')).toBeInTheDocument();
     expect(screen.getByText('Race Analysis')).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Result' })).toBeInTheDocument();
@@ -178,9 +182,10 @@ describe('TelemetryTVPage', () => {
       selector: '.masterboard-table .driver-meta span',
     }).closest('tr');
     expect(leaderRow.cells[6]).toHaveTextContent('3');
-    expect(leaderRow.cells[7]).toHaveTextContent('99.5 mph');
+    expect(leaderRow.cells[7]).toHaveTextContent('99.5 mph ±2.0');
     expect(previousLapRow.cells[6]).toHaveTextContent('2');
-    expect(previousLapRow.cells[7]).toHaveTextContent('--');
+    expect(previousLapRow.cells[7]).toHaveTextContent('99.5 mph');
+    expect(previousLapRow.cells[7]).not.toHaveTextContent('±');
   });
 
   test('shows the unconfigured shell when the catalogue fails to load', async () => {

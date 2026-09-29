@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { getTorontoraceContext } from '../data/Torontorace.js';
 
 export const telemetryTVRouter = Router();
 
@@ -73,6 +74,8 @@ telemetryTVRouter.get('/races/:slug', async (req, res, next) => {
     if (!latest) return res.status(404).json({ error: 'INDYCAR race not found' });
 
     const payload = latest.row.payload ?? {};
+    const torontorace = req.params.slug === 'toronto-2025' ? getTorontoraceContext() : null;
+
     return res.json({
       race: {
         slug: req.params.slug,
@@ -88,6 +91,12 @@ telemetryTVRouter.get('/races/:slug', async (req, res, next) => {
         pole: payload.pole ?? null,
         leaders: payload.leaders ?? [],
         cautions: payload.cautions ?? [],
+        events: [...(payload.events ?? []), ...(torontorace?.events ?? [])],
+        intelligence: torontorace ? {
+          paceAndStrategy: torontorace.paceAndStrategy,
+          weather: torontorace.paceAndStrategy.weather,
+          narrative: torontorace.narrative,
+        } : null,
       },
     });
   } catch (err) {

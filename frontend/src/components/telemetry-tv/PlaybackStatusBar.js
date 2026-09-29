@@ -14,9 +14,11 @@ function PlaybackStatusBar({ race, lap, onLapChange, leaderLap }) {
           <span className="status-value mono">{leaderLap?.lapTime ?? '--'}</span>
         </div>
         <div className="status-item">
-          <span className="status-label">Leader speed</span>
+          <span className="status-label">Derived leader speed</span>
           <span className="status-value mono">
-            {leaderLap?.speed == null ? '--' : `${Number(leaderLap.speed).toFixed(1)} mph`}
+            {leaderLap?.speed == null ? '--' : leaderLap.car === '26'
+              ? `${Number(leaderLap.speed).toFixed(1)} mph`
+              : `${Number(leaderLap.speed).toFixed(1)} mph ±2.0`}
           </span>
         </div>
       </div>

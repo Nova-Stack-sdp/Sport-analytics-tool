@@ -1,13 +1,18 @@
 import { useEffect, useState } from 'react';
 import { getTelemetryTVRace, getTelemetryTVRaces } from '../api/client';
+import BattleRadar from '../components/telemetry-tv/BattleRadar';
 import LiveTicker from '../components/telemetry-tv/LiveTicker';
 import Masterboard from '../components/telemetry-tv/Masterboard';
 import PlaybackVideo from '../components/telemetry-tv/PlaybackVideo';
 import PlaybackStatusBar from '../components/telemetry-tv/PlaybackStatusBar';
 import RacePulse from '../components/telemetry-tv/RacePulse';
 import RaceTimeline from '../components/telemetry-tv/RaceTimeline';
+import RaceWeatherPanel from '../components/telemetry-tv/RaceWeatherPanel';
 import TelemetryTVFooter from '../components/telemetry-tv/TelemetryTVFooter';
 import { deriveIndycarLapState } from '../features/telemetry-tv/deriveIndycarLapState';
+import { buildBattleRadarModel } from '../features/telemetry-tv/buildBattleRadarModel';
+import { buildMasterboardCommentary } from '../features/telemetry-tv/buildMasterboardCommentary';
+import { buildTorontoraceIntelligence } from '../features/telemetry-tv/Torontorace';
 
 function TelemetryTVPage() {
   const [races, setRaces] = useState([]);
@@ -42,6 +47,10 @@ function TelemetryTVPage() {
 
   const selectedRace = races.find((race) => race.slug === selectedSlug) ?? null;
   const lapState = deriveIndycarLapState(raceData, lap);
+  const battleRadar = buildBattleRadarModel(lapState.leaderboard);
+  const torontorace = buildTorontoraceIntelligence({ lapState, selectedSlug });
+  const raceIntelligence = raceData?.intelligence ?? (selectedSlug === 'toronto-2025' ? torontorace : null);
+  const commentaryEvents = buildMasterboardCommentary(raceData, lapState);
 
   function handleRaceSelect(slug) {
     setSelectedSlug(slug);
@@ -100,7 +109,7 @@ function TelemetryTVPage() {
               leaderLap={lapState.leaderLap}
               onLapChange={setLap}
             />
-            <LiveTicker events={[]} />
+            <LiveTicker events={commentaryEvents} />
           </div>
 
           <div className="telemetry-tv-sidebar">
@@ -115,6 +124,18 @@ function TelemetryTVPage() {
           </div>
         </div>
 
+        {raceIntelligence && (
+          <RaceWeatherPanel
+            raceSlug={selectedSlug}
+            weather={raceIntelligence.weather}
+            strategySignals={raceIntelligence.strategySignals}
+            narrative={raceIntelligence.narrative}
+          />
+        )}
+        <BattleRadar
+          model={battleRadar}
+          context={selectedSlug === 'toronto-2025' ? torontorace.context : null}
+        />
         <RacePulse race={raceData} lapState={lapState} />
         <RaceTimeline race={raceData} lapState={lapState} />
 
