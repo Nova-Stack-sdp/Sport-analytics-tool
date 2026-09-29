@@ -1,8 +1,11 @@
+/* Sticky, not fixed: the bar stays pinned to the top while scrolling but
+   still takes up its own space in the layout, so page headings always start
+   below it — whatever height the bar wraps to on narrower screens. (With
+   position: fixed every page had to guess the bar's height with its own
+   padding-top, and most pages didn't, so their headings sat underneath it.) */
 .topnav {
-  position: fixed;
+  position: sticky;
   top: 0;
-  left: 0;
-  right: 0;
   z-index: 20;
   background: linear-gradient(90deg, var(--accent-dark) 0%, var(--accent) 100%);
   border-bottom: 1px solid var(--accent-dark);
@@ -35,7 +38,7 @@
   border-radius: 8px;
   background: #f5f5f5;
   color: #b40d18;
-  font-size: 12.5px;
+  font-size: 14px;
   font-weight: 900;
   letter-spacing: -0.5px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.8);
@@ -43,7 +46,7 @@
 
 .brand-text {
   color: #fff6f6;
-  font-size: 14.5px;
+  font-size: 16px;
   font-weight: 800;
   letter-spacing: 0.02em;
 }
@@ -63,7 +66,7 @@
   padding: 10px 12px;
   border-radius: 10px;
   color: rgba(255, 255, 255, 0.9);
-  font-size: 13px;
+  font-size: 14.5px;
   font-weight: 700;
   text-decoration: none;
   white-space: nowrap;
@@ -101,7 +104,7 @@
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
   color: #fff5f5;
-  font-size: 11.5px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-decoration: none;
@@ -136,7 +139,7 @@
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.06);
   color: #fff5f5;
-  font-size: 15.5px;
+  font-size: 17px;
   font-weight: 700;
 }
 
@@ -150,7 +153,7 @@
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.2);
   color: #ffffff;
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 800;
   text-decoration: none;
   flex-shrink: 0;
@@ -204,7 +207,7 @@
   padding: 4px 10px 8px;
   border-bottom: 1px solid var(--border-soft);
   color: var(--text-tertiary);
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 700;
   letter-spacing: 0.02em;
   word-break: break-word;
@@ -219,7 +222,7 @@
   background: transparent;
   color: var(--text-primary);
   font-family: inherit;
-  font-size: 13px;
+  font-size: 14.5px;
   font-weight: 700;
   text-align: left;
   cursor: pointer;
@@ -244,7 +247,7 @@
 .avatar-menu-question {
   margin: 6px 10px 10px;
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: 14.5px;
   font-weight: 700;
   line-height: 1.4;
 }
@@ -263,7 +266,7 @@
   border-color: var(--accent);
   background: var(--accent);
   color: var(--accent-contrast);
-  font-size: 11.5px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -296,7 +299,7 @@
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.08);
   color: #fff5f5;
-  font-size: 20.5px;
+  font-size: 23px;
   cursor: pointer;
   flex-shrink: 0;
   transition: background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
@@ -348,13 +351,28 @@
   }
 }
 
-/* The bar never wraps to a second row at any width — items that don't fit
-   are measured out into the "More" dropdown instead (see TopNavigation.js),
-   so it always stays a single row at --nav-height, which is what every
-   page's top padding is offset against. */
+/* Same breakpoint as the matching block in globals.css. This file loads
+   after globals.css, so if this stopped at 768px the desktop .nav-items
+   rule above won the 769-1100px range and the links got cut off. */
 @media (max-width: 1100px) {
   .topnav-inner {
-    gap: 14px;
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 72px;
+    gap: 10px 16px;
+    padding: 10px 16px;
+  }
+
+  .nav-items {
+    order: 3;
+    flex: 1 1 100%;
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .topnav-right {
+    margin-left: auto;
   }
 }
 
@@ -362,4 +380,104 @@
   .season-pill {
     display: none;
   }
+}
+
+
+/* =========================================================
+   Notification Bell & Menu
+   ========================================================= */
+.notification-wrap {
+  position: relative;
+  flex-shrink: 0;
+  margin-right: 4px;
+}
+
+.notification-bell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  cursor: pointer;
+  transition: background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.notification-bell:hover,
+.notification-bell[aria-expanded='true'] {
+  background: #ffffff;
+  color: #111111;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+  transform: translateY(-1px);
+}
+
+.notification-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: #e10600; /* F1 Red */
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 900;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.notification-menu {
+  position: absolute;
+  top: calc(100% + 30px);
+  right: -10px;
+  z-index: 30;
+  width: 320px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 22px 44px rgba(0, 0, 0, 0.34);
+  text-align: left;
+}
+
+.notification-menu h4 {
+  margin: 0 0 10px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.notification-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 350px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+}
+
+.notification-item {
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  color: var(--text-secondary);
+  font-size: 13.5px;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+
+.notification-item:hover {
+  background: var(--accent-soft);
+  color: var(--text-primary);
+}
+
+.notification-item.unread {
+  border-left: 3px solid #e10600;
+  background: var(--surface-hover, rgba(127, 127, 127, 0.08));
+  color: var(--text-primary);
+  font-weight: 600;
 }
