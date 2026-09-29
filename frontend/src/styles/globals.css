@@ -164,8 +164,8 @@ td.secondary{color:var(--text-secondary);}
 
 .follow-btn{border:1.5px solid var(--accent);border-radius:999px;padding:6px 16px;font-size:11px;font-weight:800;font-family:var(--font-ui);cursor:pointer;background:transparent;color:var(--accent);white-space:nowrap;transition:background .15s, color .15s, transform .12s;}
 .follow-btn:hover{transform:translateY(-1px);background:var(--accent);color:var(--accent-contrast);}
-.follow-btn.is-following{background:var(--accent);color:var(--accent-contrast);}
-.follow-btn.is-following:hover{background:transparent;color:var(--accent);}
+.follow-btn.is-following,.follow-btn.is-following:hover,.follow-btn.is-following:disabled{background:var(--accent);border-color:var(--accent);color:#fff;opacity:1;}
+.follow-btn.is-following:hover{filter:brightness(0.9);}
 
 .tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:12px;}
 .tab{padding:7px 4px;font-size:14px;font-weight:600;color:var(--text-tertiary);cursor:pointer;border-bottom:2px solid transparent;margin-right:16px;}
@@ -462,8 +462,7 @@ table.results td{padding:9px 10px;border-bottom:1px solid var(--border-soft);col
 .td-hero{position:relative;border-radius:var(--radius-lg);overflow:hidden;background:linear-gradient(120deg,var(--tc,#7a1010) 0%,#0c0c10 85%);padding:44px;text-align:center;border:1px solid var(--border-soft);}
 .td-follow-btn{position:absolute;top:20px;left:20px;z-index:2;border-color:rgba(255,255,255,0.7);color:#fff;}
 .td-follow-btn:hover{background:#fff;color:#111;}
-.td-follow-btn.is-following{background:#fff;color:#111;}
-.td-follow-btn.is-following:hover{background:transparent;color:#fff;}
+.td-follow-btn.is-following,.td-follow-btn.is-following:hover,.td-follow-btn.is-following:disabled{background:var(--accent);border-color:var(--accent);color:#fff;opacity:1;}
 .td-hero h1{font-size:44px;font-weight:900;margin:0 0 16px;color:#fff;}
 .td-logo{width:90px;height:90px;object-fit:contain;margin-bottom:18px;}
 .td-drivers-row{display:flex;gap:16px;margin-top:36px;justify-content:center;flex-wrap:wrap;}

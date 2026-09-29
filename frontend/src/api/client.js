@@ -17,10 +17,19 @@ const API_BASE_URL =
   process.env.REACT_APP_API_URL || 'https://sport--backend-api--7kcwxz9xblx5.code.run';
 
 async function request(path, options = {}) {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    credentials: 'include',
-    ...options,
-  });
+  // Give up after 10s so a hung backend can't leave a button stuck on "busy".
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+  let res;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      credentials: 'include',
+      signal: controller.signal,
+      ...options,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) {
     const error = new Error(`Request to ${path} failed with status ${res.status}`);
     error.status = res.status;

@@ -20,6 +20,7 @@ function FollowButton({ type, entity, className = '' }) {
   const navigate = useNavigate();
   const [following, setFollowing] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
   const checkFollowing = () => {
     if (!user?.uid || !entity?.id) return false;
@@ -47,12 +48,14 @@ function FollowButton({ type, entity, className = '' }) {
   }, [user?.uid, entity?.id, type]);
 
   const handleClick = async () => {
+    console.log('[FollowButton] clicked', { type, id: entity?.id, signedIn: !!user, busy });
     if (!user) {
       navigate('/sign-in');
       return;
     }
     if (busy) return;
     setBusy(true);
+    setError('');
     try {
       if (following) {
         if (type === 'team') await unfollowTeam(user.uid, entity.id);
@@ -63,8 +66,10 @@ function FollowButton({ type, entity, className = '' }) {
         await followDriver(user.uid, entity);
       }
       setFollowing(checkFollowing());
-    } catch {
-      // Leave the button as it was; the server rejected or was unreachable.
+    } catch (err) {
+      // Leave the button as it was, but say why instead of failing silently.
+      console.error('Follow request failed:', err.status, err.body || err.message);
+      setError(err.body?.error || err.message || 'Could not update follow');
     } finally {
       setBusy(false);
     }
@@ -77,8 +82,9 @@ function FollowButton({ type, entity, className = '' }) {
       onClick={handleClick}
       aria-pressed={following}
       disabled={busy}
+      title={error || undefined}
     >
-      {following ? '✓ Following' : '+ Follow'}
+      {error ? '⚠ Retry follow' : following ? '✓ Following' : '+ Follow'}
     </button>
   );
 }
