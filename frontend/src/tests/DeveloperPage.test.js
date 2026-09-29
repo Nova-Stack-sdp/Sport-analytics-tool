@@ -57,12 +57,12 @@ describe('DeveloperPage', () => {
     expect(screen.queryByText('API endpoints')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: 'Submissions' }));
-    expect(screen.getByText('Correction history')).toBeInTheDocument();
+    expect(screen.getByText('Review & approval queue')).toBeInTheDocument();
   });
 
   test.each([
     ['/developer?tab=datasets', 'Datasets', 'Build a custom export'],
-    ['/developer?tab=submissions', 'Submissions', 'Correction history'],
+    ['/developer?tab=submissions', 'Submissions', 'Review & approval queue'],
   ])('opens straight on the right tab from %s', (path, tabName, content) => {
     mockIsDeveloperMode = true;
     renderDeveloperPage(path);

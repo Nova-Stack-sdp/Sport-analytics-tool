@@ -7,6 +7,7 @@ import { getTelemetryTVRaces } from '../api/client';
 
 jest.mock('../api/client', () => ({
   getTelemetryTVRaces: jest.fn(),
+  listSubmissions: jest.fn(() => Promise.resolve({ submissions: [] })),
 }));
 
 describe('static platform pages', () => {
@@ -20,8 +21,9 @@ describe('static platform pages', () => {
 
   test('renders the submissions pipeline and switches review tabs', () => {
     render(<SubmissionsPanel />);
-    expect(screen.getByText(/Batch validation.*1 error found/)).toBeInTheDocument();
-    expect(screen.getByText('Correction history')).toBeInTheDocument();
+    expect(screen.getByText('Submit a batch')).toBeInTheDocument();
+    expect(screen.getByText('Review & approval queue')).toBeInTheDocument();
+    
     const approved = screen.getByText('Approved', { selector: '.tab' });
     fireEvent.click(approved);
     expect(approved).toHaveClass('active');
