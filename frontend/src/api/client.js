@@ -243,3 +243,32 @@ export function getRaceReplayState(sessionId, { lap } = {}) {
 export function getRaceReplayTrackShape(sessionId) {
   return request(`/api/race-replay/${sessionId}/track-shape`);
 }
+
+// ---------------------------------------------------------------------------
+// Follows (stored server-side per signed-in user)
+// ---------------------------------------------------------------------------
+
+const jsonBody = (body) => ({
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(body || {}),
+});
+
+export function getFollows() {
+  return request('/api/follows');
+}
+
+export function followDriverRequest(driverId, snapshot) {
+  return request(`/api/follows/drivers/${encodeURIComponent(driverId)}`, { method: 'PUT', ...jsonBody(snapshot) });
+}
+
+export function unfollowDriverRequest(driverId) {
+  return request(`/api/follows/drivers/${encodeURIComponent(driverId)}`, { method: 'DELETE' });
+}
+
+export function followTeamRequest(teamId, snapshot) {
+  return request(`/api/follows/teams/${encodeURIComponent(teamId)}`, { method: 'PUT', ...jsonBody(snapshot) });
+}
+
+export function unfollowTeamRequest(teamId) {
+  return request(`/api/follows/teams/${encodeURIComponent(teamId)}`, { method: 'DELETE' });
+}

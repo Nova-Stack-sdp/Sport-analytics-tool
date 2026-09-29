@@ -1,34 +1,61 @@
-// Follows live in the same place profile customization does (browser
-// localStorage, keyed per signed-in user) — there is no backend user table
-// yet, so this mirrors services/userProfile.js rather than inventing a
-// second storage strategy.
+// Follows are stored in the backend database (per signed-in user), so they
+// follow the account across devices. This module keeps a small in-memory copy
+// so components can read synchronously, and notifies subscribers on change.
+import {
+  followDriverRequest,
+  followTeamRequest,
+  getFollows,
+  unfollowDriverRequest,
+  unfollowTeamRequest,
+} from '../api/client';
+
 export const FOLLOWS_UPDATED_EVENT = 'f1-analytics-follows-updated';
 
-function followsStorageKey(userId) {
-  return `f1-analytics-follows:${userId}`;
+const emptyFollows = () => ({ drivers: [], teams: [] });
+
+let cache = { userId: null, follows: emptyFollows(), loaded: false };
+let inflight = null;
+
+function normalize(data) {
+  return {
+    drivers: Array.isArray(data?.drivers) ? data.drivers : [],
+    teams: Array.isArray(data?.teams) ? data.teams : [],
+  };
 }
 
-function emptyFollows() {
-  return { drivers: [], teams: [] };
-}
-
-export function readFollows(userId) {
-  if (!userId || typeof window === 'undefined') return emptyFollows();
-
-  try {
-    const saved = JSON.parse(window.localStorage.getItem(followsStorageKey(userId)) || '{}');
-    return {
-      drivers: Array.isArray(saved.drivers) ? saved.drivers : [],
-      teams: Array.isArray(saved.teams) ? saved.teams : [],
-    };
-  } catch {
-    return emptyFollows();
+function setCache(userId, follows) {
+  cache = { userId, follows: normalize(follows), loaded: true };
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(FOLLOWS_UPDATED_EVENT, { detail: { userId } }));
   }
+  return cache.follows;
 }
 
-function writeFollows(userId, follows) {
-  window.localStorage.setItem(followsStorageKey(userId), JSON.stringify(follows));
-  window.dispatchEvent(new CustomEvent(FOLLOWS_UPDATED_EVENT, { detail: { userId } }));
+// Clear on sign-out / in tests so one account never sees another's follows.
+export function resetFollowCache() {
+  cache = { userId: null, follows: emptyFollows(), loaded: false };
+  inflight = null;
+}
+
+// Synchronous read of whatever is cached for this user (empty until loaded).
+export function readFollows(userId) {
+  if (!userId || cache.userId !== userId) return emptyFollows();
+  return cache.follows;
+}
+
+// Fetch from the server (once per user unless `force`) and update the cache.
+export async function loadFollows(userId, { force = false } = {}) {
+  if (!userId) return emptyFollows();
+  if (!force && cache.loaded && cache.userId === userId) return cache.follows;
+  if (inflight?.userId === userId) return inflight.promise;
+
+  const promise = Promise.resolve(getFollows())
+    .then((data) => setCache(userId, data))
+    .finally(() => {
+      if (inflight?.promise === promise) inflight = null;
+    });
+  inflight = { userId, promise };
+  return promise;
 }
 
 export function getFollowCount(userId) {
@@ -44,57 +71,33 @@ export function isFollowingTeam(userId, teamId) {
   return readFollows(userId).teams.some((t) => t.id === teamId);
 }
 
-// `driver` is a small denormalized snapshot (id, name, number, teamName,
-// teamColor) so the "Following" list can render without re-fetching every
-// followed driver's full profile.
-export function followDriver(userId, driver) {
+// `driver` / `team` carry a small display snapshot (name, number, colours...)
+// that the server stores next to the follow so the list renders in one call.
+export async function followDriver(userId, driver) {
   if (!userId || !driver?.id) throw new Error('A signed-in user and a driver are required to follow.');
-  const follows = readFollows(userId);
-  if (follows.drivers.some((d) => d.id === driver.id)) return follows;
-  const next = { ...follows, drivers: [...follows.drivers, driver] };
-  writeFollows(userId, next);
-  return next;
+  return setCache(userId, await followDriverRequest(driver.id, driver));
 }
 
-export function unfollowDriver(userId, driverId) {
+export async function unfollowDriver(userId, driverId) {
   if (!userId) throw new Error('A signed-in user is required to unfollow.');
-  const follows = readFollows(userId);
-  const next = { ...follows, drivers: follows.drivers.filter((d) => d.id !== driverId) };
-  writeFollows(userId, next);
-  return next;
+  return setCache(userId, await unfollowDriverRequest(driverId));
 }
 
-export function followTeam(userId, team) {
+export async function followTeam(userId, team) {
   if (!userId || !team?.id) throw new Error('A signed-in user and a team are required to follow.');
-  const follows = readFollows(userId);
-  if (follows.teams.some((t) => t.id === team.id)) return follows;
-  const next = { ...follows, teams: [...follows.teams, team] };
-  writeFollows(userId, next);
-  return next;
+  return setCache(userId, await followTeamRequest(team.id, team));
 }
 
-export function unfollowTeam(userId, teamId) {
+export async function unfollowTeam(userId, teamId) {
   if (!userId) throw new Error('A signed-in user is required to unfollow.');
-  const follows = readFollows(userId);
-  const next = { ...follows, teams: follows.teams.filter((t) => t.id !== teamId) };
-  writeFollows(userId, next);
-  return next;
+  return setCache(userId, await unfollowTeamRequest(teamId));
 }
 
 export function subscribeToFollows(userId, callback) {
   if (!userId || typeof window === 'undefined') return () => {};
-
-  const handleFollowsUpdate = (event) => {
+  const handler = (event) => {
     if (!event.detail?.userId || event.detail.userId === userId) callback();
   };
-  const handleStorage = (event) => {
-    if (event.key === followsStorageKey(userId)) callback();
-  };
-
-  window.addEventListener(FOLLOWS_UPDATED_EVENT, handleFollowsUpdate);
-  window.addEventListener('storage', handleStorage);
-  return () => {
-    window.removeEventListener(FOLLOWS_UPDATED_EVENT, handleFollowsUpdate);
-    window.removeEventListener('storage', handleStorage);
-  };
+  window.addEventListener(FOLLOWS_UPDATED_EVENT, handler);
+  return () => window.removeEventListener(FOLLOWS_UPDATED_EVENT, handler);
 }

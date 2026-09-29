@@ -5,6 +5,7 @@ import { auth } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useDeveloperMode } from '../context/DeveloperModeContext';
 import { clearSession } from '../api/client';
+import { resetFollowCache } from '../services/followService';
 import { readLocalProfile, subscribeToLocalProfile } from '../services/userProfile';
 
 const NAV_ITEMS = [
@@ -73,6 +74,7 @@ function TopNav({ theme, onToggleTheme }) {
     // httpOnly cookie.  Clear the context immediately so the UI
     // updates before the redirect.
     clearAuth();
+    resetFollowCache();
     // allSettled, not all: signing out locally must not depend on the
     // backend being reachable.  When the API is down or blocked, fetch
     // rejects with a TypeError ("Failed to fetch") — under Promise.all

@@ -11,7 +11,7 @@ import {
   saveLocalProfile,
   validateProfileImage,
 } from '../services/userProfile';
-import { readFollows, subscribeToFollows, unfollowDriver, unfollowTeam } from '../services/followService';
+import { loadFollows, readFollows, subscribeToFollows, unfollowDriver, unfollowTeam } from '../services/followService';
 import FollowingListModal from '../components/FollowingListModal';
 import ProfileCalendar from '../components/ProfileCalendar';
 
@@ -56,8 +56,17 @@ function ProfilePage() {
   const [followModalOpen, setFollowModalOpen] = useState(false);
 
   useEffect(() => {
-    setFollows(readFollows(user?.uid));
-    return subscribeToFollows(user?.uid, () => setFollows(readFollows(user?.uid)));
+    if (!user?.uid) return undefined;
+    let active = true;
+    setFollows(readFollows(user.uid));
+    const unsubscribe = subscribeToFollows(user.uid, () => active && setFollows(readFollows(user.uid)));
+    loadFollows(user.uid)
+      .then((loaded) => active && setFollows(loaded))
+      .catch(() => {});
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [user?.uid]);
 
   const followCount = follows.drivers.length + follows.teams.length;
@@ -197,8 +206,8 @@ function ProfilePage() {
           <FollowingListModal
             drivers={follows.drivers}
             teams={follows.teams}
-            onUnfollowDriver={(driverId) => setFollows(unfollowDriver(user.uid, driverId))}
-            onUnfollowTeam={(teamId) => setFollows(unfollowTeam(user.uid, teamId))}
+            onUnfollowDriver={(driverId) => unfollowDriver(user.uid, driverId).then(setFollows).catch(() => {})}
+            onUnfollowTeam={(teamId) => unfollowTeam(user.uid, teamId).then(setFollows).catch(() => {})}
             onClose={() => setFollowModalOpen(false)}
           />
         )}
