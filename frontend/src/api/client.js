@@ -274,3 +274,47 @@ export function followTeamRequest(teamId, snapshot) {
 export function unfollowTeamRequest(teamId) {
   return request(`/api/follows/teams/${encodeURIComponent(teamId)}`, { method: 'DELETE' });
 }
+// ---------------------------------------------------------------------------
+// Submissions (developer/admin)
+// ---------------------------------------------------------------------------
+
+export function submitData(body) {
+  return request('/api/submissions', { method: 'POST', ...jsonBody(body) });
+}
+
+export function listSubmissions(status) {
+  const query = status ? `?status=${encodeURIComponent(status)}` : '';
+  return request(`/api/submissions${query}`);
+}
+
+export function reviewSubmission(id, status) {
+  return request(`/api/submissions/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    ...jsonBody({ status }),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// F1 news feed
+// ---------------------------------------------------------------------------
+
+export function getF1News() {
+  return request('/api/news');
+}
+
+// EventSource can't go through request(), so it needs the absolute URL.
+export function getF1NewsStreamUrl() {
+  return `${API_BASE_URL}/api/news/stream`;
+}
+
+// ---------------------------------------------------------------------------
+// Telemetry TV
+// ---------------------------------------------------------------------------
+
+export function getTelemetryTVRaces() {
+  return request('/api/telemetry-tv/races');
+}
+
+export function getTelemetryTVRace(slug) {
+  return request(`/api/telemetry-tv/races/${encodeURIComponent(slug)}`);
+}
