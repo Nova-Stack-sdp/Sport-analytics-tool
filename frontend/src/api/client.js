@@ -245,3 +245,31 @@ export function getRaceReplayState(sessionId, { lap } = {}) {
 export function getRaceReplayTrackShape(sessionId) {
   return request(`/api/race-replay/${sessionId}/track-shape`);
 }
+
+// ---------------------------------------------------------------------------
+// Submissions
+// ---------------------------------------------------------------------------
+
+/** Submit an OpenF1-shaped event batch. payload must include session_key. */
+export function submitData(payload) {
+  return request('/api/submissions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+/** status: 'pending' | 'accepted' | 'rejected', or omit for all. */
+export function listSubmissions(status) {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : '';
+  return request(`/api/submissions${qs}`);
+}
+
+/** status: 'accepted' | 'rejected'. Requires admin. */
+export function reviewSubmission(id, status) {
+  return request(`/api/submissions/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  });
+}

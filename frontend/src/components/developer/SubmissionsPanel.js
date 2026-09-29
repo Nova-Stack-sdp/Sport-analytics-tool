@@ -1,54 +1,141 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { submitData, listSubmissions, reviewSubmission } from '../../api/client';
 
 const REVIEW_TABS = ['Pending', 'Approved', 'Rejected'];
+const TAB_TO_STATUS = { Pending: 'pending', Approved: 'accepted', Rejected: 'rejected' };
 
-// Submissions tab of the Developer page. Used to be its own /submissions
-// page; that URL now redirects to /developer?tab=submissions (see AppRoutes).
+// Submissions tab of the Developer page. Wired to POST/GET/PATCH
+// /api/submissions. Batch submission is a session_key + JSON textarea for
+// now, not drag-and-drop file upload — that's a follow-up.
 function SubmissionsPanel() {
   const [activeTab, setActiveTab] = useState('Pending');
+  const [submissions, setSubmissions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(null);
+
+  const [sessionKey, setSessionKey] = useState('');
+  const [payloadText, setPayloadText] = useState('{\n  "laps": []\n}');
+  const [submitResult, setSubmitResult] = useState(null);
+  const [submitError, setSubmitError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadSubmissions = useCallback(async (tab) => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const data = await listSubmissions(TAB_TO_STATUS[tab]);
+      setSubmissions(data.submissions || []);
+    } catch (err) {
+      setLoadError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSubmissions(activeTab);
+  }, [activeTab, loadSubmissions]);
+
+  async function handleReview(id, status) {
+    try {
+      await reviewSubmission(id, status);
+      loadSubmissions(activeTab);
+    } catch (err) {
+      setLoadError(err.message);
+    }
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setSubmitting(true);
+    setSubmitError(null);
+    setSubmitResult(null);
+    let body;
+    try {
+      body = JSON.parse(payloadText);
+    } catch {
+      setSubmitError('Event data is not valid JSON');
+      setSubmitting(false);
+      return;
+    }
+    body.session_key = Number(sessionKey);
+    try {
+      const result = await submitData(body);
+      setSubmitResult(result);
+      if (activeTab === 'Pending') loadSubmissions('Pending');
+    } catch (err) {
+      if (err.body) setSubmitResult(err.body);
+      else setSubmitError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div className="developer-panel" id="developer-submissions">
       <div className="rationale">
         <span className="ic">◆</span>
         <div>
-          <b>Why this tab:</b> the brief treats submission as its own pipeline, not a side effect of an admin panel: "a submission... should be checked against the platform's event schema before it is accepted, and a rejection should tell the submitter what was wrong." At the intermediate tier this becomes a full staging pipeline with resumable batches and a review step before publication — enough distinct stages to warrant its own tab.
+          <b>Why this tab:</b> the brief treats submission as its own pipeline, not a side effect of an admin panel: "a submission... should be checked against the platform's event schema before it is accepted, and a rejection should tell the submitter what was wrong."
         </div>
       </div>
 
       <div className="grid grid-2" style={{ marginBottom: 16 }}>
         <div className="card">
           <div className="card-title" style={{ marginBottom: 4 }}>Submit a batch</div>
-          <div className="card-title-sub" style={{ marginBottom: 12 }}>.json or .csv, checked against the event schema</div>
-          <div className="dropzone">
-            <div className="icon">⇪</div>
-            <div><b>Drag &amp; drop</b> an event batch file</div>
-            <div style={{ marginTop: 2, color: 'var(--text-tertiary)' }}>or click to browse · max 200MB</div>
-          </div>
-          <div className="pipeline-steps">
-            <div className="pstep done"><div className="n">✓</div><div className="t">Staged</div></div>
-            <div className="pline"></div>
-            <div className="pstep active validating"><div className="n">2</div><div className="t">Validating</div></div>
-            <div className="pline"></div>
-            <div className="pstep"><div className="n">3</div><div className="t">Reviewed</div></div>
-            <div className="pline"></div>
-            <div className="pstep"><div className="n">4</div><div className="t">Published</div></div>
-          </div>
-          <button className="btn btn-ghost btn-full">Download event schema (JSON)</button>
+          <div className="card-title-sub" style={{ marginBottom: 12 }}>OpenF1-shaped JSON, checked against the event schema</div>
+          <form onSubmit={handleSubmit}>
+            <label style={{ display: 'block', marginBottom: 8 }}>
+              Session key
+              <input
+                type="number"
+                value={sessionKey}
+                onChange={(e) => setSessionKey(e.target.value)}
+                required
+                style={{ display: 'block', width: '100%', marginTop: 4 }}
+              />
+            </label>
+            <label style={{ display: 'block', marginBottom: 8 }}>
+              Event data (JSON — e.g. {"{"}"laps": [...]{"}"})
+              <textarea
+                value={payloadText}
+                onChange={(e) => setPayloadText(e.target.value)}
+                rows={8}
+                style={{ display: 'block', width: '100%', marginTop: 4, fontFamily: 'monospace' }}
+              />
+            </label>
+            <button type="submit" className="btn btn-primary btn-full" disabled={submitting}>
+              {submitting ? 'Submitting…' : 'Submit batch'}
+            </button>
+          </form>
 
-          <div className="error-box">
-            <div className="eh">⚠ Batch validation — 1 error found</div>
-            <div style={{ display: 'flex', gap: 20, marginBottom: 10, color: '#8A5A17' }}>
-              <span>Batch <b>9f3e7b2a</b></span>
-              <span>Fixture <b>Brazil GP 2026</b></span>
+          {submitError && (
+            <div className="error-box" style={{ marginTop: 12 }}>
+              <div className="eh">⚠ {submitError}</div>
             </div>
-            <table>
-              <tbody>
-                <tr><th>Line</th><th>Field</th><th>Value</th><th>Expected</th></tr>
-                <tr><td>157</td><td className="mono">events[17].event_type</td><td className="mono">"TRYY"</td><td className="secondary">TRY, OVERTAKE, PIT_STOP…</td></tr>
-              </tbody>
-            </table>
-          </div>
+          )}
+
+          {submitResult && (
+            <div className="error-box" style={{ marginTop: 12 }}>
+              <div className="eh">
+                {submitResult.status === 'rejected' ? '⚠ Rejected' : `✓ ${submitResult.status}`}
+                {' — '}{submitResult.eventsWritten ?? 0} event(s) written
+              </div>
+              {submitResult.rejections?.length > 0 && (
+                <table>
+                  <tbody>
+                    <tr><th>Type</th><th>Reason</th></tr>
+                    {submitResult.rejections.map((r, i) => (
+                      <tr key={i}>
+                        <td className="mono">{r.eventType}</td>
+                        <td className="secondary">{r.reason}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="card">
@@ -64,29 +151,39 @@ function SubmissionsPanel() {
               </div>
             ))}
           </div>
-          <table>
-            <tbody>
-              <tr><th>Submission</th><th>Submitter</th><th>Window</th><th>Status</th></tr>
-              <tr><td>Monaco GP 2026</td><td className="secondary">analyst_042</td><td className="secondary mono">Q1–Race</td><td><span className="pill pill-amber">Pending</span></td></tr>
-              <tr><td>US GP 2026</td><td className="secondary">official_017</td><td className="secondary mono">Full event</td><td><span className="pill pill-green">Approved</span></td></tr>
-              <tr><td>Brazil GP 2026</td><td className="secondary">analyst_019</td><td className="secondary mono">Race only</td><td><span className="pill status-rejected">Rejected</span></td></tr>
-            </tbody>
-          </table>
-          <div className="card-note" style={{ marginTop: 14 }}>Only approved submitters may submit, each scoped to a defined part of the competition — so every event is traceable to who supplied it.</div>
+          {loading && <div className="card-note">Loading…</div>}
+          {loadError && <div className="card-note" style={{ color: 'var(--status-red)' }}>{loadError}</div>}
+          {!loading && !loadError && (
+            <table>
+              <tbody>
+                <tr><th>Session</th><th>Submitted</th><th>Status</th><th></th></tr>
+                {submissions.length === 0 && (
+                  <tr><td colSpan={4} className="secondary">No submissions</td></tr>
+                )}
+                {submissions.map((s) => (
+                  <tr key={s.id}>
+                    <td className="mono secondary">{s.sessionId}</td>
+                    <td className="secondary mono">{new Date(s.submittedAt).toLocaleString()}</td>
+                    <td>
+                      {s.status === 'pending' && <span className="pill pill-amber">Pending</span>}
+                      {s.status === 'accepted' && <span className="pill pill-green">Approved</span>}
+                      {s.status === 'rejected' && <span className="pill status-rejected">Rejected</span>}
+                    </td>
+                    <td>
+                      {s.status === 'pending' && (
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button className="btn btn-primary btn-sm" onClick={() => handleReview(s.id, 'accepted')}>Approve</button>
+                          <button className="btn btn-ghost btn-sm" onClick={() => handleReview(s.id, 'rejected')}>Reject</button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <div className="card-note" style={{ marginTop: 14 }}>Approve/reject require admin access.</div>
         </div>
-      </div>
-
-      <div className="card">
-        <div className="card-head"><div className="card-title">Correction history</div><span className="card-title-sub">Mexico City Grand Prix</span></div>
-        <div className="audit-entry">
-          <div className="audit-dot flag"></div>
-          <div>
-            <div className="audit-time">Oct 20, 2026 · 14:11:07 UTC</div>
-            <div className="audit-head">Event #00984 reclassified <span className="pill pill-amber" style={{ marginLeft: 4 }}>Correction</span></div>
-            <div className="audit-meta">SAFETY_CAR → <b>VIRTUAL_SAFETY_CAR</b> · submitted by official_017, approved by review_lead_03</div>
-          </div>
-        </div>
-        <div className="card-note">Corrections don't overwrite — they're appended, so every statistic that depended on the old value stays reconstructable.</div>
       </div>
     </div>
   );
