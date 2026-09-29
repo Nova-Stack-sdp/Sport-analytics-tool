@@ -64,8 +64,10 @@ export function clearSession() {
  * Check whether the backend cookie is still valid.
  * Returns the user object or throws if no valid session exists.
  */
-export function getSession() {
-  return request('/api/auth/me');
+export function getSession(idToken) {
+  return request('/api/auth/me', {
+    ...(idToken ? { headers: { Authorization: `Bearer ${idToken}` } } : {}),
+  });
 }
 
 /**
