@@ -14,6 +14,10 @@ import {
   saveLocalProfile,
   validateProfileImage,
 } from '../services/userProfile';
+import { readFollows, subscribeToFollows, unfollowDriver, unfollowTeam } from '../services/followService';
+import FollowingListModal from '../components/FollowingListModal';
+import ProfileCalendar from '../components/ProfileCalendar';
+import ProfileNotifications from '../components/ProfileNotifications';
 import {
   loadUserPreferences,
   readCachedUserPreferences,
@@ -25,13 +29,13 @@ import {
   preferenceCatalog,
 } from '../services/f1Catalog';
 
-// Each tab has a URL slug so other pages can link straight to one, e.g.
-// /profile?tab=settings (the old /settings route redirects there).
+// Each tab has a URL slug so other pages can link straight to one
 const PROFILE_TABS = [
   { slug: 'profile', label: 'User Profile' },
   { slug: 'settings', label: 'Settings' },
   { slug: 'news', label: 'News Feed' },
   { slug: 'calendar', label: 'Calendar' },
+  { slug: 'notifications', label: 'Notifications' } // Added your Notifications tab here
 ];
 const DEFAULT_TAB = PROFILE_TABS[0].slug;
 
@@ -74,6 +78,7 @@ function ProfilePage() {
   const [selectedPhotoName, setSelectedPhotoName] = useState('');
   const [saveState, setSaveState] = useState('idle');
   const [message, setMessage] = useState('');
+// State from main branch (Preferences & URL Params)
   const [preferences, setPreferences] = useState(initialPreferences);
   const [preferencesLoading, setPreferencesLoading] = useState(true);
   const [preferencesNotice, setPreferencesNotice] = useState('');
@@ -86,10 +91,20 @@ function ProfilePage() {
   const activeTab = tabFromParam(searchParams.get('tab'));
 
   const selectTab = (slug) => {
-    // replace, not push: flicking between tabs shouldn't fill up the back
-    // button history.
+    // replace, not push: flicking between tabs shouldn't fill up the back button history.
     setSearchParams(slug === DEFAULT_TAB ? {} : { tab: slug }, { replace: true });
   };
+
+  // State from your branch (Follows & Notifications)
+  const [follows, setFollows] = useState(() => readFollows(user?.uid));
+  const [followModalOpen, setFollowModalOpen] = useState(false);
+
+  useEffect(() => {
+    setFollows(readFollows(user?.uid));
+    return subscribeToFollows(user?.uid, () => setFollows(readFollows(user?.uid)));
+  }, [user?.uid]);
+
+  const followCount = follows.drivers.length + follows.teams.length;
 
   useEffect(() => {
     const savedProfile = readLocalProfile(user);
@@ -284,6 +299,9 @@ function ProfilePage() {
               </span>
             </div>
           </div>
+          <button type="button" className="btn btn-ghost profile-following-btn" onClick={() => setFollowModalOpen(true)}>
+            Following <span className="profile-following-count">{followCount}</span>
+          </button>
           <button
             type="button"
             className="btn btn-ghost profile-settings-link"
@@ -292,6 +310,16 @@ function ProfilePage() {
             Account settings
           </button>
         </section>
+
+        {followModalOpen && (
+          <FollowingListModal
+            drivers={follows.drivers}
+            teams={follows.teams}
+            onUnfollowDriver={(driverId) => setFollows(unfollowDriver(user.uid, driverId))}
+            onUnfollowTeam={(teamId) => setFollows(unfollowTeam(user.uid, teamId))}
+            onClose={() => setFollowModalOpen(false)}
+          />
+        )}
 
         <div className="profile-grid">
           <section className="card profile-card">
@@ -446,8 +474,33 @@ function ProfilePage() {
         </section>
           </>
         )}
-        {activeTab === 'news' && (
+{activeTab === 'news' && (
           <NewsFeedPanel preferences={preferences} catalog={catalog} />
+        )}
+
+        {activeTab === 'calendar' && (
+          <section className="card profile-card profile-calendar-card">
+            <div className="card-head">
+              <div>
+                <div className="card-title">Season calendar</div>
+                <div className="card-title-sub">Every tracked race weekend this season.</div>
+              </div>
+            </div>
+            <ProfileCalendar />
+          </section>
+        )}
+
+        {/* --- NOTIFICATIONS NEW SECTION --- */}
+        {activeTab === 'notifications' && (
+          <section className="card profile-card">
+            <div className="card-head">
+              <div>
+                <div className="card-title">Notifications</div>
+                <div className="card-title-sub">Recent updates, alerts, and race news.</div>
+              </div>
+            </div>
+            <ProfileNotifications />
+          </section>
         )}
       </div>
     </div>

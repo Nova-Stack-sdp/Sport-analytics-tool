@@ -13,6 +13,7 @@ import { driversRouter } from './routes/drivers.js';
 import { openF1Router } from './routes/openf1.js';
 import { raceReplayRouter } from './routes/raceReplay.js';
 import { imagesRouter } from './routes/images.js';
+import { notificationsRouter } from './routes/notifications.js';
 import { newsRouter } from './routes/news.js';
 import { submissionsRouter } from './routes/submissions.js';
 import { telemetryTVRouter } from './routes/telemetryTV.js';
@@ -122,6 +123,7 @@ export function createApp(options = {}) {
   app.use('/api/openf1', openF1Router);
   app.use('/api/race-replay', raceReplayRouter);
   app.use('/api/images', imagesRouter);
+  app.use('/api/notifications', notificationsRouter);
   app.use('/api/news', newsRouter);
   app.use('/api/submissions', submissionsRouter);
   app.use('/api/telemetry-tv', telemetryTVRouter);
@@ -129,7 +131,6 @@ export function createApp(options = {}) {
   // Public, versioned API for other platforms (see src/api/v1/router.js).
   // The routes above serve the website's own pages and may change with them.
   app.use('/api/v1', apiV1Router);
-
   // 404 for anything else under /api
   app.use('/api', (req, res) => {
     res.status(404).json({ error: 'Not found' });
