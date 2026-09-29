@@ -54,7 +54,7 @@ function TopNav({ theme, onToggleTheme }) {
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   // Helper function to fetch notifications safely
-  const fetchNavNotifications = async () => {
+  const fetchNavNotifications = useCallback(async () => {
     if (!user) return; // Don't fetch if unauthenticated
 
     try {
@@ -72,12 +72,12 @@ function TopNav({ theme, onToggleTheme }) {
     } catch (err) {
       console.error('Failed to fetch notifications for nav', err);
     }
-  };
+  }, [user]);
 
   // 1. Fetch on mount / user auth state change
   useEffect(() => {
     fetchNavNotifications();
-  }, [user]);
+  }, [fetchNavNotifications]);
 
   // 2. Handle Bell Click: Toggle dropdown AND fetch fresh notifications
   const handleBellClick = () => {
@@ -97,12 +97,6 @@ function TopNav({ theme, onToggleTheme }) {
   const avatarRef = useRef(null);
   const confirmRef = useRef(null);
 
-  const visibleNavItems = NAV_ITEMS.filter((item) => {
-    if (item.requiresAuth && !user) return false;
-    if (item.requiresDeveloper && !isDeveloperMode) return false;
-    return true;
-  });
-
   useEffect(() => {
     const refreshLocalProfile = () => setLocalProfile(readLocalProfile(user));
     refreshLocalProfile();
@@ -112,10 +106,6 @@ function TopNav({ theme, onToggleTheme }) {
   const closeMenu = useCallback(() => {
     setMenuOpen(false);
     setConfirmingLogOut(false);
-  }, []);
-
-  const closeNotifications = useCallback(() => {
-    setNotificationsOpen(false);
   }, []);
 
   const handleSignOut = async () => {
