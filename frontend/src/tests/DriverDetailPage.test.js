@@ -103,11 +103,10 @@ describe('DriverDetailPage', () => {
     expect(screen.getByText('17%')).toBeInTheDocument();
     expect(screen.getByText('Bahrain GP · Race')).toBeInTheDocument();
     expect(screen.getByText('Saudi Arabian GP · Sprint')).toBeInTheDocument();
-    expect(screen.getByText('Winner')).toBeInTheDocument();
-    expect(screen.getByText('+1.5')).toBeInTheDocument();
-    expect(screen.getByText('+2')).toBeInTheDocument();
     expect(screen.getAllByText('P1').length).toBeGreaterThan(1);
-    expect(screen.getAllByText('—').length).toBeGreaterThan(1);
+    // Grid / Laps / Gap columns are gone; only the DNF row's blank finish remains.
+    expect(screen.queryByText('Winner')).not.toBeInTheDocument();
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0);
     expect(screen.getByText('0.5')).toBeInTheDocument();
   });
 

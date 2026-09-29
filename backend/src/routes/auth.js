@@ -63,21 +63,27 @@ authRouter.post('/session', async (req, res, next) => {
 
     console.log('--- SESSION ENDPOINT HIT: Creating profile for UID:', decoded.uid);
 
-    // 2. ADD THIS PRISMA BLOCK
-    // Initialize the user profile in PostgreSQL using your shared Prisma instance.
-    await prisma.userProfile.upsert({
-      where: { userId: decoded.uid },
-      update: {}, 
-      create: { userId: decoded.uid }
-    });
-
-    
+    // Initialize the user profile in PostgreSQL using the shared Prisma
+    // instance. This runs *after* the token has already been verified, so
+    // it gets its own try/catch below — a DB hiccup here is a server-side
+    // problem, not proof the token was bad, and must not be reported as one.
+    try {
+      await prisma.userProfile.upsert({
+        where: { userId: decoded.uid },
+        update: {},
+        create: { userId: decoded.uid },
+      });
+    } catch (profileErr) {
+      console.error('auth/session: failed to upsert user profile:', profileErr.message);
+      return res.status(500).json({ error: 'Could not initialize user profile' });
+    }
 
     res.cookie(COOKIE_NAME, idToken, cookieOptions());
     res.json({ uid: decoded.uid, email: decoded.email ?? null, admin: isAdminUid(decoded.uid) });
   } catch (err) {
-    // Distinguish misconfiguration from bad tokens, same convention as
-    // requireAuth.
+    // Anything reaching this catch happened before the profile upsert, i.e.
+    // during token verification/admin-app setup — so it's safe to treat as
+    // a bad/misconfigured token, same convention as requireAuth.
     if (err.message?.includes('FIREBASE_SERVICE_ACCOUNT')) {
       console.error('auth/session misconfigured:', err.message);
       return res.status(500).json({ error: 'Auth is not configured on the server' });
