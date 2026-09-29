@@ -13,7 +13,7 @@ function ProfileNotifications() {
         const response = await fetch(`${API_URL}/api/notifications`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        credentials: 'include'
         });
 
         if (!response.ok) {

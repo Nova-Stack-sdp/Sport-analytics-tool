@@ -22,9 +22,10 @@ jest.unstable_mockModule('firebase-admin', () => ({
 }));
 
 let requireAuth;
+let requireAdmin;
 
 beforeAll(async () => {
-  ({ requireAuth } = await import('../src/middleware/requireAuth.js'));
+  ({ requireAuth, requireAdmin } = await import('../src/middleware/requireAuth.js'));
 });
 
 function buildRes() {
@@ -102,7 +103,7 @@ describe('requireAuth', () => {
 
     await requireAuth(req, res, next);
 
-    expect(req.user).toEqual({ uid: 'user_123', email: 'driver@example.com', developer: false });
+    expect(req.user).toEqual({ uid: 'user_123', email: 'driver@example.com', developer: false, admin: false });
     expect(next).toHaveBeenCalled();
     expect(res.status).not.toHaveBeenCalled();
   });
@@ -115,7 +116,7 @@ describe('requireAuth', () => {
 
     await requireAuth(req, res, next);
 
-    expect(req.user).toEqual({ uid: 'user_123', email: null, developer: false });
+    expect(req.user).toEqual({ uid: 'user_123', email: null, developer: false, admin: false });
     expect(next).toHaveBeenCalled();
   });
 
@@ -127,7 +128,76 @@ describe('requireAuth', () => {
 
     await requireAuth(req, res, next);
 
-    expect(req.user).toEqual({ uid: 'user_123', email: 'dev@example.com', developer: true });
+    expect(req.user).toEqual({ uid: 'user_123', email: 'dev@example.com', developer: true, admin: false });
     expect(next).toHaveBeenCalled();
+  });
+});
+
+describe('requireAuth admin flag (ADMIN_UIDS allowlist)', () => {
+  afterEach(() => {
+    delete process.env.ADMIN_UIDS;
+  });
+
+  test('marks a user on the ADMIN_UIDS list as admin', async () => {
+    process.env.ADMIN_UIDS = 'someone_else, user_123 ,another';
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user_123', email: 'boss@example.com' });
+    const req = { headers: { authorization: 'Bearer good-token' } };
+    const next = jest.fn();
+
+    await requireAuth(req, buildRes(), next);
+
+    expect(req.user.admin).toBe(true);
+    expect(next).toHaveBeenCalled();
+  });
+
+  test('does not mark a user who is not on the list', async () => {
+    process.env.ADMIN_UIDS = 'someone_else';
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user_123' });
+    const req = { headers: { authorization: 'Bearer good-token' } };
+
+    await requireAuth(req, buildRes(), jest.fn());
+
+    expect(req.user.admin).toBe(false);
+  });
+
+  test('ignores an admin claim on the token itself — only the server list counts', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user_123', admin: true });
+    const req = { headers: { authorization: 'Bearer good-token' } };
+
+    await requireAuth(req, buildRes(), jest.fn());
+
+    expect(req.user.admin).toBe(false);
+  });
+});
+
+describe('requireAdmin', () => {
+  test('lets an admin through', () => {
+    const next = jest.fn();
+    const res = buildRes();
+
+    requireAdmin({ user: { uid: 'u1', admin: true } }, res, next);
+
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  test('returns 403 for a signed-in non-admin', () => {
+    const next = jest.fn();
+    const res = buildRes();
+
+    requireAdmin({ user: { uid: 'u1', admin: false } }, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  test('returns 401 when used without requireAuth having set a user', () => {
+    const next = jest.fn();
+    const res = buildRes();
+
+    requireAdmin({}, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(next).not.toHaveBeenCalled();
   });
 });

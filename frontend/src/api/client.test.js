@@ -81,7 +81,8 @@ describe('API client', () => {
 
     await client.getTeams();
 
-    expect(global.fetch).toHaveBeenCalledWith('https://api.example.test/api/teams');
+    // Every request also carries { credentials: 'include' } for the session cookie.
+    expect(global.fetch).toHaveBeenCalledWith('https://api.example.test/api/teams', expect.any(Object));
   });
 
   test('rejects with a useful status message when the backend responds unsuccessfully', async () => {
@@ -100,6 +101,21 @@ describe('API client', () => {
 
     expect(client.getDriverImageUrl('d1')).toBe(`${FALLBACK_API_URL}/api/drivers/d1/image`);
     expect(client.getDriverImageUrl('d1', 123)).toBe(`${FALLBACK_API_URL}/api/drivers/d1/image?v=123`);
+  });
+
+  test('getSession uses the cookie by default and a Bearer header when given an ID token', async () => {
+    delete process.env.REACT_APP_API_URL;
+    global.fetch.mockResolvedValue(successfulResponse({ uid: 'u1', admin: true }));
+    const client = loadClient();
+
+    await client.getSession();
+    await expect(client.getSession('tok')).resolves.toEqual({ uid: 'u1', admin: true });
+
+    expect(global.fetch).toHaveBeenNthCalledWith(1, `${FALLBACK_API_URL}/api/auth/me`, { credentials: 'include' });
+    expect(global.fetch).toHaveBeenNthCalledWith(2, `${FALLBACK_API_URL}/api/auth/me`, {
+      credentials: 'include',
+      headers: { Authorization: 'Bearer tok' },
+    });
   });
 
   test('uploadDriverImage PUTs the raw file with the caller\'s ID token', async () => {

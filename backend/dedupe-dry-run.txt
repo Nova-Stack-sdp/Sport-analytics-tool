@@ -1,0 +1,60 @@
+DRY RUN — nothing will be changed. Add --apply to repair.
+
+┌─────────┬────────────────────────────────────────┬────────────────────────────────────────┬────────┬─────────────────┬──────────┬─────────────────┬─────────┐
+│ (index) │ session                                │ sessionId                              │ events │ duplicateGroups │ toDelete │ toMarkCorrected │ skipped │
+├─────────┼────────────────────────────────────────┼────────────────────────────────────────┼────────┼─────────────────┼──────────┼─────────────────┼─────────┤
+│ 0       │ 'Italian Grand Prix 2026 · Race'       │ 'c92248de-29dc-42d8-8f12-876c1da3ced3' │ 4340   │ 2157            │ 2183     │ 0               │ 0       │
+│ 1       │ 'Dutch Grand Prix 2026 · Race'         │ 'e524f2c3-1ae4-4dbe-ae88-b636bca49eea' │ 5350   │ 2662            │ 2688     │ 0               │ 0       │
+│ 2       │ 'Hungarian Grand Prix 2026 · Race'     │ 'a17d498e-adc0-4d2f-b373-63f0953eb47b' │ 2327   │ 2               │ 2        │ 0               │ 0       │
+│ 3       │ 'Belgian Grand Prix 2026 · Race'       │ '7a12b117-7c87-4f42-8572-537bf44e02a2' │ 1716   │ 3               │ 5        │ 0               │ 0       │
+│ 4       │ 'British Grand Prix 2026 · Race'       │ '56bff47a-bd50-4a3c-bdfc-8cc91e8e67fc' │ 4266   │ 2132            │ 2134     │ 0               │ 0       │
+│ 5       │ 'Austrian Grand Prix 2026 · Race'      │ '2182e49c-c228-42a7-b328-a0c19df6d9b6' │ 2329   │ 2               │ 2        │ 0               │ 0       │
+│ 6       │ 'Barcelona Grand Prix 2026 · Race'     │ '0c4ae189-7470-434d-87db-b2f2ce0dfee0' │ 2323   │ 1               │ 1        │ 0               │ 0       │
+│ 7       │ 'Monaco Grand Prix 2026 · Race'        │ '25ee71eb-1363-4c29-9758-486ac3d3f22f' │ 4872   │ 2433            │ 2439     │ 0               │ 0       │
+│ 8       │ 'Canadian Grand Prix 2026 · Race'      │ 'df3f6645-303c-42d0-af52-1262c1b16638' │ 2241   │ 3               │ 3        │ 0               │ 0       │
+│ 9       │ 'Miami Grand Prix 2026 · Race'         │ '2815a9b8-889f-43a7-a77e-367b92dc9093' │ 2026   │ 8               │ 8        │ 0               │ 0       │
+│ 10      │ 'Miami Grand Prix 2026 · Sprint'       │ '0622e04c-0e15-4220-b6d1-9549b31b47f6' │ 1510   │ 746             │ 764      │ 0               │ 0       │
+│ 11      │ 'Chinese Grand Prix 2026 · Sprint'     │ '7bc18c52-ad6e-4d36-b3ce-c2b26389d63f' │ 1880   │ 939             │ 941      │ 0               │ 0       │
+│ 12      │ 'Australian Grand Prix 2026 · Race'    │ 'bc7c55cf-c6b3-48a1-bead-530639a5936c' │ 1961   │ 1               │ 1        │ 0               │ 0       │
+│ 13      │ 'Australian Grand Prix 2026 · Q'       │ '4cc1a481-7290-4d7c-8879-8ffc9ec0f6d1' │ 1832   │ 6               │ 6        │ 0               │ 0       │
+│ 14      │ 'Qatar Grand Prix 2025 · Sprint'       │ 'effedac4-078a-4ea2-9ce9-0f4355a2063d' │ 1498   │ 749             │ 749      │ 0               │ 0       │
+│ 15      │ 'São Paulo Grand Prix 2025 · Race'     │ '0d866d54-6c8b-47f1-8496-821b1cb1c03c' │ 2334   │ 2               │ 2        │ 0               │ 0       │
+│ 16      │ 'São Paulo Grand Prix 2025 · Sprint'   │ 'ea26f5c0-9bb8-44c2-ac62-407283fe9b56' │ 1616   │ 803             │ 813      │ 0               │ 0       │
+│ 17      │ 'Singapore Grand Prix 2025 · Race'     │ '662c6755-9eff-4cd8-bf65-d02bc0587a75' │ 2051   │ 1               │ 1        │ 0               │ 0       │
+│ 18      │ 'Italian Grand Prix 2025 · Race'       │ '9ca5b1f0-b0b6-462b-87d2-804235b10a05' │ 1692   │ 2               │ 2        │ 0               │ 0       │
+│ 19      │ 'Dutch Grand Prix 2025 · Race'         │ '14e40bb2-3dbc-4f12-8ecd-aa20f599b1e0' │ 2237   │ 3               │ 3        │ 0               │ 0       │
+│ 20      │ 'Belgian Grand Prix 2025 · Race'       │ '8f7da4fc-8c58-421c-af4b-bef2b4c8567f' │ 1600   │ 2               │ 4        │ 0               │ 0       │
+│ 21      │ 'British Grand Prix 2025 · Race'       │ '817f8988-18c2-4135-9311-175af6bc7cdf' │ 1788   │ 2               │ 2        │ 0               │ 0       │
+│ 22      │ 'Canadian Grand Prix 2025 · Race'      │ '949390c1-753b-4552-87b2-d359022491c2' │ 2364   │ 1               │ 1        │ 0               │ 0       │
+│ 23      │ 'Spanish Grand Prix 2025 · Race'       │ '1287e673-25d2-424a-9305-bded40a87eb6' │ 2195   │ 1               │ 1        │ 0               │ 0       │
+│ 24      │ 'Monaco Grand Prix 2025 · Race'        │ '235b0418-08e4-46b9-b24a-d80369322ed7' │ 2241   │ 2               │ 2        │ 0               │ 0       │
+│ 25      │ 'Miami Grand Prix 2025 · Race'         │ '976848b6-d900-480a-9296-e535eaad9a35' │ 1153   │ 1               │ 1        │ 0               │ 0       │
+│ 26      │ 'Miami Grand Prix 2025 · Sprint'       │ 'ec10c523-ea72-4276-86dd-c8b61049966d' │ 1940   │ 962             │ 978      │ 0               │ 0       │
+│ 27      │ 'Saudi Arabian Grand Prix 2025 · Race' │ '2c793dd9-1312-48cf-96b3-0712c74dbc62' │ 1508   │ 1               │ 1        │ 0               │ 0       │
+│ 28      │ 'Chinese Grand Prix 2025 · Sprint'     │ 'b52c3e80-ef95-4cef-9140-2700b3db4b7d' │ 1298   │ 649             │ 649      │ 0               │ 0       │
+│ 29      │ 'Abu Dhabi Grand Prix 2024 · Race'     │ 'ed047e58-5922-4da4-ade3-70431f30835e' │ 1920   │ 1               │ 1        │ 0               │ 0       │
+│ 30      │ 'Mexico City Grand Prix 2024 · Race'   │ '7f0298a1-734d-4276-8d19-5f96d67c8ae7' │ 1998   │ 2               │ 2        │ 0               │ 0       │
+│ 31      │ 'Azerbaijan Grand Prix 2024 · Race'    │ '194a80fc-f029-4eec-8398-d8e1bff5ef08' │ 1685   │ 2               │ 22       │ 0               │ 0       │
+│ 32      │ 'Italian Grand Prix 2024 · Race'       │ 'b640b419-3de3-435e-a486-39afe42c068c' │ 1785   │ 1               │ 1        │ 0               │ 0       │
+│ 33      │ 'British Grand Prix 2024 · Race'       │ '44c3843e-e6b5-477c-81bc-59a66b148f6d' │ 1601   │ 1               │ 1        │ 0               │ 0       │
+│ 34      │ 'Austrian Grand Prix 2024 · Race'      │ 'a6b3a7c3-3b8d-41cd-9d92-6abe0b5597d7' │ 2396   │ 1               │ 1        │ 0               │ 0       │
+│ 35      │ 'Spanish Grand Prix 2024 · Race'       │ 'bb3baf69-b793-4d29-9b7e-9bc5c18c8e0f' │ 2439   │ 2               │ 2        │ 0               │ 0       │
+│ 36      │ 'Monaco Grand Prix 2024 · Race'        │ '414ae2ef-b748-44c5-bbbc-cb258383676f' │ 1772   │ 3               │ 5        │ 0               │ 0       │
+│ 37      │ 'Japanese Grand Prix 2024 · Race'      │ 'b28b0afd-6ddc-4416-ad89-df744b57e315' │ 1750   │ 1               │ 1        │ 0               │ 0       │
+│ 38      │ 'Japanese Grand Prix 2023 · Race'      │ '84d973ec-7148-4cc5-8cc1-0532bc8c18ee' │ 1766   │ 1               │ 1        │ 0               │ 0       │
+│ 39      │ 'Singapore Grand Prix 2023 · Race'     │ 'cbf6772a-28ab-429a-94ad-6284816b85fd' │ 1825   │ 1               │ 1        │ 0               │ 0       │
+│ 40      │ 'Belgian Grand Prix 2023 · Race'       │ 'ce84b766-4cf4-4f8b-96a0-307faa31fc17' │ 1757   │ 1               │ 1        │ 0               │ 0       │
+│ 41      │ 'Hungarian Grand Prix 2023 · Race'     │ '757dade6-54a8-4383-a60e-d6c1bbd815ea' │ 2082   │ 7               │ 0        │ 7               │ 0       │
+│ 42      │ 'Canadian Grand Prix 2023 · Race'      │ '6bc88c80-8c02-4aad-bf89-e03ebf7ce1b2' │ 1997   │ 1               │ 1        │ 0               │ 0       │
+│ 43      │ 'Spanish Grand Prix 2023 · Race'       │ '16309d9b-9fba-41dc-80c6-fa05a8dc0d81' │ 2338   │ 2               │ 2        │ 0               │ 0       │
+│ 44      │ 'Monaco Grand Prix 2023 · Race'        │ '5ea3dcf5-6dbc-4928-9e60-61cd80ad657f' │ 2313   │ 4               │ 4        │ 0               │ 0       │
+│ 45      │ 'Azerbaijan Grand Prix 2023 · Race'    │ '2ef92dbf-805e-48cd-a5ee-f0e9641f1ec5' │ 1532   │ 2               │ 3        │ 0               │ 0       │
+│ 46      │ 'Azerbaijan Grand Prix 2023 · Sprint'  │ '732f7c77-e112-4cc5-8973-40c7c2dca5d6' │ 580    │ 1               │ 1        │ 0               │ 0       │
+│ 47      │ 'Australian Grand Prix 2023 · Race'    │ 'd0323112-bdd4-46af-9329-02faafac2482' │ 1921   │ 2               │ 2        │ 0               │ 0       │
+│ 48      │ 'Australian Grand Prix 2023 · Q'       │ '8ce6de88-231b-4b31-a739-98c95f93e1d6' │ 2005   │ 1               │ 1        │ 0               │ 0       │
+│ 49      │ 'Bahrain Grand Prix 2023 · Race'       │ '0967e527-158c-452e-83c0-97c050873684' │ 8088   │ 2027            │ 6061     │ 0               │ 0       │
+└─────────┴────────────────────────────────────────┴────────────────────────────────────────┴────────┴─────────────────┴──────────┴─────────────────┴─────────┘
+
+50 session(s) affected: 20500 duplicate event(s) to delete, 7 to mark as corrected, 0 skipped.
+
+Re-run with --apply to make these changes.

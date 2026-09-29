@@ -286,6 +286,12 @@ td.secondary{color:var(--text-secondary);}
 .rationale .ic{flex-shrink:0;font-size:15px;line-height:1;color:var(--accent);}
 
 @media (max-width: 1100px){
+  .topnav-inner{height:auto;min-height:62px;flex-wrap:wrap;padding:10px 16px;gap:10px 16px;}
+  /* flex-basis 100% (not just width) so the links really wrap onto their
+     own row — .nav-items has flex:1 (basis 0) on desktop, which otherwise
+     keeps them squeezed beside the controls and cut off at the edge. */
+  .nav-items{order:3;flex:1 1 100%;width:100%;overflow-x:auto;padding-bottom:2px;}
+  .topnav-right{margin-left:auto;}
   .grid-4{grid-template-columns:repeat(2,1fr);}
 }
 
@@ -320,12 +326,10 @@ td.secondary{color:var(--text-secondary);}
 }
 
 /* Welcome / landing page */
-.welcome-page{min-height:100vh;display:flex;flex-direction:column;}
-.welcome-hero-wrap{flex:1;display:flex;padding-top:var(--nav-height);}
+.welcome-page{min-height:calc(100vh - var(--nav-height));display:flex;flex-direction:column;}
+.welcome-hero-wrap{flex:1;display:flex;}
 .welcome-hero-wrap .hero-banner{flex:1;border-radius:0;margin-bottom:0;}
 .welcome-hero-wrap .hero-image-panel{clip-path:polygon(28% 0, 100% 0, 100% 100%, 0% 100%);}
-
-
 /* Welcome / landing page redesign */
 .tag{display:inline-block;font-size:12.5px;font-weight:700;letter-spacing:.04em;color:var(--accent);border:1px solid var(--accent-dark);background:var(--accent-soft);border-radius:6px;padding:3px 9px;margin-bottom:10px;}
 section{padding:64px 0;}
@@ -569,8 +573,79 @@ footer{border-top:1px solid var(--border-soft);padding:44px 0 30px;background:va
 .switch input:checked + .switch-track::before{transform:translateX(18px);}
 .switch input:focus-visible + .switch-track{outline:2px solid var(--accent);outline-offset:2px;}
 
-/* ─── Developer explainer page ───────────────────────────────────────── */
-.developer-steps{margin:0;padding-left:18px;font-size:14.5px;color:var(--text-secondary);line-height:1.9;}
+/* Settings tab (Profile → Settings) */
+/* Two columns that cards flow down (like a masonry), so short cards don't
+   leave gaps beside tall ones. */
+.settings-panel{columns:2;column-gap:18px;}
+.settings-panel > .settings-card{break-inside:avoid;margin-bottom:18px;}
+.settings-card:hover{transform:none;border-color:var(--border);box-shadow:var(--shadow-soft);}
+.settings-rows{display:flex;flex-direction:column;}
+.settings-rows .settings-row{padding:12px 0;border-top:1px solid var(--border-soft);}
+.settings-rows .settings-row:first-child{border-top:0;padding-top:0;}
+.settings-rows .settings-row:last-child{padding-bottom:0;}
+label.settings-row-label{display:block;}
+.settings-control{flex-shrink:0;}
+.settings-select{min-width:150px;padding:8px 10px;border:1px solid var(--border);border-radius:9px;background:var(--bg);color:var(--text-primary);font-family:var(--font-ui);font-size:12px;font-weight:600;cursor:pointer;}
+.settings-select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+.segmented{display:inline-flex;flex-wrap:wrap;gap:2px;padding:3px;border:1px solid var(--border);border-radius:10px;background:var(--bg);}
+.segmented-option{position:relative;display:inline-flex;align-items:center;padding:6px 11px;border-radius:7px;font-size:11.5px;font-weight:700;color:var(--text-secondary);cursor:pointer;white-space:nowrap;transition:background .15s,color .15s;}
+.segmented-option input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;}
+.segmented-option:hover:not(.is-selected){color:var(--text-primary);background:var(--border-soft);}
+.segmented-option.is-selected{background:var(--accent);color:var(--accent-contrast);}
+.segmented-option:focus-within{outline:2px solid var(--accent);outline-offset:1px;}
+.settings-footer{column-span:all;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+.settings-footer .settings-save-note{margin:0;font-size:11.5px;color:var(--text-tertiary);}
+.settings-footer .settings-save-note.is-error{color:var(--status-red);}
+@media (max-width: 900px){
+  .settings-panel{columns:1;}
+  .settings-rows .settings-row{flex-wrap:wrap;}
+}
+
+/* Density: Compact (Profile → Settings → Appearance). Set on <html>. */
+:root[data-density="compact"]{--nav-height:64px;}
+@media (min-width: 1101px){
+  /* only the single-row desktop bar; narrower screens wrap to two rows */
+  :root[data-density="compact"] .topnav-inner{height:64px;}
+}
+:root[data-density="compact"] .app-shell{font-size:12.5px;}
+:root[data-density="compact"] .pagehead{padding-top:16px;}
+:root[data-density="compact"] .section-title{font-size:19px;}
+:root[data-density="compact"] .section-desc{margin-top:4px;}
+:root[data-density="compact"] .content{padding-top:14px;padding-bottom:48px;}
+:root[data-density="compact"] .grid{gap:12px;}
+:root[data-density="compact"] .card{padding:14px;}
+:root[data-density="compact"] .card-head{margin-bottom:10px;}
+:root[data-density="compact"] th{padding:0 8px 7px;}
+:root[data-density="compact"] td{padding:6px 8px;}
+:root[data-density="compact"] .rationale{padding:9px 12px;margin-bottom:12px;}
+:root[data-density="compact"] .profile-content{gap:12px;}
+:root[data-density="compact"] .settings-panel{column-gap:12px;}
+:root[data-density="compact"] .settings-panel > .settings-card{margin-bottom:12px;}
+
+/* Reduce motion (Profile → Settings → Motion). Set on <html>. Race
+   Replay's cars are moved by script, not CSS, so they keep moving. */
+:root[data-reduce-motion="true"] *,
+:root[data-reduce-motion="true"] *::before,
+:root[data-reduce-motion="true"] *::after{animation:none !important;transition:none !important;scroll-behavior:auto !important;}
+:root[data-reduce-motion="true"] .card:hover,
+:root[data-reduce-motion="true"] .btn:hover,
+:root[data-reduce-motion="true"] .nav-item:hover,
+:root[data-reduce-motion="true"] .team-tag:hover,
+:root[data-reduce-motion="true"] .profile-action-card:hover,
+:root[data-reduce-motion="true"] .hero-cta:hover,
+:root[data-reduce-motion="true"] .explore-card:hover,
+:root[data-reduce-motion="true"] .video-card:hover,
+:root[data-reduce-motion="true"] .team-card:hover,
+:root[data-reduce-motion="true"] .driver-cell:hover,
+:root[data-reduce-motion="true"] .avatar:hover,
+:root[data-reduce-motion="true"] .theme-toggle:hover,
+:root[data-reduce-motion="true"] .live-pill:hover{transform:none !important;}
+
+/* ─── Developer page ─────────────────────────────────────────────────── */
+/* Tabs are <button>s (like Profile's), so strip the default button chrome. */
+.developer-tabs{margin-bottom:18px;}
+.developer-tabs .tab{border-top:0;border-right:0;border-left:0;background:transparent;font-family:inherit;}
+.developer-steps{margin:0;padding-left:18px;font-size:12.5px;color:var(--text-secondary);line-height:1.9;}
 .developer-steps li b{color:var(--text-primary);}
 .developer-steps a{color:var(--accent);}
 
@@ -622,6 +697,76 @@ footer{border-top:1px solid var(--border-soft);padding:44px 0 30px;background:va
 .profile-action-card b{grid-column:2;grid-row:2/4;align-self:center;color:var(--accent);font-size:23px;}
 .profile-action-index{grid-column:1/-1;color:var(--accent);font-family:var(--font-mono);font-size:11.5px;font-weight:800;}
 .profile-signout-card{display:flex;align-items:center;justify-content:space-between;gap:20px;}
+.profile-preferences-card{display:flex;flex-direction:column;gap:15px;}
+.profile-preferences-card:hover{transform:none;border-color:var(--border);box-shadow:var(--shadow-soft);}
+.profile-sync-state{padding:4px 9px;border:1px solid var(--border-soft);border-radius:999px;background:var(--gray-pill-bg);color:var(--text-tertiary);font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}
+.profile-preference-notice{padding:10px 12px;border:1px solid var(--border-soft);border-radius:8px;background:var(--accent-soft);color:var(--text-secondary);font-size:11px;}
+.profile-preferences-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;}
+.profile-preference-picker{display:flex;min-width:0;flex-direction:column;gap:7px;}
+.profile-preference-picker>label,.profile-default-filter label{color:var(--text-primary);font-size:11.5px;font-weight:800;}
+.profile-preference-picker select,.profile-default-filter select{width:100%;padding:10px 11px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);font:inherit;font-size:11.5px;}
+.profile-preference-picker select:focus,.profile-default-filter select:focus{border-color:var(--accent);outline:2px solid var(--accent-soft);}
+.profile-preference-chips{display:flex;min-height:30px;flex-wrap:wrap;gap:6px;align-items:center;}
+.profile-preference-chip{padding:5px 8px;border:1px solid var(--border);border-radius:999px;background:var(--gray-pill-bg);color:var(--text-primary);font:inherit;font-size:10px;font-weight:700;cursor:pointer;}
+.profile-preference-chip:hover{border-color:var(--accent);color:var(--accent);}
+.profile-empty-choice{color:var(--text-tertiary);font-size:10.5px;}
+.profile-default-filter{display:grid;grid-template-columns:minmax(170px,.4fr) minmax(180px,.6fr);align-items:center;gap:14px;padding-top:14px;border-top:1px solid var(--border-soft);}
+.profile-preferences-card>.profile-save{align-self:flex-start;}
+
+/* ─── Live F1 news inside the profile dashboard ─────────────────────── */
+.news-content{display:flex;flex-direction:column;gap:20px;}
+.profile-news-feed{min-width:0;}
+.news-tab-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:6px 2px 0;}
+.news-tab-heading h1{margin:3px 0 0;color:var(--text-primary);font-size:24px;letter-spacing:-.025em;}
+.news-tab-heading p{max-width:430px;margin:0;color:var(--text-secondary);font-size:11.5px;line-height:1.55;text-align:right;}
+.news-filterbar{display:flex;flex-wrap:wrap;gap:7px;}
+.news-filter{padding:7px 12px;border:1px solid var(--border-soft);border-radius:999px;background:var(--surface);color:var(--text-secondary);font:inherit;font-size:10.5px;font-weight:800;cursor:pointer;transition:border-color .15s,background .15s,color .15s;}
+.news-filter:hover{border-color:var(--accent);color:var(--text-primary);}
+.news-filter.is-active{border-color:var(--accent);background:var(--accent);color:#fff;}
+.news-preference-hint{padding:11px 13px;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--accent-soft);color:var(--text-secondary);font-size:11px;line-height:1.5;}
+.news-livebar{display:flex;align-items:center;gap:9px;padding:12px 14px;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow-soft);font-size:11.5px;}
+.news-livebar strong{color:var(--text-primary);}
+.news-live-note{flex:1;color:var(--text-tertiary);}
+.news-live-dot{width:8px;height:8px;border-radius:50%;background:var(--text-tertiary);flex:0 0 auto;}
+.news-live-dot.is-live{background:var(--status-green);box-shadow:0 0 10px var(--status-green);animation:blink-dot 1.6s infinite;}
+.news-live-dot.is-connecting,.news-live-dot.is-reconnecting{background:#ff8a00;box-shadow:0 0 8px rgba(255,138,0,.55);}
+.news-alert{display:flex;gap:8px 14px;align-items:center;padding:12px 14px;border:1px solid var(--status-red);border-radius:var(--radius);background:var(--status-red-soft);color:var(--text-secondary);font-size:11.5px;}
+.news-alert strong{color:var(--status-red);}
+.news-featured{display:grid;grid-template-columns:1.15fr .85fr;min-height:360px;overflow:hidden;border:1px solid var(--border-soft);border-radius:18px;background:var(--surface);box-shadow:var(--shadow-elevated);color:inherit;text-decoration:none;transition:transform .16s,border-color .16s;}
+.news-featured:hover{transform:translateY(-2px);border-color:var(--accent);}
+.news-image{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;background:#151515;}
+.news-image.is-featured{height:100%;aspect-ratio:auto;min-height:360px;}
+.news-image img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s ease;}
+.news-featured:hover .news-image img,.news-card:hover .news-image img{transform:scale(1.025);}
+.news-image-fallback{display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 34% 30%,rgba(206,13,20,.72),transparent 28%),linear-gradient(145deg,#240306,#050505 72%);}
+.news-image-fallback span{color:rgba(255,255,255,.9);font-size:54px;font-weight:900;font-style:italic;letter-spacing:-.08em;}
+.news-featured-copy{display:flex;flex-direction:column;justify-content:center;padding:34px;}
+.news-kicker{margin-bottom:12px;color:var(--accent);font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;}
+.news-meta{display:flex;align-items:center;flex-wrap:wrap;gap:6px;color:var(--text-tertiary);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
+.news-featured h2{margin:12px 0;color:var(--text-primary);font-size:28px;line-height:1.16;letter-spacing:-.03em;}
+.news-featured p{display:-webkit-box;overflow:hidden;margin:0;color:var(--text-secondary);font-size:12.5px;line-height:1.65;-webkit-line-clamp:4;-webkit-box-orient:vertical;}
+.news-read-link{margin-top:20px;color:var(--accent);font-size:11.5px;font-weight:800;}
+.news-section-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin:8px 0 14px;}
+.news-section-heading h2{margin:0;color:var(--text-primary);font-size:19px;}
+.news-section-heading>span{color:var(--text-tertiary);font-size:10.5px;}
+.news-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;}
+.news-load-more{display:flex;align-items:center;justify-content:center;gap:14px;margin:24px 0 8px;}
+.news-load-more>span{color:var(--text-tertiary);font-size:11px;}
+.news-card{position:relative;overflow:hidden;border:1px solid var(--border-soft);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow-soft);color:inherit;text-decoration:none;transition:transform .16s,border-color .16s,box-shadow .16s;}
+.news-card:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:var(--shadow-elevated);}
+.news-card.is-new{animation:news-arrival .7s ease;border-color:var(--status-green);}
+.news-card-copy{padding:15px 16px 18px;}
+.news-card h3{margin:9px 0 7px;color:var(--text-primary);font-size:14px;line-height:1.38;}
+.news-card p{display:-webkit-box;overflow:hidden;margin:0;color:var(--text-secondary);font-size:11.5px;line-height:1.55;-webkit-line-clamp:3;-webkit-box-orient:vertical;}
+.news-new-badge{position:absolute;right:10px;top:10px;z-index:2;padding:3px 8px;border-radius:999px;background:var(--status-green);color:#000;font-size:9px;font-weight:900;text-transform:uppercase;}
+.news-attribution{margin:0;color:var(--text-tertiary);font-size:10.5px;text-align:center;}
+.news-empty{text-align:center;padding:42px;}
+.news-empty p{margin:8px 0 0;color:var(--text-secondary);}
+.news-skeleton-grid{display:grid;grid-template-columns:2fr 1fr 1fr;gap:16px;}
+.news-skeleton{height:250px;border-radius:var(--radius-lg);background:linear-gradient(100deg,var(--surface) 20%,var(--border-soft) 40%,var(--surface) 60%);background-size:200% 100%;animation:news-shimmer 1.3s infinite;}
+.news-skeleton:first-child{grid-row:span 2;height:auto;}
+@keyframes news-arrival{from{opacity:.35;transform:translateY(-8px);}to{opacity:1;transform:translateY(0);}}
+@keyframes news-shimmer{from{background-position:100% 0;}to{background-position:-100% 0;}}
 
 @media (max-width: 760px){
   .profile-hero{align-items:flex-start;flex-wrap:wrap;padding:22px;}
@@ -629,13 +774,29 @@ footer{border-top:1px solid var(--border-soft);padding:44px 0 30px;background:va
   .profile-avatar{width:68px;height:68px;flex-basis:68px;border-radius:20px;font-size:25.5px;}
   .profile-avatar img{border-radius:18px;}
   .profile-settings-link{width:100%;text-align:center;}
-  .profile-grid,.profile-actions{grid-template-columns:1fr;}
+  .profile-grid,.profile-actions,.profile-preferences-grid{grid-template-columns:1fr;}
   .profile-detail-list div{grid-template-columns:1fr;gap:3px;}
   .profile-detail-list dd{text-align:left;}
+  .news-tab-heading{align-items:flex-start;flex-direction:column;gap:8px;}
+  .news-tab-heading p{text-align:left;}
+  .profile-default-filter{grid-template-columns:1fr;gap:7px;}
 }
 
 @media (max-width: 900px){
   .replay-layout{grid-template-columns:1fr;}
+  .news-featured{grid-template-columns:1fr;}
+  .news-image.is-featured{height:auto;min-height:240px;aspect-ratio:16/9;}
+  .news-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+
+@media (max-width: 620px){
+  .news-livebar{align-items:flex-start;flex-wrap:wrap;}
+  .news-live-note{flex-basis:calc(100% - 20px);}
+  .news-livebar .btn{width:100%;}
+  .news-featured-copy{padding:22px;}
+  .news-featured h2{font-size:22px;}
+  .news-grid,.news-skeleton-grid{grid-template-columns:1fr;}
+  .news-skeleton:first-child{height:250px;}
 }
 
 /* Following: button + count on the profile hero, the modal list, and the

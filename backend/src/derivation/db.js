@@ -12,7 +12,10 @@ import {
  * the old one is skipped. This is the only place that filter needs to be
  * applied; everything downstream just sees the current truth.
  */
-const LIVE = { supersededBy: null };
+const LIVE = {
+  supersededBy: null,
+  sourceSubmission: { status: { in: ["accepted", "partially_accepted"] } },
+};
 
 /** Recompute driver_session_stats for every entry in one session. */
 export async function deriveSessionStats(prisma, sessionId) {
@@ -47,20 +50,33 @@ async function getClassification(prisma, entryId) {
   };
 }
 
-/** Recompute driver_career_stats for one driver/season from every race session that season. */
+/**
+ * Classification of every points-paying session (Grand Prix and Sprint) an
+ * entry list covers, tagged with the session type so the aggregates can
+ * count points from both but wins/podiums/DNFs from Grands Prix only.
+ */
+async function getResults(prisma, entries) {
+  const results = [];
+  for (const entry of entries) {
+    const classification = await getClassification(prisma, entry.id);
+    if (classification) results.push({ ...classification, sessionType: entry.session.type });
+  }
+  return results;
+}
+
+const POINTS_SESSIONS = ["Race", "Sprint"];
+
+/** Recompute driver_career_stats for one driver/season from every race and sprint that season. */
 export async function deriveDriverCareerStats(prisma, driverId, season) {
   const entries = await prisma.entry.findMany({
     where: {
       driverId,
-      session: { type: "Race", meeting: { season } },
+      session: { type: { in: POINTS_SESSIONS }, meeting: { season } },
     },
+    include: { session: { select: { type: true } } },
   });
 
-  const results = [];
-  for (const entry of entries) {
-    const classification = await getClassification(prisma, entry.id);
-    if (classification) results.push(classification);
-  }
+  const results = await getResults(prisma, entries);
 
   const agg = computeCareerAggregate(results);
 
@@ -71,20 +87,17 @@ export async function deriveDriverCareerStats(prisma, driverId, season) {
   });
 }
 
-/** Recompute team_season_stats for one team/season from every race session that season. */
+/** Recompute team_season_stats for one team/season from every race and sprint that season. */
 export async function deriveTeamSeasonStats(prisma, teamId, season) {
   const entries = await prisma.entry.findMany({
     where: {
       teamId,
-      session: { type: "Race", meeting: { season } },
+      session: { type: { in: POINTS_SESSIONS }, meeting: { season } },
     },
+    include: { session: { select: { type: true } } },
   });
 
-  const results = [];
-  for (const entry of entries) {
-    const classification = await getClassification(prisma, entry.id);
-    if (classification) results.push(classification);
-  }
+  const results = await getResults(prisma, entries);
 
   const agg = computeSeasonAggregate(results);
 

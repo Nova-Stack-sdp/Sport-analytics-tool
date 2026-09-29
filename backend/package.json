@@ -8,6 +8,8 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
      "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "verify:reference": "node scripts/verify-reference.js",
+    "load-test": "node scripts/load-test.js",
     "postinstall": "prisma generate"
 
   },

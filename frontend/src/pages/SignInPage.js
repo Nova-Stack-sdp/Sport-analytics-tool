@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { signInWithPopup, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth, googleProvider, githubProvider } from '../firebase';
 import { establishSession } from '../api/client';
+import { usePreferences } from '../context/PreferencesContext';
 import '../styles/auth.css';
 
 function friendlyAuthError(error) {
@@ -46,6 +47,9 @@ function GithubIcon() {
 
 function SignInPage() {
   const navigate = useNavigate();
+  // Where to land after signing in — "Start page" in Profile → Settings.
+  const { preferences } = usePreferences();
+  const startPage = preferences.startPage;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
@@ -61,7 +65,7 @@ function SignInPage() {
       await signInWithPopup(auth, googleProvider);
       const idToken = await auth.currentUser.getIdToken();
       await establishSession(idToken);
-      navigate('/', { replace: true });
+      navigate(startPage, { replace: true });
     } catch (error) {
       const friendly = friendlyAuthError(error);
       if (friendly) {
@@ -81,7 +85,7 @@ function SignInPage() {
       await signInWithPopup(auth, githubProvider);
       const idToken = await auth.currentUser.getIdToken();
       await establishSession(idToken);
-      navigate('/', { replace: true });
+      navigate(startPage, { replace: true });
     } catch (error) {
       const friendly = friendlyAuthError(error);
       if (friendly) {
@@ -112,7 +116,7 @@ function SignInPage() {
       await signInWithEmailAndPassword(auth, email, password);
       const idToken = await auth.currentUser.getIdToken();
       await establishSession(idToken);
-      navigate('/', { replace: true });
+      navigate(startPage, { replace: true });
     } catch (error) {
       setStatus('error');
       setMessage(friendlyAuthError(error) ?? 'Something went wrong signing in. Try again.');

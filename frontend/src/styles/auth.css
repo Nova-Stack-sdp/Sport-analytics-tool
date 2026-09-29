@@ -66,7 +66,9 @@
 /* ─── Page ───────────────────────────────────────────────────────────────── */
 .auth-page {
   font-family: var(--font-body);
-  min-height: 100vh;
+  /* The sticky top bar sits above this page in the layout, so fill only the
+     rest of the viewport instead of adding a scrollbar. */
+  min-height: calc(100vh - var(--nav-height));
   display: flex;
   align-items: center;
   justify-content: center;

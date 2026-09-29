@@ -4,11 +4,7 @@ import {
   getTimeTravelChangelog,
   getTimeTravelAsOf,
 } from '../api/client';
-
-function formatDateTime(value) {
-  if (!value) return '—';
-  return new Date(value).toLocaleString();
-}
+import { useDateTimeFormat } from '../context/PreferencesContext';
 
 function formatLapTime(ms) {
   if (ms == null) return '—';
@@ -33,6 +29,8 @@ function CompareRow({ label, before, after, format = (v) => v ?? '—' }) {
 }
 
 function TimeTravelPage() {
+  // Follows the clock / time zone choices in Profile → Settings.
+  const { formatDate, formatDateTime } = useDateTimeFormat();
   const [availableSessions, setAvailableSessions] = useState([]);
   const [selectedSessionId, setSelectedSessionId] = useState(null);
   const [checkpoints, setCheckpoints] = useState([]);
@@ -211,7 +209,7 @@ function TimeTravelPage() {
                             onClick={() => setCheckpointAIdx(i)}
                           ></div>
                           <div className="tl-label" style={{ left: `${left}%` }}>
-                            <div className="d">{new Date(cp.date).toLocaleDateString()}</div>
+                            <div className="d">{formatDate(cp.date)}</div>
                             <div className="s">{cp.label}</div>
                           </div>
                         </div>
@@ -292,7 +290,7 @@ function TimeTravelPage() {
                   <select value={checkpointAIdx} onChange={(e) => setCheckpointAIdx(Number(e.target.value))}>
                     {checkpoints.map((cp, i) => (
                       <option key={cp.submissionId} value={i}>
-                        {new Date(cp.date).toLocaleDateString()} · {cp.label}
+                        {formatDate(cp.date)} · {cp.label}
                       </option>
                     ))}
                   </select>
@@ -300,7 +298,7 @@ function TimeTravelPage() {
                   <select value={checkpointBIdx} onChange={(e) => setCheckpointBIdx(Number(e.target.value))}>
                     {checkpoints.map((cp, i) => (
                       <option key={cp.submissionId} value={i}>
-                        {new Date(cp.date).toLocaleDateString()} · {cp.label}
+                        {formatDate(cp.date)} · {cp.label}
                       </option>
                     ))}
                   </select>

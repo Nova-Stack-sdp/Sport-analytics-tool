@@ -1,13 +1,18 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import SignInPage from '../pages/SignInPage';
+import { PreferencesProvider } from '../context/PreferencesContext';
 import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
 
+// The page exchanges the new Firebase ID token for a backend session cookie
+// (auth.currentUser.getIdToken() -> establishSession) before navigating, so
+// both need stand-ins here or the success path throws before navigate().
 jest.mock('../firebase', () => ({
-  auth: {},
+  auth: { currentUser: { getIdToken: () => Promise.resolve('test-id-token') } },
   googleProvider: {},
   githubProvider: {},
 }));
+jest.mock('../api/client', () => ({ establishSession: jest.fn().mockResolvedValue({}) }));
 
 jest.mock('firebase/auth', () => ({
   signInWithEmailAndPassword: jest.fn(),
@@ -95,5 +100,24 @@ describe('SignInPage', () => {
       'href',
       '/forgot-password'
     );
+  });
+
+  test('lands on the start page chosen in Settings', async () => {
+    window.localStorage.setItem('f1-analytics-preferences', JSON.stringify({ startPage: '/replay' }));
+    signInWithEmailAndPassword.mockResolvedValue({ user: { uid: 'u1' } });
+    render(
+      <PreferencesProvider>
+        <MemoryRouter>
+          <SignInPage />
+        </MemoryRouter>
+      </PreferencesProvider>
+    );
+
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'driver@example.com' } });
+    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'password123' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/replay', { replace: true }));
+    window.localStorage.clear();
   });
 });

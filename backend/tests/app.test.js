@@ -53,10 +53,10 @@ describe('App-level endpoints', () => {
     expect(res.body).toEqual({ status: 'ok' });
   });
 
-  test('unknown /api route returns 404', async () => {
+  test('removed TelemetryTV state endpoint returns 404', async () => {
     baseMocks();
     const app = createApp();
-    const res = await request(app).get('/api/not-a-route');
+    const res = await request(app).get('/api/telemetry-tv/state?videoSeconds=12');
 
     expect(res.status).toBe(404);
     expect(res.body).toEqual({ error: 'Not found' });
