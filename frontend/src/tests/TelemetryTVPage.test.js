@@ -71,6 +71,55 @@ const RACE_WITH_CLOCK = {
   },
 };
 
+// Adds the payload facts item 2 surfaces: official lap timing plus the
+// per-driver classification numbers the API already serves.
+const RACE_WITH_STATS = {
+  ...RACE_DETAIL,
+  leaderLaps: [
+    { lap: 1, car: '26', driver: 'Herta, Colton', lapTime: '01:04.0188', speed: 100.433, diff: '00:01.0451', flag: 'Green' },
+    { lap: 2, car: '5', driver: "O'Ward, Pato", lapTime: '01:01.6540', speed: 104.285, diff: '00:01.0583', flag: 'Yellow' },
+  ],
+  classification: [
+    {
+      CarNumber: '5',
+      DriverName: "Pato O'Ward",
+      TeamName: 'Arrow McLaren',
+      PositionStart: 10,
+      PositionFinish: 1,
+      BestLapTime: '01:01.6540',
+      BestSpeed: 104.285,
+      SpeedAvg: 88.972,
+      LapsLed: 1,
+      PitStops: 3,
+      Status: 'Running',
+      LapsComplete: 2,
+      ElapsedTime: '00:02:05.6728',
+      PointsEarned: 51,
+    },
+    {
+      CarNumber: '26',
+      DriverName: 'Colton Herta',
+      TeamName: 'Andretti',
+      PositionStart: 1,
+      PositionFinish: 2,
+      BestLapTime: '01:04.0188',
+      BestSpeed: 100.433,
+      SpeedAvg: 88.942,
+      LapsLed: 1,
+      PitStops: 2,
+      Status: 'Running',
+      LapsComplete: 2,
+      ElapsedTime: '00:02:06.4019',
+      PointsEarned: 41,
+    },
+  ],
+  podium: [
+    { pos: 1, car: '5', driver: "Pato O'Ward", team: 'Arrow McLaren', started: 10, lapsLed: 1 },
+    { pos: 2, car: '26', driver: 'Colton Herta', team: 'Andretti', started: 1, lapsLed: 1 },
+  ],
+  pole: { car: '26', driver: 'Colton Herta' },
+};
+
 function deliverPlayerTime(seconds) {
   act(() => {
     window.dispatchEvent(
@@ -224,6 +273,62 @@ describe('TelemetryTVPage', () => {
       .map(([message]) => JSON.parse(message))
       .find((payload) => payload.func === 'seekTo');
     expect(seekCall).toEqual({ event: 'command', func: 'seekTo', args: [248, true] });
+  });
+
+  test('renders the pace trend from the official leader lap times', async () => {
+    getTelemetryTVRaces.mockResolvedValue({ races: RACES });
+    getTelemetryTVRace.mockResolvedValue({ race: RACE_WITH_STATS });
+    const { container } = render(<TelemetryTVPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Play race' }));
+    await screen.findByText('Official order at lap 1');
+
+    expect(screen.getByText('Pace Trend')).toBeInTheDocument();
+    const paceCard = container.querySelector('.race-pace-card');
+    expect(paceCard.querySelectorAll('.pace-bar')).toHaveLength(2);
+    // Selected lap 1 is 1:04.019; the fastest lap of the race is 1:01.654.
+    expect(paceCard).toHaveTextContent('1:04.019');
+    expect(paceCard).toHaveTextContent('1:01.654');
+    expect(paceCard).toHaveTextContent('lap 2');
+  });
+
+  test('shows the official per-driver classification stats', async () => {
+    getTelemetryTVRaces.mockResolvedValue({ races: RACES });
+    getTelemetryTVRace.mockResolvedValue({ race: RACE_WITH_STATS });
+    const { container } = render(<TelemetryTVPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Play race' }));
+    await screen.findByText('Official order at lap 1');
+
+    expect(screen.getByText('Official Driver Stats')).toBeInTheDocument();
+    const rows = container.querySelectorAll('.driver-stats-table tbody tr');
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent("Pato O'Ward");
+    expect(rows[0]).toHaveTextContent('1:01.654');
+    expect(rows[0]).toHaveTextContent('89.0');
+    expect(rows[0]).toHaveTextContent('51');
+  });
+
+  test('shows the leader margin and finish summary once the race completes', async () => {
+    getTelemetryTVRaces.mockResolvedValue({ races: RACES });
+    getTelemetryTVRace.mockResolvedValue({ race: RACE_WITH_STATS });
+    const { container } = render(<TelemetryTVPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Play race' }));
+    await screen.findByText('Official order at lap 1');
+    expect(screen.getByText('Leader margin').closest('.status-item')).toHaveTextContent('--');
+
+    fireEvent.change(screen.getByLabelText('Select race lap'), { target: { value: '2' } });
+    await screen.findByText('Official order at lap 2');
+
+    expect(screen.getByText('Leader margin').closest('.status-item')).toHaveTextContent('1.1s');
+    expect(screen.getByText('Finish Summary')).toBeInTheDocument();
+    const finishCard = container.querySelector('.race-finish-card');
+    expect(finishCard.querySelectorAll('.podium-row')).toHaveLength(2);
+    expect(finishCard).toHaveTextContent("Pato O'Ward");
+    expect(finishCard).toHaveTextContent('1:01.654');
+    expect(finishCard).toHaveTextContent('0:02:05');
+    expect(finishCard).not.toHaveTextContent('Retirements');
   });
 
   test('keeps a driver on their last recorded lap when absent from a later chart', async () => {

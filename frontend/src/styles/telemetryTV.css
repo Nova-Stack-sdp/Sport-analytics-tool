@@ -1201,3 +1201,347 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- Item 2: payload analytics (pace trend, driver stats, finish summary) ---- */
+
+#page-telemetry-tv .race-pace-card,
+#page-telemetry-tv .driver-stats-card {
+  padding: 14px 16px;
+}
+
+#page-telemetry-tv .pace-chart {
+  position: relative;
+}
+
+#page-telemetry-tv .pace-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+  height: 120px;
+  padding: 0 2px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+#page-telemetry-tv .pace-bar {
+  flex: 1 1 0;
+  min-width: 2px;
+  border-radius: 2px 2px 0 0;
+  background: #69c3a5;
+  opacity: 0.82;
+}
+
+#page-telemetry-tv .pace-bar[data-flag="Yellow"] {
+  background: #e9ad39;
+}
+
+#page-telemetry-tv .pace-bar[data-flag="Checker"] {
+  background: #d9d9d9;
+}
+
+#page-telemetry-tv .pace-bar.fastest {
+  opacity: 1;
+  box-shadow: inset 0 2px 0 #ffffff;
+}
+
+#page-telemetry-tv .pace-cursor {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #ffffff;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+  transform: translateX(-1px);
+}
+
+#page-telemetry-tv .pace-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 8px;
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+#page-telemetry-tv .pace-legend-swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 5px;
+  border-radius: 2px;
+}
+
+#page-telemetry-tv .pace-legend-swatch.flag-green {
+  background: #69c3a5;
+}
+
+#page-telemetry-tv .pace-legend-swatch.flag-yellow {
+  background: #e9ad39;
+}
+
+#page-telemetry-tv .pace-legend-swatch.flag-checker {
+  background: #d9d9d9;
+}
+
+#page-telemetry-tv .pace-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-soft);
+}
+
+#page-telemetry-tv .pace-summary-label {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--text-tertiary);
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+#page-telemetry-tv .pace-summary-value {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+#page-telemetry-tv .pace-summary-sub {
+  display: block;
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+#page-telemetry-tv .margin-trend {
+  margin-left: 4px;
+  font-size: 9px;
+}
+
+#page-telemetry-tv .margin-trend.up {
+  color: #69c3a5;
+}
+
+#page-telemetry-tv .margin-trend.down {
+  color: #e9ad39;
+}
+
+#page-telemetry-tv .driver-stats-scroll {
+  max-height: min(44vh, 460px);
+  overflow: auto;
+}
+
+#page-telemetry-tv .driver-stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+}
+
+#page-telemetry-tv .driver-stats-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 6px 6px;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--surface);
+  color: var(--text-tertiary);
+  font-size: 9px;
+  font-weight: 800;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+#page-telemetry-tv .driver-stats-table td {
+  padding: 6px 6px;
+  border-bottom: 1px solid var(--border-soft);
+  white-space: nowrap;
+}
+
+#page-telemetry-tv .stats-driver-name {
+  font-weight: 600;
+}
+
+#page-telemetry-tv .stats-car {
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+#page-telemetry-tv .stats-dnf-row td {
+  opacity: 0.75;
+}
+
+#page-telemetry-tv .stats-status-ok {
+  color: #69c3a5;
+}
+
+#page-telemetry-tv .stats-status-out {
+  color: #e9ad39;
+}
+
+#page-telemetry-tv .race-finish-card {
+  margin: 18px 20px 0;
+}
+
+#page-telemetry-tv .finish-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+#page-telemetry-tv .finish-podium {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+#page-telemetry-tv .podium-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+#page-telemetry-tv .podium-pos {
+  flex: 0 0 30px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+#page-telemetry-tv .podium-row:nth-child(1) .podium-pos {
+  color: #f5c451;
+}
+
+#page-telemetry-tv .podium-row:nth-child(2) .podium-pos {
+  color: #c9ccd1;
+}
+
+#page-telemetry-tv .podium-row:nth-child(3) .podium-pos {
+  color: #d08a5b;
+}
+
+#page-telemetry-tv .podium-copy {
+  display: grid;
+  min-width: 0;
+}
+
+#page-telemetry-tv .podium-name {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+#page-telemetry-tv .podium-team {
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+}
+
+#page-telemetry-tv .podium-detail {
+  margin-left: auto;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  text-align: right;
+}
+
+#page-telemetry-tv .finish-empty {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+#page-telemetry-tv .finish-stats {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+#page-telemetry-tv .finish-stat {
+  padding: 8px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+#page-telemetry-tv .finish-stat-label {
+  display: block;
+  color: var(--text-tertiary);
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+#page-telemetry-tv .finish-stat-value {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+#page-telemetry-tv .finish-stat-sub {
+  display: block;
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+#page-telemetry-tv .finish-retirements {
+  grid-column: 1 / -1;
+}
+
+#page-telemetry-tv .finish-retirements-title {
+  margin-bottom: 6px;
+  color: var(--text-tertiary);
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+#page-telemetry-tv .finish-retirements-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 4px 14px;
+}
+
+#page-telemetry-tv .retirement-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 11px;
+}
+
+#page-telemetry-tv .retirement-car {
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+}
+
+#page-telemetry-tv .retirement-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#page-telemetry-tv .retirement-reason {
+  flex: 0 0 auto;
+  color: #e9ad39;
+  font-size: 10px;
+}
+
+@media (max-width: 900px) {
+  #page-telemetry-tv .finish-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  #page-telemetry-tv .race-finish-card {
+    margin-right: 12px;
+    margin-left: 12px;
+  }
+
+  #page-telemetry-tv .pace-summary {
+    grid-template-columns: 1fr;
+  }
+}

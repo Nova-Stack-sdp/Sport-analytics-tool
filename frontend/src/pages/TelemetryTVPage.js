@@ -1,16 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getTelemetryTVRace, getTelemetryTVRaces } from '../api/client';
 import BattleRadar from '../components/telemetry-tv/BattleRadar';
+import DriverStatsPanel from '../components/telemetry-tv/DriverStatsPanel';
 import LiveTicker from '../components/telemetry-tv/LiveTicker';
 import Masterboard from '../components/telemetry-tv/Masterboard';
 import PlaybackVideo from '../components/telemetry-tv/PlaybackVideo';
 import PlaybackStatusBar from '../components/telemetry-tv/PlaybackStatusBar';
+import RaceFinishCard from '../components/telemetry-tv/RaceFinishCard';
+import RacePaceCard from '../components/telemetry-tv/RacePaceCard';
 import RacePulse from '../components/telemetry-tv/RacePulse';
 import RaceTimeline from '../components/telemetry-tv/RaceTimeline';
 import RaceWeatherPanel from '../components/telemetry-tv/RaceWeatherPanel';
 import TelemetryTVFooter from '../components/telemetry-tv/TelemetryTVFooter';
 import { deriveIndycarLapState } from '../features/telemetry-tv/deriveIndycarLapState';
 import { lapFromVideoSeconds, videoSecondsForLap } from '../features/telemetry-tv/videoToLap';
+import {
+  buildDriverStats,
+  buildFinishSummary,
+  buildLapTrend,
+  marginDelta,
+} from '../features/telemetry-tv/raceAnalytics';
 import { buildBattleRadarModel } from '../features/telemetry-tv/buildBattleRadarModel';
 import { buildMasterboardCommentary } from '../features/telemetry-tv/buildMasterboardCommentary';
 import { buildTorontoraceIntelligence } from '../features/telemetry-tv/Torontorace';
@@ -57,6 +66,10 @@ function TelemetryTVPage() {
   const torontorace = buildTorontoraceIntelligence({ lapState, selectedSlug });
   const raceIntelligence = raceData?.intelligence ?? (selectedSlug === 'toronto-2025' ? torontorace : null);
   const commentaryEvents = buildMasterboardCommentary(raceData, lapState);
+  const lapTrend = buildLapTrend(raceData);
+  const driverStats = buildDriverStats(raceData);
+  const margin = marginDelta(raceData, lap);
+  const finishSummary = raceData && lapState.isFinished ? buildFinishSummary(raceData) : null;
 
   const handleVideoTime = useCallback((seconds) => {
     setVideoSeconds(Math.floor(seconds));
@@ -140,10 +153,12 @@ function TelemetryTVPage() {
               race={raceData}
               lap={lap}
               videoSeconds={videoSeconds}
+              margin={margin}
               leaderLap={lapState.leaderLap}
               onLapChange={handleLapChange}
             />
             <LiveTicker events={commentaryEvents} />
+            <RacePaceCard lapTrend={lapTrend} lap={lap} />
           </div>
 
           <div className="telemetry-tv-sidebar">
@@ -155,6 +170,7 @@ function TelemetryTVPage() {
               loading={raceLoading}
               error={raceError}
             />
+            <DriverStatsPanel driverStats={driverStats} />
           </div>
         </div>
 
@@ -171,6 +187,7 @@ function TelemetryTVPage() {
           context={selectedSlug === 'toronto-2025' ? torontorace.context : null}
         />
         <RacePulse race={raceData} lapState={lapState} />
+        <RaceFinishCard finishSummary={finishSummary} totalLaps={lapState.totalLaps} />
         <RaceTimeline race={raceData} lapState={lapState} />
 
         <TelemetryTVFooter />

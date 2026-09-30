@@ -1,3 +1,5 @@
+import { formatGapSeconds } from '../../features/telemetry-tv/raceAnalytics';
+
 // Controls the historical lap cursor and shows the leader's published lap data.
 function formatVideoClock(seconds) {
   if (seconds == null || !Number.isFinite(Number(seconds))) return '--';
@@ -8,8 +10,11 @@ function formatVideoClock(seconds) {
   return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
 
-function PlaybackStatusBar({ race, lap, videoSeconds, onLapChange, leaderLap }) {
+function PlaybackStatusBar({ race, lap, videoSeconds, margin, onLapChange, leaderLap }) {
   const totalLaps = Number(race?.session?.totalLaps) || 1;
+  const marginTitle = margin == null
+    ? "Leader's official margin at this lap"
+    : `${margin.delta >= 0 ? 'Lead grew' : 'Lead shrank'} by ${Math.abs(margin.delta).toFixed(2)}s vs lap ${Math.max(1, lap - 1)}`;
 
   return (
     <div className="playback-status-bar">
@@ -22,6 +27,17 @@ function PlaybackStatusBar({ race, lap, videoSeconds, onLapChange, leaderLap }) 
           <span className="status-label">Video time</span>
           <span className="status-value mono" title="Absolute video position reported by the player">
             {formatVideoClock(videoSeconds)}
+          </span>
+        </div>
+        <div className="status-item">
+          <span className="status-label">Leader margin</span>
+          <span className="status-value mono" title={marginTitle}>
+            {formatGapSeconds(margin?.currentGap)}
+            {margin != null && Math.abs(margin.delta) >= 0.05 && (
+              <span className={`margin-trend ${margin.delta > 0 ? 'up' : 'down'}`}>
+                {margin.delta > 0 ? '▲' : '▼'}
+              </span>
+            )}
           </span>
         </div>
         <div className="status-item">
