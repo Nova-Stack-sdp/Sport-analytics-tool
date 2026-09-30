@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import TelemetryTVPage from '../pages/TelemetryTVPage';
 import { getTelemetryTVRace, getTelemetryTVRaces } from '../api/client';
 
@@ -57,6 +57,29 @@ const RACE_DETAIL = {
   ],
   cautions: [{ from: 2, to: 2, laps: 1 }],
 };
+
+// A race payload that ships a clock, so the video lapse maps to the lap
+// cursor. 184 s = green flag, 248 s = lap 1 complete, 420 s = checkered.
+const RACE_WITH_CLOCK = {
+  ...RACE_DETAIL,
+  clock: {
+    checkpoints: [
+      { event: 'Green flag (start of timing)', videoSeconds: 184 },
+      { event: 'Lap 1 complete', videoSeconds: 248 },
+      { event: 'Checkered flag (winner crosses)', videoSeconds: 420 },
+    ],
+  },
+};
+
+function deliverPlayerTime(seconds) {
+  act(() => {
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: JSON.stringify({ event: 'infoDelivery', info: { currentTime: seconds } }),
+      })
+    );
+  });
+}
 
 beforeEach(() => {
   getTelemetryTVRaces.mockReset();
@@ -150,6 +173,57 @@ describe('TelemetryTVPage', () => {
     expect(screen.getByText('Yellow')).toBeInTheDocument();
     expect(screen.getByText('Race Analysis')).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Result' })).toBeInTheDocument();
+  });
+
+  test('follows the embedded video clock: the lap cursor tracks the reported time', async () => {
+    getTelemetryTVRaces.mockResolvedValue({ races: RACES });
+    getTelemetryTVRace.mockResolvedValue({ race: RACE_WITH_CLOCK });
+    render(<TelemetryTVPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Play race' }));
+    await screen.findByText('Official order at lap 1');
+
+    // 300 s sits between lap 1 complete (248 s) and the checkered flag: lap 2.
+    deliverPlayerTime(300);
+
+    expect(await screen.findByText('Official order at lap 2')).toBeInTheDocument();
+    expect(screen.getByText('Video time').closest('.status-item')).toHaveTextContent('0:05:00');
+    expect(screen.getByLabelText('Select race lap')).toHaveValue('2');
+  });
+
+  test('leaves the lap cursor alone when the race ships no clock calibration', async () => {
+    getTelemetryTVRaces.mockResolvedValue({ races: RACES });
+    getTelemetryTVRace.mockResolvedValue({ race: RACE_DETAIL });
+    render(<TelemetryTVPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Play race' }));
+    await screen.findByText('Official order at lap 1');
+
+    deliverPlayerTime(300);
+
+    expect(screen.getByText('Video time').closest('.status-item')).toHaveTextContent('0:05:00');
+    expect(screen.getByText('Official order at lap 1')).toBeInTheDocument();
+    expect(screen.getByLabelText('Select race lap')).toHaveValue('1');
+  });
+
+  test('seeks the embedded video when the lap slider moves', async () => {
+    getTelemetryTVRaces.mockResolvedValue({ races: RACES });
+    getTelemetryTVRace.mockResolvedValue({ race: RACE_WITH_CLOCK });
+    render(<TelemetryTVPage />);
+
+    const iframe = await screen.findByTitle('YouTube video player');
+    fireEvent.click(screen.getByRole('button', { name: 'Play race' }));
+    await screen.findByText('Official order at lap 1');
+
+    const postMessage = jest.spyOn(iframe.contentWindow, 'postMessage').mockImplementation(() => {});
+    postMessage.mockClear();
+    fireEvent.change(screen.getByLabelText('Select race lap'), { target: { value: '2' } });
+
+    expect(await screen.findByText('Official order at lap 2')).toBeInTheDocument();
+    const seekCall = postMessage.mock.calls
+      .map(([message]) => JSON.parse(message))
+      .find((payload) => payload.func === 'seekTo');
+    expect(seekCall).toEqual({ event: 'command', func: 'seekTo', args: [248, true] });
   });
 
   test('keeps a driver on their last recorded lap when absent from a later chart', async () => {

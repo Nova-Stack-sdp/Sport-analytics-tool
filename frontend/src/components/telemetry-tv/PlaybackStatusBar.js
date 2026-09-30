@@ -1,5 +1,14 @@
 // Controls the historical lap cursor and shows the leader's published lap data.
-function PlaybackStatusBar({ race, lap, onLapChange, leaderLap }) {
+function formatVideoClock(seconds) {
+  if (seconds == null || !Number.isFinite(Number(seconds))) return '--';
+  const total = Math.max(0, Math.floor(Number(seconds)));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
+  return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+function PlaybackStatusBar({ race, lap, videoSeconds, onLapChange, leaderLap }) {
   const totalLaps = Number(race?.session?.totalLaps) || 1;
 
   return (
@@ -8,6 +17,12 @@ function PlaybackStatusBar({ race, lap, onLapChange, leaderLap }) {
         <div className="status-item">
           <span className="status-label">Race lap</span>
           <span className="status-value mono">{race ? `${lap} / ${totalLaps}` : '--'}</span>
+        </div>
+        <div className="status-item">
+          <span className="status-label">Video time</span>
+          <span className="status-value mono" title="Absolute video position reported by the player">
+            {formatVideoClock(videoSeconds)}
+          </span>
         </div>
         <div className="status-item">
           <span className="status-label">Leader lap</span>
