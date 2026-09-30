@@ -120,6 +120,20 @@ const RACE_WITH_STATS = {
   pole: { car: '26', driver: 'Colton Herta' },
 };
 
+// Curated broadcast anchors: real video seconds with the lap numbers squeezed
+// into the 2-lap fixture. 535 s = green flag, 1957 s = lap 2 running.
+const RACE_WITH_ANCHORS = {
+  ...RACE_DETAIL,
+  lapCalibration: [
+    { video_s: 535, lap: 1, basis: 'green flag' },
+    { video_s: 1957, lap: 2, basis: 'stated lap 2' },
+  ],
+  events: [
+    { id: 'e007', video_s: 535, type: 'green_flag', lap: 1, detail: 'Green flag: Herta leads out of turn 1.' },
+    { id: 'e030', video_s: 2400, type: 'caution_start', lap: 2, detail: 'Caution: debris at turn 5 halts the run.' },
+  ],
+};
+
 function deliverPlayerTime(seconds) {
   act(() => {
     window.dispatchEvent(
@@ -253,6 +267,26 @@ describe('TelemetryTVPage', () => {
     expect(screen.getByText('Video time').closest('.status-item')).toHaveTextContent('0:05:00');
     expect(screen.getByText('Official order at lap 1')).toBeInTheDocument();
     expect(screen.getByLabelText('Select race lap')).toHaveValue('1');
+  });
+
+  test('ticker follows the curated broadcast anchors while the video plays', async () => {
+    getTelemetryTVRaces.mockResolvedValue({ races: RACES });
+    getTelemetryTVRace.mockResolvedValue({ race: RACE_WITH_ANCHORS });
+    render(<TelemetryTVPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Play race' }));
+    await screen.findByText('Race start: Lap 1.');
+
+    // 600 s: past the green flag anchor (535 s), before the lap-2 anchor.
+    deliverPlayerTime(600);
+    expect(screen.getByText('Green flag: Herta leads out of turn 1.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Select race lap')).toHaveValue('1');
+
+    // 2500 s: lap 2 is running and the 2400 s caution has already aired.
+    deliverPlayerTime(2500);
+    expect(screen.getByText('Caution: debris at turn 5 halts the run.')).toBeInTheDocument();
+    expect(screen.queryByText('Green flag: Herta leads out of turn 1.')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Select race lap')).toHaveValue('2');
   });
 
   test('seeks the embedded video when the lap slider moves', async () => {

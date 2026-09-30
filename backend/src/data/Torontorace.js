@@ -1,7 +1,12 @@
+import { torontoAnchors } from './torontoAnchors.js';
+
 export const torontorace = {
   raceSlug: 'toronto-2025',
   eventName: 'Ontario Honda Dealers Indy Toronto',
   venue: 'Exhibition Place, Toronto',
+  // Curated video->lap anchors (green flag, stated laps, "N to go" calls) so
+  // the player clock maps to the right lap instead of the rough shipped clock.
+  lapCalibration: torontoAnchors.lapCalibration,
   paceAndStrategy: {
     headline: 'Pace & Strategy Intelligence',
     subtitle: 'Current race rhythm, tire strategy, and pressure points',
@@ -28,24 +33,9 @@ export const torontorace = {
     ],
   },
   narrative: 'Toronto is a street circuit where tire life, braking discipline, and pit timing matter as much as top speed. The most valuable live insight is usually the relative pace between the front group and the cars on fresh tires, not just the leader’s lap time.',
-  events: [
-    {
-      id: 'toronto-2025-crash-lap-37',
-      type: 'crash',
-      lap: 37,
-      drivers: ['Abel', 'Malukas', 'Foster', 'Newgarden', 'DeFrancesco', 'Armstrong', 'Siegel', 'Kirkwood'],
-      confidence: 'medium',
-      detail: 'Multi-car pileup at turn 1 during the restart.',
-    },
-    {
-      id: 'toronto-2025-crash-lap-89',
-      type: 'crash',
-      lap: 89,
-      drivers: ['Rosenqvist', 'Siegel'],
-      confidence: 'medium',
-      detail: 'Rosenqvist loses the rear and Siegel collides at turn 10.',
-    },
-  ],
+  // 125 curated broadcast events, each stamped with the video second it aired
+  // on, so the ticker can follow playback instead of the lap cursor alone.
+  events: torontoAnchors.events,
 };
 
 export function getTorontoraceContext() {

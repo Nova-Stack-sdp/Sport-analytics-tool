@@ -82,6 +82,7 @@ telemetryTVRouter.get('/races/:slug', async (req, res, next) => {
         session: payload.session ?? {},
         video: payload.video ?? {},
         clock: payload.clock ?? null,
+        lapCalibration: payload.lapCalibration ?? torontorace?.lapCalibration ?? null,
         classification: payload.classification ?? [],
         leaderLaps: payload.leaderLaps ?? [],
         lapChart: payload.lapChart ?? { positions: {}, flags: {}, legend: {} },

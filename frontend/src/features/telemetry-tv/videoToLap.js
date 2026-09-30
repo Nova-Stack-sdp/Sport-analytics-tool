@@ -5,11 +5,13 @@
 // the curated lapCalibration array when a race ships one.
 
 // The shipped clock.checkpoints are built as embedStartSeconds + race clock,
-// treating race.video.embedStartSeconds as the green flag. The curated Toronto
-// anchors put the green flag at video second 535 while the embed starts at 184
-// (a 351 s difference). If in-player verification confirms that (open the
-// video at both timestamps), set this to 351 so every checkpoint shifts
-// together. 0 = trust the shipped clock model. The video time shown in the
+// treating race.video.embedStartSeconds as the green flag. Races with curated
+// broadcast anchors (Toronto) ship a lapCalibration array instead, and that
+// always wins, so this constant only ever touches the rough shipped clock. If
+// an in-player check shows a shipped-clock race still reads offset (the curated
+// Toronto anchors place the green flag at 535 s while the shipped model says
+// 184 s, a 351 s difference), set this to the gap and every checkpoint shifts
+// together. 0 = trust the shipped clock model. The video time readout in the
 // playback status bar makes that check a five-second job.
 export const GREEN_FLAG_VIDEO_SHIFT_SECONDS = 0;
 

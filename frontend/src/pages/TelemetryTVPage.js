@@ -22,6 +22,7 @@ import {
 } from '../features/telemetry-tv/raceAnalytics';
 import { buildBattleRadarModel } from '../features/telemetry-tv/buildBattleRadarModel';
 import { buildMasterboardCommentary } from '../features/telemetry-tv/buildMasterboardCommentary';
+import { pickVideoTickerEvent } from '../features/telemetry-tv/videoTicker';
 import { buildTorontoraceIntelligence } from '../features/telemetry-tv/Torontorace';
 
 function TelemetryTVPage() {
@@ -66,6 +67,10 @@ function TelemetryTVPage() {
   const torontorace = buildTorontoraceIntelligence({ lapState, selectedSlug });
   const raceIntelligence = raceData?.intelligence ?? (selectedSlug === 'toronto-2025' ? torontorace : null);
   const commentaryEvents = buildMasterboardCommentary(raceData, lapState);
+  // While the player clock is live the ticker narrates the curated broadcast
+  // timeline; before that it cycles the lap-based commentary.
+  const videoTickerEvent = pickVideoTickerEvent(raceData?.events, videoSeconds);
+  const tickerEvents = videoTickerEvent ? [videoTickerEvent] : commentaryEvents;
   const lapTrend = buildLapTrend(raceData);
   const driverStats = buildDriverStats(raceData);
   const margin = marginDelta(raceData, lap);
@@ -157,7 +162,7 @@ function TelemetryTVPage() {
               leaderLap={lapState.leaderLap}
               onLapChange={handleLapChange}
             />
-            <LiveTicker events={commentaryEvents} />
+            <LiveTicker events={tickerEvents} />
             <RacePaceCard lapTrend={lapTrend} lap={lap} />
           </div>
 
