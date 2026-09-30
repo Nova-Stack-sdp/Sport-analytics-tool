@@ -36,6 +36,10 @@ export const torontorace = {
   // 125 curated broadcast events, each stamped with the video second it aired
   // on, so the ticker can follow playback instead of the lap cursor alone.
   events: torontoAnchors.events,
+  // Lap-level pit stops rebuilt from the broadcast: Toronto's official pit
+  // stop summary ships empty, so each stop carries the lap stated on air or
+  // one interpolated from the video calibration.
+  pitStops: torontoAnchors.pitStops,
 };
 
 export function getTorontoraceContext() {

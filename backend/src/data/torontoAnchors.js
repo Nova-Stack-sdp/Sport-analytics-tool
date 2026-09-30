@@ -147,4 +147,23 @@ export const torontoAnchors = {
     {"id":"e124","video_s":7569,"type":"classification","confidence":"high","detail":"Final order top 12: O'Ward, VeeKay, Simpson, Herta, Ericsson, Kirkwood, Rahal, Ilott, Malukas, Dixon, Power, Palou."},
     {"id":"e125","video_s":7669,"type":"championship","drivers":["Palou","O'Ward"],"confidence":"high","detail":"Palou lead was 129 before the race, cut to 99 after Toronto. Kirkwood back to 3rd, Dixon 4th, Lundgaard 5th."},
   ],
+  // Broadcast-called stop list: the official pit stop summary for Toronto is
+  // empty, so each stop carries the lap stated on air, or one interpolated
+  // from the calibration above and labelled "video estimate".
+  pitStops: [
+    {"car":"5","driver":"O'Ward","total":3,"stops":[{"stop":1,"raceLap":2,"video_s":677,"basis":"stated"},{"stop":2,"raceLap":32,"video_s":2794,"basis":"video estimate"},{"stop":3,"raceLap":58,"video_s":4777,"basis":"stated"}]},
+    {"car":"18","driver":"VeeKay","total":2,"stops":[{"stop":1,"raceLap":14,"video_s":1454,"basis":"video estimate"},{"stop":2,"raceLap":57,"video_s":4719,"basis":"stated"}]},
+    {"car":"28","driver":"Ericsson","total":3,"stops":[{"stop":1,"raceLap":2,"video_s":677,"basis":"stated"},{"stop":2,"raceLap":33,"video_s":4833,"basis":"stated"}]},
+    {"car":"3","driver":"McLaughlin","total":1,"stops":[{"stop":1,"raceLap":2,"video_s":677,"basis":"stated"}]},
+    {"car":"8","driver":"Simpson","total":2,"stops":[{"stop":1,"raceLap":58,"video_s":4802,"basis":"stated"}]},
+    {"car":"26","driver":"Herta","total":3,"stops":[{"stop":1,"raceLap":3,"video_s":829,"basis":"stated"},{"stop":2,"raceLap":33,"video_s":4833,"basis":"stated"},{"stop":3,"raceLap":66,"video_s":5279,"basis":"stated"}]},
+    {"car":"27","driver":"Kirkwood","total":3,"stops":[{"stop":1,"raceLap":3,"video_s":837,"basis":"stated"}]},
+    {"car":"15","driver":"Rahal","total":3,"stops":[{"stop":1,"raceLap":3,"video_s":837,"basis":"stated"},{"stop":2,"raceLap":32,"video_s":2794,"basis":"video estimate"}]},
+    {"car":"4","driver":"Malukas","total":3,"stops":[{"stop":1,"raceLap":48,"video_s":5272,"basis":"stated"}]},
+    {"car":"66","driver":"Armstrong","total":3,"stops":[{"stop":1,"raceLap":3,"video_s":837,"basis":"stated"}]},
+    {"car":"60","driver":"Rosenqvist","total":3,"stops":[{"stop":1,"raceLap":26,"video_s":2344,"basis":"video estimate"}]},
+    {"car":"9","driver":"Dixon","total":2,"stops":[{"stop":1,"raceLap":40,"video_s":3676,"basis":"stated"},{"stop":2,"raceLap":54,"video_s":4632,"basis":"stated"}]},
+    {"car":"10","driver":"Palou","total":2,"stops":[{"stop":1,"raceLap":40,"video_s":3676,"basis":"stated"},{"stop":2,"raceLap":53,"video_s":4569,"basis":"stated"}]},
+    {"car":"83","driver":"Shwartzman","total":3,"stops":[{"stop":1,"raceLap":29,"video_s":2424,"basis":"stated"},{"stop":2,"raceLap":32,"video_s":2794,"basis":"video estimate"},{"stop":3,"raceLap":72,"video_s":5692,"basis":"stated"}]},
+  ],
 };

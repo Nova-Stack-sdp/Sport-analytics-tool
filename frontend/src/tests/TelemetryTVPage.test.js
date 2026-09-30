@@ -134,6 +134,33 @@ const RACE_WITH_ANCHORS = {
   ],
 };
 
+// Toronto ships curated broadcast pit stops (its official pit stop summary is
+// empty): lap-level records with a basis label, covering fewer stops than the
+// official classification. Positions are static so the ticker leads with the
+// pit call.
+const RACE_WITH_PIT_STOPS = {
+  ...RACE_DETAIL,
+  lapChart: {
+    ...RACE_DETAIL.lapChart,
+    positions: { 1: { 1: '26', 2: '5' }, 2: { 1: '26', 2: '5' } },
+  },
+  classification: [
+    { CarNumber: '5', DriverName: "Pato O'Ward", TeamName: 'Arrow McLaren', PositionStart: 2, PositionFinish: 1, PitStops: 3 },
+    { CarNumber: '26', DriverName: 'Colton Herta', TeamName: 'Andretti', PositionStart: 1, PositionFinish: 2, PitStops: 2 },
+  ],
+  pitStops: [
+    {
+      car: '5',
+      driver: "O'Ward",
+      total: 3,
+      stops: [
+        { stop: 1, raceLap: 1, video_s: 677, basis: 'stated' },
+        { stop: 2, raceLap: 2, video_s: 2794, basis: 'video estimate' },
+      ],
+    },
+  ],
+};
+
 function deliverPlayerTime(seconds) {
   act(() => {
     window.dispatchEvent(
@@ -287,6 +314,22 @@ describe('TelemetryTVPage', () => {
     expect(screen.getByText('Caution: debris at turn 5 halts the run.')).toBeInTheDocument();
     expect(screen.queryByText('Green flag: Herta leads out of turn 1.')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Select race lap')).toHaveValue('2');
+  });
+
+  test('plots the curated broadcast pit stops and calls them out in the ticker', async () => {
+    getTelemetryTVRaces.mockResolvedValue({ races: RACES });
+    getTelemetryTVRace.mockResolvedValue({ race: RACE_WITH_PIT_STOPS });
+    const { container } = render(<TelemetryTVPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Play race' }));
+    await screen.findByText('Official order at lap 1');
+
+    fireEvent.change(screen.getByLabelText('Select race lap'), { target: { value: '2' } });
+    await screen.findByText('Official order at lap 2');
+
+    expect(container.querySelectorAll('.pit-stop-marker')).toHaveLength(2);
+    expect(screen.getByText("Pit stop: O'Ward stops on lap 2.")).toBeInTheDocument();
+    expect(screen.getByText('Broadcast-called stops only (2 of 5).')).toBeInTheDocument();
   });
 
   test('seeks the embedded video when the lap slider moves', async () => {

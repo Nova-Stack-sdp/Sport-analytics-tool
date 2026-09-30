@@ -166,6 +166,19 @@ describe('GET /api/telemetry-tv/races/:slug', () => {
     ]));
   });
 
+  test('serves the curated broadcast pit stops for Toronto', async () => {
+    mockPrisma.externalApiCache.findMany.mockResolvedValue([raceRow('indycar:toronto-2025-race:v2')]);
+
+    const res = await request(createApp()).get('/api/telemetry-tv/races/toronto-2025');
+
+    expect(res.status).toBe(200);
+    expect(res.body.race.pitStops).toHaveLength(14);
+    const oward = res.body.race.pitStops.find((entry) => entry.driver === "O'Ward");
+    expect(oward).toMatchObject({ car: '5', total: 3 });
+    expect(oward.stops.map((stop) => stop.raceLap)).toEqual([2, 32, 58]);
+    expect(oward.stops.map((stop) => stop.basis)).toEqual(['stated', 'video estimate', 'stated']);
+  });
+
   test('omits curated anchors for races without an anchor set', async () => {
     mockPrisma.externalApiCache.findMany.mockResolvedValue([
       raceRow('indycar:long-beach-2023-race:v1', { sessionDate: '4/16/2023' }),
@@ -176,6 +189,7 @@ describe('GET /api/telemetry-tv/races/:slug', () => {
     expect(res.status).toBe(200);
     expect(res.body.race.lapCalibration).toBeNull();
     expect(res.body.race.events).toEqual([]);
+    expect(res.body.race.pitStops).toEqual([]);
   });
 
   test('returns 404 for a race slug without a cached bundle', async () => {

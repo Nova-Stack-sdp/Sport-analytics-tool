@@ -15,6 +15,17 @@ const RaceTimeline = memo(function RaceTimeline({ race, lapState }) {
   const pitStops = (visiblePitStops ?? []).flatMap((entry) => (
     (entry.stops ?? []).map((stop) => ({ ...stop, car: entry.car, driver: entry.driver }))
   ));
+  // Curated stop lists carry a basis label; when they cover fewer stops than
+  // the official classification recorded, say so instead of pretending the
+  // markers are the full picture.
+  const curatedStops = allPitStops.some((stop) => stop.basis);
+  const officialStops = (race.classification ?? []).reduce(
+    (total, entry) => total + (Number(entry.PitStops) || 0),
+    0
+  );
+  const coverageNote = curatedStops && officialStops > allPitStops.length
+    ? `Broadcast-called stops only (${allPitStops.length} of ${officialStops}).`
+    : null;
 
   return (
     <section className="card race-timeline-card" aria-label="Race sequence">
@@ -109,13 +120,15 @@ const RaceTimeline = memo(function RaceTimeline({ race, lapState }) {
         })}
         <span className="timeline-cursor" style={{ left: '100%' }} />
       </div>
-      {pitStops.length === 0 && (
+      {pitStops.length === 0 ? (
         <div className="pit-data-note">
           {allPitStops.length
             ? `No pit stops through lap ${lap}.`
             : 'Lap-level pit-stop records unavailable in this report.'}
         </div>
-      )}
+      ) : coverageNote ? (
+        <div className="pit-data-note">{coverageNote}</div>
+      ) : null}
       <div className="timeline-axis"><span>Lap 1</span><span>Lap {timelineLaps}</span></div>
     </section>
   );
