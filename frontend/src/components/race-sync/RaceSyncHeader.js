@@ -1,8 +1,172 @@
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useRaceSyncSelection } from './RaceSyncSelection';
+import RaceSyncViewMenu from './RaceSyncViewMenu';
+
+// The header's race search — typing filters the synced races and the list
+// opens underneath: the same races Race Replay offers (see RaceSyncSelection).
+// Picking a row loads that race into the centre stage. The input stays a
+// query field afterwards, so the picked race is announced by the map header
+// rather than echoed back into the box.
+function RaceSearch() {
+  const { fixtures, loading, error, selectedId, selectRace } = useRaceSyncSelection();
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const boxRef = useRef(null);
+
+  const needle = query.trim().toLowerCase();
+  const matches = needle
+    ? fixtures.filter((fixture) =>
+        [fixture.meetingName, fixture.circuitName, fixture.country]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .includes(needle)
+      )
+    : fixtures;
+  // The keyboard cursor stays inside the current result set however the list
+  // changes under it (typing resets it to the top row).
+  const active = matches.length > 0 ? Math.min(activeIndex, matches.length - 1) : -1;
+
+  // Close when the click lands outside the box — the app's avatar menu uses
+  // the same listener pattern.
+  useEffect(() => {
+    if (!open) return undefined;
+    const onMouseDown = (event) => {
+      if (boxRef.current && !boxRef.current.contains(event.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, [open]);
+
+  const choose = (fixture) => {
+    selectRace(fixture.id);
+    setQuery('');
+    setOpen(false);
+  };
+
+  const onKeyDown = (event) => {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      setOpen(true);
+      if (matches.length === 0) return;
+      const step = event.key === 'ArrowDown' ? 1 : -1;
+      setActiveIndex(
+        (index) => (Math.min(index, matches.length - 1) + step + matches.length) % matches.length
+      );
+      return;
+    }
+    if (event.key === 'Enter' && open && matches[active]) {
+      event.preventDefault();
+      choose(matches[active]);
+      return;
+    }
+    if (event.key === 'Escape') setOpen(false);
+  };
+
+  return (
+    <div className="racesync-search" ref={boxRef}>
+      <div className="racesync-search-box">
+        <svg
+          className="racesync-search-icon"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <circle cx="11" cy="11" r="6.5"></circle>
+          <path d="M20 20l-4.2-4.2"></path>
+        </svg>
+        <input
+          className="racesync-search-input"
+          type="text"
+          placeholder="Type Race Title..."
+          aria-label="Search races"
+          role="combobox"
+          aria-expanded={open}
+          aria-controls="racesync-race-options"
+          aria-autocomplete="list"
+          aria-activedescendant={
+            open && active >= 0 ? `racesync-race-option-${matches[active].id}` : undefined
+          }
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setActiveIndex(0);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={onKeyDown}
+        />
+      </div>
+
+      {open && (
+        <div className="racesync-search-panel">
+          <ul
+            className="racesync-search-list"
+            id="racesync-race-options"
+            role="listbox"
+            aria-label="Races"
+          >
+            {matches.map((fixture, index) => (
+              <li key={fixture.id}>
+                <button
+                  type="button"
+                  id={`racesync-race-option-${fixture.id}`}
+                  role="option"
+                  aria-selected={index === active}
+                  className={[
+                    'racesync-search-option',
+                    index === active ? 'is-active' : '',
+                    fixture.id === selectedId ? 'is-selected' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  onClick={() => choose(fixture)}
+                >
+                  <span className="racesync-search-option-name">
+                    {fixture.meetingName} {fixture.season}
+                  </span>
+                  <span className="racesync-search-option-type">{fixture.type}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          {loading && <p className="racesync-search-note">Loading races…</p>}
+          {error && (
+            <p className="racesync-search-note">Couldn't load the race list: {error}.</p>
+          )}
+          {!loading && !error && fixtures.length === 0 && (
+            <p className="racesync-search-note">
+              No synced races have enough data to replay yet.
+            </p>
+          )}
+          {!loading && !error && fixtures.length > 0 && matches.length === 0 && (
+            <p className="racesync-search-note">No race matches “{query.trim()}”.</p>
+          )}
+
+          {selectedId && (
+            <button
+              type="button"
+              className="racesync-search-clear"
+              onClick={() => {
+                selectRace(null);
+                setOpen(false);
+              }}
+            >
+              Clear selection
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // The RaceSync page's own top bar — brand on the left, race search in the
-// middle, notifications and the account block on the right (see raceSync.css).
-// The bell and the account menu are placeholders for now.
+// middle, the map's view menu on the right (see raceSync.css). The bell is
+// still a placeholder.
 function RaceSyncHeader() {
   return (
     <header className="racesync-header">
@@ -29,25 +193,7 @@ function RaceSyncHeader() {
         </Link>
       </div>
 
-      <div className="racesync-search">
-        <div className="racesync-search-box">
-          <svg
-            className="racesync-search-icon"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-            focusable="false"
-          >
-            <circle cx="11" cy="11" r="6.5"></circle>
-            <path d="M20 20l-4.2-4.2"></path>
-          </svg>
-          <input
-            className="racesync-search-input"
-            type="text"
-            placeholder="Type Race Title..."
-            aria-label="Search races"
-          />
-        </div>
-      </div>
+      <RaceSearch />
 
       <div className="racesync-account">
         {/* Placeholder: notifications are not wired up yet. */}
@@ -68,21 +214,8 @@ function RaceSyncHeader() {
           <span className="racesync-bell-dot" />
         </span>
         <span className="racesync-divider" aria-hidden="true" />
-        {/* Placeholder: the account menu is not wired up yet. */}
-        <span className="racesync-account-trigger">
-          <span className="racesync-avatar" aria-hidden="true">
-            TA
-          </span>
-          <span className="racesync-account-name">Team Analytics</span>
-          <svg
-            className="racesync-chevron"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-            focusable="false"
-          >
-            <path d="M6 9l6 6 6-6"></path>
-          </svg>
-        </span>
+        {/* What the centre map shows — see RaceSyncViewMenu. */}
+        <RaceSyncViewMenu />
       </div>
     </header>
   );

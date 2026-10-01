@@ -23,10 +23,13 @@ const FALLBACK_SPEED_INDEX = SPEEDS.indexOf(1);
 // per direct feedback, so now 10000ms (~10 min/race).
 export const BASE_TICK_MS = 10000;
 
-export function useRaceReplaySnapshots(sessionId) {
+// `autoPlay` lets a caller open parked on the race's first lap and wait to be
+// asked to play: RaceSync's workspace starts that way, while Race Replay's own
+// viewer keeps starting the moment a session is picked, exactly as before.
+export function useRaceReplaySnapshots(sessionId, { autoPlay = true } = {}) {
   const { preferences } = usePreferences();
   const [lap, setLap] = useState(0);
-  const [playing, setPlaying] = useState(true);
+  const [playing, setPlaying] = useState(autoPlay);
   // Starts at the "Default speed" from Settings; the speed button still
   // cycles through every speed from there.
   const [speedIndex, setSpeedIndex] = useState(() => {
@@ -64,10 +67,10 @@ export function useRaceReplaySnapshots(sessionId) {
     setLoading(true);
     setError(null);
     setAtEnd(false);
-    setPlaying(true);
+    setPlaying(autoPlay);
     setTrackShape(null);
     setTrackShapeError(null);
-  }, [sessionId]);
+  }, [sessionId, autoPlay]);
 
   useEffect(() => {
     if (!sessionId) return undefined;
@@ -155,6 +158,17 @@ export function useRaceReplaySnapshots(sessionId) {
     }
   }, [snapshot]);
 
+  // Moves the playhead to a lap without touching play/pause — this is what
+  // RaceSync's lap stepping is built on. An out-of-range lap clamps to the
+  // race rather than being refused, and asking for the lap already showing
+  // changes nothing at all.
+  const jumpToLap = useCallback((lapNumber) => {
+    if (!Number.isFinite(lapNumber)) return;
+    const requested = Math.floor(lapNumber);
+    const total = snapshot?.totalLaps;
+    setLap(Math.max(0, total != null ? Math.min(requested, total) : requested));
+  }, [snapshot]);
+
   const cycleSpeed = () => setSpeedIndex((i) => (i + 1) % SPEEDS.length);
   const togglePlaying = () => setPlaying((p) => !p);
 
@@ -170,6 +184,7 @@ export function useRaceReplaySnapshots(sessionId) {
     cycleSpeed,
     restart,
     jumpToEnd,
+    jumpToLap,
     trackShape,
     trackShapeError,
   };

@@ -3,6 +3,7 @@ import { BrowserRouter, useLocation } from 'react-router-dom';
 import TopNav from './components/TopNavigation';
 import RaceSyncHeader from './components/race-sync/RaceSyncHeader';
 import RaceSyncNav from './components/race-sync/RaceSyncNav';
+import { RaceSyncSelectionProvider } from './components/race-sync/RaceSyncSelection';
 import AppRoutes from './navigation/AppRoutes';
 import { AuthProvider } from './context/AuthContext';
 import { DeveloperModeProvider } from './context/DeveloperModeContext';
@@ -17,8 +18,8 @@ function AppFrame({ theme, onToggleTheme }) {
   const { pathname } = useLocation();
   const isRaceSync = pathname === RACESYNC_PATH;
 
-  return (
-    <div className={`app-frame${isRaceSync ? ' app-frame-racesync' : ''}`}>
+  const content = (
+    <>
       {isRaceSync ? (
         <>
           <RaceSyncHeader />
@@ -30,6 +31,19 @@ function AppFrame({ theme, onToggleTheme }) {
       <main className="app-frame-main">
         <AppRoutes />
       </main>
+    </>
+  );
+
+  return (
+    <div className={`app-frame${isRaceSync ? ' app-frame-racesync' : ''}`}>
+      {/* The race search in the header writes the selection the page reads, so
+          the provider has to wrap both halves of the frame. Context renders no
+          DOM, so the header, rail and main stay direct grid children. */}
+      {isRaceSync ? (
+        <RaceSyncSelectionProvider>{content}</RaceSyncSelectionProvider>
+      ) : (
+        content
+      )}
     </div>
   );
 }

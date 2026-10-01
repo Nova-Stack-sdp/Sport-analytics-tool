@@ -144,10 +144,13 @@ test('shows the RaceSync local navigation by default and collapses it from its o
 });
 
 // The RaceSync page carries its own branded header instead of the app's red
-// top nav (see raceSync.css). The bell and account block are placeholders.
+// top nav (see raceSync.css). The bell is still a placeholder; the chip on the
+// right is the map's view menu (see RaceSyncViewMenu).
 test('shows the branded RaceSync header on the RaceSync page only', () => {
   const { unmount } = render(<App />);
-  expect(screen.queryByText('Team Analytics')).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('button', { name: 'Choose what to see' })
+  ).not.toBeInTheDocument();
   expect(screen.queryByPlaceholderText('Type Race Title...')).not.toBeInTheDocument();
   unmount();
 
@@ -156,16 +159,20 @@ test('shows the branded RaceSync header on the RaceSync page only', () => {
 
   expect(screen.getByText('Observe, Diagnose, Simulate')).toBeInTheDocument();
   expect(screen.getByPlaceholderText('Type Race Title...')).toBeInTheDocument();
-  expect(screen.getByText('Team Analytics')).toBeInTheDocument();
+  // The chip is a prompt until the map is scoped (covered in the stage test).
+  expect(
+    screen.getByRole('button', { name: 'Choose what to see' })
+  ).toBeInTheDocument();
   // The wordmark is split so "Sync" can carry the F1 red.
   expect(screen.getByText('Race')).toBeInTheDocument();
   expect(screen.getByText('Sync')).toBeInTheDocument();
 });
 
-// The top picker is wired to the same races Race Replay offers (replay-ready
-// fixtures only), and picking one loads that session's real trace and driver
-// field into the centre stage from the shared read-only endpoints.
-test('the RaceSync picker lists the replay-ready races and loads the picked one into the stage', async () => {
+// The header's race search is wired to the same races Race Replay offers
+// (replay-ready fixtures only), and picking one loads that session's real
+// trace, driver field and race band into the centre stage from the shared
+// read-only endpoints. The view menu beside it then narrows that stage.
+test('the RaceSync header search loads the picked race and the view menu narrows the map', async () => {
   window.history.pushState({}, '', '/sync-f1-broadcast');
   getFixtures.mockResolvedValue({
     fixtures: [
@@ -206,19 +213,36 @@ test('the RaceSync picker lists the replay-ready races and loads the picked one 
       { x: 0, y: 60 },
     ],
   });
-  getRaceReplayState.mockImplementation(async (sessionId) => ({
-    totalLaps: sessionId === 's-italy' ? 53 : 52,
-    leaderboard: [
-      { entryId: 'e1', driverName: 'Max VERSTAPPEN', teamName: 'Red Bull Racing' },
-      { entryId: 'e2', driverName: 'Lewis HAMILTON', teamName: 'Mercedes' },
-    ],
-  }));
+  const field = [
+    { entryId: 'e1', driverName: 'Max VERSTAPPEN', teamName: 'Red Bull Racing' },
+    { entryId: 'e2', driverName: 'Lewis HAMILTON', teamName: 'Mercedes' },
+  ];
+  // Lap-aware, the way the real endpoint is: it reports whichever lap was
+  // asked for, and only calls it the end once that lap is the last one. The
+  // first race carries a weather reading (so the band's chips render) and the
+  // second carries none (so the band is checked to leave them out rather than
+  // invent them).
+  getRaceReplayState.mockImplementation(async (sessionId, { lap } = {}) =>
+    sessionId === 's-italy'
+      ? {
+          lap,
+          totalLaps: 53,
+          atEnd: lap >= 53,
+          weather: {
+            airTemperature: 18.4,
+            trackTemperature: 23.2,
+            humidity: 6,
+            rainfall: 0,
+          },
+          leaderboard: field,
+        }
+      // A short race on purpose: with no skip control in the band's transport,
+      // a three-lap fixture puts the end of the race a few steps away instead
+      // of a minute of ticking.
+      : { lap, totalLaps: 3, atEnd: lap >= 3, leaderboard: field }
+  );
 
   render(<App />);
-
-  // Only the replay-ready sessions are offered — Race Replay's own filter.
-  const select = await screen.findByLabelText('Choose a race');
-  expect(within(select).queryByRole('option', { name: /Spanish/ })).not.toBeInTheDocument();
 
   // Nothing is picked by default: the map carries the workspace instructions
   // and no replay data is fetched until a race is chosen.
@@ -229,19 +253,47 @@ test('the RaceSync picker lists the replay-ready races and loads the picked one 
   expect(getRaceReplayTrackShape).not.toHaveBeenCalled();
   expect(getRaceReplayState).not.toHaveBeenCalled();
 
-  // Picking a race replaces the instructions with that session's real trace
-  // and driver field.
-  fireEvent.change(select, { target: { value: 's-italy' } });
-  const stage = await screen.findByLabelText('Circuit map and driver positions');
-  // The marker only appears once BOTH fetches have landed (the trace and the
-  // leaderboard), so this waits for the whole stage.
-  await within(stage).findByText('VER', { selector: '.racesync-stage-car' });
-  expect(screen.queryByLabelText('How to use RaceSync')).not.toBeInTheDocument();
-  expect(getRaceReplayState).toHaveBeenCalledWith('s-italy', { lap: 9999 });
+  // Typing here opens the list of synced races; only the replay-ready
+  // sessions are offered — Race Replay's own filter.
+  const search = screen.getByPlaceholderText('Type Race Title...');
+  fireEvent.focus(search);
+  const italy = await screen.findByRole('option', { name: /Italian Grand Prix 2021/ });
+  expect(screen.queryByRole('option', { name: /Spanish Grand Prix/ })).not.toBeInTheDocument();
 
+  // Picking a row closes the list and replaces the instructions with that
+  // session's real trace, driver field and race band.
+  fireEvent.click(italy);
+  const stage = await screen.findByLabelText('Circuit map and driver positions');
+  expect(screen.queryByLabelText('How to use RaceSync')).not.toBeInTheDocument();
+  expect(screen.queryByRole('option', { name: /Italian Grand Prix 2021/ })).not.toBeInTheDocument();
+  // The marker only appears once BOTH fetches have landed (the trace and the
+  // leaderboard), so this waits for the whole stage. A picked race opens
+  // parked on lap 0 — the red mark's Play button is the only thing that starts
+  // this race, which is what this page asks of the shared engine.
+  await within(stage).findByText('VER', { selector: '.racesync-stage-car' });
+  expect(getRaceReplayState).toHaveBeenCalledWith('s-italy', { lap: 0 });
+
+  // The lap chip reads the playhead out and is also the jump box, so its
+  // number lives in the field's own value rather than in a text node: this is
+  // the one way the flow below reads which lap the stage has landed on.
+  const findLap = (lapNumber) => within(stage).findByDisplayValue(String(lapNumber));
+
+  // The band carries the race itself: flag, name, place, date and type…
+  expect(within(stage).getByRole('img', { name: 'Italy' })).toBeInTheDocument();
   expect(within(stage).getByRole('heading', { name: 'Italian Grand Prix' })).toBeInTheDocument();
-  expect(within(stage).getByText('Monza · Italy · 12 Sep 2021')).toBeInTheDocument();
-  expect(within(stage).getByText('Lap 53/53')).toBeInTheDocument();
+  expect(within(stage).getByText('Monza · Italy · 12 Sep 2021 · Race')).toBeInTheDocument();
+  // …then how far along it is and what the track was doing. The lap chip still
+  // reads "Lap 0 / 53" — the number in the middle is simply a field now.
+  expect(within(stage).getByLabelText('Lap')).toBeInTheDocument();
+  expect(await findLap(0)).toBeInTheDocument();
+  expect(within(stage).getByText('/ 53')).toBeInTheDocument();
+  expect(within(stage).getByText('Time remaining')).toBeInTheDocument();
+  expect(within(stage).getByText('53 Laps')).toBeInTheDocument();
+  expect(within(stage).getByText('23°C')).toBeInTheDocument();
+  expect(within(stage).getByText('Track Temp')).toBeInTheDocument();
+  expect(within(stage).getByText('18°C')).toBeInTheDocument();
+  expect(within(stage).getByText('6%')).toBeInTheDocument();
+  expect(within(stage).getByText('Dry')).toBeInTheDocument();
   // The field is the session's real leaderboard: codes are derived from the
   // driver names and colours come from the shared team palette.
   expect(
@@ -253,11 +305,213 @@ test('the RaceSync picker lists the replay-ready races and loads the picked one 
   expect(within(stage).getByText('Max Verstappen')).toBeInTheDocument();
   expect(within(stage).getByText('Lewis Hamilton')).toBeInTheDocument();
 
-  // Picking another race re-loads the stage for that session.
-  fireEvent.change(select, { target: { value: 's-britain' } });
-  expect(await within(stage).findByText('Lap 52/52')).toBeInTheDocument();
+  // The band's transport drives the replay on Race Replay's own clock, and it
+  // opens parked: nothing plays until the red mark is pressed.
+  const play = within(stage).getByRole('button', { name: 'Play the replay' });
+  expect(play).toHaveTextContent('Play');
+  expect(within(stage).getByRole('button', { name: 'Back one lap' })).toBeDisabled();
+  expect(
+    within(stage).getByRole('button', { name: 'Forward one lap' })
+  ).toBeEnabled();
+
+  // Playing starts the race — the engine ticks straight into lap 1 so the
+  // first lap is not a full tick away, the same behaviour Race Replay's viewer
+  // has — and the red mark reads Restart while the race runs.
+  fireEvent.click(play);
+  expect(await findLap(1)).toBeInTheDocument();
+  expect(
+    within(stage).getByRole('button', { name: 'Restart the replay' })
+  ).toHaveTextContent('Restart');
+  expect(within(stage).getByText('52 Laps')).toBeInTheDocument();
+
+  // The chevrons step a lap at a time on that same clock, and a step re-loads
+  // the stage for the lap it lands on.
+  fireEvent.click(within(stage).getByRole('button', { name: 'Forward one lap' }));
+  expect(await findLap(2)).toBeInTheDocument();
+  expect(getRaceReplayState).toHaveBeenCalledWith('s-italy', { lap: 2 });
+  expect(within(stage).getByRole('button', { name: 'Back one lap' })).toBeEnabled();
+  fireEvent.click(within(stage).getByRole('button', { name: 'Back one lap' }));
+  expect(await findLap(1)).toBeInTheDocument();
+
+  // The lap chip is a jump box as well as a readout: typing a lap into it and
+  // confirming sends a running replay there without stopping it.
+  const lapField = within(stage).getByLabelText('Lap');
+  fireEvent.change(lapField, { target: { value: '40' } });
+  fireEvent.keyDown(lapField, { key: 'Enter' });
+  expect(await findLap(40)).toBeInTheDocument();
+  expect(getRaceReplayState).toHaveBeenCalledWith('s-italy', { lap: 40 });
+  expect(within(stage).getByText('13 Laps')).toBeInTheDocument();
+  // Clicking away confirms too — a typed lap is never silently dropped…
+  fireEvent.focus(lapField);
+  fireEvent.change(lapField, { target: { value: '12' } });
+  fireEvent.blur(lapField);
+  expect(await findLap(12)).toBeInTheDocument();
+  // …while Escape drops the edit and hands the readout back to the replay.
+  fireEvent.focus(lapField);
+  fireEvent.change(lapField, { target: { value: '30' } });
+  fireEvent.keyDown(lapField, { key: 'Escape' });
+  fireEvent.blur(lapField);
+  expect(lapField).toHaveValue('12');
+
+  // Paused, the red mark is Play again — a resume rather than a restart — and
+  // the middle button is the way back in.
+  fireEvent.click(within(stage).getByRole('button', { name: 'Pause the replay' }));
+  expect(
+    within(stage).getByRole('button', { name: 'Play the replay' })
+  ).toHaveTextContent('Play');
+  expect(
+    within(stage).getByRole('button', { name: 'Resume the replay' })
+  ).toBeInTheDocument();
+
+  // The speed button cycles the shared replay speeds, starting from the
+  // "Default speed" preference — 1× out of the box.
+  fireEvent.click(within(stage).getByRole('button', { name: 'Replay speed 1×' }));
+  expect(
+    within(stage).getByRole('button', { name: 'Replay speed 2×' })
+  ).toBeInTheDocument();
+
+  // The header's view menu scopes the map. Its lists come from the loaded
+  // session's own field, so this picks a team that is really in the race.
+  fireEvent.click(screen.getByRole('button', { name: 'Choose what to see' }));
+  fireEvent.click(await screen.findByRole('option', { name: /Choose team/ }));
+  fireEvent.click(await screen.findByRole('option', { name: /Red Bull Racing/ }));
+
+  // The chip reads that scope back…
+  expect(
+    screen.getByRole('button', { name: 'What the map shows: Red Bull Racing' })
+  ).toBeInTheDocument();
+  // …and the map agrees with it: the Mercedes marker and legend row are gone
+  // while the Red Bull ones stay.
+  expect(
+    within(stage).queryByText('HAM', { selector: '.racesync-stage-car' })
+  ).not.toBeInTheDocument();
+  expect(within(stage).queryByText('Lewis Hamilton')).not.toBeInTheDocument();
+  expect(
+    within(stage).getByText('VER', { selector: '.racesync-stage-car' })
+  ).toBeInTheDocument();
+  expect(within(stage).getByText('Max Verstappen')).toBeInTheDocument();
+
+  // A comparison is built row by row and applied as it is built, so the menu
+  // stays open and the map follows every toggle.
+  fireEvent.click(
+    screen.getByRole('button', { name: 'What the map shows: Red Bull Racing' })
+  );
+  fireEvent.click(await screen.findByRole('option', { name: /Compare drivers/ }));
+  fireEvent.click(await screen.findByRole('option', { name: /Max Verstappen/ }));
+  expect(
+    screen.getByRole('button', { name: 'What the map shows: VERSTAPPEN' })
+  ).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole('option', { name: /Lewis Hamilton/ }));
+  expect(
+    screen.getByRole('button', { name: 'What the map shows: VERSTAPPEN vs HAMILTON' })
+  ).toBeInTheDocument();
+  expect(
+    within(stage).getByText('HAM', { selector: '.racesync-stage-car' })
+  ).toBeInTheDocument();
+  // "Done" only closes the menu; the comparison stays on the map.
+  fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+  expect(
+    screen.queryByRole('listbox', { name: 'Map view options' })
+  ).not.toBeInTheDocument();
+
+  // The roster column carries the same editing, so a car can be dropped and
+  // put back without leaving the replay: − on its row, ＋ under the list.
+  fireEvent.click(
+    within(stage).getByRole('button', { name: 'Remove Lewis Hamilton from the map' })
+  );
+  expect(
+    within(stage).queryByText('HAM', { selector: '.racesync-stage-car' })
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByRole('button', { name: 'What the map shows: VERSTAPPEN' })
+  ).toBeInTheDocument();
+  fireEvent.click(
+    within(stage).getByRole('button', { name: 'Add Lewis Hamilton to the map' })
+  );
+  expect(
+    within(stage).getByText('HAM', { selector: '.racesync-stage-car' })
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole('button', { name: 'What the map shows: VERSTAPPEN vs HAMILTON' })
+  ).toBeInTheDocument();
+
+  // Typing narrows the list and Enter takes the row under the cursor, which
+  // re-loads the stage for that session.
+  fireEvent.change(search, { target: { value: 'british' } });
+  fireEvent.keyDown(search, { key: 'Enter' });
+  // The new race comes in parked on lap 0 as well — a switch no longer plays
+  // by itself — and this fixture is three laps long, so the end of the race is
+  // a few steps away rather than a minute of ticking.
+  expect(await findLap(0)).toBeInTheDocument();
   expect(within(stage).getByRole('heading', { name: 'British Grand Prix' })).toBeInTheDocument();
-  expect(getRaceReplayState).toHaveBeenCalledWith('s-britain', { lap: 9999 });
+  expect(within(stage).getByText('3 Laps')).toBeInTheDocument();
+  expect(within(stage).getByRole('img', { name: 'United Kingdom' })).toBeInTheDocument();
+  expect(getRaceReplayState).toHaveBeenCalledWith('s-britain', { lap: 0 });
+  // This race has no synced weather reading, so the band shows none rather
+  // than a guess.
+  expect(within(stage).queryByText('Track Temp')).not.toBeInTheDocument();
+
+  // Stepping to the last lap is the whole race: the forward step, the pause
+  // button and the countdown all run out, "1 Lap" reads in the singular, and
+  // the red mark is Play again — the only race left to play is this one.
+  const step = within(stage).getByRole('button', { name: 'Forward one lap' });
+  fireEvent.click(step);
+  expect(await findLap(1)).toBeInTheDocument();
+  expect(within(stage).getByText('2 Laps')).toBeInTheDocument();
+  fireEvent.click(step);
+  expect(await findLap(2)).toBeInTheDocument();
+  expect(within(stage).getByText('1 Lap')).toBeInTheDocument();
+  // The jump box answers a lap past the end of the race rather than refusing
+  // it: asking this three-lap race for lap 9 lands on its last lap.
+  const britainLapField = within(stage).getByLabelText('Lap');
+  fireEvent.change(britainLapField, { target: { value: '9' } });
+  fireEvent.keyDown(britainLapField, { key: 'Enter' });
+  expect(await findLap(3)).toBeInTheDocument();
+  expect(within(stage).getByText('0 Laps')).toBeInTheDocument();
+  expect(within(stage).getByRole('button', { name: 'Forward one lap' })).toBeDisabled();
+  expect(within(stage).getByRole('button', { name: 'Resume the replay' })).toBeDisabled();
+
+  // Play at the end replays the race from its first lap, and Restart is what
+  // the red mark says while it runs.
+  fireEvent.click(within(stage).getByRole('button', { name: 'Play the replay' }));
+  expect(await findLap(1)).toBeInTheDocument();
+  expect(
+    within(stage).getByRole('button', { name: 'Restart the replay' })
+  ).toHaveTextContent('Restart');
+  // Parked again so the scope assertions below stay off the clock.
+  fireEvent.click(within(stage).getByRole('button', { name: 'Pause the replay' }));
+  expect(
+    within(stage).getByRole('button', { name: 'Play the replay' })
+  ).toHaveTextContent('Play');
+
+  // A scope names drivers and teams of one session, so it cannot outlive a
+  // race switch: the new race comes in on the whole field again.
+  expect(
+    await screen.findByRole('button', { name: 'Choose what to see' })
+  ).toBeInTheDocument();
+  expect(
+    within(stage).getByText('HAM', { selector: '.racesync-stage-car' })
+  ).toBeInTheDocument();
+
+  // A team scope's − removes the team behind the row it sits on, and dropping
+  // the last name hands the map back to the whole field.
+  fireEvent.click(screen.getByRole('button', { name: 'Choose what to see' }));
+  fireEvent.click(await screen.findByRole('option', { name: /Choose team/ }));
+  fireEvent.click(await screen.findByRole('option', { name: /Red Bull Racing/ }));
+  expect(
+    screen.getByRole('button', { name: 'What the map shows: Red Bull Racing' })
+  ).toBeInTheDocument();
+  fireEvent.click(
+    within(stage).getByRole('button', { name: 'Remove Red Bull Racing from the map' })
+  );
+  // An emptied list reads as the whole race rather than as the prompt: the
+  // mode is still something the user chose.
+  expect(
+    screen.getByRole('button', { name: 'What the map shows: Whole race' })
+  ).toBeInTheDocument();
+  expect(
+    within(stage).getByText('HAM', { selector: '.racesync-stage-car' })
+  ).toBeInTheDocument();
 });
 
 test('signed-out users can view Overview without signing in', async () => {
