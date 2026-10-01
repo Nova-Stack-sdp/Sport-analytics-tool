@@ -643,6 +643,60 @@
   }
 }
 
+/* --- Race picker (top bar) ---------------------------------------------- */
+
+#page-sync-f1-broadcast .racesync-picker {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+#page-sync-f1-broadcast .racesync-picker-eyebrow {
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+#page-sync-f1-broadcast .racesync-picker-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+#page-sync-f1-broadcast .racesync-picker-label {
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+#page-sync-f1-broadcast .racesync-picker-select {
+  min-width: 0;
+  max-width: 420px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+#page-sync-f1-broadcast .racesync-picker-note {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+}
+
 /* --- Centre stage (track map) ------------------------------------------- */
 
 #page-sync-f1-broadcast .racesync-stage {
@@ -659,22 +713,38 @@
   margin-bottom: 12px;
 }
 
-#page-sync-f1-broadcast .racesync-stage-flag {
-  display: inline-flex;
-}
-
-#page-sync-f1-broadcast .racesync-stage-flag svg {
-  display: block;
-  border-radius: 4px;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16);
-}
-
 #page-sync-f1-broadcast .racesync-stage-title {
   margin: 0;
   font-size: 18px;
   font-weight: 700;
   letter-spacing: 0.02em;
   color: var(--text-primary);
+}
+
+#page-sync-f1-broadcast .racesync-stage-meta {
+  min-width: 0;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The end-of-replay lap counter, pushed to the far end of the header. */
+#page-sync-f1-broadcast .racesync-stage-lap {
+  margin-left: auto;
+  padding: 3px 9px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 #page-sync-f1-broadcast .racesync-stage-body {
@@ -730,8 +800,7 @@
 }
 
 #page-sync-f1-broadcast .racesync-trace-shadow,
-#page-sync-f1-broadcast .racesync-trace-line,
-#page-sync-f1-broadcast .racesync-trace-drs {
+#page-sync-f1-broadcast .racesync-trace-line {
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -748,12 +817,6 @@
   stroke-width: 4;
 }
 
-#page-sync-f1-broadcast .racesync-trace-drs {
-  stroke: #35c885;
-  stroke-width: 4.5;
-  filter: drop-shadow(0 0 4px rgba(53, 200, 133, 0.32));
-}
-
 #page-sync-f1-broadcast .racesync-stage-car {
   position: absolute;
   z-index: 2;
@@ -763,7 +826,6 @@
   width: 19px;
   height: 19px;
   border-radius: 50%;
-  background: var(--car-color, #888);
   color: #fff;
   font-size: 7.5px;
   font-weight: 700;
@@ -772,9 +834,20 @@
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
 }
 
-#page-sync-f1-broadcast .racesync-stage-car.is-dark-text {
-  color: #10161c;
-}
+/* Team palette — the same hexes as Race Replay's .replay-dot-* series in
+   globals.css, reached through the same teamClassFor() mapping, so a team
+   reads identically on both pages. Pale colours flip the marker text dark. */
+#page-sync-f1-broadcast .racesync-car-redbull { background: #1d4ed8; }
+#page-sync-f1-broadcast .racesync-car-mercedes { background: #2dd4bf; color: #10161c; }
+#page-sync-f1-broadcast .racesync-car-ferrari { background: #dc2626; }
+#page-sync-f1-broadcast .racesync-car-mclaren { background: #ff8000; color: #10161c; }
+#page-sync-f1-broadcast .racesync-car-astonmartin { background: #006f62; }
+#page-sync-f1-broadcast .racesync-car-alpine { background: #2293d1; }
+#page-sync-f1-broadcast .racesync-car-williams { background: #00a0de; }
+#page-sync-f1-broadcast .racesync-car-haas { background: #b6babd; color: #10161c; }
+#page-sync-f1-broadcast .racesync-car-sauber { background: #52c41a; color: #10161c; }
+#page-sync-f1-broadcast .racesync-car-racingbulls { background: #6692ff; }
+#page-sync-f1-broadcast .racesync-car-default { background: var(--text-tertiary); color: #10161c; }
 
 #page-sync-f1-broadcast .racesync-stage-sector {
   position: absolute;
@@ -790,15 +863,83 @@
   letter-spacing: 0.03em;
 }
 
-#page-sync-f1-broadcast .racesync-stage-drs-label {
+/* Shown in place of the trace and cars while the outline loads, or when
+   the session has no real one (the track-shape endpoint 404s for circuits
+   without a generated trace); sits above the vignette layer. */
+#page-sync-f1-broadcast .racesync-stage-overlay {
   position: absolute;
+  inset: 0;
   z-index: 2;
-  transform: translate(-50%, -50%);
-  color: #86dfae;
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 28px;
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+/* The default, race-less state: the same map frame, carrying the workspace
+   instructions instead of a trace. Text uses the app's top-nav red (--accent,
+   the same token as the nav gradient), on a dark scrim so it stays legible
+   over the aerial. */
+#page-sync-f1-broadcast .racesync-stage-guide {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+#page-sync-f1-broadcast .racesync-guide-panel {
+  padding: 16px 22px;
+  border: 1px solid rgba(206, 13, 20, 0.32);
+  border-radius: 10px;
+  background: rgba(3, 6, 5, 0.72);
+}
+
+#page-sync-f1-broadcast .racesync-guide-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#page-sync-f1-broadcast .racesync-guide-list li {
+  display: flex;
+  gap: 10px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+#page-sync-f1-broadcast .racesync-guide-list li + li {
+  margin-top: 6px;
+}
+
+/* Flat square bullets, timing-screen style. */
+#page-sync-f1-broadcast .racesync-guide-list li::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 4px;
+  height: 4px;
+  margin-top: 8px;
+  background: var(--accent);
+}
+
+/* The closer: a thin rule then a bolder italic line, so the panel ends on a
+   statement instead of trailing off with the last bullet. */
+#page-sync-f1-broadcast .racesync-guide-punchline {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid rgba(206, 13, 20, 0.32);
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: 0.02em;
 }
 
 #page-sync-f1-broadcast .racesync-stage-legend {
@@ -846,6 +987,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+#page-sync-f1-broadcast .racesync-stage-note {
+  margin: 10px 0 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
 }
 
 @media (max-width: 900px) {

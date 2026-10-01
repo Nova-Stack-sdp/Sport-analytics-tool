@@ -1,7 +1,13 @@
 import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import App from './App';
 import { auth } from './firebase';
-import { getSession, setDeveloperModeOnServer } from './api/client';
+import {
+  getFixtures,
+  getRaceReplayState,
+  getRaceReplayTrackShape,
+  getSession,
+  setDeveloperModeOnServer,
+} from './api/client';
 
 // AuthContext drives everything route-protection-related, so control it
 // directly here rather than letting real Firebase try to restore a session
@@ -29,6 +35,12 @@ jest.mock('./api/client', () => ({
   // Controls the backend's answer to "is this user an admin?" (and the
   // cookie-session fallback). Rejecting = no backend session / not admin.
   getSession: jest.fn(),
+  // The three reads RaceSync makes against Race Replay's own endpoints;
+  // defaulted below so route tests that land on /sync-f1-broadcast never
+  // depend on the network answering.
+  getFixtures: jest.fn(),
+  getRaceReplayState: jest.fn(),
+  getRaceReplayTrackShape: jest.fn(),
 }));
 
 // A stand-in for a real Firebase User. `devFlag` is a { value } ref so a
@@ -79,6 +91,12 @@ beforeEach(() => {
   setDeveloperModeOnServer.mockReset();
   getSession.mockReset();
   getSession.mockRejectedValue(new Error('no backend session'));
+  getFixtures.mockReset();
+  getFixtures.mockResolvedValue({ fixtures: [] });
+  getRaceReplayState.mockReset();
+  getRaceReplayState.mockRejectedValue(new Error('no replay state'));
+  getRaceReplayTrackShape.mockReset();
+  getRaceReplayTrackShape.mockRejectedValue(new Error('no track outline'));
 });
 
 test('renders the welcome page by default, with the persistent top nav', () => {
@@ -144,20 +162,102 @@ test('shows the branded RaceSync header on the RaceSync page only', () => {
   expect(screen.getByText('Sync')).toBeInTheDocument();
 });
 
-// The centre stage is the circuit map the replay will run on. The trace and
-// the field are demo data for now (see RaceSyncTrackStage).
-test('renders the RaceSync track stage with the Monza map and driver legend', () => {
-  const { unmount } = render(<App />);
-  expect(screen.queryByText('Monza')).not.toBeInTheDocument();
-  unmount();
-
+// The top picker is wired to the same races Race Replay offers (replay-ready
+// fixtures only), and picking one loads that session's real trace and driver
+// field into the centre stage from the shared read-only endpoints.
+test('the RaceSync picker lists the replay-ready races and loads the picked one into the stage', async () => {
   window.history.pushState({}, '', '/sync-f1-broadcast');
+  getFixtures.mockResolvedValue({
+    fixtures: [
+      {
+        id: 's-italy',
+        meetingName: 'Italian Grand Prix',
+        season: 2021,
+        type: 'Race',
+        circuitName: 'Monza',
+        country: 'Italy',
+        startTime: '2021-09-12T13:00:00Z',
+        replayReady: true,
+      },
+      {
+        id: 's-britain',
+        meetingName: 'British Grand Prix',
+        season: 2021,
+        type: 'Race',
+        circuitName: 'Silverstone',
+        country: 'United Kingdom',
+        startTime: '2021-07-18T14:00:00Z',
+        replayReady: true,
+      },
+      {
+        id: 's-spain',
+        meetingName: 'Spanish Grand Prix',
+        season: 2021,
+        type: 'Qualifying',
+        replayReady: false,
+      },
+    ],
+  });
+  getRaceReplayTrackShape.mockResolvedValue({
+    points: [
+      { x: 0, y: 0 },
+      { x: 100, y: 0 },
+      { x: 100, y: 60 },
+      { x: 0, y: 60 },
+    ],
+  });
+  getRaceReplayState.mockImplementation(async (sessionId) => ({
+    totalLaps: sessionId === 's-italy' ? 53 : 52,
+    leaderboard: [
+      { entryId: 'e1', driverName: 'Max VERSTAPPEN', teamName: 'Red Bull Racing' },
+      { entryId: 'e2', driverName: 'Lewis HAMILTON', teamName: 'Mercedes' },
+    ],
+  }));
+
   render(<App />);
 
-  const stage = screen.getByLabelText('Circuit map and live positions');
-  expect(within(stage).getByRole('heading', { name: 'Monza' })).toBeInTheDocument();
-  expect(within(stage).getByText('Verstappen')).toBeInTheDocument();
-  expect(within(stage).getByText('Hamilton')).toBeInTheDocument();
+  // Only the replay-ready sessions are offered — Race Replay's own filter.
+  const select = await screen.findByLabelText('Choose a race');
+  expect(within(select).queryByRole('option', { name: /Spanish/ })).not.toBeInTheDocument();
+
+  // Nothing is picked by default: the map carries the workspace instructions
+  // and no replay data is fetched until a race is chosen.
+  expect(screen.getByLabelText('How to use RaceSync')).toBeInTheDocument();
+  expect(screen.getByText('Pick a race above to load its replay.')).toBeInTheDocument();
+  expect(screen.getByText('Don’t just watch the race. Read it.')).toBeInTheDocument();
+  expect(screen.queryByLabelText('Circuit map and driver positions')).not.toBeInTheDocument();
+  expect(getRaceReplayTrackShape).not.toHaveBeenCalled();
+  expect(getRaceReplayState).not.toHaveBeenCalled();
+
+  // Picking a race replaces the instructions with that session's real trace
+  // and driver field.
+  fireEvent.change(select, { target: { value: 's-italy' } });
+  const stage = await screen.findByLabelText('Circuit map and driver positions');
+  // The marker only appears once BOTH fetches have landed (the trace and the
+  // leaderboard), so this waits for the whole stage.
+  await within(stage).findByText('VER', { selector: '.racesync-stage-car' });
+  expect(screen.queryByLabelText('How to use RaceSync')).not.toBeInTheDocument();
+  expect(getRaceReplayState).toHaveBeenCalledWith('s-italy', { lap: 9999 });
+
+  expect(within(stage).getByRole('heading', { name: 'Italian Grand Prix' })).toBeInTheDocument();
+  expect(within(stage).getByText('Monza · Italy · 12 Sep 2021')).toBeInTheDocument();
+  expect(within(stage).getByText('Lap 53/53')).toBeInTheDocument();
+  // The field is the session's real leaderboard: codes are derived from the
+  // driver names and colours come from the shared team palette.
+  expect(
+    within(stage).getByText('VER', { selector: '.racesync-stage-car' })
+  ).toHaveClass('racesync-car-redbull');
+  expect(
+    within(stage).getByText('VER', { selector: '.racesync-stage-legend-code' })
+  ).toBeInTheDocument();
+  expect(within(stage).getByText('Max Verstappen')).toBeInTheDocument();
+  expect(within(stage).getByText('Lewis Hamilton')).toBeInTheDocument();
+
+  // Picking another race re-loads the stage for that session.
+  fireEvent.change(select, { target: { value: 's-britain' } });
+  expect(await within(stage).findByText('Lap 52/52')).toBeInTheDocument();
+  expect(within(stage).getByRole('heading', { name: 'British Grand Prix' })).toBeInTheDocument();
+  expect(getRaceReplayState).toHaveBeenCalledWith('s-britain', { lap: 9999 });
 });
 
 test('signed-out users can view Overview without signing in', async () => {
