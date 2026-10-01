@@ -34,8 +34,8 @@ const COOKIE_NAME = '__session';
 function cookieOptions() {
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    secure: isProduction, // HTTPS required when sameSite is 'none'
+    sameSite: isProduction ? 'none' : 'lax', // CRITICAL FIX: Allows cross-site fetch calls in production
     // Firebase ID tokens expire after 1 hour by default, but the SDK
     // auto-refreshes them.  Match the cookie max-age to a generous
     // 7-day window — the middleware re-verifies the token on every
