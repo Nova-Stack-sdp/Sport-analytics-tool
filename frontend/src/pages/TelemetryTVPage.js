@@ -8,6 +8,7 @@ import PlaybackVideo from '../components/telemetry-tv/PlaybackVideo';
 import PlaybackStatusBar from '../components/telemetry-tv/PlaybackStatusBar';
 import RaceFinishCard from '../components/telemetry-tv/RaceFinishCard';
 import RacePaceCard from '../components/telemetry-tv/RacePaceCard';
+import RacePickerBar from '../components/telemetry-tv/RacePickerBar';
 import RacePulse from '../components/telemetry-tv/RacePulse';
 import RaceTimeline from '../components/telemetry-tv/RaceTimeline';
 import RaceWeatherPanel from '../components/telemetry-tv/RaceWeatherPanel';
@@ -140,14 +141,17 @@ function TelemetryTVPage() {
   return (
     <div className="page" id="page-telemetry-tv">
       <div className="content">
+        <RacePickerBar
+          races={races}
+          selectedSlug={selectedSlug}
+          onSelectRace={handleRaceSelect}
+          loading={loading}
+        />
         <div className="telemetry-tv-grid">
           <div className="telemetry-tv-primary">
             <PlaybackVideo
               ref={videoRef}
               race={selectedRace}
-              races={races}
-              selectedSlug={selectedSlug}
-              onSelectRace={handleRaceSelect}
               onPlay={() => setPlaybackStarted(true)}
               onVideoTime={handleVideoTime}
               playbackStarted={playbackStarted}

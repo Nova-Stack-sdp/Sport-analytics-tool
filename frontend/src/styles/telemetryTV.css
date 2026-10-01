@@ -3,7 +3,7 @@
   max-width: none;
   width: 100%;
   margin: 0;
-  padding: 104px 0 0;
+  padding: 0;
   background: #0a0a0a;
 }
 
@@ -71,34 +71,47 @@
   letter-spacing: 0.3px;
 }
 
-#page-telemetry-tv .race-picker {
+/* Full-width bar at the top of the page: race picker left, broadcast sync right. */
+#page-telemetry-tv .race-picker-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
+  margin: 0 20px 20px 20px;
   padding: 12px 14px;
-  border-bottom: 1px solid var(--border-soft);
   background: linear-gradient(105deg, rgba(225, 6, 0, 0.12), rgba(255, 255, 255, 0.015) 48%);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+#page-telemetry-tv .race-picker {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 #page-telemetry-tv .race-picker-copy {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  min-width: 0;
+  flex-shrink: 0;
 }
 
 #page-telemetry-tv .race-picker-eyebrow {
-  color: #ff625b;
-  font-size: 9px;
+  color: var(--accent);
+  font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 #page-telemetry-tv .race-picker-label {
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 #page-telemetry-tv .race-picker-select {
@@ -122,6 +135,52 @@
 #page-telemetry-tv .race-picker-select:disabled {
   cursor: wait;
   opacity: 0.7;
+}
+
+#page-telemetry-tv .sync-broadcast-button {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent-dark) 0%, var(--accent) 100%);
+  color: #fff5f5;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+  animation: pulse-live 1.4s infinite, live-blink 0.9s steps(2, end) infinite;
+}
+
+/* Blinking live dot — same treatment as the TelemetryTV nav pill. */
+#page-telemetry-tv .sync-broadcast-button::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ffe1e1;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.85);
+  animation: blink-dot 1.1s infinite;
+}
+
+/* Hover lifts the pill and halts the blink/pulse so it reads as "armed". */
+#page-telemetry-tv .sync-broadcast-button:hover {
+  background: var(--accent);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+  transform: translateY(-1px);
+  color: #fff5f5;
+  animation: none;
+}
+
+#page-telemetry-tv .sync-broadcast-button:hover::before {
+  animation: none;
+}
+
+#page-telemetry-tv .sync-broadcast-button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
 }
 
 /* PlaybackStatusBar styles */
@@ -982,15 +1041,13 @@
   }
 }
 
-@media (max-width: 768px) {
-  #page-telemetry-tv {
-    padding-top: 132px;
-  }
-}
-
 @media (max-width: 1100px) {
   #page-telemetry-tv .telemetry-tv-grid {
     grid-template-columns: 1fr;
+  }
+
+  #page-telemetry-tv .race-picker-bar {
+    flex-wrap: wrap;
   }
 
   #page-telemetry-tv .telemetry-tv-primary {

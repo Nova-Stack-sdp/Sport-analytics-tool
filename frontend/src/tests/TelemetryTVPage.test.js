@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import TelemetryTVPage from '../pages/TelemetryTVPage';
 import { getTelemetryTVRace, getTelemetryTVRaces } from '../api/client';
 
@@ -171,6 +172,16 @@ function deliverPlayerTime(seconds) {
   });
 }
 
+// The page now renders router links (RacePickerBar's sync entry point), so
+// every render needs a Router context.
+function renderPage() {
+  return render(
+    <MemoryRouter>
+      <TelemetryTVPage />
+    </MemoryRouter>
+  );
+}
+
 beforeEach(() => {
   getTelemetryTVRaces.mockReset();
   getTelemetryTVRace.mockReset();
@@ -180,7 +191,7 @@ describe('TelemetryTVPage', () => {
   test('loads the race catalogue and embeds the newest race video', async () => {
     getTelemetryTVRaces.mockResolvedValue({ races: RACES });
     getTelemetryTVRace.mockResolvedValue({ race: RACE_DETAIL });
-    render(<TelemetryTVPage />);
+    renderPage();
 
     const iframe = await screen.findByTitle('YouTube video player');
     expect(getTelemetryTVRace).not.toHaveBeenCalled();
@@ -192,7 +203,11 @@ describe('TelemetryTVPage', () => {
       'https://www.youtube.com/embed/UO4c-wMLhso?enablejsapi=1&playsinline=1&start=184'
     );
     expect(screen.getByLabelText('Choose a race')).toHaveValue('toronto-2025');
-    expect(screen.getByLabelText('Choose a race').closest('.video-panel')).toBeInTheDocument();
+    expect(screen.getByLabelText('Choose a race').closest('.race-picker-bar')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Sync With F1 Broadcast' })).toHaveAttribute(
+      'href',
+      '/sync-f1-broadcast'
+    );
     expect(
       screen.getByRole('option', { name: 'Ontario Honda Dealers Indy Toronto · 2025' })
     ).toBeInTheDocument();
@@ -220,7 +235,7 @@ describe('TelemetryTVPage', () => {
   test('switching races in the dropdown swaps the embedded video', async () => {
     getTelemetryTVRaces.mockResolvedValue({ races: RACES });
     getTelemetryTVRace.mockResolvedValue({ race: RACE_DETAIL });
-    render(<TelemetryTVPage />);
+    renderPage();
 
     await screen.findByTitle('YouTube video player');
     fireEvent.change(screen.getByLabelText('Choose a race'), {
@@ -241,7 +256,7 @@ describe('TelemetryTVPage', () => {
   test('changing the lap updates the historical running order', async () => {
     getTelemetryTVRaces.mockResolvedValue({ races: RACES });
     getTelemetryTVRace.mockResolvedValue({ race: RACE_DETAIL });
-    render(<TelemetryTVPage />);
+    renderPage();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Play race' }));
     await screen.findByText('Official order at lap 1');
@@ -268,7 +283,7 @@ describe('TelemetryTVPage', () => {
   test('follows the embedded video clock: the lap cursor tracks the reported time', async () => {
     getTelemetryTVRaces.mockResolvedValue({ races: RACES });
     getTelemetryTVRace.mockResolvedValue({ race: RACE_WITH_CLOCK });
-    render(<TelemetryTVPage />);
+    renderPage();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Play race' }));
     await screen.findByText('Official order at lap 1');
@@ -284,7 +299,7 @@ describe('TelemetryTVPage', () => {
   test('leaves the lap cursor alone when the race ships no clock calibration', async () => {
     getTelemetryTVRaces.mockResolvedValue({ races: RACES });
     getTelemetryTVRace.mockResolvedValue({ race: RACE_DETAIL });
-    render(<TelemetryTVPage />);
+    renderPage();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Play race' }));
     await screen.findByText('Official order at lap 1');
@@ -299,7 +314,7 @@ describe('TelemetryTVPage', () => {
   test('ticker follows the curated broadcast anchors while the video plays', async () => {
     getTelemetryTVRaces.mockResolvedValue({ races: RACES });
     getTelemetryTVRace.mockResolvedValue({ race: RACE_WITH_ANCHORS });
-    render(<TelemetryTVPage />);
+    renderPage();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Play race' }));
     await screen.findByText('Race start: Lap 1.');
@@ -319,7 +334,7 @@ describe('TelemetryTVPage', () => {
   test('plots the curated broadcast pit stops and calls them out in the ticker', async () => {
     getTelemetryTVRaces.mockResolvedValue({ races: RACES });
     getTelemetryTVRace.mockResolvedValue({ race: RACE_WITH_PIT_STOPS });
-    const { container } = render(<TelemetryTVPage />);
+    const { container } = renderPage();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Play race' }));
     await screen.findByText('Official order at lap 1');
@@ -335,7 +350,7 @@ describe('TelemetryTVPage', () => {
   test('seeks the embedded video when the lap slider moves', async () => {
     getTelemetryTVRaces.mockResolvedValue({ races: RACES });
     getTelemetryTVRace.mockResolvedValue({ race: RACE_WITH_CLOCK });
-    render(<TelemetryTVPage />);
+    renderPage();
 
     const iframe = await screen.findByTitle('YouTube video player');
     fireEvent.click(screen.getByRole('button', { name: 'Play race' }));
@@ -355,7 +370,7 @@ describe('TelemetryTVPage', () => {
   test('renders the pace trend from the official leader lap times', async () => {
     getTelemetryTVRaces.mockResolvedValue({ races: RACES });
     getTelemetryTVRace.mockResolvedValue({ race: RACE_WITH_STATS });
-    const { container } = render(<TelemetryTVPage />);
+    const { container } = renderPage();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Play race' }));
     await screen.findByText('Official order at lap 1');
@@ -372,7 +387,7 @@ describe('TelemetryTVPage', () => {
   test('shows the official per-driver classification stats', async () => {
     getTelemetryTVRaces.mockResolvedValue({ races: RACES });
     getTelemetryTVRace.mockResolvedValue({ race: RACE_WITH_STATS });
-    const { container } = render(<TelemetryTVPage />);
+    const { container } = renderPage();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Play race' }));
     await screen.findByText('Official order at lap 1');
@@ -389,7 +404,7 @@ describe('TelemetryTVPage', () => {
   test('shows the leader margin and finish summary once the race completes', async () => {
     getTelemetryTVRaces.mockResolvedValue({ races: RACES });
     getTelemetryTVRace.mockResolvedValue({ race: RACE_WITH_STATS });
-    const { container } = render(<TelemetryTVPage />);
+    const { container } = renderPage();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Play race' }));
     await screen.findByText('Official order at lap 1');
@@ -424,7 +439,7 @@ describe('TelemetryTVPage', () => {
         },
       },
     });
-    render(<TelemetryTVPage />);
+    renderPage();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Play race' }));
     await screen.findByText('Official order at lap 1');
@@ -448,7 +463,7 @@ describe('TelemetryTVPage', () => {
     getTelemetryTVRaces.mockRejectedValue(
       new Error('Request to /api/telemetry-tv/races failed with status 500')
     );
-    render(<TelemetryTVPage />);
+    renderPage();
 
     expect(
       await screen.findByText('Request to /api/telemetry-tv/races failed with status 500')
