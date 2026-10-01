@@ -1,0 +1,594 @@
+/* =========================================================
+   RaceSync page chrome
+   =========================================================
+   The RaceSync route replaces the app's red top nav with its own chrome: a
+   branded header bar on top of a local section rail (see .app-frame-racesync
+   in App.js). Stylesheets load globally, so everything here is namespaced
+   .racesync-*. */
+
+/* Frame: header across the top, then [local nav | page]. */
+.app-frame-racesync {
+  /* F1 red — brighter than the app's --accent, matching the RaceSync artwork. */
+  --racesync-red: #e10600;
+  --racesync-header-height: 64px;
+  --racesync-nav-width: 220px;
+  --racesync-nav-collapsed-width: 64px;
+  /* No top nav in this frame, so nav-height offsets collapse to page padding. */
+  --nav-height: 0px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  align-items: start;
+  min-height: 100vh;
+}
+
+.app-frame-racesync > .racesync-header {
+  grid-column: 1 / -1;
+}
+
+.app-frame-racesync > .racesync-nav {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.app-frame-racesync > .app-frame-main {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+}
+
+/* ---------------------------------------------------------
+   Header bar
+   --------------------------------------------------------- */
+
+.racesync-header {
+  position: sticky;
+  top: 0;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-height: var(--racesync-header-height);
+  padding: 10px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.racesync-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.racesync-brand {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  text-decoration: none;
+}
+
+.racesync-logo {
+  width: 37px;
+  height: 26px;
+  fill: var(--racesync-red);
+  flex-shrink: 0;
+}
+
+.racesync-brand-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* Heavy oblique wordmark: white "Race", F1-red "Sync". */
+.racesync-wordmark {
+  color: var(--text-primary);
+  font-size: 22px;
+  font-weight: 800;
+  font-style: italic;
+  line-height: 1.05;
+  letter-spacing: -0.005em;
+}
+
+.racesync-wordmark-accent {
+  color: var(--racesync-red);
+}
+
+.racesync-tagline {
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.012em;
+  line-height: 1.1;
+}
+
+.racesync-search {
+  flex: 1 1 auto;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+
+.racesync-search-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 470px;
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--border-soft);
+}
+
+.racesync-search-icon {
+  width: 18px;
+  height: 18px;
+  stroke: var(--text-tertiary);
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+  flex-shrink: 0;
+}
+
+.racesync-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+}
+
+.racesync-search-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.racesync-account {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.racesync-bell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+}
+
+/* A plain red dot instead of the app's counted badge — placeholder state. */
+.racesync-bell-dot {
+  position: absolute;
+  top: 0;
+  right: 1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--racesync-red);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+.racesync-divider {
+  width: 1px;
+  height: 26px;
+  background: var(--text-faint);
+}
+
+.racesync-account-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.racesync-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1.5px solid var(--text-primary);
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.racesync-account-name {
+  color: var(--text-primary);
+  font-size: 14.5px;
+  font-weight: 600;
+}
+
+.racesync-chevron {
+  width: 16px;
+  height: 16px;
+  stroke: var(--text-tertiary);
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ---------------------------------------------------------
+   Local section rail
+   --------------------------------------------------------- */
+
+/* Visible by default; the toggle inside it collapses it to a slim strip. */
+.racesync-nav {
+  position: sticky;
+  top: var(--racesync-header-height);
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: var(--racesync-nav-width);
+  height: calc(100vh - var(--racesync-header-height));
+  padding: 12px 0 20px;
+  /* Soft red haze bleeding in from the top and bottom corners so the rail
+     reads as lit rather than flat black. */
+  background-color: var(--surface);
+  background-image: radial-gradient(
+      140% 34% at 0% 0%,
+      rgba(225, 6, 0, 0.12),
+      transparent 72%
+    ),
+    radial-gradient(140% 30% at 0% 100%, rgba(225, 6, 0, 0.14), transparent 72%);
+  background-repeat: no-repeat;
+  border-right: 1px solid var(--border-soft);
+  overflow: hidden;
+  transition: width 0.22s ease;
+}
+
+.racesync-nav.is-collapsed {
+  width: var(--racesync-nav-collapsed-width);
+}
+
+.racesync-nav-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  margin: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.racesync-nav-toggle:hover {
+  background: var(--border-soft);
+  color: var(--text-primary);
+}
+
+.racesync-nav-toggle:focus-visible {
+  outline: 2px solid var(--racesync-red);
+  outline-offset: 2px;
+}
+
+/* The glyph spins as the rail toggles, riding the width transition. */
+.racesync-nav-toggle-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.22s ease;
+}
+
+.racesync-nav.is-collapsed .racesync-nav-toggle-icon {
+  transform: rotate(180deg);
+}
+
+.racesync-nav.is-collapsed .racesync-nav-toggle {
+  margin: 0 auto;
+}
+
+/* Way back to the app (TelemetryTV). Dashed pill on purpose: it must not
+   read like one of the local section rows above, which stay inside RaceSync. */
+.racesync-nav-back {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 12px;
+  padding: 9px 12px;
+  border: 1px dashed var(--text-faint);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.racesync-nav-back:hover {
+  border-style: solid;
+  border-color: var(--text-secondary);
+  background: var(--border-soft);
+  color: var(--text-primary);
+}
+
+.racesync-nav-back:focus-visible {
+  outline: 2px solid var(--racesync-red);
+  outline-offset: 2px;
+}
+
+.racesync-nav-back-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.racesync-nav-back-label {
+  min-width: 0;
+  max-width: 200px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity: 1;
+  transition: opacity 0.16s ease, max-width 0.22s ease;
+}
+
+/* Bottom cluster: the app-level exit plus the brand quote. It owns the auto
+   margin so the pill still reaches the bottom when the quote is hidden. */
+.racesync-nav-bottom {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: auto;
+}
+
+/* Hairline between the local sections and the bottom cluster. */
+.racesync-nav-sep {
+  height: 1px;
+  margin: 4px 12px;
+  background: linear-gradient(
+    90deg,
+    rgba(225, 6, 0, 0.35),
+    var(--border-soft) 45%,
+    transparent
+  );
+}
+
+.racesync-nav-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+}
+
+.racesync-nav-item {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 16px;
+  border: 0;
+  border-left: 3px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.racesync-nav-item:hover {
+  background: var(--border-soft);
+  color: var(--text-primary);
+}
+
+.racesync-nav-item:focus-visible {
+  outline: 2px solid var(--racesync-red);
+  outline-offset: -2px;
+}
+
+/* Active section: red edge bar with a tint that fades to the right — and it
+   breathes, with a slow sheen sweeping across it like broadcast graphics. */
+.racesync-nav-item.is-active {
+  border-left-color: var(--racesync-red);
+  background: linear-gradient(
+    90deg,
+    rgba(225, 6, 0, 0.24),
+    rgba(225, 6, 0, 0.03) 72%,
+    transparent
+  );
+  color: var(--text-primary);
+  font-weight: 600;
+  animation: racesync-active-glow 4.6s ease-in-out infinite;
+}
+
+.racesync-nav-item.is-active::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 34%,
+    rgba(225, 6, 0, 0.3) 50%,
+    transparent 66%
+  );
+  transform: translateX(-100%);
+  animation: racesync-sheen 6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes racesync-active-glow {
+  0%,
+  100% {
+    box-shadow: inset 12px 0 20px -14px rgba(225, 6, 0, 0.6);
+  }
+
+  50% {
+    box-shadow: inset 12px 0 20px -14px rgba(225, 6, 0, 1);
+  }
+}
+
+@keyframes racesync-sheen {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  60%,
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.racesync-nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+
+.racesync-nav-item:hover .racesync-nav-icon {
+  color: var(--text-secondary);
+}
+
+.racesync-nav-item.is-active .racesync-nav-icon {
+  color: var(--racesync-red);
+  filter: drop-shadow(0 0 6px rgba(225, 6, 0, 0.55));
+}
+
+.racesync-nav-label {
+  min-width: 0;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 1;
+  transition: opacity 0.16s ease, max-width 0.22s ease;
+}
+
+.racesync-nav.is-collapsed .racesync-nav-label {
+  max-width: 0;
+  opacity: 0;
+}
+
+.racesync-nav.is-collapsed .racesync-nav-item {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* Faded chequered-flag pattern sitting mid-rail. */
+.racesync-nav-checker {
+  position: absolute;
+  top: 34%;
+  left: 0;
+  right: 0;
+  height: 66px;
+  background-image: repeating-conic-gradient(
+    rgba(128, 128, 128, 0.32) 0% 25%,
+    transparent 0% 50%
+  );
+  background-size: 26px 26px;
+  opacity: 0.55;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(90deg, rgba(0, 0, 0, 0.9), transparent 96%);
+  mask-image: linear-gradient(90deg, rgba(0, 0, 0, 0.9), transparent 96%);
+}
+
+.racesync-nav-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 16px;
+}
+
+.racesync-nav-quote {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+  font-style: italic;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.racesync-nav-quote-mark {
+  width: 30px;
+  height: 3px;
+  background: var(--racesync-red);
+  transform: skewX(-35deg);
+}
+
+/* Red speed streaks in the bottom corner. */
+.racesync-nav-streaks {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 130px;
+  background-image: repeating-linear-gradient(
+    118deg,
+    rgba(225, 6, 0, 0.62) 0 7px,
+    transparent 7px 30px
+  );
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent);
+  mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent);
+}
+
+.racesync-nav.is-collapsed .racesync-nav-back {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto;
+  padding: 0;
+  justify-content: center;
+}
+
+.racesync-nav.is-collapsed .racesync-nav-back-label {
+  max-width: 0;
+  opacity: 0;
+}
+
+.racesync-nav.is-collapsed .racesync-nav-sep,
+.racesync-nav.is-collapsed .racesync-nav-checker,
+.racesync-nav.is-collapsed .racesync-nav-foot,
+.racesync-nav.is-collapsed .racesync-nav-streaks {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .app-frame-racesync {
+    --racesync-nav-width: 190px;
+  }
+
+  .racesync-account-name {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .racesync-search {
+    display: none;
+  }
+
+  .racesync-tagline {
+    display: none;
+  }
+}

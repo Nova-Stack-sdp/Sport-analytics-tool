@@ -1,10 +1,38 @@
 import { useEffect } from 'react';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, useLocation } from 'react-router-dom';
 import TopNav from './components/TopNavigation';
+import RaceSyncHeader from './components/race-sync/RaceSyncHeader';
+import RaceSyncNav from './components/race-sync/RaceSyncNav';
 import AppRoutes from './navigation/AppRoutes';
 import { AuthProvider } from './context/AuthContext';
 import { DeveloperModeProvider } from './context/DeveloperModeContext';
 import { PreferencesProvider, usePreferences } from './context/PreferencesContext';
+
+// The RaceSync route swaps the app's top nav for its own chrome: a branded
+// header bar over a local section rail (see raceSync.css). Every other route
+// keeps the sticky top bar.
+const RACESYNC_PATH = '/sync-f1-broadcast';
+
+function AppFrame({ theme, onToggleTheme }) {
+  const { pathname } = useLocation();
+  const isRaceSync = pathname === RACESYNC_PATH;
+
+  return (
+    <div className={`app-frame${isRaceSync ? ' app-frame-racesync' : ''}`}>
+      {isRaceSync ? (
+        <>
+          <RaceSyncHeader />
+          <RaceSyncNav />
+        </>
+      ) : (
+        <TopNav theme={theme} onToggleTheme={onToggleTheme} />
+      )}
+      <main className="app-frame-main">
+        <AppRoutes />
+      </main>
+    </div>
+  );
+}
 
 function AppShell() {
   const { preferences, resolvedTheme, updatePreference } = usePreferences();
@@ -29,13 +57,12 @@ function AppShell() {
       <BrowserRouter>
         <AuthProvider>
           <DeveloperModeProvider>
-            <TopNav
+            <AppFrame
               theme={resolvedTheme}
               // The nav's ☀/☾ button is a quick flip between light and dark;
               // it sets an explicit theme (leaving "Match system" if it was on).
               onToggleTheme={() => updatePreference('theme', resolvedTheme === 'dark' ? 'light' : 'dark')}
             />
-            <AppRoutes />
           </DeveloperModeProvider>
         </AuthProvider>
       </BrowserRouter>

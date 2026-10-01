@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import App from './App';
 import { auth } from './firebase';
 import { getSession, setDeveloperModeOnServer } from './api/client';
@@ -85,6 +85,63 @@ test('renders the welcome page by default, with the persistent top nav', () => {
   render(<App />);
   expect(screen.getByRole('heading', { name: 'F1 lytics' })).toBeInTheDocument();
   expect(screen.getByLabelText('Main navigation')).toBeInTheDocument();
+});
+
+// RaceSync carries its own local section rail instead of the app's top nav.
+// It is visible by default and the toggle inside it collapses it to a slim
+// strip. The eight sections are placeholders for now.
+test('shows the RaceSync local navigation by default and collapses it from its own toggle', () => {
+  const { unmount } = render(<App />);
+  // Nothing like it on the app's other pages — the top bar stays put.
+  expect(screen.queryByLabelText('RaceSync sections')).not.toBeInTheDocument();
+  unmount();
+
+  window.history.pushState({}, '', '/sync-f1-broadcast');
+  render(<App />);
+
+  const localNav = screen.getByLabelText('RaceSync sections');
+  expect(within(localNav).getByText('Race Overview')).toBeInTheDocument();
+  expect(within(localNav).getByText('Strategy & Pit Stops')).toBeInTheDocument();
+  expect(within(localNav).getByText('Reports')).toBeInTheDocument();
+
+  // The way back to the app is wired up, unlike the section placeholders.
+  expect(
+    within(localNav).getByRole('link', { name: 'Back to TelemetryTV' })
+  ).toHaveAttribute('href', '/telemetry-tv');
+
+  // The hamburger lives inside the rail and collapses it.
+  fireEvent.click(
+    within(localNav).getByRole('button', { name: 'Collapse RaceSync navigation' })
+  );
+  const expandToggle = within(localNav).getByRole('button', {
+    name: 'Expand RaceSync navigation',
+  });
+  expect(expandToggle).toHaveAttribute('aria-expanded', 'false');
+
+  // …and the same toggle brings the rail back.
+  fireEvent.click(expandToggle);
+  expect(
+    within(localNav).getByRole('button', { name: 'Collapse RaceSync navigation' })
+  ).toHaveAttribute('aria-expanded', 'true');
+});
+
+// The RaceSync page carries its own branded header instead of the app's red
+// top nav (see raceSync.css). The bell and account block are placeholders.
+test('shows the branded RaceSync header on the RaceSync page only', () => {
+  const { unmount } = render(<App />);
+  expect(screen.queryByText('Team Analytics')).not.toBeInTheDocument();
+  expect(screen.queryByPlaceholderText('Type Race Title...')).not.toBeInTheDocument();
+  unmount();
+
+  window.history.pushState({}, '', '/sync-f1-broadcast');
+  render(<App />);
+
+  expect(screen.getByText('Observe, Diagnose, Simulate')).toBeInTheDocument();
+  expect(screen.getByPlaceholderText('Type Race Title...')).toBeInTheDocument();
+  expect(screen.getByText('Team Analytics')).toBeInTheDocument();
+  // The wordmark is split so "Sync" can carry the F1 red.
+  expect(screen.getByText('Race')).toBeInTheDocument();
+  expect(screen.getByText('Sync')).toBeInTheDocument();
 });
 
 test('signed-out users can view Overview without signing in', async () => {
