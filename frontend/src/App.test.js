@@ -144,6 +144,22 @@ test('shows the branded RaceSync header on the RaceSync page only', () => {
   expect(screen.getByText('Sync')).toBeInTheDocument();
 });
 
+// The centre stage is the circuit map the replay will run on. The trace and
+// the field are demo data for now (see RaceSyncTrackStage).
+test('renders the RaceSync track stage with the Monza map and driver legend', () => {
+  const { unmount } = render(<App />);
+  expect(screen.queryByText('Monza')).not.toBeInTheDocument();
+  unmount();
+
+  window.history.pushState({}, '', '/sync-f1-broadcast');
+  render(<App />);
+
+  const stage = screen.getByLabelText('Circuit map and live positions');
+  expect(within(stage).getByRole('heading', { name: 'Monza' })).toBeInTheDocument();
+  expect(within(stage).getByText('Verstappen')).toBeInTheDocument();
+  expect(within(stage).getByText('Hamilton')).toBeInTheDocument();
+});
+
 test('signed-out users can view Overview without signing in', async () => {
   render(<App />);
   emitAuthState(null);
