@@ -111,11 +111,40 @@ describe('API client', () => {
     await client.getSession();
     await expect(client.getSession('tok')).resolves.toEqual({ uid: 'u1', admin: true });
 
-    expect(global.fetch).toHaveBeenNthCalledWith(1, `${FALLBACK_API_URL}/api/auth/me`, { credentials: 'include' });
+    expect(global.fetch).toHaveBeenNthCalledWith(1, `${FALLBACK_API_URL}/api/auth/me`, {
+      credentials: 'include',
+      signal: expect.any(AbortSignal),
+    });
     expect(global.fetch).toHaveBeenNthCalledWith(2, `${FALLBACK_API_URL}/api/auth/me`, {
       credentials: 'include',
       headers: { Authorization: 'Bearer tok' },
+      signal: expect.any(AbortSignal),
     });
+  });
+
+  test('turns its own request timeout into a clear, flagged error', async () => {
+    jest.useFakeTimers();
+    try {
+      delete process.env.REACT_APP_API_URL;
+      global.fetch.mockImplementation((url, { signal } = {}) =>
+        new Promise((resolve, reject) => {
+          signal.addEventListener('abort', () =>
+            reject(new DOMException('signal is aborted without reason', 'AbortError'))
+          );
+        })
+      );
+      const client = loadClient();
+
+      const pending = client.getOverview();
+      const assertion = expect(pending).rejects.toMatchObject({
+        message: 'The server took too long to respond. Please try again.',
+        timedOut: true,
+      });
+      jest.advanceTimersByTime(10000);
+      await assertion;
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   test('uploadDriverImage PUTs the raw file with the caller\'s ID token', async () => {

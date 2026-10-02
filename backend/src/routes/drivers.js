@@ -48,12 +48,54 @@ function teamColor(name) {
 
 const OPENF1_BASE = 'https://api.openf1.org/v1';
 
+// OpenF1 enrichment is best-effort, and its API is slow often enough that an
+// unbounded fetch can hold a whole list request hostage. It gets the repo's
+// usual ceiling plus a cache — otherwise a slow or down OpenF1 taxes every
+// request behind it (first with the full timeout, then nothing for 5 min).
+const OPENF1_TIMEOUT_MS = 10_000;
+const OPENF1_SUCCESS_TTL_MS = 24 * 60 * 60 * 1000;
+const OPENF1_FAILURE_TTL_MS = 5 * 60 * 1000;
+// "No results found" (404) usually means "not published yet" — common right
+// before/after a session — so remembering that emptiness for the full success
+// TTL would blank out headshots for a whole day. Retry much sooner instead.
+const OPENF1_EMPTY_TTL_MS = 5 * 60 * 1000;
+
+// Cached by full URL and bound to the fetch function that produced the entry
+// (the same trick apiSports.js uses) so a swapped global fetch — tests, or
+// anything that wraps it — can never read another fetcher's cached payload.
+const openF1SuccessCache = new Map();
+const openF1FailureCache = new Map();
+
 async function openF1(path, params) {
   const query = new URLSearchParams(params).toString();
-  const res = await fetch(`${OPENF1_BASE}/${path}?${query}`);
-  if (res.status === 404) return [];
-  if (!res.ok) throw new Error(`OpenF1 ${path} -> ${res.status}`);
-  return res.json();
+  const url = `${OPENF1_BASE}/${path}?${query}`;
+  const fetchClient = globalThis.fetch;
+  const now = Date.now();
+
+  const cached = openF1SuccessCache.get(url);
+  if (cached?.fetchClient === fetchClient && now - cached.storedAt < (cached.ttl ?? OPENF1_SUCCESS_TTL_MS)) {
+    return cached.value;
+  }
+
+  const failure = openF1FailureCache.get(url);
+  if (failure?.fetchClient === fetchClient && now < failure.retryAt) {
+    throw failure.error;
+  }
+
+  try {
+    const res = await fetchClient(url, { signal: AbortSignal.timeout(OPENF1_TIMEOUT_MS) });
+    if (res.status === 404) {
+      openF1SuccessCache.set(url, { value: [], storedAt: Date.now(), fetchClient, ttl: OPENF1_EMPTY_TTL_MS });
+      return [];
+    }
+    if (!res.ok) throw new Error(`OpenF1 ${path} -> ${res.status}`);
+    const value = await res.json();
+    openF1SuccessCache.set(url, { value, storedAt: Date.now(), fetchClient });
+    return value;
+  } catch (err) {
+    openF1FailureCache.set(url, { error: err, retryAt: Date.now() + OPENF1_FAILURE_TTL_MS, fetchClient });
+    throw err;
+  }
 }
 
 function resultForEntry(entry, result, grid) {
@@ -137,6 +179,11 @@ function parsePagination(query) {
 
 driversRouter.get('/', async (req, res, next) => {
   try {
+    // API-Sports enrichment doesn't depend on any of the database reads
+    // below, so start it first and await it later — its network time
+    // overlaps with the queries instead of adding to them.
+    const apiDriversPromise = apiSportsOrEmpty('/drivers');
+
     const season = await getCurrentSeason();
     let careerStats = await prisma.driverCareerStats.findMany({
       where: { season },
@@ -168,7 +215,7 @@ driversRouter.get('/', async (req, res, next) => {
       careerStats = Array.from(seen.values());
     }
 
-    const apiDrivers = await apiSportsOrEmpty('/drivers');
+    const apiDrivers = await apiDriversPromise;
     // Enrichment sources are fetched once per request instead of once per
     // driver: one API-Sports batch call matched by car number, and one OpenF1
     // call for the latest synced session (fresh headshots and team colours).

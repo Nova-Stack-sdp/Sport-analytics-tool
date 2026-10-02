@@ -16,17 +16,30 @@
 const API_BASE_URL =
   process.env.REACT_APP_API_URL || 'https://sport--backend-api--7kcwxz9xblx5.code.run';
 
+// Give up quickly so a hung backend can't leave a button stuck on "busy".
+const DEFAULT_TIMEOUT_MS = 10000;
+
 async function request(path, options = {}) {
-  // Give up after 10s so a hung backend can't leave a button stuck on "busy".
+  const { timeoutMs = DEFAULT_TIMEOUT_MS, ...fetchOptions } = options;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   let res;
   try {
     res = await fetch(`${API_BASE_URL}${path}`, {
+      ...fetchOptions,
       credentials: 'include',
       signal: controller.signal,
-      ...options,
     });
+  } catch (err) {
+    // Our own timeout is the only thing that aborts these requests, so the
+    // browser's raw "signal is aborted without reason" would just mystify
+    // whoever reads it in an error banner — say what actually happened.
+    if (controller.signal.aborted) {
+      const timeoutError = new Error('The server took too long to respond. Please try again.');
+      timeoutError.timedOut = true;
+      throw timeoutError;
+    }
+    throw err;
   } finally {
     clearTimeout(timer);
   }
@@ -187,16 +200,22 @@ export function getTeam(id) {
   return request(`/api/teams/${id}`);
 }
 
+// The drivers endpoints enrich every row with external API data (API-Sports
+// and OpenF1) on top of a deep database include, so they routinely take
+// several seconds — close enough to the default budget that an ordinary
+// latency spike would abort them. They get extra headroom instead.
+const DRIVERS_TIMEOUT_MS = 25000;
+
 export function getDrivers({ limit, offset } = {}) {
   const params = new URLSearchParams();
   if (limit != null) params.set('limit', String(limit));
   if (offset != null) params.set('offset', String(offset));
   const query = params.toString();
-  return request(`/api/drivers${query ? `?${query}` : ''}`);
+  return request(`/api/drivers${query ? `?${query}` : ''}`, { timeoutMs: DRIVERS_TIMEOUT_MS });
 }
 
 export function getDriver(id) {
-  return request(`/api/drivers/${id}`);
+  return request(`/api/drivers/${id}`, { timeoutMs: DRIVERS_TIMEOUT_MS });
 }
 
 // Remote headshots/logos are routed through the backend's caching image proxy
