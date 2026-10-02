@@ -1,6 +1,24 @@
 // Battle Radar - full-width section showing current race dynamics.
 // Shows each driver's gap to the car ahead and the pace advantage needed
 // to close it — the real number that matters for an overtake.
+function BattleRadarTitle({ context }) {
+  if (!context) {
+    return (
+      <>
+        <div className="card-title">Battle Radar</div>
+        <div className="card-title-sub">Front, midfield, and back action</div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="card-title">{context.headline ?? 'Pace & Strategy Intelligence'}</div>
+      <div className="card-title-sub">{context.subtitle ?? 'Front, midfield, and back action'}</div>
+    </>
+  );
+}
+
 function overtakeAdvice(entry) {
   if (entry.position === 1) return 'In clear air — setting the pace';
   if (entry.gapToAhead == null || entry.gapToAhead <= 0) return 'Collecting telemetry\u2026';
@@ -23,14 +41,13 @@ function overtakeAdvice(entry) {
   return `Need +${entry.gapToAhead.toFixed(1)}s/lap advantage to catch`;
 }
 
-function BattleRadar({ leaderboard }) {
-  if (leaderboard.length === 0) {
+function BattleRadar({ model, context = null }) {
+  if (!model?.entries?.length) {
     return (
       <div className="card battle-radar-section">
         <div className="card-head">
           <div>
-            <div className="card-title">Battle Radar</div>
-            <div className="card-title-sub">Front, midfield, and back action</div>
+            <BattleRadarTitle context={context} />
           </div>
           <span className="pill pill-blue">Race dynamics</span>
         </div>
@@ -41,75 +58,65 @@ function BattleRadar({ leaderboard }) {
     );
   }
 
-  // Build a lookup for the driver ahead so each entry knows the car in front's pace.
-  const driverByPosition = new Map(leaderboard.map((d) => [d.position, d]));
-
-  const totalDrivers = leaderboard.length;
-  const entriesAtPositions = (positions) => positions
-    .map((position) => {
-      const entry = leaderboard.find((e) => e.position === position);
-      if (!entry) return null;
-      const ahead = position > 1 ? driverByPosition.get(position - 1) : null;
-      return {
-        ...entry,
-        aheadDriverName: ahead?.driverName ?? null,
-        aheadLastLapTime: ahead?.lastLapTime ?? null,
-      };
-    })
-    .filter(Boolean);
-
-  const columns = [
-    { label: 'Front', accent: 'accent', entries: entriesAtPositions([1, 2, 3]) },
-    {
-      label: 'Midfield',
-      accent: 'amber',
-      entries: entriesAtPositions([Math.floor(totalDrivers / 2), Math.floor(totalDrivers / 2) + 1, Math.floor(totalDrivers / 2) + 2]),
-    },
-    { label: 'Back', accent: 'red', entries: entriesAtPositions([totalDrivers, totalDrivers - 1, totalDrivers - 2]) },
-  ];
-
   return (
     <div className="card battle-radar-section">
       <div className="card-head">
         <div>
-          <div className="card-title">Battle Radar</div>
-          <div className="card-title-sub">Gap to car ahead and pace needed to overtake</div>
+          <BattleRadarTitle context={context} />
         </div>
         <span className="pill pill-blue">Race dynamics</span>
       </div>
 
       <div className="battle-radar-grid">
-        {columns.map((column) => (
+        {model.columns.map((column) => (
           <div key={column.label} className={`radar-column ${column.accent}`}>
             <div className="radar-column-header">{column.label}</div>
             {column.entries.length === 0 && <div className="radar-column-empty">No drivers in this range.</div>}
-            {column.entries.map((entry) => (
-              <div key={entry.driverNumber} className="radar-entry">
-                <div className="radar-driver-row">
-                  <span className="driver-dot" />
-                  <span>{entry.driverName ?? `Driver ${entry.driverNumber}`}</span>
+            {column.entries.map((entry, index) => {
+              return (
+                <div
+                  key={`${column.label}-${entry.driverNumber ?? entry.position ?? 'driver'}-${index}`}
+                  className="radar-entry"
+                >
+                  <div className="radar-driver-row">
+                    <span className="driver-dot" />
+                    <span>{entry.driverName ?? `Driver ${entry.driverNumber}`}</span>
+                  </div>
+                  <div className="radar-metric-row">
+                    <span>Position</span>
+                    <strong>
+                      P{entry.position}
+                      {entry.lapDelta ? ` (${entry.lapDelta > 0 ? '+' : ''}${entry.lapDelta})` : ''}
+                    </strong>
+                  </div>
+                  <div className="radar-metric-row">
+                    <span>Gap to{entry.aheadDriverName ? ` ${entry.aheadDriverName.split(' ').pop()}` : ' ahead'}</span>
+                    <strong className={entry.gapToAhead != null && entry.gapToAhead > 0 ? 'radar-gap' : ''}>
+                      {entry.position === 1
+                        ? 'LEADER'
+                        : entry.gapToAhead != null && entry.gapToAhead > 0
+                          ? `${entry.gapIsEstimated ? '~' : ''}+${entry.gapToAhead.toFixed(1)}s`
+                          : '--'}
+                    </strong>
+                  </div>
+                  <div className="radar-metric-row">
+                    <span>Speed</span>
+                    <strong>
+                      {entry.modelSpeed?.value == null
+                        ? '--'
+                        : entry.modelSpeed.isAnchor
+                          ? `${entry.modelSpeed.value.toFixed(1)} mph`
+                          : `${entry.modelSpeed.value.toFixed(1)} mph ±${entry.modelSpeed.confidence?.toFixed(1) ?? '2.0'}`}
+                    </strong>
+                  </div>
+                  <div className="radar-metric-row">
+                    <span>Tyre</span>
+                    <strong>{entry.tyreCompound ?? '--'}</strong>
+                  </div>
+                  <div className="radar-advice">{overtakeAdvice(entry)}</div>
                 </div>
-                <div className="radar-metric-row">
-                  <span>Position</span>
-                  <strong>P{entry.position}</strong>
-                </div>
-                <div className="radar-metric-row">
-                  <span>Gap to{entry.aheadDriverName ? ` ${entry.aheadDriverName.split(' ').pop()}` : ' ahead'}</span>
-                  <strong className={entry.gapToAhead != null && entry.gapToAhead > 0 ? 'radar-gap' : ''}>
-                    {entry.position === 1
-                      ? 'LEADER'
-                      : entry.gapToAhead != null && entry.gapToAhead > 0
-                        ? `+${entry.gapToAhead.toFixed(1)}s`
-                        : '--'}
-                  </strong>
-                </div>
-                <div className="radar-metric-row">
-                  <span>Tyre</span>
-                  <strong>{entry.tyreCompound ?? '--'}</strong>
-                </div>
-                <div className="radar-advice">{overtakeAdvice(entry)}</div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ))}
       </div>

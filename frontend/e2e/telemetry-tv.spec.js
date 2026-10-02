@@ -10,12 +10,12 @@ const RACES = [
     video: { youtubeId: 'UO4c-wMLhso', embedStartSeconds: 184, videoDurationSeconds: 7759 },
   },
   {
-    slug: 'indianapolis-500-2024',
-    eventName: '108th Running of the Indianapolis 500',
-    sessionDate: '5/26/2024',
-    totalLaps: 200,
-    fieldSize: 33,
-    video: { youtubeId: 'fWwonhySrWg', embedStartSeconds: 10353, videoDurationSeconds: 20625 },
+    slug: 'long-beach-2023',
+    eventName: 'Acura Grand Prix of Long Beach',
+    sessionDate: '4/16/2023',
+    totalLaps: 85,
+    fieldSize: 27,
+    video: { youtubeId: '2ifguXu0P7s', embedStartSeconds: 1704, videoDurationSeconds: 8163 },
   },
 ];
 
@@ -31,21 +31,25 @@ test.describe('TelemetryTV', () => {
 
     await page.goto('/telemetry-tv');
 
+    // Nothing loads until a race is picked: the guide stands in for the player.
     const raceSelect = page.getByLabel('Race');
-    await expect(raceSelect).toHaveValue('toronto-2025');
+    await expect(page.locator('.telemetry-tv-guide')).toBeVisible();
+    await expect(page.locator('.video-embed iframe')).toHaveCount(0);
+
+    await raceSelect.selectOption('toronto-2025');
     await expect(page.locator('.video-embed iframe')).toHaveAttribute(
       'src',
       'https://www.youtube.com/embed/UO4c-wMLhso?enablejsapi=1&playsinline=1&start=184'
     );
 
-    await raceSelect.selectOption('indianapolis-500-2024');
+    await raceSelect.selectOption('long-beach-2023');
 
     await expect(page.locator('.video-embed iframe')).toHaveAttribute(
       'src',
-      'https://www.youtube.com/embed/fWwonhySrWg?enablejsapi=1&playsinline=1&start=10353'
+      'https://www.youtube.com/embed/2ifguXu0P7s?enablejsapi=1&playsinline=1&start=1704'
     );
     await expect(page.locator('.video-panel .card-title')).toHaveText(
-      '108th Running of the Indianapolis 500'
+      'Acura Grand Prix of Long Beach'
     );
   });
 });

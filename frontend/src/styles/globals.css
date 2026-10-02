@@ -91,7 +91,6 @@ html, body{margin:0;padding:0;background:#000000;}
   z-index:-1;
 }
 
-
 /* ===== PAGE HEAD ===== */
 .pagehead{max-width:1400px;margin:0 auto;padding:calc(var(--nav-height) + 28px) var(--page-margin) 0;}
 /* DriverDetailPage/TeamDetailPage have no .pagehead — their .content is the

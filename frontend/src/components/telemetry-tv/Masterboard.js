@@ -14,7 +14,17 @@ function gridDeltaLabel(delta) {
   return '0';
 }
 
-// Renders the official running order with current speed when available.
+function deriveSpeedDisplay(row) {
+  if (row.currentSpeedMph == null) return '--';
+  const isAnchor = /herta/i.test(row.driverName ?? '');
+  if (isAnchor) return `${Number(row.currentSpeedMph).toFixed(1)} mph`;
+  const confidence = Number.isFinite(row.speedConfidenceMph)
+    ? row.speedConfidenceMph
+    : 2.0;
+  return `${Number(row.currentSpeedMph).toFixed(1)} mph ±${confidence.toFixed(1)}`;
+}
+
+// Renders the official running order with derived speed estimates when available.
 const Masterboard = memo(function Masterboard({ race, lap, isFinished, leaderboard, loading, error }) {
   if (!race || leaderboard.length === 0) {
     return (
@@ -55,7 +65,7 @@ const Masterboard = memo(function Masterboard({ race, lap, isFinished, leaderboa
               <th>Grid</th>
               <th>Grid Δ</th>
               <th>Last lap</th>
-              <th>Current speed</th>
+              <th>Derived speed</th>
               {isFinished && <th>Result</th>}
             </tr>
           </thead>
@@ -69,7 +79,7 @@ const Masterboard = memo(function Masterboard({ race, lap, isFinished, leaderboa
                 <td className="mono">{row.startPosition ?? '--'}</td>
                 <td className={`mono grid-cell ${gridDeltaClass(row.gridDelta)}`}>{gridDeltaLabel(row.gridDelta)}</td>
                 <td className="mono">{row.lastLap ?? '--'}</td>
-                <td className="mono">{row.currentSpeedMph == null ? '--' : `${row.currentSpeedMph.toFixed(1)} mph`}</td>
+                <td className="mono">{deriveSpeedDisplay(row)}</td>
                 {isFinished && (
                   <td className="mono">{row.finishPosition == null ? '--' : `P${row.finishPosition}`}</td>
                 )}

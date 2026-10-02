@@ -31,6 +31,7 @@ jest.mock('../pages/TeamsPage', () => ({ __esModule: true, default: () => <div>T
 jest.mock('../pages/TeamDetailPage', () => ({ __esModule: true, default: () => <div>Team detail route</div> }));
 jest.mock('../pages/DriversPage', () => ({ __esModule: true, default: () => <div>Drivers route</div> }));
 jest.mock('../pages/DriverDetailPage', () => ({ __esModule: true, default: () => <div>Driver detail route</div> }));
+jest.mock('../pages/SyncF1BroadcastPage', () => ({ __esModule: true, default: () => <div>Sync F1 broadcast route</div> }));
 jest.mock('../components/RequireAuth', () => ({
   __esModule: true,
   default: ({ children }) => children,
@@ -50,6 +51,7 @@ describe('AppRoutes', () => {
     ['/team/red-bull', 'Team detail route'],
     ['/drivers', 'Drivers route'],
     ['/driver/max-verstappen', 'Driver detail route'],
+    ['/sync-f1-broadcast', 'Sync F1 broadcast route'],
   ])('renders %s with its public route component', (path, page) => {
     renderRoutes(path);
 

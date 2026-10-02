@@ -1,0 +1,3136 @@
+/* =========================================================
+   RaceSync page chrome
+   =========================================================
+   The RaceSync route replaces the app's red top nav with its own chrome: a
+   branded header bar on top of a local section rail (see .app-frame-racesync
+   in App.js). Stylesheets load globally, so everything here is namespaced
+   .racesync-*. */
+
+/* Frame: header across the top, then [local nav | page]. */
+.app-frame-racesync {
+  /* F1 red — brighter than the app's --accent, matching the RaceSync artwork. */
+  --racesync-red: #e10600;
+  --racesync-header-height: 64px;
+  --racesync-nav-width: 220px;
+  --racesync-nav-collapsed-width: 64px;
+  /* No top nav in this frame, so nav-height offsets collapse to page padding. */
+  --nav-height: 0px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  align-items: start;
+  min-height: 100vh;
+}
+
+.app-frame-racesync > .racesync-header {
+  grid-column: 1 / -1;
+}
+
+.app-frame-racesync > .racesync-nav {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.app-frame-racesync > .app-frame-main {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+}
+
+/* ---------------------------------------------------------
+   Header bar
+   --------------------------------------------------------- */
+
+.racesync-header {
+  position: sticky;
+  top: 0;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-height: var(--racesync-header-height);
+  padding: 10px 20px;
+  /* The app's own top-nav red, same gradient and same tokens — RaceSync's
+     chrome reads as part of the app rather than a separate product. */
+  background: linear-gradient(90deg, var(--accent-dark) 0%, var(--accent) 100%);
+  border-bottom: 1px solid var(--accent-dark);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.racesync-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.racesync-brand {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  text-decoration: none;
+}
+
+.racesync-logo {
+  width: 37px;
+  height: 26px;
+  fill: #fff5f5;
+  flex-shrink: 0;
+}
+
+.racesync-brand-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* Heavy oblique wordmark, tone on tone: white "Race", paler "Sync". */
+.racesync-wordmark {
+  color: #fff6f6;
+  font-size: 22px;
+  font-weight: 800;
+  font-style: italic;
+  line-height: 1.05;
+  letter-spacing: -0.005em;
+}
+
+.racesync-wordmark-accent {
+  color: #ffd7d4;
+}
+
+.racesync-tagline {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.012em;
+  line-height: 1.1;
+}
+
+/* Anchors the results panel, which drops out of the header and over the page
+   beneath it. */
+.racesync-search {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+
+.racesync-search-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 470px;
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.racesync-search-icon {
+  width: 18px;
+  height: 18px;
+  stroke: rgba(255, 255, 255, 0.8);
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+  flex-shrink: 0;
+}
+
+.racesync-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: #fff6f6;
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+}
+
+.racesync-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.racesync-search-box:focus-within {
+  border-color: rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Results drop out below the box. Rows are buttons, so the keyboard cursor and
+   the click target are the same thing. The header's view menu borrows the same
+   panel, list and row styling — only its anchoring differs (see below). */
+.racesync-search-panel,
+.racesync-menu-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  width: 100%;
+  max-width: 470px;
+  max-height: 336px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+
+/* The view menu hangs off the right end of the bar, so its panel is the one
+   that lines up with its trigger's right edge instead of centring under a box. */
+.racesync-menu-panel {
+  left: auto;
+  right: 0;
+  transform: none;
+  width: 272px;
+  max-width: none;
+  max-height: 364px;
+  /* Focused on open (see RaceSyncViewMenu), so the ring is not wanted. */
+  outline: none;
+}
+
+/* What this menu adds on top of the search's rows: a section heading, a team
+   swatch, and the box that marks a row inside a comparison. */
+.racesync-menu-title {
+  margin: 4px 8px 6px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.racesync-menu-option:focus-visible {
+  outline: 2px solid var(--racesync-red);
+  outline-offset: -2px;
+}
+
+/* Team colour, through the same palette keys the map's markers use. */
+.racesync-menu-swatch {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+/* Comparison rows trade the note for a box; ticked rows fill it. */
+.racesync-menu-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.racesync-menu-option.is-selected .racesync-menu-check {
+  border-color: transparent;
+  background: var(--racesync-red);
+}
+
+.racesync-menu-check svg {
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* The menu lives in the header, outside the page id the marker palette is
+   scoped to, so the swatch hexes are mirrored here — the same convention the
+   map's markers already use to mirror Race Replay's .replay-dot-* series. */
+.racesync-menu-swatch.racesync-car-redbull { background: #1d4ed8; }
+.racesync-menu-swatch.racesync-car-mercedes { background: #2dd4bf; }
+.racesync-menu-swatch.racesync-car-ferrari { background: #dc2626; }
+.racesync-menu-swatch.racesync-car-mclaren { background: #ff8000; }
+.racesync-menu-swatch.racesync-car-astonmartin { background: #006f62; }
+.racesync-menu-swatch.racesync-car-alpine { background: #2293d1; }
+.racesync-menu-swatch.racesync-car-williams { background: #00a0de; }
+.racesync-menu-swatch.racesync-car-haas { background: #b6babd; }
+.racesync-menu-swatch.racesync-car-sauber { background: #52c41a; }
+.racesync-menu-swatch.racesync-car-racingbulls { background: #6692ff; }
+.racesync-menu-swatch.racesync-car-default { background: var(--text-tertiary); }
+
+.racesync-search-list,
+.racesync-menu-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.racesync-search-option,
+.racesync-menu-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-left: 3px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* The row under the keyboard cursor carries the F1 red; the race already
+   loaded stays tinted until the cursor moves onto it. */
+.racesync-search-option.is-active {
+  border-left-color: var(--racesync-red);
+  background: rgba(225, 6, 0, 0.16);
+}
+
+.racesync-search-option.is-selected,
+.racesync-menu-option.is-selected {
+  background: var(--border-soft);
+}
+
+.racesync-search-option-name,
+.racesync-menu-option-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.racesync-search-option-type,
+.racesync-menu-option-type {
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.racesync-search-note,
+.racesync-menu-note {
+  margin: 6px;
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+}
+
+.racesync-search-clear,
+.racesync-menu-action {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px;
+  border: 0;
+  border-top: 1px solid var(--border-soft);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.racesync-search-clear:hover,
+.racesync-menu-action:hover {
+  color: var(--racesync-red);
+}
+
+.racesync-account {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+/* The bell, now a control on the same bar: the pale glyph it always was,
+   pressed as a button. */
+.racesync-bell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #fff5f5;
+  font: inherit;
+  cursor: pointer;
+  transition: transform 0.16s ease;
+}
+
+.racesync-bell:hover {
+  transform: translateY(-1px);
+}
+
+.racesync-bell:focus-visible {
+  outline: 2px solid #ffdede;
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+.racesync-bell-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* The app nav's live-pill dot, reused for the unread mark: a red dot would
+   sink into the red bar. */
+.racesync-bell-dot {
+  position: absolute;
+  top: 0;
+  right: 1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ffdede;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
+}
+
+/* The bell's panel — the view menu's own shell (see .racesync-menu-panel),
+   with the list it carries: one row per notification, an unread row carrying
+   its own click-to-read. */
+#page-sync-f1-broadcast .racesync-bell-head {
+  margin: 6px 10px 4px;
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+#page-sync-f1-broadcast .racesync-bell-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#page-sync-f1-broadcast .racesync-bell-item + .racesync-bell-item {
+  border-top: 1px solid var(--border-soft);
+}
+
+#page-sync-f1-broadcast .racesync-bell-item-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  color: var(--text-primary);
+}
+
+#page-sync-f1-broadcast button.racesync-bell-item-body,
+#page-sync-f1-broadcast a.racesync-bell-item-body {
+  cursor: pointer;
+}
+
+#page-sync-f1-broadcast button.racesync-bell-item-body:hover,
+#page-sync-f1-broadcast a.racesync-bell-item-body:hover {
+  background: var(--border-soft);
+}
+
+#page-sync-f1-broadcast .racesync-bell-title {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+#page-sync-f1-broadcast .racesync-bell-item.is-unread .racesync-bell-title {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+#page-sync-f1-broadcast .racesync-bell-message {
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+
+#page-sync-f1-broadcast .racesync-bell-time {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+
+#page-sync-f1-broadcast .racesync-bell-note {
+  padding: 12px 10px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+#page-sync-f1-broadcast .racesync-bell-all {
+  display: block;
+  margin: 6px 4px 2px;
+  padding: 8px;
+  border-top: 1px solid var(--border-soft);
+  border-radius: 0 0 8px 8px;
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+}
+
+#page-sync-f1-broadcast .racesync-bell-all:hover {
+  background: var(--border-soft);
+  color: var(--text-primary);
+}
+
+.racesync-divider {
+  width: 1px;
+  height: 26px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* The view menu's chip: the same round badge, label and chevron the account
+   block used, but it opens a picker rather than a menu of pages. */
+.racesync-menu {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.racesync-view-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 300px;
+  padding: 3px 8px 3px 4px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.racesync-view-trigger:hover,
+.racesync-view-trigger[aria-expanded='true'] {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.racesync-view-trigger:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.8);
+  outline-offset: 2px;
+}
+
+/* Sliders rather than initials: this chip sets the view, it is not a person. */
+.racesync-view-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1.5px solid rgba(255, 255, 255, 0.45);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  flex-shrink: 0;
+}
+
+.racesync-view-icon {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: #fff6f6;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.racesync-view-label {
+  max-width: 210px;
+  overflow: hidden;
+  color: #fff6f6;
+  font-size: 14.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.racesync-chevron {
+  width: 16px;
+  height: 16px;
+  stroke: rgba(255, 255, 255, 0.8);
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+/* Points up while the menu is open. */
+.racesync-view-trigger[aria-expanded='true'] .racesync-chevron {
+  transform: rotate(180deg);
+}
+
+/* The back row sits directly under the panel's heading, so it reads as a way
+   out of the list rather than as a footer action. */
+.racesync-menu-action.racesync-menu-back {
+  margin-top: 0;
+  border-top: 0;
+  padding: 6px 10px;
+  color: var(--text-tertiary);
+  text-align: left;
+}
+
+/* ---------------------------------------------------------
+   Local section rail
+   --------------------------------------------------------- */
+
+/* Visible by default; the toggle inside it collapses it to a slim strip. */
+.racesync-nav {
+  position: sticky;
+  top: var(--racesync-header-height);
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: var(--racesync-nav-width);
+  height: calc(100vh - var(--racesync-header-height));
+  padding: 12px 0 20px;
+  /* Soft red haze bleeding in from the top and bottom corners so the rail
+     reads as lit rather than flat black. */
+  background-color: var(--surface);
+  background-image: radial-gradient(
+      140% 34% at 0% 0%,
+      rgba(225, 6, 0, 0.12),
+      transparent 72%
+    ),
+    radial-gradient(140% 30% at 0% 100%, rgba(225, 6, 0, 0.14), transparent 72%);
+  background-repeat: no-repeat;
+  border-right: 1px solid var(--border-soft);
+  overflow: hidden;
+  transition: width 0.22s ease;
+}
+
+.racesync-nav.is-collapsed {
+  width: var(--racesync-nav-collapsed-width);
+}
+
+.racesync-nav-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  margin: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.racesync-nav-toggle:hover {
+  background: var(--border-soft);
+  color: var(--text-primary);
+}
+
+.racesync-nav-toggle:focus-visible {
+  outline: 2px solid var(--racesync-red);
+  outline-offset: 2px;
+}
+
+/* The glyph spins as the rail toggles, riding the width transition. */
+.racesync-nav-toggle-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.22s ease;
+}
+
+.racesync-nav.is-collapsed .racesync-nav-toggle-icon {
+  transform: rotate(180deg);
+}
+
+.racesync-nav.is-collapsed .racesync-nav-toggle {
+  margin: 0 auto;
+}
+
+/* Way back to the app (TelemetryTV). It wears the app's own live-pill
+   treatment — red gradient, blinking dot, pulsing — so it reads as the app's
+   control rather than one of the RaceSync section rows above. */
+.racesync-nav-back {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 12px;
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent-dark) 0%, var(--accent) 100%);
+  color: #fff5f5;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  animation: pulse-live 1.4s infinite, live-blink 0.9s steps(2, end) infinite;
+  transition: background 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+/* Blinking live dot — same treatment as the TelemetryTV nav pill. */
+.racesync-nav-back::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ffe1e1;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.85);
+  flex-shrink: 0;
+  animation: blink-dot 1.1s infinite;
+}
+
+/* Hover halts the blink/pulse so it reads as "armed", same as the app pill. */
+.racesync-nav-back:hover {
+  background: var(--accent);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.3);
+  transform: translateY(-1px);
+  color: #fff5f5;
+  animation: none;
+}
+
+.racesync-nav-back:hover::before {
+  animation: none;
+}
+
+.racesync-nav-back:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+
+.racesync-nav-back-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.racesync-nav-back-label {
+  min-width: 0;
+  max-width: 200px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity: 1;
+  transition: opacity 0.16s ease, max-width 0.22s ease;
+}
+
+/* Bottom cluster: the app-level exit plus the brand quote. It owns the auto
+   margin so the pill still reaches the bottom when the quote is hidden. */
+.racesync-nav-bottom {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: auto;
+}
+
+/* Hairline between the local sections and the bottom cluster. */
+.racesync-nav-sep {
+  height: 1px;
+  margin: 4px 12px;
+  background: linear-gradient(
+    90deg,
+    rgba(225, 6, 0, 0.35),
+    var(--border-soft) 45%,
+    transparent
+  );
+}
+
+.racesync-nav-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+}
+
+.racesync-nav-item {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 16px;
+  border: 0;
+  border-left: 3px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.racesync-nav-item:hover {
+  background: var(--border-soft);
+  color: var(--text-primary);
+}
+
+.racesync-nav-item:focus-visible {
+  outline: 2px solid var(--racesync-red);
+  outline-offset: -2px;
+}
+
+/* Active section: red edge bar with a tint that fades to the right — and it
+   breathes, with a slow sheen sweeping across it like broadcast graphics. */
+.racesync-nav-item.is-active {
+  border-left-color: var(--racesync-red);
+  background: linear-gradient(
+    90deg,
+    rgba(225, 6, 0, 0.24),
+    rgba(225, 6, 0, 0.03) 72%,
+    transparent
+  );
+  color: var(--text-primary);
+  font-weight: 600;
+  animation: racesync-active-glow 4.6s ease-in-out infinite;
+}
+
+.racesync-nav-item.is-active::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 34%,
+    rgba(225, 6, 0, 0.3) 50%,
+    transparent 66%
+  );
+  transform: translateX(-100%);
+  animation: racesync-sheen 6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes racesync-active-glow {
+  0%,
+  100% {
+    box-shadow: inset 12px 0 20px -14px rgba(225, 6, 0, 0.6);
+  }
+
+  50% {
+    box-shadow: inset 12px 0 20px -14px rgba(225, 6, 0, 1);
+  }
+}
+
+@keyframes racesync-sheen {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  60%,
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.racesync-nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+
+.racesync-nav-item:hover .racesync-nav-icon {
+  color: var(--text-secondary);
+}
+
+.racesync-nav-item.is-active .racesync-nav-icon {
+  color: var(--racesync-red);
+  filter: drop-shadow(0 0 6px rgba(225, 6, 0, 0.55));
+}
+
+/* Label and — for the rows that can't be used yet — the one-line reason
+   under it, in a column that collapses with the rail as one piece. */
+.racesync-nav-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  max-width: 200px;
+  overflow: hidden;
+  opacity: 1;
+  transition: opacity 0.16s ease, max-width 0.22s ease;
+}
+
+.racesync-nav-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.racesync-nav-hint {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.racesync-nav.is-collapsed .racesync-nav-text {
+  max-width: 0;
+  opacity: 0;
+}
+
+/* Rows the page can't serve — no race picked, or no data behind the section
+   at all: muted, unclickable, honest about why (the reason sits in the hint
+   line and in the tooltip). */
+.racesync-nav-item.is-unavailable {
+  cursor: not-allowed;
+}
+
+.racesync-nav-item.is-unavailable .racesync-nav-label {
+  color: var(--text-tertiary);
+}
+
+.racesync-nav-item.is-unavailable .racesync-nav-icon {
+  opacity: 0.45;
+}
+
+.racesync-nav-item.is-unavailable:hover {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+/* Rail jumps land the sections clear of the route's header — the anchors
+   carry the scroll margin, so scrollIntoView doesn't tuck them under it. */
+#page-sync-f1-broadcast [id^='racesync-section-'] {
+  scroll-margin-top: calc(var(--racesync-header-height, 64px) + 14px);
+}
+
+.racesync-nav.is-collapsed .racesync-nav-item {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* Faded chequered-flag pattern sitting mid-rail. */
+.racesync-nav-checker {
+  position: absolute;
+  top: 34%;
+  left: 0;
+  right: 0;
+  height: 66px;
+  background-image: repeating-conic-gradient(
+    rgba(128, 128, 128, 0.32) 0% 25%,
+    transparent 0% 50%
+  );
+  background-size: 26px 26px;
+  opacity: 0.55;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(90deg, rgba(0, 0, 0, 0.9), transparent 96%);
+  mask-image: linear-gradient(90deg, rgba(0, 0, 0, 0.9), transparent 96%);
+}
+
+.racesync-nav-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 16px;
+}
+
+.racesync-nav-quote {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+  font-style: italic;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.racesync-nav-quote-mark {
+  width: 30px;
+  height: 3px;
+  background: var(--racesync-red);
+  transform: skewX(-35deg);
+}
+
+/* Red speed streaks in the bottom corner. */
+.racesync-nav-streaks {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 130px;
+  background-image: repeating-linear-gradient(
+    118deg,
+    rgba(225, 6, 0, 0.62) 0 7px,
+    transparent 7px 30px
+  );
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent);
+  mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent);
+}
+
+/* Collapsed, the pill drops its live treatment and becomes a plain icon row
+   exactly like the section items — nothing blinks while the rail is shut. */
+.racesync-nav.is-collapsed .racesync-nav-back {
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 11px 0;
+  justify-content: center;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-tertiary);
+  animation: none;
+}
+
+.racesync-nav.is-collapsed .racesync-nav-back:hover {
+  background: var(--border-soft);
+  box-shadow: none;
+  transform: none;
+  color: var(--text-secondary);
+}
+
+.racesync-nav.is-collapsed .racesync-nav-back:focus-visible {
+  outline: 2px solid var(--racesync-red);
+  outline-offset: -2px;
+}
+
+/* The arrow matches the section icons once collapsed. */
+.racesync-nav.is-collapsed .racesync-nav-back-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Dot and label only belong to the open, live version. */
+.racesync-nav.is-collapsed .racesync-nav-back::before {
+  display: none;
+}
+
+.racesync-nav.is-collapsed .racesync-nav-back-label {
+  max-width: 0;
+  opacity: 0;
+}
+
+.racesync-nav.is-collapsed .racesync-nav-sep,
+.racesync-nav.is-collapsed .racesync-nav-checker,
+.racesync-nav.is-collapsed .racesync-nav-foot,
+.racesync-nav.is-collapsed .racesync-nav-streaks {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .app-frame-racesync {
+    --racesync-nav-width: 190px;
+  }
+
+  .racesync-view-label {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .racesync-search {
+    display: none;
+  }
+
+  .racesync-tagline {
+    display: none;
+  }
+}
+
+/* --- Centre stage (track map) ------------------------------------------- */
+
+/* This route drinks from the whole workspace. Two caps stand in the way: the
+   app's 1180px page width (globals .page) and its 1400px reading column —
+   together they leave the map a third of a wide screen, with the room the
+   side readings now stand in sitting empty beside it. */
+#page-sync-f1-broadcast {
+  max-width: none;
+}
+
+#page-sync-f1-broadcast .content {
+  max-width: none;
+  padding-inline: clamp(16px, 3vw, 44px);
+}
+
+/* Only a layout box — the stripe and the card below bring their own surfaces. */
+#page-sync-f1-broadcast .racesync-stage {
+  padding: 0;
+}
+
+/* --- Workflow spine (above the band) -------------------------------------- */
+
+/* The three phases the tagline promises, with the lap stepper and the replay
+   mark. A flatter bar than the band beneath it: the band is the race's hero
+   stripe, this is wayfinding — a hairline shell, no picture. It keeps the
+   band's footprint so the two stack as one column. */
+#page-sync-f1-broadcast .racesync-spine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 20px;
+  min-width: 0;
+  padding: 9px 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+#page-sync-f1-broadcast .racesync-spine-steps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#page-sync-f1-broadcast .racesync-spine-step-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+#page-sync-f1-broadcast .racesync-spine-sep {
+  color: var(--text-tertiary);
+  font-size: 14px;
+}
+
+#page-sync-f1-broadcast .racesync-spine-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+#page-sync-f1-broadcast .racesync-spine-step:hover {
+  background: var(--border-soft);
+  color: var(--text-primary);
+}
+
+#page-sync-f1-broadcast .racesync-spine-step:focus-visible {
+  outline: 2px solid var(--racesync-red);
+  outline-offset: 1px;
+}
+
+/* The number chip: a ring at rest, the F1 red — with the page's one allowed
+   glow — on the step that's live. */
+#page-sync-f1-broadcast .racesync-spine-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--text-tertiary);
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+#page-sync-f1-broadcast .racesync-spine-step.is-active .racesync-spine-step-num {
+  border-color: var(--racesync-red);
+  background: var(--racesync-red);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(225, 6, 0, 0.45);
+}
+
+#page-sync-f1-broadcast .racesync-spine-step-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+#page-sync-f1-broadcast .racesync-spine-step-title {
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+#page-sync-f1-broadcast .racesync-spine-step.is-active .racesync-spine-step-title {
+  color: var(--racesync-red);
+}
+
+#page-sync-f1-broadcast .racesync-spine-step-question {
+  font-size: 11.5px;
+}
+
+/* The phase with nothing behind it yet: muted like the rail's unavailable
+   rows, the reason in the tooltip and a hint under the question. */
+#page-sync-f1-broadcast .racesync-spine-step.is-unavailable {
+  cursor: not-allowed;
+}
+
+#page-sync-f1-broadcast .racesync-spine-step.is-unavailable:hover {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+#page-sync-f1-broadcast .racesync-spine-step.is-unavailable .racesync-spine-step-num {
+  opacity: 0.45;
+}
+
+#page-sync-f1-broadcast .racesync-spine-step.is-unavailable .racesync-spine-step-title,
+#page-sync-f1-broadcast .racesync-spine-step.is-unavailable .racesync-spine-step-question {
+  color: var(--text-tertiary);
+}
+
+#page-sync-f1-broadcast .racesync-spine-step-hint {
+  font-size: 10.5px;
+  color: var(--text-tertiary);
+}
+
+#page-sync-f1-broadcast .racesync-spine-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+/* The lap chip inside the transport: the caption and the field it names sit
+   tight, and the total keeps its own colour — "Lap 5 / 53", with the number
+   typeable on its hairline. */
+#page-sync-f1-broadcast .racesync-spine-lap {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 4px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+#page-sync-f1-broadcast .racesync-spine-lap-caption {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+#page-sync-f1-broadcast .racesync-spine-lap-total {
+  color: var(--text-tertiary);
+}
+
+/* The lap number is the jump box. A hairline under the digits is the whole
+   affordance: the chevrons beside it are the one-click way to step a lap. */
+#page-sync-f1-broadcast .racesync-spine-lap-input {
+  width: 3ch;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: inset 0 -1px 0 var(--border-soft);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: center;
+}
+
+#page-sync-f1-broadcast .racesync-spine-lap-input:hover {
+  box-shadow: inset 0 -1px 0 var(--text-tertiary);
+}
+
+#page-sync-f1-broadcast .racesync-spine-lap-input:focus-visible {
+  outline: 2px solid var(--racesync-red);
+  outline-offset: 1px;
+}
+
+/* --- Race band (the stripe across the top) -------------------------------- */
+
+#page-sync-f1-broadcast .racesync-band {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 20px;
+  margin-bottom: 14px;
+  padding: 18px 20px;
+  overflow: hidden;
+  /* The picture keeps the width the page was capped to before the readings
+     were given the whole workspace — the app's 1180px page width, less its 24px
+     inline padding and this route's own 44px reading margin — so the stripe
+     stops where it always stopped instead of running the full width of the
+     dashboard it now heads. Below that width the box itself is narrower and
+     the cap does nothing, exactly as the band behaved before. */
+  max-width: 1044px;
+  margin-inline: auto;
+  /* A stripe, not a card: no border, no corner, and the fill dissolves into
+     the page background at both far ends instead of stopping at an edge. The
+     fade is a fixed 64px so it stays the same soft step however wide the
+     window gets, and the race name sits just past it on solid fill. */
+  background: linear-gradient(
+    90deg,
+    transparent 0,
+    #0a0f0e 64px,
+    #0a0f0e calc(100% - 64px),
+    transparent 100%
+  );
+}
+
+/* The track photograph behind the band. It carries the colour of the band, so
+   it is left bright — the mask only has to keep the text side dark. */
+#page-sync-f1-broadcast .racesync-band-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* The strip is short and very wide, so the crop is aimed at the car's front
+     tyre and bodywork — the part that still reads as a car at this height. */
+  object-position: 72% 60%;
+  filter: saturate(1.06) brightness(0.92) contrast(1.04);
+  /* Fades up from under the race name, runs solid through the middle where
+     the car is, then dissolves with the stripe's own right end. */
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, rgba(0, 0, 0, 0.5) 150px, #000 44%, #000 calc(100% - 110px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, rgba(0, 0, 0, 0.5) 150px, #000 44%, #000 calc(100% - 110px), transparent 100%);
+}
+
+/* Both text blocks sit above that photo. Without this the absolutely
+   positioned photo paints over them, which reads as a murky, washed-out
+   band rather than a legible one. */
+#page-sync-f1-broadcast .racesync-band-ident {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 0 1 auto;
+  min-width: 190px;
+}
+
+#page-sync-f1-broadcast .racesync-flag {
+  flex: 0 0 auto;
+  width: 52px;
+  height: 34px;
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16), 0 2px 10px rgba(0, 0, 0, 0.55);
+}
+
+/* Countries without an honestly drawable flag get a code plate instead (see
+   RaceSyncFlag) — same footprint, no wrong colours. */
+#page-sync-f1-broadcast .racesync-flag-code {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+#page-sync-f1-broadcast .racesync-band-text {
+  min-width: 0;
+}
+
+#page-sync-f1-broadcast .racesync-band-name {
+  margin: 0;
+  color: #fff6f6;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#page-sync-f1-broadcast .racesync-band-meta {
+  margin: 3px 0 0;
+  color: rgba(255, 255, 255, 0.62);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#page-sync-f1-broadcast .racesync-band-stats {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 auto;
+  min-width: 240px;
+}
+
+/* The band's one red control. It keeps the pill's shape and colour now that
+   it is a button — the red mark is what the band has always carried in that
+   corner, it just says Play or Restart instead of naming the mode. */
+#page-sync-f1-broadcast .racesync-primary-btn {
+  padding: 4px 11px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--racesync-red);
+  color: #fff;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+/* Brighter rather than a second red, so there is still one red in the file. */
+#page-sync-f1-broadcast .racesync-primary-btn:hover {
+  filter: brightness(1.14);
+}
+
+/* A red ring on a red button would be invisible; focus lights the band's own
+   off-white instead. */
+#page-sync-f1-broadcast .racesync-primary-btn:focus-visible {
+  outline: 2px solid #fff6f6;
+  outline-offset: 2px;
+}
+
+/* The replay transport, moved up from the race band into the workflow spine.
+   It wears the stepper's shell — one instrument, theme-aware, sitting on
+   this bar's own surface rather than over a photograph. */
+#page-sync-f1-broadcast .racesync-spine-transport {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+}
+
+#page-sync-f1-broadcast .racesync-spine-transport-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 22px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+#page-sync-f1-broadcast .racesync-spine-transport-btn:hover {
+  background: var(--border-soft);
+  color: var(--text-primary);
+}
+
+#page-sync-f1-broadcast .racesync-spine-transport-btn:focus-visible {
+  outline: 2px solid var(--racesync-red);
+  outline-offset: 1px;
+}
+
+/* The lap-step chevrons are drawn rather than typed, so they carry the rail's
+   icon weight instead of whatever a font's arrows happen to weigh. */
+#page-sync-f1-broadcast .racesync-spine-transport-btn svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* A lap step is off at the ends of the race (and until the first lap has
+   loaded), and pause is off once there is nothing left to pause. Dimmed rather
+   than hidden, so the cluster never changes shape under the pointer. */
+#page-sync-f1-broadcast .racesync-spine-transport-btn:disabled,
+#page-sync-f1-broadcast .racesync-spine-transport-btn:disabled:hover {
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: default;
+}
+
+/* Stat chips share one shell: dark enough to hold their own text over the
+   photograph, so no reading depends on what the photo is doing behind it.
+   The band's whole palette is pinned light-on-dark for the same reason — it
+   always sits on its own fill and photo, in either theme. */
+#page-sync-f1-broadcast .racesync-band-chip,
+#page-sync-f1-broadcast .racesync-band-remaining {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(8, 12, 11, 0.62);
+}
+
+#page-sync-f1-broadcast .racesync-band-chip-value {
+  color: #fff6f6;
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+#page-sync-f1-broadcast .racesync-band-chip-label,
+#page-sync-f1-broadcast .racesync-band-remaining-label {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+#page-sync-f1-broadcast .racesync-band-remaining-value {
+  color: #fff6f6;
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Fills with the laps still to run, so an empty bar means the flag. */
+#page-sync-f1-broadcast .racesync-band-bar {
+  display: block;
+  width: 62px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.16);
+  overflow: hidden;
+}
+
+#page-sync-f1-broadcast .racesync-band-bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--racesync-red);
+}
+
+/* The framed card under the stripe: the map, its legend and the guide panel
+   all live inside this box. */
+#page-sync-f1-broadcast .racesync-stage-body {
+  display: flex;
+  align-items: stretch;
+  gap: 18px;
+  padding: 16px;
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+#page-sync-f1-broadcast .racesync-stage-map-wrap {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The map mirrors the trace's own aspect ratio, so the percentage-positioned
+   marker layer lines up with the SVG trace exactly, at any width. */
+#page-sync-f1-broadcast .racesync-stage-map {
+  position: relative;
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #0a0f0d;
+}
+
+/* Soft vignette above the aerial but below the trace and markers. The
+   no-race guide's map keeps it on the frame, where nothing zooms; the race
+   map carries the same gradient inside its zoom wrapper instead (as
+   .racesync-stage-vignette), so it belongs to the picture and travels with
+   it. */
+#page-sync-f1-broadcast .racesync-stage-map.is-guide::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(125% 95% at 50% 45%, transparent 52%, rgba(3, 6, 5, 0.44) 100%);
+}
+
+/* The zoom wrapper: one transform carrying everything of the circuit —
+   aerial, vignette, trace, start line, sectors and cars — so the map zooms
+   as one picture. Its origin is the frame's top-left corner, which is what
+   the pan clamping in the stage component is written against. touch-action
+   lets a touch keep scrolling the page vertically through the map; the
+   gesture the browser then hands over pans it instead. */
+#page-sync-f1-broadcast .racesync-stage-zoom {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+  touch-action: pan-y;
+  user-select: none;
+}
+
+#page-sync-f1-broadcast .racesync-stage-zoom.is-zoomed {
+  cursor: grab;
+}
+
+#page-sync-f1-broadcast .racesync-stage-zoom.is-panning {
+  cursor: grabbing;
+}
+
+#page-sync-f1-broadcast .racesync-stage-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(125% 95% at 50% 45%, transparent 52%, rgba(3, 6, 5, 0.44) 100%);
+}
+
+#page-sync-f1-broadcast .racesync-stage-aerial {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.9;
+  filter: saturate(0.68) brightness(0.7) contrast(1.03);
+}
+
+#page-sync-f1-broadcast .racesync-stage-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+#page-sync-f1-broadcast .racesync-trace-shadow,
+#page-sync-f1-broadcast .racesync-trace-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+#page-sync-f1-broadcast .racesync-trace-shadow {
+  stroke: rgba(0, 0, 0, 0.5);
+  stroke-width: 9;
+}
+
+#page-sync-f1-broadcast .racesync-trace-line {
+  stroke: rgba(226, 232, 230, 0.82);
+  stroke-width: 4;
+}
+
+#page-sync-f1-broadcast .racesync-stage-car {
+  position: absolute;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  /* The counter-scale answering the zoom wrapper's own scale, so a car
+     stays nineteen pixels on screen at every zoom. */
+  transform: translate(-50%, -50%) scale(var(--racesync-map-k, 1));
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+}
+
+/* Team palette — the same hexes as Race Replay's .replay-dot-* series in
+   globals.css, reached through the same teamClassFor() mapping, so a team
+   reads identically on both pages. Pale colours flip the marker text dark.
+   Each team's colour is published as a custom property as well as painted on;
+   the chart lines under the map read that same property as their stroke, so a
+   driver is one colour everywhere on the page and the hex is written once. */
+#page-sync-f1-broadcast .racesync-car-redbull { --racesync-car: #1d4ed8; background: var(--racesync-car); }
+#page-sync-f1-broadcast .racesync-car-mercedes { --racesync-car: #2dd4bf; background: var(--racesync-car); color: #10161c; }
+#page-sync-f1-broadcast .racesync-car-ferrari { --racesync-car: #dc2626; background: var(--racesync-car); }
+#page-sync-f1-broadcast .racesync-car-mclaren { --racesync-car: #ff8000; background: var(--racesync-car); color: #10161c; }
+#page-sync-f1-broadcast .racesync-car-astonmartin { --racesync-car: #006f62; background: var(--racesync-car); }
+#page-sync-f1-broadcast .racesync-car-alpine { --racesync-car: #2293d1; background: var(--racesync-car); }
+#page-sync-f1-broadcast .racesync-car-williams { --racesync-car: #00a0de; background: var(--racesync-car); }
+#page-sync-f1-broadcast .racesync-car-haas { --racesync-car: #b6babd; background: var(--racesync-car); color: #10161c; }
+#page-sync-f1-broadcast .racesync-car-sauber { --racesync-car: #52c41a; background: var(--racesync-car); color: #10161c; }
+#page-sync-f1-broadcast .racesync-car-racingbulls { --racesync-car: #6692ff; background: var(--racesync-car); }
+#page-sync-f1-broadcast .racesync-car-default { --racesync-car: var(--text-tertiary); background: var(--racesync-car); color: #10161c; }
+
+/* Start/finish: a checkered strip lying across the track where the trace
+   begins — the one fixed landmark a circuit map is read against, drawn in the
+   flag's own black and white. Sized in screen pixels, like the trace's own
+   non-scaling stroke, and rotated by the component to the circuit's normal
+   there. The same repeating-conic-gradient the rail's checkered pattern uses,
+   at full contrast because this one is a marker rather than a texture: 3px
+   cells, two rows deep, twelve pixels across the track. */
+#page-sync-f1-broadcast .racesync-stage-startline {
+  position: absolute;
+  z-index: 1;
+  width: 12px;
+  height: 6px;
+  background: repeating-conic-gradient(#0a0f0e 0 25%, #eef2f1 0 50%) 0 0 / 6px 6px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+#page-sync-f1-broadcast .racesync-stage-sector {
+  position: absolute;
+  z-index: 2;
+  padding: 1px 4px;
+  /* Same counter-scale as the cars: a chip is screen furniture, not
+     circuit geometry. */
+  transform: translate(-50%, -50%) scale(var(--racesync-map-k, 1));
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 3px;
+  background: rgba(6, 10, 9, 0.6);
+  color: var(--text-secondary);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+/* The zoom cluster: the frame's own corner furniture — in, out, the readout
+   of the zoom itself, and the reset back to the fitted view. Dark chips like
+   the sector marks, sitting clear of the picture rather than on it. */
+#page-sync-f1-broadcast .racesync-stage-zoombar {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#page-sync-f1-broadcast .racesync-zoom-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(6, 10, 9, 0.72);
+  color: rgba(236, 240, 239, 0.92);
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+
+#page-sync-f1-broadcast .racesync-zoom-btn:hover:not(:disabled) {
+  background: rgba(20, 28, 26, 0.92);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+#page-sync-f1-broadcast .racesync-zoom-btn:focus-visible {
+  outline: 2px solid var(--racesync-red);
+  outline-offset: 2px;
+}
+
+#page-sync-f1-broadcast .racesync-zoom-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+#page-sync-f1-broadcast .racesync-zoom-btn svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+}
+
+#page-sync-f1-broadcast .racesync-zoom-readout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  padding: 4px 0;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(6, 10, 9, 0.72);
+  color: rgba(236, 240, 239, 0.92);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+/* Shown in place of the trace and cars while the outline loads, or when
+   the session has no real one (the track-shape endpoint 404s for circuits
+   without a generated trace); sits above the vignette layer. */
+#page-sync-f1-broadcast .racesync-stage-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 28px;
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+/* The default, race-less state: the same map frame, carrying the workspace
+   instructions instead of a trace. Text takes the neutral contrast token
+   (white in both themes — the red read as an error state), on a dark scrim
+   so it stays legible over the aerial. */
+#page-sync-f1-broadcast .racesync-stage-guide {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+#page-sync-f1-broadcast .racesync-guide-panel {
+  padding: 16px 22px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 10px;
+  background: rgba(3, 6, 5, 0.72);
+}
+
+#page-sync-f1-broadcast .racesync-guide-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#page-sync-f1-broadcast .racesync-guide-list li {
+  display: flex;
+  gap: 10px;
+  color: var(--accent-contrast);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+#page-sync-f1-broadcast .racesync-guide-list li + li {
+  margin-top: 6px;
+}
+
+/* Flat square bullets, timing-screen style. */
+#page-sync-f1-broadcast .racesync-guide-list li::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 4px;
+  height: 4px;
+  margin-top: 8px;
+  background: var(--accent-contrast);
+}
+
+/* The closer: a thin rule then a bolder italic line, so the panel ends on a
+   statement instead of trailing off with the last bullet. */
+#page-sync-f1-broadcast .racesync-guide-punchline {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.22);
+  color: var(--accent-contrast);
+  font-size: 15px;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: 0.02em;
+}
+
+/* The column beside the map. Without a scope it is only the legend; with one
+   it also carries the rest of the field under the legend, so a car — or a
+   whole team — can be put on or taken off the map while the replay is up. */
+#page-sync-f1-broadcast .racesync-stage-roster {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 188px;
+  min-height: 0;
+  align-self: stretch;
+}
+
+#page-sync-f1-broadcast .racesync-stage-legend {
+  flex: 1 1 auto;
+  /* Never squeezed below a few rows, however long the list under it gets. */
+  min-height: 66px;
+  margin: 0;
+  padding: 2px 0;
+  list-style: none;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+/* The rows that are not on the map: the same row, dimmed, with the ＋ that
+   puts them back on it. */
+#page-sync-f1-broadcast .racesync-stage-add {
+  flex: 0 1 auto;
+  max-height: 50%;
+  min-height: 0;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-soft);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+#page-sync-f1-broadcast .racesync-stage-add-title {
+  margin: 0 6px 4px;
+  color: var(--text-tertiary);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+#page-sync-f1-broadcast .racesync-stage-add-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The one control a roster row carries: − for a car (or team) on the map, ＋
+   for one that is not. Only rendered while a scope is set. */
+#page-sync-f1-broadcast .racesync-stage-legend-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+#page-sync-f1-broadcast .racesync-stage-legend-toggle:hover {
+  border-color: var(--racesync-red);
+  color: var(--racesync-red);
+}
+
+#page-sync-f1-broadcast .racesync-stage-legend-toggle:focus-visible {
+  outline: 2px solid var(--racesync-red);
+  outline-offset: 1px;
+}
+
+#page-sync-f1-broadcast .racesync-stage-legend-toggle svg {
+  width: 9px;
+  height: 9px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+
+/* Rows off the map read as available rather than present. */
+#page-sync-f1-broadcast .racesync-stage-legend-item.is-off {
+  opacity: 0.6;
+}
+
+#page-sync-f1-broadcast .racesync-stage-legend-item.is-off:hover {
+  opacity: 1;
+}
+
+#page-sync-f1-broadcast .racesync-stage-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 2px 6px;
+  border-radius: 5px;
+}
+
+#page-sync-f1-broadcast .racesync-stage-legend-item:hover {
+  background: var(--border-soft);
+}
+
+#page-sync-f1-broadcast .racesync-stage-legend-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+#page-sync-f1-broadcast .racesync-stage-legend-code {
+  flex: 0 0 auto;
+  min-width: 30px;
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+#page-sync-f1-broadcast .racesync-stage-legend-name {
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#page-sync-f1-broadcast .racesync-stage-note {
+  margin: 12px 0 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  #page-sync-f1-broadcast .racesync-stage-roster {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Analysis panels
+   ---------------------------------------------------------------------------
+   The reading half of the stage: the same replay as the map, as numbers. The
+   readings frame the map — two cards down its left, two down its right, the
+   shape the design gives them — with the two lap charts across the width under
+   both. Every panel is read-only, follows the view scope in the header and
+   stops at the playhead — nothing here shows a lap the replay has not reached.
+   Shells, palette and mono readings are the stage's own, so the two surfaces
+   read as one page. */
+
+/* The section now opens with the map card itself, so it carries no top margin
+   of its own: the race band's 14px is the gap the map stands under — the same
+   gap it stood under when it was the first thing below the band. */
+#page-sync-f1-broadcast .racesync-panels {
+  /* The band is its own query container: how much room it has depends on the
+     window and on whether the rail is open, and only the band's own width
+     knows both — a viewport query would get the rail wrong. */
+  container-type: inline-size;
+}
+
+/* The section's caption is a row of the grid rather than a heading over it:
+   the map and its flanking readings take the top of the grid, the workflow
+   spine takes the full-width row under them, and the caption stands under
+   the spine and over the two lap charts. The single-column arrangement lets
+   it fall in with the flow, where the reading order puts it in the same
+   spot. */
+#page-sync-f1-broadcast .racesync-panels-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  /* Under the spine's row: the Driver Analysis card stands beside the map
+     now, so the caption sits one row beneath the spine, not under the card. */
+  grid-area: 6 / 1 / 7 / 3;
+}
+
+#page-sync-f1-broadcast .racesync-panels-title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Which slice of the field everything below is reading. */
+#page-sync-f1-broadcast .racesync-panels-scope {
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+/* The caption row's right-hand tools: the scope chip it has always carried,
+   and the export beside it. The export is this row's one red mark, the same
+   colour the replay mark wears — and it stays out until the replay has run a
+   lap. */
+#page-sync-f1-broadcast .racesync-panels-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+#page-sync-f1-broadcast .racesync-panels-export {
+  padding: 4px 11px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--racesync-red);
+  color: #fff;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: filter 0.16s ease;
+}
+
+/* Brighter rather than a second red — the same hover the replay mark gets. */
+#page-sync-f1-broadcast .racesync-panels-export:hover:not(:disabled) {
+  filter: brightness(1.14);
+}
+
+#page-sync-f1-broadcast .racesync-panels-export:focus-visible {
+  outline: 2px solid var(--racesync-red);
+  outline-offset: 2px;
+}
+
+#page-sync-f1-broadcast .racesync-panels-export:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* The section's own states — loading, or a session whose lap series can't be
+   read. One line in place of the grid, shaped like a panel so the page keeps
+   its frame either way. */
+#page-sync-f1-broadcast .racesync-panels-message {
+  margin: 14px 0 0;
+  padding: 26px 16px;
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  text-align: center;
+}
+
+#page-sync-f1-broadcast .racesync-analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  /* Cards keep their own height here. The wide arrangement below — where the
+     rows are the map's height — stretches them into it instead. */
+  align-items: start;
+}
+
+/* Where each piece stands at this width: the map card takes the left column
+   down the first two rows with the Driver Analysis rail beside it, the four
+   readings fall in under them with the pair that reads together sharing a
+   row, and the workflow spine takes the full-width row under those. The map
+   card is the stage's own, handed to this grid as its child; the two lap
+   charts carry no place, so they fall in across the width under everything. */
+#page-sync-f1-broadcast .racesync-analysis-stage {
+  display: flex;
+  flex-direction: column;
+  grid-area: 1 / 1 / 3 / 2;
+  min-width: 0;
+}
+
+/* The stage's card fills the place it is handed, so the map sits in the middle
+   of the band however tall the readings beside it have grown. */
+#page-sync-f1-broadcast .racesync-analysis-stage > .racesync-stage-body {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+#page-sync-f1-broadcast .racesync-panel.is-slot-left-top {
+  grid-area: 3 / 1;
+}
+
+#page-sync-f1-broadcast .racesync-panel.is-slot-left-bottom {
+  grid-area: 3 / 2;
+}
+
+#page-sync-f1-broadcast .racesync-panel.is-slot-right-top {
+  grid-area: 4 / 1;
+}
+
+#page-sync-f1-broadcast .racesync-panel.is-slot-right-bottom {
+  grid-area: 4 / 2;
+}
+
+/* One panel: the stage body's own shell, so a card and the frame above it
+   read as the same material. It is a query container in its own right — a
+   card's width depends on the width of the band and on whether the rail is
+   open, which no viewport query can see — so each reading answers to its own
+   card for what it gives up when it is narrow. */
+#page-sync-f1-broadcast .racesync-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  container-type: inline-size;
+  padding: 14px 16px;
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+/* The lap charts: half the width each, side by side across the bottom of the
+   grid — and a full row each once the grid drops to two columns. */
+#page-sync-f1-broadcast .racesync-panel.is-wide {
+  grid-column: span 2;
+}
+
+/* The Driver Analysis card stands down the grid's right-hand column beside
+   the map. The four-column arrangement has no fifth column yet, so there the
+   card takes a full row of its own between the flanking band and the spine;
+   at the widest it becomes the mockup's right rail, the fifth column's whole
+   height. */
+#page-sync-f1-broadcast .racesync-panel.is-rail {
+  grid-area: 1 / 2 / 3 / 3;
+}
+
+/* The workflow spine is a row of the grid, in the full-width place the
+   Driver Analysis card used to take: the three phases lead on the left, and
+   the replay transport and the red mark sit on the right. */
+#page-sync-f1-broadcast .racesync-analysis-grid > .racesync-spine {
+  grid-area: 5 / 1 / 6 / 3;
+}
+
+#page-sync-f1-broadcast .racesync-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-shrink: 0;
+  margin-bottom: 10px;
+}
+
+#page-sync-f1-broadcast .racesync-panel-title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+#page-sync-f1-broadcast .racesync-panel-caption {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* The card's body fills the card, so a scrolling window inside it has
+   something to take the leftover height from — see .racesync-panel-scroll.
+   When a card is stretched into a fixed row (the wide arrangement), the only
+   thing that gives is that window: the head, the figures and the caption keep
+   their own height, so nothing is squashed into a line that can't be read. */
+#page-sync-f1-broadcast .racesync-panel-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+#page-sync-f1-broadcast .racesync-panel-empty {
+  margin: 0;
+  padding: 14px 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+/* What a panel plots, in the panel's own words. Small and tertiary: it is a
+   caption for the reading above it, not a second reading. */
+#page-sync-f1-broadcast .racesync-panel-note {
+  margin: 10px 0 0;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.5;
+  flex-shrink: 0;
+}
+
+/* A list of the whole field scrolls inside its card rather than growing it —
+   the race-state table, the pace rows, the stint bars, the pit stops — so a
+   twenty-two-car grid stays a band of cards and not one towering column. How
+   tall the window is, where the cards stand decides, and it is written on the
+   grid the arrangement sets: stacked, a fixed 272px; in the wide arrangement,
+   where a reading fills a row whose height the map sets, whatever the card has
+   left. A card's contents can't query the band's width themselves — the card
+   is a query container and the nearest one wins — so the wide arrangement
+   sets --racesync-window and every card inherits it. */
+#page-sync-f1-broadcast .racesync-panel-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: var(--racesync-window, 272px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+/* The driver as this page introduces them: the map legend's dot, code and
+   surname, unchanged — the same three pieces, in a card instead of a rail. */
+#page-sync-f1-broadcast .racesync-driver-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+#page-sync-f1-broadcast .racesync-panel-code {
+  flex: 0 0 auto;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+#page-sync-f1-broadcast .racesync-panel-name {
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The race-state table follows the timing-screen convention the rest of the
+   app's tables use: hairline rules, a sticky header in tertiary caps, and
+   every figure in mono so the columns line up as digits. */
+#page-sync-f1-broadcast .racesync-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+}
+
+#page-sync-f1-broadcast .racesync-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 5px 6px;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--surface);
+  color: var(--text-tertiary);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+#page-sync-f1-broadcast .racesync-table td {
+  padding: 5px 6px;
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--text-secondary);
+  vertical-align: middle;
+}
+
+#page-sync-f1-broadcast .racesync-table tr:last-child td {
+  border-bottom: 0;
+}
+
+/* The name column takes whatever the figures leave, which is what keeps the
+   table to its card's width. */
+#page-sync-f1-broadcast .racesync-table-driver {
+  width: 100%;
+  min-width: 0;
+}
+
+#page-sync-f1-broadcast .racesync-table .racesync-table-pos,
+#page-sync-f1-broadcast .racesync-table .racesync-table-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+#page-sync-f1-broadcast .racesync-table .racesync-table-pos,
+#page-sync-f1-broadcast .racesync-table th.racesync-table-pos,
+#page-sync-f1-broadcast .racesync-table th.racesync-table-num {
+  text-align: right;
+}
+
+#page-sync-f1-broadcast .racesync-table td.racesync-table-pos {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+#page-sync-f1-broadcast .racesync-table td.racesync-table-num {
+  white-space: nowrap;
+}
+
+/* A car that never set a last lap at the flag: the classification's own word,
+   back in the UI face because it is prose rather than a figure. */
+#page-sync-f1-broadcast .racesync-table-status {
+  color: var(--text-tertiary);
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+}
+
+/* The tyre as a timing screen shows it: one letter, in the compound's own
+   colour. Pirelli's broadcast colours, so the chip reads without a legend —
+   and the stint bars share them, which is why the letters sit on the same
+   fills here as they do in the bars below. */
+#page-sync-f1-broadcast .racesync-tyre {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  font-size: 9.5px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+#page-sync-f1-broadcast .racesync-tyre-soft { background: #e10600; color: #fff; }
+#page-sync-f1-broadcast .racesync-tyre-medium { background: #ffd12e; color: #10161c; }
+#page-sync-f1-broadcast .racesync-tyre-hard { background: #eef2f1; color: #10161c; }
+#page-sync-f1-broadcast .racesync-tyre-intermediate { background: #43b02a; color: #10161c; }
+#page-sync-f1-broadcast .racesync-tyre-wet { background: #0067ad; color: #fff; }
+
+/* A compound this build doesn't know, or a lap with none logged: read what
+   the log says rather than dress it as a Pirelli. */
+#page-sync-f1-broadcast .racesync-tyre-other {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--text-secondary);
+}
+
+#page-sync-f1-broadcast .racesync-tyre-none {
+  color: var(--text-tertiary);
+}
+
+/* The key metrics: four figures over a hairline, read before the bars. */
+#page-sync-f1-broadcast .racesync-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  flex-shrink: 0;
+  margin: 0 0 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+#page-sync-f1-broadcast .racesync-metric dt {
+  color: var(--text-tertiary);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+#page-sync-f1-broadcast .racesync-metric dd {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  margin: 4px 0 0;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* Sits inside a mono figure, so it resets to the UI face and reads as the
+   qualifier it is rather than as part of the number. */
+#page-sync-f1-broadcast .racesync-metric-note {
+  color: var(--text-tertiary);
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* --- Driver Analysis (the focused driver, down the right rail) ------------ */
+
+/* The card's interior: the identity, the four summary tiles, the takeaways
+   and the honest strategy row as one wrapping row before they stack. */
+#page-sync-f1-broadcast .racesync-driver {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px 28px;
+}
+
+/* Who the card is about: the photo — or the team-coloured plate the map
+   marks the car with when no photo exists — the name, and the team behind
+   its badge, the same logo asset the team page serves. */
+#page-sync-f1-broadcast .racesync-driver-id {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto;
+  min-width: 220px;
+}
+
+#page-sync-f1-broadcast .racesync-driver-photo {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 1px solid var(--border-soft);
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--bg);
+}
+
+#page-sync-f1-broadcast .racesync-driver-photo.is-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+#page-sync-f1-broadcast .racesync-driver-name {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+/* The name and the nation plate read as one line; the plate stays quiet —
+   the two-letter code the driver record carries, not a second flag drawing. */
+#page-sync-f1-broadcast .racesync-driver-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+#page-sync-f1-broadcast .racesync-driver-nation {
+  flex-shrink: 0;
+  padding: 1px 5px;
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+#page-sync-f1-broadcast .racesync-driver-team {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 3px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+#page-sync-f1-broadcast .racesync-driver-logo {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+/* The summary tiles flex to fill what's left of the row; inside they keep
+   the same four-across grid every other metric block uses. */
+#page-sync-f1-broadcast .racesync-driver-metrics {
+  flex: 1 1 460px;
+  margin: 0;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+/* The takeaways are sentences about the numbers, not decoration: a quiet
+   list with the one red mark the page's brief allows. */
+#page-sync-f1-broadcast .racesync-driver-takeaways {
+  flex: 1 1 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+#page-sync-f1-broadcast .racesync-driver-takeaways li {
+  position: relative;
+  padding-left: 14px;
+}
+
+#page-sync-f1-broadcast .racesync-driver-takeaways li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 6px;
+  height: 2px;
+  background: var(--racesync-red);
+}
+
+/* The recommendation row, drawn where the design draws it but honest: it
+   says there is no simulation behind it, and the button stays out. */
+#page-sync-f1-broadcast .racesync-driver-strategy {
+  flex: 1 1 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px dashed var(--border-soft);
+  border-radius: 8px;
+}
+
+#page-sync-f1-broadcast .racesync-driver-strategy-label {
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+#page-sync-f1-broadcast .racesync-driver-strategy-hint {
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+}
+
+#page-sync-f1-broadcast .racesync-driver-sim {
+  margin-top: 2px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--border-soft);
+  color: var(--text-tertiary);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: not-allowed;
+}
+
+/* In the right rail the card reads top to bottom — identity, tiles,
+   takeaways, strategy — instead of across the width, and the summary tiles
+   take the 2×2 grid the mockup draws. */
+#page-sync-f1-broadcast .racesync-panel.is-rail .racesync-driver {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 14px;
+}
+
+#page-sync-f1-broadcast .racesync-panel.is-rail .racesync-driver-id {
+  min-width: 0;
+}
+
+#page-sync-f1-broadcast .racesync-panel.is-rail .racesync-driver-metrics,
+#page-sync-f1-broadcast .racesync-panel.is-rail .racesync-driver-takeaways,
+#page-sync-f1-broadcast .racesync-panel.is-rail .racesync-driver-strategy {
+  flex: 0 0 auto;
+}
+
+#page-sync-f1-broadcast .racesync-panel.is-rail .racesync-driver-metrics {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* Pace comparison. The bars are a comparison rather than a scale — a second
+   of lap time over a ninety-second lap would be a row of identical lines —
+   so the lengths read the field's spread and every real figure is printed
+   beside them. */
+#page-sync-f1-broadcast .racesync-pace {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#page-sync-f1-broadcast .racesync-pace-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 74px 52px;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+#page-sync-f1-broadcast .racesync-pace-track {
+  display: block;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--border-soft);
+  overflow: hidden;
+}
+
+#page-sync-f1-broadcast .racesync-pace-bar {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+}
+
+#page-sync-f1-broadcast .racesync-pace-value,
+#page-sync-f1-broadcast .racesync-pace-gap {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+#page-sync-f1-broadcast .racesync-pace-value {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+#page-sync-f1-broadcast .racesync-pace-gap {
+  color: var(--text-tertiary);
+}
+
+/* Tyre stints: one bar per set, as long as the laps it ran, in the compound's
+   own colour — the race's shape as a strip of coloured runs. */
+#page-sync-f1-broadcast .racesync-stints {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#page-sync-f1-broadcast .racesync-stint-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 96px;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+#page-sync-f1-broadcast .racesync-stint-track {
+  display: flex;
+  gap: 2px;
+  height: 13px;
+}
+
+/* A very short stint is floored so it stays visible at all; the exact lap
+   range is in the bar's tooltip, so the floor never hides a reading. */
+#page-sync-f1-broadcast .racesync-stint-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 12px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+/* The labels take the bar's own text colour — white on the dark compounds,
+   dark on the pale ones — so a letter is legible on every fill. */
+#page-sync-f1-broadcast .racesync-stint-letter {
+  font-size: 8.5px;
+  font-weight: 800;
+  opacity: 0.92;
+}
+
+#page-sync-f1-broadcast .racesync-stint-laps {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  opacity: 0.72;
+}
+
+#page-sync-f1-broadcast .racesync-stint-age {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 5px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+/* The measured trend, kept neutral: a set going off is a reading, not an
+   alarm. Only stints long enough to have two halves of two timed laps show
+   one at all. */
+#page-sync-f1-broadcast .racesync-stint-wear {
+  color: var(--text-tertiary);
+}
+
+/* Pit stops: one row per stop, the tyres it swapped and the places it
+   covered. */
+#page-sync-f1-broadcast .racesync-stops {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#page-sync-f1-broadcast .racesync-stop {
+  display: grid;
+  grid-template-columns: 34px 40px auto minmax(40px, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+#page-sync-f1-broadcast .racesync-stop:last-child {
+  border-bottom: 0;
+}
+
+#page-sync-f1-broadcast .racesync-stop-lap {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+#page-sync-f1-broadcast .racesync-stop-tyres {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+#page-sync-f1-broadcast .racesync-stop-arrow {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 1;
+}
+
+/* The change across the stop, not a claim about what caused it — the cars
+   around a pit lane move too. Green reads places gained, red places lost. */
+#page-sync-f1-broadcast .racesync-stop-places {
+  justify-self: end;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+#page-sync-f1-broadcast .racesync-stop-places.is-gain {
+  color: var(--status-green);
+}
+
+#page-sync-f1-broadcast .racesync-stop-places.is-loss {
+  color: var(--status-red);
+}
+
+/* A lap chart: the value scale on the left, the plot filling the rest, the
+   lap axis under the plot alone. The plot keeps one height whatever the
+   replay has reached, so the panel doesn't grow lap by lap. */
+#page-sync-f1-broadcast .racesync-chart {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  grid-template-areas:
+    'scale plot'
+    '. axis';
+  gap: 4px 8px;
+}
+
+#page-sync-f1-broadcast .racesync-chart-scale {
+  grid-area: scale;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 176px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+#page-sync-f1-broadcast .racesync-chart-plot {
+  position: relative;
+  grid-area: plot;
+  height: 176px;
+  overflow: hidden;
+}
+
+#page-sync-f1-broadcast .racesync-chart-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* The baseline the race is read against. Non-scaling, like the trace above
+   the panels, so a hairline stays a hairline whatever the panel's width. */
+#page-sync-f1-broadcast .racesync-chart-floor {
+  stroke: var(--border);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+/* A driver's line, in their team's colour — the same custom property the map
+   marker and the pace bar paint with, so one car is one colour all page. */
+#page-sync-f1-broadcast .racesync-chart-line {
+  fill: none;
+  stroke: var(--racesync-car);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Where the replay has got to, so a line that stops early reads as a race
+   still running rather than one that ended. */
+#page-sync-f1-broadcast .racesync-chart-now {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--racesync-red);
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+/* Three labels under the plot: the first lap, the playhead's lap, the last
+   lap of the race — the playhead's own number sits exactly under the line. */
+#page-sync-f1-broadcast .racesync-chart-axis {
+  grid-area: axis;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+}
+
+#page-sync-f1-broadcast .racesync-chart-axis span:nth-child(2) {
+  text-align: center;
+}
+
+#page-sync-f1-broadcast .racesync-chart-axis span:nth-child(3) {
+  text-align: right;
+}
+
+/* Who is on the chart, so a line is matched to a car by dot and code rather
+   than by hunting for a hue. */
+#page-sync-f1-broadcast .racesync-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+#page-sync-f1-broadcast .racesync-chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* The two cars being compared: their own cards over the chart, each one
+   carrying that driver's best lap so the pair reads without the chart. */
+#page-sync-f1-broadcast .racesync-twin {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+#page-sync-f1-broadcast .racesync-twin-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'driver value'
+    'meta value';
+  align-items: center;
+  gap: 2px 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+}
+
+#page-sync-f1-broadcast .racesync-twin-card > .racesync-driver-tag {
+  grid-area: driver;
+}
+
+#page-sync-f1-broadcast .racesync-twin-value {
+  grid-area: value;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+#page-sync-f1-broadcast .racesync-twin-meta {
+  grid-area: meta;
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+/* The twin cards, two across a card this narrow, read as columns of figures
+   rather than as two drivers: they stack instead. */
+@container (max-width: 540px) {
+  #page-sync-f1-broadcast .racesync-twin {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* A card this narrow is a quarter of the page, so each reading gives up the
+   part of itself the card cannot hold rather than crushing what is left: the
+   race-state table keeps the driver's code — the identity the map, the pace
+   rows and the stint bars all use — and the pace rows keep the bar's length
+   instead of printing the same figure twice. */
+@container (max-width: 340px) {
+  #page-sync-f1-broadcast .racesync-table .racesync-panel-name {
+    display: none;
+  }
+
+  #page-sync-f1-broadcast .racesync-table th,
+  #page-sync-f1-broadcast .racesync-table td {
+    padding-left: 3px;
+    padding-right: 3px;
+  }
+
+  #page-sync-f1-broadcast .racesync-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #page-sync-f1-broadcast .racesync-pace-row {
+    grid-template-columns: 34px minmax(0, 1fr) 74px;
+  }
+
+  #page-sync-f1-broadcast .racesync-pace-gap {
+    display: none;
+  }
+}
+
+/* The wide arrangement — the one the design draws: two readings down the
+   map's left, two down its right, the map card standing in the middle two of
+   four columns. It waits for the room in the band itself rather than in the
+   window, because the room also depends on the rail. */
+@container (min-width: 1520px) {
+  #page-sync-f1-broadcast .racesync-analysis-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    /* The two rows are the map card's height, not the readings': each reading
+       fills the row it is given, and its own lists scroll inside that. */
+    grid-template-rows: repeat(2, minmax(0, clamp(280px, 19cqw, 330px)));
+    align-items: stretch;
+    /* A reading has no window of its own here — the card is the window. */
+    --racesync-window: none;
+  }
+
+  #page-sync-f1-broadcast .racesync-analysis-stage {
+    grid-area: 1 / 2 / 3 / 4;
+  }
+
+  #page-sync-f1-broadcast .racesync-panel.is-slot-left-top {
+    grid-area: 1 / 1;
+  }
+
+  #page-sync-f1-broadcast .racesync-panel.is-slot-left-bottom {
+    grid-area: 2 / 1;
+  }
+
+  #page-sync-f1-broadcast .racesync-panel.is-slot-right-top {
+    grid-area: 1 / 4;
+  }
+
+  #page-sync-f1-broadcast .racesync-panel.is-slot-right-bottom {
+    grid-area: 2 / 4;
+  }
+
+  /* No fifth column at this width: the Driver Analysis card takes a full row
+     under the flanking band, and the spine takes the one under it. */
+  #page-sync-f1-broadcast .racesync-panel.is-rail {
+    grid-area: 3 / 1 / 4 / 5;
+  }
+
+  #page-sync-f1-broadcast .racesync-analysis-grid > .racesync-spine {
+    grid-area: 4 / 1 / 5 / 5;
+  }
+
+  /* The caption's line: under the spine, over the charts. */
+  #page-sync-f1-broadcast .racesync-panels-head {
+    grid-area: 5 / 1 / 6 / 5;
+  }
+}
+
+/* The widest desks get the mockup's five-column rail: the map keeps the
+   centre two columns, the four readings flank it, and the Driver Analysis
+   card stacks down the new right-hand column — identity, tiles, takeaways
+   and the honest strategy row reading top to bottom. The rows are still the
+   map's height (the 1520px query above owns them), so whatever of the rail
+   doesn't fit scrolls inside the card. */
+@container (min-width: 1760px) {
+  #page-sync-f1-broadcast .racesync-analysis-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  #page-sync-f1-broadcast .racesync-analysis-stage {
+    grid-area: 1 / 2 / 3 / 4;
+  }
+
+  #page-sync-f1-broadcast .racesync-panel.is-slot-right-top {
+    grid-area: 1 / 4;
+  }
+
+  #page-sync-f1-broadcast .racesync-panel.is-slot-right-bottom {
+    grid-area: 2 / 4;
+  }
+
+  #page-sync-f1-broadcast .racesync-panel.is-rail {
+    grid-area: 1 / 5 / 3 / 6;
+  }
+
+  #page-sync-f1-broadcast .racesync-panel.is-rail .racesync-panel-body {
+    overflow-y: auto;
+  }
+
+  #page-sync-f1-broadcast .racesync-analysis-grid > .racesync-spine {
+    grid-area: 3 / 1 / 4 / 6;
+  }
+
+  #page-sync-f1-broadcast .racesync-panels-head {
+    grid-area: 4 / 1 / 5 / 6;
+  }
+
+  /* The two lap charts read best full-width each once the rail takes the
+     fifth column. */
+  #page-sync-f1-broadcast .racesync-panel.is-wide {
+    grid-column: 1 / -1;
+  }
+}
+
+/* One column once even a pair stops being readable: the map card first, then
+   the readings in the order they are written. */
+@container (max-width: 860px) {
+  #page-sync-f1-broadcast .racesync-analysis-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #page-sync-f1-broadcast .racesync-analysis-stage {
+    grid-area: 1 / 1;
+  }
+
+  #page-sync-f1-broadcast .racesync-panel.is-slot-left-top,
+  #page-sync-f1-broadcast .racesync-panel.is-slot-left-bottom,
+  #page-sync-f1-broadcast .racesync-panel.is-slot-right-top,
+  #page-sync-f1-broadcast .racesync-panel.is-slot-right-bottom,
+  #page-sync-f1-broadcast .racesync-panel.is-rail {
+    grid-area: auto;
+  }
+
+  #page-sync-f1-broadcast .racesync-analysis-grid > .racesync-spine {
+    grid-area: auto;
+  }
+
+  #page-sync-f1-broadcast .racesync-panel.is-wide {
+    grid-column: span 1;
+  }
+
+  /* One column: the caption falls in with the flow, which reads it in the
+     same place — under the readings, over the charts. */
+  #page-sync-f1-broadcast .racesync-panels-head {
+    grid-area: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  #page-sync-f1-broadcast .racesync-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #page-sync-f1-broadcast .racesync-chart {
+    grid-template-columns: 46px minmax(0, 1fr);
+  }
+}

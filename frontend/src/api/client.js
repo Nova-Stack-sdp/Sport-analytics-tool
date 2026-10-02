@@ -107,6 +107,26 @@ export function setDeveloperModeOnServer(enabled, idToken) {
 }
 
 // ---------------------------------------------------------------------------
+// Account notifications
+// ---------------------------------------------------------------------------
+
+/**
+ * The signed-in user's own notifications, newest first (requireAuth on the
+ * backend — no session, no rows). The response is the array itself.
+ */
+export function getNotifications() {
+  return request('/api/notifications');
+}
+
+/**
+ * Mark one notification read. Callers own their optimistic state — the list
+ * may be on screen when this happens.
+ */
+export function markNotificationRead(id) {
+  return request(`/api/notifications/${encodeURIComponent(id)}/read`, { method: 'PATCH' });
+}
+
+// ---------------------------------------------------------------------------
 // Data endpoints
 // ---------------------------------------------------------------------------
 
@@ -253,6 +273,14 @@ export function getRaceReplayState(sessionId, { lap } = {}) {
 // Watch Live already does for getTrackShape above).
 export function getRaceReplayTrackShape(sessionId) {
   return request(`/api/race-replay/${sessionId}/track-shape`);
+}
+
+// The whole race as one table — every lap's leaderboard in a single response,
+// one array per measure per driver — which is what RaceSync's panels under the
+// map are drawn from. Read-only, and built from the same reconstruction the
+// state endpoint above serves lap by lap.
+export function getRaceReplayLapSeries(sessionId) {
+  return request(`/api/race-replay/${sessionId}/lap-series`);
 }
 
 // ---------------------------------------------------------------------------

@@ -8,6 +8,7 @@ import DeveloperPage from '../pages/DeveloperPage';
 import ApiDocsPage from '../pages/ApiDocsPage';
 import AdminPage from '../pages/AdminPage';
 import TelemetryTVPage from '../pages/TelemetryTVPage';
+import SyncF1BroadcastPage from '../pages/SyncF1BroadcastPage';
 import ProfilePage from '../pages/ProfilePage';
 import SignInPage from '../pages/SignInPage';
 import SignUpPage from '../pages/SignUpPage';
@@ -46,6 +47,7 @@ function AppRoutes() {
       <Route path="/drivers" element={<DriversPage />} />
       <Route path="/driver/:id" element={<DriverDetailPage />} />
       <Route path="/telemetry-tv" element={<TelemetryTVPage />} />
+      <Route path="/sync-f1-broadcast" element={<SyncF1BroadcastPage />} />
       <Route path="/watch-live" element={<Navigate to="/telemetry-tv" replace />} />
       <Route path="/replay" element={<RaceReplayPage />} />
     </Routes>

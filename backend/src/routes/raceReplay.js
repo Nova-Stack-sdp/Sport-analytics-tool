@@ -258,6 +258,59 @@ export function computeStateAtLap(context, lap) {
   };
 }
 
+/**
+ * The whole race at once, as columns rather than as a leaderboard per lap.
+ *
+ * This is computeStateAtLap asked the same question for every lap, then
+ * transposed: each measure becomes one array indexed by lap - 1, so a chart
+ * (or a stint table, or a pace comparison) reads a driver's season of laps
+ * as one list instead of scanning a row per lap. Nothing extra is derived
+ * and nothing is interpolated — a driver who has no lap N simply carries a
+ * null at that index.
+ *
+ * Built on computeStateAtLap on purpose rather than by re-reading the event
+ * log a second time: whatever the /state endpoint answers for lap N is
+ * exactly what this series holds at index N - 1, so a panel under the map
+ * and the leaderboard beside it can never disagree about the same lap.
+ */
+export function buildLapSeries(context) {
+  const { session, entries, totalLaps } = context;
+
+  const snapshots = [];
+  for (let lap = 1; lap <= totalLaps; lap += 1) {
+    snapshots.push(computeStateAtLap(context, lap));
+  }
+
+  const column = (entryId, measure) => snapshots.map((state) => {
+    const driver = state.leaderboard.find((d) => d.entryId === entryId);
+    return driver ? (driver[measure] ?? null) : null;
+  });
+
+  const drivers = entries.map((entry) => ({
+    entryId: entry.id,
+    driverName: entry.driver.name,
+    teamName: entry.team.name,
+    lapTimeSeconds: column(entry.id, 'lastLapTime'),
+    position: column(entry.id, 'position'),
+    compound: column(entry.id, 'tyreCompound'),
+    stintNumber: column(entry.id, 'stintNumber'),
+    gapToAhead: column(entry.id, 'gapToAhead'),
+    // Only ever set at the flag — the classification event is what carries
+    // it, and computeStateAtLap only reads that on the session's last lap.
+    status: snapshots.at(-1)?.leaderboard.find((d) => d.entryId === entry.id)?.status ?? null,
+  }));
+
+  // Race order at the flag, so every panel that lists drivers lists them the
+  // way the results read. A driver the log never placed sorts last.
+  drivers.sort((a, b) => {
+    const posA = a.position.at(-1) ?? Number.MAX_SAFE_INTEGER;
+    const posB = b.position.at(-1) ?? Number.MAX_SAFE_INTEGER;
+    return posA !== posB ? posA - posB : a.driverName.localeCompare(b.driverName);
+  });
+
+  return { sessionId: session.id, totalLaps, drivers };
+}
+
 const contextCache = new Map(); // sessionId -> { context, cachedAt }
 const CONTEXT_CACHE_MS = 5 * 60 * 1000; // events don't change under normal use; 5 min just bounds staleness after a correction
 
@@ -287,6 +340,28 @@ raceReplayRouter.get('/:sessionId/state', async (req, res, next) => {
     }
 
     return res.json(computeStateAtLap(context, lap));
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * The panels under RaceSync's map read the race as a whole, so they ask for
+ * it as a whole: one response instead of one /state request per lap. Same
+ * cached context, same pure builders — a read of an existing view, not a
+ * second implementation of it.
+ */
+raceReplayRouter.get('/:sessionId/lap-series', async (req, res, next) => {
+  try {
+    const { sessionId } = req.params;
+
+    const context = await getCachedReplayContext(sessionId);
+    if (!context) return res.status(404).json({ error: 'Fixture not found' });
+    if (context.totalLaps === 0) {
+      return res.status(400).json({ error: 'This fixture has no synced lap data to replay' });
+    }
+
+    return res.json(buildLapSeries(context));
   } catch (err) {
     return next(err);
   }

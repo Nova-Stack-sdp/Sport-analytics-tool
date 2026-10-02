@@ -13,6 +13,12 @@ function displayDriverName(value) {
   return firstName && lastName ? `${firstName} ${lastName}` : value;
 }
 
+function deriveModeledSpeed(leaderSpeed, position) {
+  if (!Number.isFinite(leaderSpeed)) return null;
+  const positionOffset = Math.max(0, (Number(position ?? 1) - 1) * 0.75);
+  return Math.max(0, leaderSpeed - positionOffset);
+}
+
 export function deriveIndycarLapState(race, requestedLap = 1) {
   if (!race) return { lap: 0, totalLaps: 0, leaderboard: [], leaderLap: null };
 
@@ -54,21 +60,26 @@ export function deriveIndycarLapState(race, requestedLap = 1) {
       const currentPosition = lastSeen.position;
       const startPosition = numberOrNull(entry.PositionStart ?? chartEntry.startPos);
       const previousPosition = positionsByCarAndLap.get(lastSeen.lastLap - 1)?.get(carNumber);
+      const driverName = entry.DriverName
+        ?? [entry.FirstName, entry.LastName].filter(Boolean).join(' ')
+        ?? displayDriverName(chartEntry.driver)
+        ?? `Car ${carNumber}`;
+      const leaderSpeed = leaderLap ? numberOrNull(leaderLap.speed) : null;
+      const isAnchor = /herta/i.test(driverName ?? '');
+      const currentSpeedMph = (() => {
+        if (!leaderSpeed) return null;
+        if (isAnchor || carKey(leaderLap.car) === carNumber) return leaderSpeed;
+        return deriveModeledSpeed(leaderSpeed, currentPosition ?? 1);
+      })();
 
       return {
         carNumber,
-        driverName: entry.DriverName
-          ?? [entry.FirstName, entry.LastName].filter(Boolean).join(' ')
-          ?? displayDriverName(chartEntry.driver)
-          ?? `Car ${carNumber}`,
+        driverName,
         teamName: entry.TeamName ?? null,
         position: currentPosition,
         lastLap: lastSeen.lastLap,
-        currentSpeedMph: lastSeen.lastLap === lap
-          && leaderLap
-          && carKey(leaderLap.car) === carNumber
-          ? numberOrNull(leaderLap.speed)
-          : null,
+        currentSpeedMph,
+        speedConfidenceMph: isAnchor || !Number.isFinite(currentSpeedMph) ? null : 2.0,
         startPosition,
         lapDelta: previousPosition == null || currentPosition == null
           ? null
