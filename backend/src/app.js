@@ -13,13 +13,14 @@ import { driversRouter } from './routes/drivers.js';
 import { openF1Router } from './routes/openf1.js';
 import { raceReplayRouter } from './routes/raceReplay.js';
 import { imagesRouter } from './routes/images.js';
-import { notificationsRouter } from './routes/notifications.js';
 import { newsRouter } from './routes/news.js';
 import { submissionsRouter } from './routes/submissions.js';
 import { telemetryTVRouter } from './routes/telemetryTV.js';
 import { apiV1Router } from './api/v1/router.js';
 import { createRateLimiter } from './middleware/rateLimit.js';
 import { createResponseCache } from './middleware/responseCache.js';
+import { followsRouter } from './routes/follows.js';
+import { notificationsRouter } from './routes/notifications.js';
 
 // Rate limits (requests per minute, per client IP) and cache lifetime.
 // Overridable through env vars; 0 switches one off. Tests turn both off by
@@ -104,7 +105,8 @@ export function createApp(options = {}) {
 
   // --- Response cache for repeated public reads --------------------------
   // Only data that's the same for every caller. Not auth, drivers/teams
-  // (photo uploads), or telemetry (live-synced to a video clock).
+  // (photo uploads), follows/notifications (per-user), or telemetry
+  // (live-synced to a video clock).
   const cache = createResponseCache({ ttlMs: config.cacheTtlMs });
   const cacheUnlessExport = (req, res, next) =>
     (req.path.startsWith('/exports') ? next() : cache(req, res, next));
@@ -123,14 +125,16 @@ export function createApp(options = {}) {
   app.use('/api/openf1', openF1Router);
   app.use('/api/race-replay', raceReplayRouter);
   app.use('/api/images', imagesRouter);
-  app.use('/api/notifications', notificationsRouter);
   app.use('/api/news', newsRouter);
   app.use('/api/submissions', submissionsRouter);
   app.use('/api/telemetry-tv', telemetryTVRouter);
+  app.use('/api/follows', followsRouter);
+  app.use('/api/notifications', notificationsRouter);
 
   // Public, versioned API for other platforms (see src/api/v1/router.js).
   // The routes above serve the website's own pages and may change with them.
   app.use('/api/v1', apiV1Router);
+
   // 404 for anything else under /api
   app.use('/api', (req, res) => {
     res.status(404).json({ error: 'Not found' });

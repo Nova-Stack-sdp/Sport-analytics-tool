@@ -161,10 +161,10 @@ td.secondary{color:var(--text-secondary);}
 .btn-full{width:100%;text-align:center;display:block;}
 .btn-sm{padding:5px 10px;font-size:12.5px;}
 
-.follow-btn{border:1.5px solid var(--accent);border-radius:999px;padding:6px 16px;font-size:12.5px;font-weight:800;font-family:var(--font-ui);cursor:pointer;background:transparent;color:var(--accent);white-space:nowrap;transition:background .15s, color .15s, transform .12s;}
+.follow-btn{border:1.5px solid var(--accent);border-radius:999px;padding:6px 16px;font-size:11px;font-weight:800;font-family:var(--font-ui);cursor:pointer;background:transparent;color:var(--accent);white-space:nowrap;transition:background .15s, color .15s, transform .12s;}
 .follow-btn:hover{transform:translateY(-1px);background:var(--accent);color:var(--accent-contrast);}
-.follow-btn.is-following{background:var(--accent);color:var(--accent-contrast);}
-.follow-btn.is-following:hover{background:transparent;color:var(--accent);}
+.follow-btn.is-following,.follow-btn.is-following:hover,.follow-btn.is-following:disabled{background:var(--accent);border-color:var(--accent);color:#fff;opacity:1;}
+.follow-btn.is-following:hover{filter:brightness(0.9);}
 
 .tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:12px;}
 .tab{padding:7px 4px;font-size:14px;font-weight:600;color:var(--text-tertiary);cursor:pointer;border-bottom:2px solid transparent;margin-right:16px;}
@@ -461,8 +461,7 @@ table.results td{padding:9px 10px;border-bottom:1px solid var(--border-soft);col
 .td-hero{position:relative;border-radius:var(--radius-lg);overflow:hidden;background:linear-gradient(120deg,var(--tc,#7a1010) 0%,#0c0c10 85%);padding:44px;text-align:center;border:1px solid var(--border-soft);}
 .td-follow-btn{position:absolute;top:20px;left:20px;z-index:2;border-color:rgba(255,255,255,0.7);color:#fff;}
 .td-follow-btn:hover{background:#fff;color:#111;}
-.td-follow-btn.is-following{background:#fff;color:#111;}
-.td-follow-btn.is-following:hover{background:transparent;color:#fff;}
+.td-follow-btn.is-following,.td-follow-btn.is-following:hover,.td-follow-btn.is-following:disabled{background:var(--accent);border-color:var(--accent);color:#fff;opacity:1;}
 .td-hero h1{font-size:44px;font-weight:900;margin:0 0 16px;color:#fff;}
 .td-logo{width:90px;height:90px;object-fit:contain;margin-bottom:18px;}
 .td-drivers-row{display:flex;gap:16px;margin-top:36px;justify-content:center;flex-wrap:wrap;}
@@ -801,17 +800,17 @@ label.settings-row-label{display:block;}
 /* Following: button + count on the profile hero, the modal list, and the
    season calendar in the profile's Calendar tab. */
 .profile-following-btn{display:inline-flex;align-items:center;gap:6px;}
-.profile-following-count{background:var(--accent);color:var(--accent-contrast);border-radius:999px;padding:1px 8px;font-size:12px;font-weight:800;}
+.profile-following-count{background:var(--accent);color:var(--accent-contrast);border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;}
 
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;z-index:100;padding:24px;}
 .modal-panel{background:var(--surface);border-radius:var(--radius-lg);border:1px solid var(--border-soft);box-shadow:var(--shadow-elevated);max-width:440px;width:100%;max-height:80vh;overflow-y:auto;padding:24px;}
 .modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
-.modal-head h2{font-size:20.5px;margin:0;}
-.modal-close{background:transparent;border:none;font-size:16px;cursor:pointer;color:var(--text-secondary);padding:4px;}
+.modal-head h2{font-size:18.5px;margin:0;}
+.modal-close{background:transparent;border:none;font-size:14.5px;cursor:pointer;color:var(--text-secondary);padding:4px;}
 .modal-close:hover{color:var(--text-primary);}
 
 .following-section{margin-bottom:18px;}
-.following-section h3{font-size:12.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-tertiary);margin:0 0 8px;}
+.following-section h3{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-tertiary);margin:0 0 8px;}
 .following-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;}
 .following-list li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:9px;background:var(--surface-soft,rgba(127,127,127,0.06));}
 .following-row{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--text-primary);text-decoration:none;min-width:0;}
@@ -829,3 +828,56 @@ label.settings-row-label{display:block;}
 .calendar-session-chip{font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:20px;background:var(--gray-pill-bg);color:var(--gray-pill-text);}
 .calendar-session-chip.status-live{background:var(--status-green-soft);color:var(--status-green);}
 .calendar-session-chip.status-finished{background:var(--gray-pill-bg);color:var(--text-secondary);}
+
+/* Literal wall-calendar for the profile's Calendar tab. Sits inside a
+   `.card`, which already flips between white (light) and black (dark) via
+   --surface — so the calendar itself stays transparent and just inherits
+   that, matching "dark mode is black, light mode just removes the black."
+   Day cells are always a white "paper" card regardless of theme, like the
+   reference design. */
+.f1-calendar{display:flex;flex-direction:column;gap:16px;}
+
+.f1-calendar-next{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;padding:12px 16px;border:1px solid var(--accent);border-radius:12px;background:var(--accent-soft);}
+.f1-calendar-next-label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);}
+.f1-calendar-next-body{font-size:12.5px;color:var(--text-primary);}
+
+.f1-calendar-card{background:transparent;}
+
+.f1-calendar-head{display:flex;align-items:center;gap:14px;margin-bottom:16px;}
+.f1-calendar-head-bar{width:8px;align-self:stretch;min-height:30px;background:var(--accent);border-radius:3px;}
+.f1-calendar-head h2{flex:1;margin:0;font-size:23px;font-weight:900;text-transform:uppercase;letter-spacing:.02em;color:var(--text-primary);}
+.f1-calendar-nav{display:flex;align-items:center;gap:6px;}
+.f1-calendar-nav button{border:1px solid var(--border-soft);background:transparent;color:var(--text-primary);border-radius:8px;padding:6px 12px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:var(--font-ui);}
+.f1-calendar-nav button:hover{background:var(--accent);border-color:var(--accent);color:var(--accent-contrast);}
+
+.f1-calendar-weekdays{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px;}
+.f1-calendar-weekdays div{text-align:center;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text-tertiary);padding-bottom:4px;}
+
+.f1-calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+.f1-calendar-day{position:relative;min-height:84px;padding:7px;border-radius:9px;background:#FFFFFF;border:1px solid rgba(0,0,0,0.08);display:flex;flex-direction:column;gap:4px;font-family:var(--font-ui);text-align:left;cursor:pointer;}
+.f1-calendar-day.is-outside{background:rgba(255,255,255,0.35);}
+[data-theme="dark"] .f1-calendar-day.is-outside{background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.06);}
+.f1-calendar-day.is-today{box-shadow:inset 0 0 0 2px var(--accent);}
+.f1-calendar-day[style*="--weekend-color"]{border-left:4px solid var(--weekend-color);}
+.f1-calendar-daynum{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:800;color:#111111;}
+.f1-calendar-day.is-outside .f1-calendar-daynum{color:rgba(17,17,17,0.4);}
+.f1-calendar-lore-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex:0 0 auto;}
+.f1-calendar-sessions{display:flex;flex-direction:column;gap:2px;}
+.f1-calendar-session{font-size:9.5px;font-weight:700;color:#111111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.f1-calendar-session.status-live{color:#15803D;}
+.f1-calendar-session.status-finished{color:rgba(17,17,17,0.55);}
+
+.day-detail-section{margin-bottom:18px;}
+.day-detail-section h3{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-tertiary);margin:0 0 8px;}
+.day-detail-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;}
+.day-detail-list li{display:flex;align-items:flex-start;gap:10px;padding:9px 10px;border-radius:9px;background:var(--surface-soft,rgba(127,127,127,0.06));}
+.day-detail-time{flex:0 0 48px;font-weight:800;font-size:11px;color:var(--text-primary);}
+.day-detail-icon{flex:0 0 auto;font-size:14.5px;}
+.day-detail-body{display:flex;flex-direction:column;gap:2px;font-size:11.5px;color:var(--text-primary);flex:1;min-width:0;}
+.day-detail-note{color:var(--text-tertiary);font-size:11px;}
+
+@media (max-width:760px){
+  .f1-calendar-day{min-height:60px;padding:5px;}
+  .f1-calendar-session{font-size:8.5px;}
+  .f1-calendar-head h2{font-size:17.5px;}
+}

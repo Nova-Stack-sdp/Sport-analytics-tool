@@ -89,6 +89,7 @@ model Team {
   season  Int
   entries Entry[]
   seasonStats TeamSeasonStats[]
+  follows Follow[]
 
   @@unique([name, season])
   @@map("team")
@@ -102,6 +103,7 @@ model Driver {
   entries      Entry[]
   careerStats  DriverCareerStats[]
   image        DriverImage?
+  follows      Follow[]
 
   @@map("driver")
 }
@@ -119,6 +121,26 @@ model DriverImage {
   updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@map("driver_image")
+}
+
+// A signed-in user following a driver or a team. Exactly one of driver_id /
+// team_id is set per row. `snapshot` holds the small display info the
+// Following list needs (name, number, colours...) so it renders in one query.
+model Follow {
+  id        String   @id @default(uuid()) @map("follow_id")
+  // Firebase uid
+  userId    String   @map("user_id")
+  driverId  String?  @map("driver_id")
+  driver    Driver?  @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  teamId    String?  @map("team_id")
+  team      Team?    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  snapshot  Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, driverId])
+  @@unique([userId, teamId])
+  @@index([userId])
+  @@map("follow")
 }
 
 model Entry {

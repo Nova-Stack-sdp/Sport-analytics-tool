@@ -14,13 +14,22 @@
  * cookie set by POST /api/auth/session is sent automatically on every call.
  */
 const API_BASE_URL =
-  process.env.REACT_APP_API_URL || 'http://localhost:8080';//|| 'https://sport--backend-api--7kcwxz9xblx5.code.run';
+  process.env.REACT_APP_API_URL || 'https://sport--backend-api--7kcwxz9xblx5.code.run';
 
 async function request(path, options = {}) {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    credentials: 'include',
-    ...options,
-  });
+  // Give up after 10s so a hung backend can't leave a button stuck on "busy".
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+  let res;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      credentials: 'include',
+      signal: controller.signal,
+      ...options,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) {
     const error = new Error(`Request to ${path} failed with status ${res.status}`);
     error.status = res.status;
@@ -62,15 +71,12 @@ export function clearSession() {
 
 /**
  * Check whether the backend cookie is still valid.
- * Returns the user object ({ uid, email, developer, admin }) or throws if no
- * valid session exists.
- *
- * `idToken` is optional: pass the live Firebase ID token to authenticate
- * with an explicit Bearer header instead of relying on the cookie — needed
- * right after sign-in, when the cookie may not have been set yet.
+ * Returns the user object or throws if no valid session exists.
  */
 export function getSession(idToken) {
-  return request('/api/auth/me', idToken ? { headers: { Authorization: `Bearer ${idToken}` } } : {});
+  return request('/api/auth/me', {
+    ...(idToken ? { headers: { Authorization: `Bearer ${idToken}` } } : {}),
+  });
 }
 
 /**
@@ -165,12 +171,8 @@ export function getPopularVideos() {
   return request('/api/videos/popular');
 }
 
-export function getTelemetryTVRaces() {
-  return request('/api/telemetry-tv/races');
-}
-
-export function getTelemetryTVRace(slug) {
-  return request(`/api/telemetry-tv/races/${encodeURIComponent(slug)}`);
+export function getLiveVideo() {
+  return request('/api/watch-live');
 }
 
 export function getTeams({ limit, offset } = {}) {
@@ -240,13 +242,19 @@ export async function uploadDriverImage(driverId, file, idToken) {
   return body;
 }
 
-export function getF1News() {
-  return request('/api/news');
+// Fetches one replay state or a short playback buffer.
+export function getWatchLiveState({ videoSeconds, bufferSeconds } = {}) {
+  const params = new URLSearchParams({ videoSeconds: String(videoSeconds) });
+  if (bufferSeconds != null) params.set('bufferSeconds', String(bufferSeconds));
+  return request(`/api/watch-live/state?${params.toString()}`);
 }
 
-export function getF1NewsStreamUrl() {
-  return `${API_BASE_URL}/api/news/stream`;
+// Real track outline derived from one driver's actual location telemetry —
+// see deriveTrackShape() in the backend for how this is picked.
+export function getTrackShape() {
+  return request('/api/watch-live/track-shape');
 }
+
 // ---------------------------------------------------------------------------
 // Race Replay — decoupled from Watch Live, works for any synced fixture
 // (see /api/fixtures' `replayReady` flag for which ones qualify), not just
@@ -261,7 +269,8 @@ export function getRaceReplayState(sessionId, { lap } = {}) {
 
 // Real track outline for this session's circuit — live OpenF1 telemetry
 // when available, else a static FastF1-generated shape for the circuit,
-// else a 404 so the caller can use its illustrative fallback.
+// else a 404 (the caller falls back to the illustrative track, same as
+// Watch Live already does for getTrackShape above).
 export function getRaceReplayTrackShape(sessionId) {
   return request(`/api/race-replay/${sessionId}/track-shape`);
 }
@@ -275,29 +284,74 @@ export function getRaceReplayLapSeries(sessionId) {
 }
 
 // ---------------------------------------------------------------------------
-// Submissions
+// Follows (stored server-side per signed-in user)
 // ---------------------------------------------------------------------------
 
-/** Submit an OpenF1-shaped event batch. payload must include session_key. */
-export function submitData(payload) {
-  return request('/api/submissions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
+const jsonBody = (body) => ({
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(body || {}),
+});
+
+export function getFollows() {
+  return request('/api/follows');
 }
 
-/** status: 'pending' | 'accepted' | 'rejected', or omit for all. */
+export function followDriverRequest(driverId, snapshot) {
+  return request(`/api/follows/drivers/${encodeURIComponent(driverId)}`, { method: 'PUT', ...jsonBody(snapshot) });
+}
+
+export function unfollowDriverRequest(driverId) {
+  return request(`/api/follows/drivers/${encodeURIComponent(driverId)}`, { method: 'DELETE' });
+}
+
+export function followTeamRequest(teamId, snapshot) {
+  return request(`/api/follows/teams/${encodeURIComponent(teamId)}`, { method: 'PUT', ...jsonBody(snapshot) });
+}
+
+export function unfollowTeamRequest(teamId) {
+  return request(`/api/follows/teams/${encodeURIComponent(teamId)}`, { method: 'DELETE' });
+}
+// ---------------------------------------------------------------------------
+// Submissions (developer/admin)
+// ---------------------------------------------------------------------------
+
+export function submitData(body) {
+  return request('/api/submissions', { method: 'POST', ...jsonBody(body) });
+}
+
 export function listSubmissions(status) {
-  const qs = status ? `?status=${encodeURIComponent(status)}` : '';
-  return request(`/api/submissions${qs}`);
+  const query = status ? `?status=${encodeURIComponent(status)}` : '';
+  return request(`/api/submissions${query}`);
 }
 
-/** status: 'accepted' | 'rejected'. Requires admin. */
 export function reviewSubmission(id, status) {
-  return request(`/api/submissions/${id}`, {
+  return request(`/api/submissions/${encodeURIComponent(id)}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status }),
+    ...jsonBody({ status }),
   });
+}
+
+// ---------------------------------------------------------------------------
+// F1 news feed
+// ---------------------------------------------------------------------------
+
+export function getF1News() {
+  return request('/api/news');
+}
+
+// EventSource can't go through request(), so it needs the absolute URL.
+export function getF1NewsStreamUrl() {
+  return `${API_BASE_URL}/api/news/stream`;
+}
+
+// ---------------------------------------------------------------------------
+// Telemetry TV
+// ---------------------------------------------------------------------------
+
+export function getTelemetryTVRaces() {
+  return request('/api/telemetry-tv/races');
+}
+
+export function getTelemetryTVRace(slug) {
+  return request(`/api/telemetry-tv/races/${encodeURIComponent(slug)}`);
 }

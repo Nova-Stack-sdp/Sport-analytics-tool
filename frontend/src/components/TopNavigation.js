@@ -5,6 +5,7 @@ import { auth } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useDeveloperMode } from '../context/DeveloperModeContext';
 import { clearSession } from '../api/client';
+import { resetFollowCache } from '../services/followService';
 import { readLocalProfile, subscribeToLocalProfile } from '../services/userProfile';
 
 const NAV_ITEMS = [
@@ -53,7 +54,7 @@ function TopNav({ theme, onToggleTheme }) {
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   // Helper function to fetch notifications safely
-  const fetchNavNotifications = async () => {
+  const fetchNavNotifications = useCallback(async () => {
     if (!user) return; // Don't fetch if unauthenticated
 
     try {
@@ -71,12 +72,12 @@ function TopNav({ theme, onToggleTheme }) {
     } catch (err) {
       console.error('Failed to fetch notifications for nav', err);
     }
-  };
+  }, [user]);
 
   // 1. Fetch on mount / user auth state change
   useEffect(() => {
     fetchNavNotifications();
-  }, [user]);
+  }, [fetchNavNotifications]);
 
   // 2. Handle Bell Click: Toggle dropdown AND fetch fresh notifications
   const handleBellClick = () => {
@@ -96,12 +97,6 @@ function TopNav({ theme, onToggleTheme }) {
   const avatarRef = useRef(null);
   const confirmRef = useRef(null);
 
-  const visibleNavItems = NAV_ITEMS.filter((item) => {
-    if (item.requiresAuth && !user) return false;
-    if (item.requiresDeveloper && !isDeveloperMode) return false;
-    return true;
-  });
-
   useEffect(() => {
     const refreshLocalProfile = () => setLocalProfile(readLocalProfile(user));
     refreshLocalProfile();
@@ -113,15 +108,12 @@ function TopNav({ theme, onToggleTheme }) {
     setConfirmingLogOut(false);
   }, []);
 
-  const closeNotifications = useCallback(() => {
-    setNotificationsOpen(false);
-  }, []);
-
   const handleSignOut = async () => {
     // Clear both auth layers: Firebase client session and the backend
     // httpOnly cookie.  Clear the context immediately so the UI
     // updates before the redirect.
     clearAuth();
+    resetFollowCache();
     // allSettled, not all: signing out locally must not depend on the
     // backend being reachable.  When the API is down or blocked, fetch
     // rejects with a TypeError ("Failed to fetch") — under Promise.all

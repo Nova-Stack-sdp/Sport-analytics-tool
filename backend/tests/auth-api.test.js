@@ -33,8 +33,18 @@ jest.unstable_mockModule('firebase-admin', () => ({
 }));
 
 // Prisma is imported transitively by the other route modules loaded in
-// app.js — provide a stub so those imports don't blow up.
-const mockPrisma = {};
+// app.js — provide a stub so those imports don't blow up. POST /session
+// upserts a userProfile row and PUT /favorites updates one, so both need a
+// resolving stub or those routes throw (and, since the routes' catch blocks
+// aren't Prisma-aware, that throw gets misreported as an auth failure).
+const mockUserProfileUpsert = jest.fn().mockResolvedValue({});
+const mockUserProfileUpdate = jest.fn().mockResolvedValue({});
+const mockPrisma = {
+  userProfile: {
+    upsert: mockUserProfileUpsert,
+    update: mockUserProfileUpdate,
+  },
+};
 jest.unstable_mockModule('../src/lib/prisma.js', () => ({ prisma: mockPrisma }));
 
 let createApp;

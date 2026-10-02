@@ -477,7 +477,7 @@
 
 .notification-item.unread {
   border-left: 3px solid #e10600;
-  background: var(--surface-hover);
+  background: var(--surface-hover, rgba(127, 127, 127, 0.08));
   color: var(--text-primary);
   font-weight: 600;
 }
