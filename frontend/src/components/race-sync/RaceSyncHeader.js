@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useRaceSyncSelection } from './RaceSyncSelection';
+import RaceSyncBell from './RaceSyncBell';
 import RaceSyncViewMenu from './RaceSyncViewMenu';
 
 // The header's race search — typing filters the synced races and the list
@@ -165,8 +166,8 @@ function RaceSearch() {
 }
 
 // The RaceSync page's own top bar — brand on the left, race search in the
-// middle, the map's view menu on the right (see raceSync.css). The bell is
-// still a placeholder.
+// middle, the signed-in user's notifications and the map's view menu on the
+// right (see raceSync.css).
 function RaceSyncHeader() {
   return (
     <header className="racesync-header">
@@ -196,23 +197,8 @@ function RaceSyncHeader() {
       <RaceSearch />
 
       <div className="racesync-account">
-        {/* Placeholder: notifications are not wired up yet. */}
-        <span className="racesync-bell" aria-hidden="true">
-          <svg
-            viewBox="0 0 24 24"
-            width="22"
-            height="22"
-            stroke="currentColor"
-            strokeWidth="2"
-            fill="none"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-          </svg>
-          <span className="racesync-bell-dot" />
-        </span>
+        {/* The account's own updates — see RaceSyncBell. */}
+        <RaceSyncBell />
         <span className="racesync-divider" aria-hidden="true" />
         {/* What the centre map shows — see RaceSyncViewMenu. */}
         <RaceSyncViewMenu />

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 // Read-only reuse of Race Replay's canonical team-name → palette-key mapper,
 // so a team carries the same colour here as it does on the Race Replay dots.
 import { teamClassFor } from '../race-replay/raceReplayHelpers';
@@ -16,7 +16,18 @@ import {
   removeFromScope,
   scopeMatchesTeams,
 } from './raceSyncViewScope';
+// Driver naming, shared with the panels under the map so a car is spelled the
+// same way in the roster and in a table.
+import { displayName, driverCode } from './raceSyncDriverNames';
 import RaceSyncFlag from './RaceSyncFlag';
+import RaceSyncSpine from './RaceSyncSpine';
+// The rail's Race Overview row lands on this section: the same id map the
+// panels use, so the rail and the page cannot point at different things.
+import { SECTION_ANCHORS } from './raceSyncAnchors';
+// The readings of the same race: the panels under the map, which follow this
+// stage's own playhead, so neither the numbers nor the map can get ahead of
+// the other.
+import RaceSyncGraphs from './RaceSyncGraphs';
 import monzaAerial from '../../assets/racesync/monza-aerial.png';
 import raceCarBackdrop from '../../assets/racesync/race-car.png';
 
@@ -49,7 +60,7 @@ const SECTOR_MARKS = [
 const GUIDE_STEPS = [
   'Pick a race above to load its replay.',
   'Each marker on the map is a driver, coloured by team.',
-  'Use the left rail to inspect strategy, telemetry and lap times.',
+  'Use the left rail to reach the analysis sections.',
   'Simulate a change to see what could have happened.',
 ];
 
@@ -67,29 +78,43 @@ function formatDay(iso) {
   return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
 }
 
-// OpenF1 stores names like "Max VERSTAPPEN"; live timing shows VER.
-function driverCode(name) {
-  const last = String(name ?? '').trim().split(/\s+/).pop() ?? '';
-  const letters = last
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z]/g, '');
-  return letters.slice(0, 3).toUpperCase() || '—';
-}
-
-// "Max VERSTAPPEN" → "Max Verstappen" for the legend; names already in
-// normal case pass through untouched.
-function displayName(name) {
-  return String(name ?? '')
-    .trim()
-    .split(/\s+/)
-    .map((word) =>
-      word.length > 2 && word === word.toUpperCase() ? word[0] + word.slice(1).toLowerCase() : word
-    )
-    .join(' ');
-}
-
 const round1 = (value) => Math.round(value * 10) / 10;
+
+// The map's zoom, in one place: a scale k — never below the fitted view, never
+// past 8× — and a pan clamped so the circuit's own edge can never be dragged
+// inside the frame (at 1× that is exactly no travel; beyond it, exactly the
+// overflow). Pure arithmetic, so the rules read here and nowhere else.
+const MIN_MAP_ZOOM = 1;
+const MAX_MAP_ZOOM = 8;
+const MAP_ZOOM_STEP = 1.6;
+
+const IDENTITY_ZOOM = { k: 1, x: 0, y: 0 };
+
+function clampMapZoom({ k, x, y }, width, height) {
+  const scale = Math.min(MAX_MAP_ZOOM, Math.max(MIN_MAP_ZOOM, k));
+  return {
+    k: scale,
+    x: Math.min(0, Math.max(-width * (scale - 1), x)),
+    y: Math.min(0, Math.max(-height * (scale - 1), y)),
+  };
+}
+
+// Zooming keeps one point of the circuit still — the cursor for the wheel,
+// the centre for the buttons — and that fixed point is the whole of the
+// arithmetic below.
+function zoomMapAt(current, factor, width, height, focalX, focalY) {
+  const k = Math.min(MAX_MAP_ZOOM, Math.max(MIN_MAP_ZOOM, current.k * factor));
+  const ratio = k / current.k;
+  return clampMapZoom(
+    {
+      k,
+      x: focalX - (focalX - current.x) * ratio,
+      y: focalY - (focalY - current.y) * ratio,
+    },
+    width,
+    height
+  );
+}
 
 // Turns a raw trace into a renderable frame: rotated to landscape when the
 // circuit is drawn taller than wide, y flipped (SVG grows downwards), padded
@@ -285,6 +310,113 @@ function RaceSyncTrackStage({ sessionId, race }) {
     trackShapeError,
   } = useRaceReplaySnapshots(sessionId, { autoPlay: false });
 
+  // The map's zoom: one transform on a wrapper of everything the circuit is
+  // drawn of, so the picture zooms as one thing, while the pieces sized in
+  // screen pixels — cars, sector chips, the start line — counter-scale
+  // through --racesync-map-k and so stay legible. Zooming never touches the
+  // replay: the cars keep driving whatever the view does.
+  const [zoom, setZoom] = useState(IDENTITY_ZOOM);
+  const [panning, setPanning] = useState(false);
+  const mapRef = useRef(null);
+  const dragRef = useRef(null);
+
+  // A different race is a different circuit: the view goes back to fitted.
+  useEffect(() => {
+    setZoom(IDENTITY_ZOOM);
+  }, [sessionId]);
+
+  // Ctrl/⌘ + wheel zooms under the cursor — the gesture the browser itself
+  // answers with a page zoom, so it is taken over with a non-passive listener
+  // (React's own onWheel cannot refuse the default). A plain wheel keeps
+  // scrolling the page: the map sits in the middle of it and must not take
+  // the wheel hostage.
+  const handleMapWheel = useCallback((event) => {
+    const node = mapRef.current;
+    if (node == null) return;
+    if (!event.ctrlKey && !event.metaKey) return;
+    event.preventDefault();
+    const rect = node.getBoundingClientRect();
+    // Line-unit deltas (Firefox) rescaled to the pixel deltas every other
+    // browser reports, so a notch means one notch everywhere.
+    const delta = event.deltaMode === 1 ? event.deltaY * 33 : event.deltaY;
+    setZoom((current) =>
+      zoomMapAt(
+        current,
+        Math.exp(-delta * 0.002),
+        rect.width,
+        rect.height,
+        event.clientX - rect.left,
+        event.clientY - rect.top
+      )
+    );
+  }, []);
+
+  // The listener follows the node it serves rather than the session: the map
+  // card is handed to the readings' grid, which re-creates it when the lap
+  // series lands (its loading tree and its data tree place the card in
+  // different positions), so a session-keyed effect would weld the zoom to a
+  // node the page has already thrown away. A ref callback attaches and
+  // detaches with the node itself, whichever tree it lands in.
+  const attachMapNode = useCallback(
+    (node) => {
+      if (mapRef.current) mapRef.current.removeEventListener('wheel', handleMapWheel);
+      mapRef.current = node;
+      if (node) node.addEventListener('wheel', handleMapWheel, { passive: false });
+    },
+    [handleMapWheel]
+  );
+
+  const zoomBy = (factor) => {
+    const rect = mapRef.current?.getBoundingClientRect();
+    if (rect == null) return;
+    setZoom((current) =>
+      zoomMapAt(current, factor, rect.width, rect.height, rect.width / 2, rect.height / 2)
+    );
+  };
+
+  const resetZoom = () => setZoom(IDENTITY_ZOOM);
+
+  // A drag pans — but only once there is somewhere to pan, so the cursor never
+  // promises a drag the clamp would refuse anyway.
+  const beginPan = (event) => {
+    if (zoom.k <= MIN_MAP_ZOOM) return;
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: zoom.x,
+      originY: zoom.y,
+    };
+    setPanning(true);
+  };
+
+  const movePan = (event) => {
+    const drag = dragRef.current;
+    if (drag == null || drag.pointerId !== event.pointerId) return;
+    const rect = mapRef.current?.getBoundingClientRect();
+    if (rect == null) return;
+    setZoom((current) =>
+      clampMapZoom(
+        {
+          ...current,
+          x: drag.originX + (event.clientX - drag.startX),
+          y: drag.originY + (event.clientY - drag.startY),
+        },
+        rect.width,
+        rect.height
+      )
+    );
+  };
+
+  const endPan = (event) => {
+    const drag = dragRef.current;
+    if (drag == null || drag.pointerId !== event.pointerId) return;
+    dragRef.current = null;
+    setPanning(false);
+  };
+
   // The two waits the map falls back on, named as they were when this stage
   // fetched for itself: a trace that has not arrived, and one this circuit
   // has none of.
@@ -340,12 +472,6 @@ function RaceSyncTrackStage({ sessionId, race }) {
     speed,
   });
 
-  // The band's lap readout is also its jump box, so the number being edited
-  // needs a draft of its own: the replay ticking on underneath must not
-  // overwrite what is being typed.
-  const [lapDraft, setLapDraft] = useState(null);
-  const lapAtFocusRef = useRef(null);
-
   // The roster column beside the map is live while the replay is up: a scope
   // can be shortened or extended there without going back to the header. A
   // team scope names whole teams, so its ＋ rows offer teams and a row's −
@@ -385,11 +511,11 @@ function RaceSyncTrackStage({ sessionId, race }) {
   // null and the effect above bails out.
   if (!sessionId) {
     return (
-      <section className="racesync-stage" aria-label="How to use RaceSync">
+      <section className="racesync-stage" id={SECTION_ANCHORS.overview} aria-label="How to use RaceSync">
         <div className="racesync-stage-body">
           <div className="racesync-stage-map-wrap">
             <div
-              className="racesync-stage-map"
+              className="racesync-stage-map is-guide"
               style={{ aspectRatio: '16 / 9', maxWidth: 'calc(52vh * 1.78)' }}
             >
               <img className="racesync-stage-aerial" src={monzaAerial} alt="" />
@@ -415,42 +541,15 @@ function RaceSyncTrackStage({ sessionId, race }) {
   const remainingLaps =
     lap != null && totalLaps != null ? Math.max(0, totalLaps - lap) : null;
   const chips = buildWeatherChips(snapshot?.weather);
-  // The red mark says what the replay is doing: Play starts this race (or picks
-  // a paused one back up), Restart plays it again from the first lap. At the
-  // end the label is Play once more, because the only race left to play is the
-  // whole one. The chevrons are that same mark's two directions — a lap back,
-  // a lap forward, on this replay's own lap clock.
-  const primaryLabel = playing ? 'Restart the replay' : 'Play the replay';
+  // The red mark on the workflow spine says what the replay is doing: Play
+  // starts this race (or picks a paused one back up), Restart plays it again
+  // from the first lap. At the end the label is Replay once more, because
+  // the only race left to play is the whole one. The chevrons, the type-in
+  // lap chip, pause and the speed cycle live on that bar beside the mark
+  // now — the band keeps only the readings the playhead drives.
   const primaryAction = () => {
     if (playing || atEnd) restart();
     else togglePlaying();
-  };
-  const stepBack = () => jumpToLap((lap ?? 0) - 1);
-  const stepForward = () => jumpToLap((lap ?? 0) + 1);
-  // The jump box: the lap number in the band is a field, so a lap can be typed
-  // rather than stepped to one at a time. Focusing starts the draft from the
-  // lap on screen — reading the box never moves the playhead — and selects it,
-  // so a typed lap replaces the readout instead of being inserted into the
-  // middle of it. (A number input refuses to be selected, which is why this is
-  // a text box with a numeric keypad.) Confirming sends the replay there
-  // without disturbing play or pause, and an out-of-range lap is answered
-  // rather than refused: jumpToLap clamps to the race, so a typo lands on the
-  // nearest real lap.
-  const beginLapEdit = (event) => {
-    lapAtFocusRef.current = lap;
-    setLapDraft(String(lap));
-    event.target.select();
-  };
-  const commitLapEdit = () => {
-    const typed = lapDraft;
-    setLapDraft(null);
-    if (typed == null || typed === String(lapAtFocusRef.current)) return;
-    const wanted = Number.parseInt(typed, 10);
-    if (Number.isFinite(wanted)) jumpToLap(wanted);
-  };
-  const handleLapKey = (event) => {
-    if (event.key === 'Enter') commitLapEdit();
-    if (event.key === 'Escape') setLapDraft(null);
   };
   const dateLabel = formatDay(race?.startTime);
   // The session type is part of the line on purpose: a meeting can hold both a
@@ -460,9 +559,14 @@ function RaceSyncTrackStage({ sessionId, race }) {
     : null;
 
   return (
-    <section className="racesync-stage" aria-label="Circuit map and driver positions">
-      {/* Race band: who and where on the left, how far along on the right,
-          over a track photograph that fades back behind the text. */}
+    <section
+      className="racesync-stage"
+      id={SECTION_ANCHORS.overview}
+      aria-label="Circuit map and driver positions"
+    >
+      {/* Race band: who and where on the left, how the sky was doing and how
+          far along on the right, over a track photograph that fades back
+          behind the text. */}
       <header className="racesync-band">
         <img className="racesync-band-photo" src={raceCarBackdrop} alt="" />
         <div className="racesync-band-ident">
@@ -473,93 +577,10 @@ function RaceSyncTrackStage({ sessionId, race }) {
           </div>
         </div>
 
+        {/* How far along and what the sky was doing — the band is a readout
+            now; the controls that drive the playhead live on the workflow
+            spine under the readings, beside the replay mark. */}
         <div className="racesync-band-stats">
-          {/* The transport, on Race Replay's own engine — same lap clock, same
-              speeds, same per-lap cache as its viewer. The chevrons step a lap
-              at a time on that same clock; pause keeps the middle seat, since
-              starting and restarting live on the red mark beside it. */}
-          <div className="racesync-band-transport">
-            <button
-              type="button"
-              className="racesync-transport-btn"
-              title="Back one lap"
-              aria-label="Back one lap"
-              onClick={stepBack}
-              disabled={lap == null || lap <= 0}
-            >
-              {/* Two chevrons, one glyph — the mirror of the forward pair, so
-                  the two ends of the cluster read as one control. */}
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M11 7 6 12l5 5M18 7l-5 5 5 5" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              className="racesync-transport-btn"
-              title={playing ? 'Pause the replay' : 'Resume the replay'}
-              aria-label={playing ? 'Pause the replay' : 'Resume the replay'}
-              onClick={togglePlaying}
-              disabled={atEnd}
-            >
-              {playing ? '⏸' : '▶'}
-            </button>
-            <button
-              type="button"
-              className="racesync-transport-btn"
-              title="Replay speed"
-              aria-label={`Replay speed ${speed}×`}
-              onClick={cycleSpeed}
-            >
-              {speed}×
-            </button>
-            <button
-              type="button"
-              className="racesync-transport-btn"
-              title="Forward one lap"
-              aria-label="Forward one lap"
-              onClick={stepForward}
-              disabled={lap == null || atEnd}
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M13 7l5 5-5 5M6 7l5 5-5 5" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Not "Live": these replays are historical, and the band shouldn't
-              claim otherwise. The red mark is what used to be the mode pill —
-              now the one control that says what the replay is doing. */}
-          <button
-            type="button"
-            className="racesync-primary-btn"
-            title={primaryLabel}
-            aria-label={primaryLabel}
-            onClick={primaryAction}
-          >
-            {playing ? 'Restart' : 'Play'}
-          </button>
-          {lap != null && totalLaps != null && (
-            <span className="racesync-band-lap">
-              {/* Same words as a readout, but the number is the jump box:
-                  type a lap into it and press Enter — or click away — to send
-                  the replay there. */}
-              <label className="racesync-band-lap-caption">
-                Lap
-                <input
-                  className="racesync-band-lap-input"
-                  type="text"
-                  inputMode="numeric"
-                  title={`Jump to a lap between 0 and ${totalLaps}`}
-                  value={lapDraft ?? lap}
-                  onFocus={beginLapEdit}
-                  onChange={(event) => setLapDraft(event.target.value)}
-                  onBlur={commitLapEdit}
-                  onKeyDown={handleLapKey}
-                />
-              </label>
-              <span>/ {totalLaps}</span>
-            </span>
-          )}
           {chips.map((chip) => (
             <span key={chip.label} className="racesync-band-chip">
               <span className="racesync-band-chip-value">{chip.value}</span>
@@ -583,130 +604,231 @@ function RaceSyncTrackStage({ sessionId, race }) {
         </div>
       </header>
 
-      <div className="racesync-stage-body">
-        <div className="racesync-stage-map-wrap">
-          <div
-            className="racesync-stage-map"
-            style={{
-              aspectRatio: geometry
-                ? `${geometry.width} / ${geometry.height}`
-                : '16 / 9',
-              maxWidth: geometry
-                ? `calc(52vh * ${geometry.ratio})`
-                : 'calc(52vh * 1.78)',
-            }}
-          >
-            <img className="racesync-stage-aerial" src={monzaAerial} alt="" />
+      {/* The map card is handed to the readings' own grid: the panels place it
+          between their two flanking columns, so it stands at the centre of the
+          page with a reading down each side. The playhead is this stage's, so
+          the readings advance with the map. The workflow spine rides that
+          grid as a full-width row under the readings, carrying every control
+          that drives the playhead beside the replay mark. */}
+      <RaceSyncGraphs
+        sessionId={sessionId}
+        snapshot={snapshot}
+        race={race}
+        workflow={
+          <RaceSyncSpine
+            lap={lap}
+            totalLaps={totalLaps}
+            atEnd={atEnd}
+            playing={playing}
+            speed={speed}
+            onJumpToLap={jumpToLap}
+            onTogglePlaying={togglePlaying}
+            onCycleSpeed={cycleSpeed}
+            onReplay={primaryAction}
+          />
+        }
+      >
+        <div className="racesync-stage-body">
+          <div className="racesync-stage-map-wrap">
+            <div
+              ref={attachMapNode}
+              className="racesync-stage-map"
+              style={{
+                aspectRatio: geometry
+                  ? `${geometry.width} / ${geometry.height}`
+                  : '16 / 9',
+                maxWidth: geometry
+                  ? `calc(52vh * ${geometry.ratio})`
+                  : 'calc(52vh * 1.78)',
+                // The counter-scale every screen-sized piece of the circuit
+                // carries, so cars, sector chips and the start line stay
+                // legible at any zoom instead of growing with the picture.
+                '--racesync-map-k': String(1 / zoom.k),
+              }}
+            >
+              {/* Everything of the circuit — aerial, trace, start line,
+                  sectors and cars — rides one transform, so the map zooms as
+                  one picture; the vignette rides inside it too, being part of
+                  the picture rather than of the frame. The trace's stroke
+                  already draws non-scaling and the rest counter-scales, so
+                  nothing thickens as the map comes closer. */}
+              <div
+                className={`racesync-stage-zoom${
+                  zoom.k > MIN_MAP_ZOOM ? ' is-zoomed' : ''
+                }${panning ? ' is-panning' : ''}`}
+                style={{ transform: `translate(${zoom.x}px, ${zoom.y}px) scale(${zoom.k})` }}
+                onPointerDown={beginPan}
+                onPointerMove={movePan}
+                onPointerUp={endPan}
+                onPointerCancel={endPan}
+              >
+                <img className="racesync-stage-aerial" src={monzaAerial} alt="" />
+                <span className="racesync-stage-vignette" aria-hidden="true" />
 
-            {geometry ? (
-              <>
-                <svg className="racesync-stage-svg" viewBox={geometry.viewBox} aria-hidden="true">
-                  <path className="racesync-trace-shadow" d={geometry.path} />
-                  <path className="racesync-trace-line" d={geometry.path} />
-                </svg>
+                {geometry ? (
+                  <>
+                    <svg
+                      className="racesync-stage-svg"
+                      viewBox={geometry.viewBox}
+                      aria-hidden="true"
+                    >
+                      <path className="racesync-trace-shadow" d={geometry.path} />
+                      <path className="racesync-trace-line" d={geometry.path} />
+                    </svg>
 
-                {/* The start/finish line — the flag's own black and white, in
-                    the one place on the map that means the same thing on every
-                    circuit. Its rotation is the trace's normal there, so it
-                    lies across the track rather than along it. */}
-                <span
-                  className="racesync-stage-startline"
-                  style={{
-                    left: geometry.startLine.left,
-                    top: geometry.startLine.top,
-                    transform: `translate(-50%, -50%) rotate(${geometry.startLine.angle}deg)`,
-                  }}
-                />
-
-                {SECTOR_MARKS.map((sector) => (
-                  <span
-                    key={sector.label}
-                    className="racesync-stage-sector"
-                    style={geometry.percent(geometry.pointAt(sector.at))}
-                  >
-                    {sector.label}
-                  </span>
-                ))}
-
-                {field.map((driver) => (
-                  /* Where a marker sits is written straight to the node by the
-                     motion hook, sixty times a second, instead of rendered —
-                     see useRaceSyncCarMotion for why. */
-                  <span
-                    key={driver.entryId}
-                    ref={registerCar(driver.entryId)}
-                    className={`racesync-stage-car racesync-car-${driver.teamKey}`}
-                  >
-                    {driver.code}
-                  </span>
-                ))}
-              </>
-            ) : (
-              <div className="racesync-stage-overlay">
-                {shapeStatus === 'loading' && 'Loading the circuit outline…'}
-                {shapeStatus === 'missing' &&
-                  'No real track outline is available for this circuit yet.'}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {(field.length > 0 || candidates.length > 0) && (
-          <div className="racesync-stage-roster">
-            {field.length > 0 && (
-              <ul className="racesync-stage-legend">
-                {field.map((driver) => (
-                  <RosterRow
-                    key={driver.entryId}
-                    row={driver}
-                    onMap
-                    control={
-                      scopeActive
-                        ? {
-                            // In a team scope the control names the team,
-                            // because that is what it takes off — both cars of
-                            // the team leave with it.
-                            label: `Remove ${
-                              teamScope ? driver.teamName : driver.name
-                            } from the map`,
-                            onClick: () =>
-                              setScope(
-                                removeFromScope(
-                                  scope,
-                                  teamScope ? driver.teamName : driver.driverName
-                                )
-                              ),
-                          }
-                        : null
-                    }
-                  />
-                ))}
-              </ul>
-            )}
-
-            {candidates.length > 0 && (
-              <div className="racesync-stage-add">
-                <p className="racesync-stage-add-title">
-                  {teamScope ? 'Add team' : 'Add driver'}
-                </p>
-                <ul className="racesync-stage-add-list">
-                  {candidates.map((row) => (
-                    <RosterRow
-                      key={row.key}
-                      row={row}
-                      control={{
-                        label: `Add ${row.name} to the map`,
-                        onClick: () => setScope(addToScope(scope, row.key)),
+                    {/* The start/finish line — the flag's own black and white,
+                        in the one place on the map that means the same thing
+                        on every circuit. Its rotation is the trace's normal
+                        there, so it lies across the track rather than along
+                        it. */}
+                    <span
+                      className="racesync-stage-startline"
+                      style={{
+                        left: geometry.startLine.left,
+                        top: geometry.startLine.top,
+                        transform: `translate(-50%, -50%) rotate(${geometry.startLine.angle}deg) scale(var(--racesync-map-k, 1))`,
                       }}
+                    />
+
+                    {SECTOR_MARKS.map((sector) => (
+                      <span
+                        key={sector.label}
+                        className="racesync-stage-sector"
+                        style={geometry.percent(geometry.pointAt(sector.at))}
+                      >
+                        {sector.label}
+                      </span>
+                    ))}
+
+                    {field.map((driver) => (
+                      /* Where a marker sits is written straight to the node by
+                         the motion hook, sixty times a second, instead of
+                         rendered — see useRaceSyncCarMotion for why. */
+                      <span
+                        key={driver.entryId}
+                        ref={registerCar(driver.entryId)}
+                        className={`racesync-stage-car racesync-car-${driver.teamKey}`}
+                      >
+                        {driver.code}
+                      </span>
+                    ))}
+                  </>
+                ) : (
+                  <div className="racesync-stage-overlay">
+                    {shapeStatus === 'loading' && 'Loading the circuit outline…'}
+                    {shapeStatus === 'missing' &&
+                      'No real track outline is available for this circuit yet.'}
+                  </div>
+                )}
+              </div>
+
+              {/* The frame's own furniture: zoom in, zoom out, the readout of
+                  the zoom itself, and the reset back to the fitted view. It
+                  stays outside the wrapper on purpose — the frame does not
+                  travel with the circuit. Ctrl/⌘ + wheel zooms under the
+                  cursor; a drag pans once there is somewhere to pan. */}
+              {geometry && (
+                <div className="racesync-stage-zoombar" role="group" aria-label="Map zoom">
+                  <button
+                    type="button"
+                    className="racesync-zoom-btn"
+                    title="Zoom the map in"
+                    aria-label="Zoom the map in"
+                    onClick={() => zoomBy(MAP_ZOOM_STEP)}
+                    disabled={zoom.k >= MAX_MAP_ZOOM}
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path d="M12 6v12M6 12h12" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    className="racesync-zoom-btn"
+                    title="Zoom the map out"
+                    aria-label="Zoom the map out"
+                    onClick={() => zoomBy(1 / MAP_ZOOM_STEP)}
+                    disabled={zoom.k <= MIN_MAP_ZOOM}
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path d="M6 12h12" />
+                    </svg>
+                  </button>
+                  <span className="racesync-zoom-readout">{zoom.k.toFixed(1)}×</span>
+                  <button
+                    type="button"
+                    className="racesync-zoom-btn"
+                    title="Reset the map view"
+                    aria-label="Reset the map view"
+                    onClick={resetZoom}
+                    disabled={zoom.k === MIN_MAP_ZOOM}
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <circle cx="12" cy="12" r="4" />
+                      <path d="M12 3v3M12 18v3M3 12h3M18 12h3" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {(field.length > 0 || candidates.length > 0) && (
+            <div className="racesync-stage-roster">
+              {field.length > 0 && (
+                <ul className="racesync-stage-legend">
+                  {field.map((driver) => (
+                    <RosterRow
+                      key={driver.entryId}
+                      row={driver}
+                      onMap
+                      control={
+                        scopeActive
+                          ? {
+                              // In a team scope the control names the team,
+                              // because that is what it takes off — both cars of
+                              // the team leave with it.
+                              label: `Remove ${
+                                teamScope ? driver.teamName : driver.name
+                              } from the map`,
+                              onClick: () =>
+                                setScope(
+                                  removeFromScope(
+                                    scope,
+                                    teamScope ? driver.teamName : driver.driverName
+                                  )
+                                ),
+                            }
+                          : null
+                      }
                     />
                   ))}
                 </ul>
-              </div>
-            )}
-          </div>
-        )}
+              )}
 
-      </div>
+              {candidates.length > 0 && (
+                <div className="racesync-stage-add">
+                  <p className="racesync-stage-add-title">
+                    {teamScope ? 'Add team' : 'Add driver'}
+                  </p>
+                  <ul className="racesync-stage-add-list">
+                    {candidates.map((row) => (
+                      <RosterRow
+                        key={row.key}
+                        row={row}
+                        control={{
+                          label: `Add ${row.name} to the map`,
+                          onClick: () => setScope(addToScope(scope, row.key)),
+                        }}
+                      />
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+        </div>
+      </RaceSyncGraphs>
 
       {fieldStatus === 'missing' && geometry && (
         <p className="racesync-stage-note">Driver positions aren’t available for this session.</p>
