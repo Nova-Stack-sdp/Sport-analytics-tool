@@ -15,6 +15,12 @@ const RacePaceCard = memo(function RacePaceCard({ lapTrend, lap }) {
 
   const { records, bestLap, averageLapSeconds } = lapTrend;
   const paced = records.filter((record) => record.lapSeconds != null);
+  // Green-flag average: the pace the race actually ran at once the yellow
+  // laps are taken out, the number broadcasters quote for race pace.
+  const greenPaced = paced.filter((record) => record.flag === 'Green');
+  const greenAverageSeconds = greenPaced.length
+    ? greenPaced.reduce((total, record) => total + record.lapSeconds, 0) / greenPaced.length
+    : null;
   const fastestSeconds = bestLap?.seconds ?? null;
   const slowestSeconds = paced.length
     ? Math.max(...paced.map((record) => record.lapSeconds))
@@ -102,8 +108,19 @@ const RacePaceCard = memo(function RacePaceCard({ lapTrend, lap }) {
         <div className="pace-summary-item">
           <span className="pace-summary-label">Average lap</span>
           <span className="pace-summary-value mono">{formatLapSeconds(averageLapSeconds)}</span>
-          <span className="pace-summary-sub">{paced.length} timed laps</span>
+          <span className="pace-summary-sub">
+            {paced.length} timed {paced.length === 1 ? 'lap' : 'laps'}
+          </span>
         </div>
+        {greenAverageSeconds != null && (
+          <div className="pace-summary-item">
+            <span className="pace-summary-label">Green average</span>
+            <span className="pace-summary-value mono">{formatLapSeconds(greenAverageSeconds)}</span>
+            <span className="pace-summary-sub">
+              {greenPaced.length} green-flag {greenPaced.length === 1 ? 'lap' : 'laps'}
+            </span>
+          </div>
+        )}
       </div>
     </section>
   );

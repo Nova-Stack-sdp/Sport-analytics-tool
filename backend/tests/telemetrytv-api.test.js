@@ -179,7 +179,41 @@ describe('GET /api/telemetry-tv/races/:slug', () => {
     expect(oward.stops.map((stop) => stop.basis)).toEqual(['stated', 'video estimate', 'stated']);
   });
 
-  test('omits curated anchors for races without an anchor set', async () => {
+  test('serves the curated video anchors and broadcast events for Long Beach', async () => {
+    const row = raceRow('indycar:long-beach-2023-race:v1', {
+      eventName: 'Acura Grand Prix of Long Beach',
+      sessionDate: '4/16/2023',
+      totalLaps: 85,
+      fieldSize: 27,
+      youtubeId: '2ifguXu0P7s',
+      embedStartSeconds: 1704,
+      videoDurationSeconds: 8163,
+    });
+    mockPrisma.externalApiCache.findMany.mockResolvedValue([row]);
+
+    const res = await request(createApp()).get('/api/telemetry-tv/races/long-beach-2023');
+
+    expect(res.status).toBe(200);
+    // Source calibration counts completed laps; the served curve is the
+    // lap-in-progress convention (green flag at 0 completed = lap 1).
+    expect(res.body.race.lapCalibration).toHaveLength(15);
+    expect(res.body.race.lapCalibration[0]).toEqual({ video_s: 1930, lap: 1, basis: 'green flag' });
+    expect(res.body.race.lapCalibration.at(-1)).toMatchObject({ video_s: 6654, lap: 86 });
+    expect(res.body.race.events).toHaveLength(86);
+    expect(res.body.race.events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: 'green_flag' }),
+      expect.objectContaining({ type: 'pit_stop', lap: 2, drivers: ['Castroneves'] }),
+      expect.objectContaining({ type: 'finish' }),
+    ]));
+    expect(res.body.race.intelligence).toMatchObject({
+      narrative: expect.stringMatching(/Kirkwood/),
+      strategySignals: expect.arrayContaining([
+        expect.objectContaining({ label: 'Overcut window' }),
+      ]),
+    });
+  });
+
+  test('serves the curated broadcast pit stops for Long Beach', async () => {
     mockPrisma.externalApiCache.findMany.mockResolvedValue([
       raceRow('indycar:long-beach-2023-race:v1', { sessionDate: '4/16/2023' }),
     ]);
@@ -187,9 +221,25 @@ describe('GET /api/telemetry-tv/races/:slug', () => {
     const res = await request(createApp()).get('/api/telemetry-tv/races/long-beach-2023');
 
     expect(res.status).toBe(200);
+    expect(res.body.race.pitStops).toHaveLength(9);
+    const kirkwood = res.body.race.pitStops.find((entry) => entry.driver === 'Kirkwood');
+    expect(kirkwood).toMatchObject({ car: '27', total: 2 });
+    expect(kirkwood.stops.map((stop) => stop.raceLap)).toEqual([22, 54]);
+    expect(kirkwood.stops.map((stop) => stop.basis)).toEqual(['stated', 'stated']);
+  });
+
+  test('omits curated anchors for races without an anchor set', async () => {
+    mockPrisma.externalApiCache.findMany.mockResolvedValue([
+      raceRow('indycar:detroit-2023-race:v1', { sessionDate: '6/4/2023' }),
+    ]);
+
+    const res = await request(createApp()).get('/api/telemetry-tv/races/detroit-2023');
+
+    expect(res.status).toBe(200);
     expect(res.body.race.lapCalibration).toBeNull();
     expect(res.body.race.events).toEqual([]);
     expect(res.body.race.pitStops).toEqual([]);
+    expect(res.body.race.intelligence).toBeNull();
   });
 
   test('returns 404 for a race slug without a cached bundle', async () => {

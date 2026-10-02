@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import TelemetryTVPage from '../pages/TelemetryTVPage';
 import { getTelemetryTVRace, getTelemetryTVRaces } from '../api/client';
@@ -382,6 +382,9 @@ describe('TelemetryTVPage', () => {
     expect(paceCard).toHaveTextContent('1:04.019');
     expect(paceCard).toHaveTextContent('1:01.654');
     expect(paceCard).toHaveTextContent('lap 2');
+    // Lap 1 is the only green-flag lap: the green average reads its time.
+    expect(paceCard).toHaveTextContent('Green average');
+    expect(paceCard).toHaveTextContent('1 green-flag lap');
   });
 
   test('shows the official per-driver classification stats', async () => {
@@ -396,9 +399,57 @@ describe('TelemetryTVPage', () => {
     const rows = container.querySelectorAll('.driver-stats-table tbody tr');
     expect(rows).toHaveLength(2);
     expect(rows[0]).toHaveTextContent("Pato O'Ward");
+    expect(rows[0]).toHaveTextContent('Arrow McLaren');
     expect(rows[0]).toHaveTextContent('1:01.654');
     expect(rows[0]).toHaveTextContent('89.0');
     expect(rows[0]).toHaveTextContent('51');
+    // Start slot and movement against it: O'Ward 10th to 1st (+9), Herta pole to 2nd (-1).
+    const statsCard = container.querySelector('.driver-stats-card');
+    expect(within(statsCard).getByRole('columnheader', { name: 'Start' })).toBeInTheDocument();
+    expect(within(statsCard).getByRole('columnheader', { name: '+/-' })).toBeInTheDocument();
+    expect(statsCard).toHaveTextContent('Final classification · full field of 2');
+    expect(rows[0]).toHaveTextContent('10');
+    expect(rows[0]).toHaveTextContent('+9');
+    expect(rows[1]).toHaveTextContent('-1');
+  });
+
+  test('shows the official race overview band and the lead battle chart', async () => {
+    getTelemetryTVRaces.mockResolvedValue({ races: RACES });
+    getTelemetryTVRace.mockResolvedValue({ race: RACE_DETAIL });
+    const { container } = renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Play race' }));
+    await screen.findByText('Official order at lap 1');
+
+    // Overview band: the race-level numbers the payload carries. RACE_DETAIL
+    // has no podium/pole/summary, so those tiles stay omitted rather than faked.
+    const overview = screen.getByRole('region', { name: 'Race overview' });
+    expect(within(overview).getByText('Official race report · 2 laps')).toBeInTheDocument();
+    expect(within(overview).getByText('Fastest lap')).toBeInTheDocument();
+    expect(within(overview).getByText('1:01.654')).toBeInTheDocument();
+    expect(within(overview).getByText("Pato O'Ward · lap 2")).toBeInTheDocument();
+    expect(within(overview).getByText('Average speed')).toBeInTheDocument();
+    expect(within(overview).getByText('89.0 mph')).toBeInTheDocument();
+    expect(within(overview).getByText('Lead changes')).toBeInTheDocument();
+    expect(within(overview).getByText('2 leaders')).toBeInTheDocument();
+    expect(within(overview).getByText('Cautions')).toBeInTheDocument();
+    // Singular handling: the caution count sub and the most-laps-led sub both
+    // read "1 lap" in this fixture.
+    expect(within(overview).getAllByText('1 lap')).toHaveLength(2);
+    expect(within(overview).getByText('Most laps led')).toBeInTheDocument();
+    expect(within(overview).queryByText('Winner')).not.toBeInTheDocument();
+
+    // Lead battle: two stretches across the 2-lap fixture, one caution window.
+    const leadBattle = screen.getByRole('region', { name: 'Lead battle' });
+    expect(within(leadBattle).getByText('Official lead stretches across 2 laps')).toBeInTheDocument();
+    expect(within(leadBattle).getByText('2 leaders')).toBeInTheDocument();
+    expect(within(leadBattle).getByRole('img', {
+      name: 'Lead stretches across 2 laps, 2 different leaders',
+    })).toBeInTheDocument();
+    expect(container.querySelectorAll('.lead-battle-segment')).toHaveLength(2);
+    expect(container.querySelectorAll('.lead-battle-caution')).toHaveLength(1);
+    expect(within(leadBattle).getByText('Lap 1')).toBeInTheDocument();
+    expect(within(leadBattle).getByText('Lap 2')).toBeInTheDocument();
   });
 
   test('shows the leader margin and finish summary once the race completes', async () => {

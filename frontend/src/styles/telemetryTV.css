@@ -1342,7 +1342,7 @@
 
 #page-telemetry-tv .pace-summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 10px;
   margin-top: 10px;
   padding-top: 10px;
@@ -1434,6 +1434,160 @@
 
 #page-telemetry-tv .stats-status-out {
   color: #e9ad39;
+}
+
+/* ---- Race overview band and lead battle chart (official race report) ---- */
+
+#page-telemetry-tv .race-overview-card,
+#page-telemetry-tv .lead-battle-card {
+  margin: 0 20px 20px;
+  padding: 14px 16px;
+}
+
+#page-telemetry-tv .overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
+  gap: 10px;
+}
+
+#page-telemetry-tv .overview-tile {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+#page-telemetry-tv .overview-tile.is-accent {
+  border-color: var(--accent);
+  background: linear-gradient(180deg, rgba(206, 13, 20, 0.16), rgba(206, 13, 20, 0.05));
+}
+
+#page-telemetry-tv .overview-tile-label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text-tertiary);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+#page-telemetry-tv .overview-tile-value {
+  display: block;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#page-telemetry-tv .overview-tile-sub {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#page-telemetry-tv .lead-battle-chart {
+  position: relative;
+  height: 34px;
+  margin-top: 10px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+#page-telemetry-tv .lead-battle-segment {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  border-radius: 3px;
+  background: #4d5a70;
+}
+
+#page-telemetry-tv .lead-battle-segment.is-leader {
+  background: var(--accent);
+}
+
+#page-telemetry-tv .lead-battle-caution {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(233, 173, 57, 0.3),
+    rgba(233, 173, 57, 0.3) 5px,
+    rgba(233, 173, 57, 0.12) 5px,
+    rgba(233, 173, 57, 0.12) 10px
+  );
+}
+
+#page-telemetry-tv .lead-battle-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+#page-telemetry-tv .lead-battle-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+#page-telemetry-tv .lead-battle-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+}
+
+#page-telemetry-tv .lead-battle-chip.is-leader {
+  border-color: var(--accent);
+}
+
+#page-telemetry-tv .lead-battle-chip-name {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+#page-telemetry-tv .lead-battle-chip-laps {
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+#page-telemetry-tv .lead-battle-chip.is-leader .lead-battle-chip-laps {
+  color: var(--accent);
+}
+
+/* ---- Classification deltas and team names ---- */
+
+#page-telemetry-tv .stats-team {
+  display: block;
+  color: var(--text-tertiary);
+  font-size: 9.5px;
+}
+
+#page-telemetry-tv .stats-delta-up {
+  color: #69c3a5;
+  font-weight: 700;
+}
+
+#page-telemetry-tv .stats-delta-down {
+  color: #e9ad39;
+  font-weight: 700;
+}
+
+#page-telemetry-tv .stats-delta-flat {
+  color: var(--text-tertiary);
 }
 
 #page-telemetry-tv .race-finish-card {

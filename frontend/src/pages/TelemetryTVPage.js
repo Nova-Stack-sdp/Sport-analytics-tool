@@ -2,11 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getTelemetryTVRace, getTelemetryTVRaces } from '../api/client';
 import BattleRadar from '../components/telemetry-tv/BattleRadar';
 import DriverStatsPanel from '../components/telemetry-tv/DriverStatsPanel';
+import LeadBattle from '../components/telemetry-tv/LeadBattle';
 import LiveTicker from '../components/telemetry-tv/LiveTicker';
 import Masterboard from '../components/telemetry-tv/Masterboard';
 import PlaybackVideo from '../components/telemetry-tv/PlaybackVideo';
 import PlaybackStatusBar from '../components/telemetry-tv/PlaybackStatusBar';
 import RaceFinishCard from '../components/telemetry-tv/RaceFinishCard';
+import RaceOverview from '../components/telemetry-tv/RaceOverview';
 import RacePaceCard from '../components/telemetry-tv/RacePaceCard';
 import RacePickerBar from '../components/telemetry-tv/RacePickerBar';
 import RacePulse from '../components/telemetry-tv/RacePulse';
@@ -22,6 +24,7 @@ import {
   marginDelta,
 } from '../features/telemetry-tv/raceAnalytics';
 import { buildBattleRadarModel } from '../features/telemetry-tv/buildBattleRadarModel';
+import { buildLeadBattle, buildRaceOverview } from '../features/telemetry-tv/raceStats';
 import { buildMasterboardCommentary } from '../features/telemetry-tv/buildMasterboardCommentary';
 import { pickVideoTickerEvent } from '../features/telemetry-tv/videoTicker';
 import { buildTorontoraceIntelligence } from '../features/telemetry-tv/Torontorace';
@@ -76,6 +79,10 @@ function TelemetryTVPage() {
   const driverStats = buildDriverStats(raceData);
   const margin = marginDelta(raceData, lap);
   const finishSummary = raceData && lapState.isFinished ? buildFinishSummary(raceData) : null;
+  // Official race-report numbers the payload already carries: the overview
+  // band and the lead-stretch chart both read straight from the API facts.
+  const raceOverview = raceData ? buildRaceOverview(raceData) : null;
+  const leadBattle = raceData ? buildLeadBattle(raceData) : null;
 
   const handleVideoTime = useCallback((seconds) => {
     setVideoSeconds(Math.floor(seconds));
@@ -183,6 +190,8 @@ function TelemetryTVPage() {
           </div>
         </div>
 
+        <RaceOverview overview={raceOverview} />
+
         {raceIntelligence && (
           <RaceWeatherPanel
             raceSlug={selectedSlug}
@@ -195,6 +204,7 @@ function TelemetryTVPage() {
           model={battleRadar}
           context={selectedSlug === 'toronto-2025' ? torontorace.context : null}
         />
+        <LeadBattle leadBattle={leadBattle} />
         <RacePulse race={raceData} lapState={lapState} />
         <RaceFinishCard finishSummary={finishSummary} totalLaps={lapState.totalLaps} />
         <RaceTimeline race={raceData} lapState={lapState} />
