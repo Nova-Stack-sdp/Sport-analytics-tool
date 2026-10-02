@@ -15,6 +15,7 @@ import RacePulse from '../components/telemetry-tv/RacePulse';
 import RaceTimeline from '../components/telemetry-tv/RaceTimeline';
 import RaceWeatherPanel from '../components/telemetry-tv/RaceWeatherPanel';
 import TelemetryTVFooter from '../components/telemetry-tv/TelemetryTVFooter';
+import TelemetryTVGuide from '../components/telemetry-tv/TelemetryTVGuide';
 import { deriveIndycarLapState } from '../features/telemetry-tv/deriveIndycarLapState';
 import { lapFromVideoSeconds, videoSecondsForLap } from '../features/telemetry-tv/videoToLap';
 import {
@@ -52,7 +53,9 @@ function TelemetryTVPage() {
         if (cancelled) return;
         const list = Array.isArray(data?.races) ? data.races : [];
         setRaces(list);
-        setSelectedSlug(list.length > 0 ? list[0].slug : '');
+        // selectedSlug already starts empty, so the page opens on the guide;
+        // deliberately NOT reset here — a pick made while the catalogue was
+        // still in flight must survive the catalogue landing.
         setLoading(false);
       })
       .catch((err) => {
@@ -154,41 +157,45 @@ function TelemetryTVPage() {
           onSelectRace={handleRaceSelect}
           loading={loading}
         />
-        <div className="telemetry-tv-grid">
-          <div className="telemetry-tv-primary">
-            <PlaybackVideo
-              ref={videoRef}
-              race={selectedRace}
-              onPlay={() => setPlaybackStarted(true)}
-              onVideoTime={handleVideoTime}
-              playbackStarted={playbackStarted}
-              loading={loading}
-              error={error}
-            />
-            <PlaybackStatusBar
-              race={raceData}
-              lap={lap}
-              videoSeconds={videoSeconds}
-              margin={margin}
-              leaderLap={lapState.leaderLap}
-              onLapChange={handleLapChange}
-            />
-            <LiveTicker events={tickerEvents} />
-            <RacePaceCard lapTrend={lapTrend} lap={lap} />
-          </div>
+        {selectedRace ? (
+          <div className="telemetry-tv-grid">
+            <div className="telemetry-tv-primary">
+              <PlaybackVideo
+                ref={videoRef}
+                race={selectedRace}
+                onPlay={() => setPlaybackStarted(true)}
+                onVideoTime={handleVideoTime}
+                playbackStarted={playbackStarted}
+                loading={loading}
+                error={error}
+              />
+              <PlaybackStatusBar
+                race={raceData}
+                lap={lap}
+                videoSeconds={videoSeconds}
+                margin={margin}
+                leaderLap={lapState.leaderLap}
+                onLapChange={handleLapChange}
+              />
+              <LiveTicker events={tickerEvents} />
+              <RacePaceCard lapTrend={lapTrend} lap={lap} />
+            </div>
 
-          <div className="telemetry-tv-sidebar">
-            <Masterboard
-              race={raceData}
-              lap={lap}
-              isFinished={lapState.isFinished}
-              leaderboard={lapState.leaderboard}
-              loading={raceLoading}
-              error={raceError}
-            />
-            <DriverStatsPanel driverStats={driverStats} />
+            <div className="telemetry-tv-sidebar">
+              <Masterboard
+                race={raceData}
+                lap={lap}
+                isFinished={lapState.isFinished}
+                leaderboard={lapState.leaderboard}
+                loading={raceLoading}
+                error={raceError}
+              />
+              <DriverStatsPanel driverStats={driverStats} />
+            </div>
           </div>
-        </div>
+        ) : (
+          <TelemetryTVGuide error={error} />
+        )}
 
         <RaceOverview overview={raceOverview} />
 

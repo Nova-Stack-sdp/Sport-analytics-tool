@@ -1590,6 +1590,76 @@
   color: var(--text-tertiary);
 }
 
+/* ---- Unselected guide (no race picked yet) ---- */
+
+#page-telemetry-tv .telemetry-tv-guide {
+  margin: 0 20px 20px;
+  padding: 14px 16px;
+}
+
+#page-telemetry-tv .telemetry-tv-guide-body {
+  display: flex;
+  justify-content: center;
+}
+
+#page-telemetry-tv .telemetry-tv-guide-panel {
+  width: 100%;
+  max-width: 620px;
+  padding: 16px 22px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  /* Neutral gray wash — the red tint read as an error state. Fixed so it
+     works on both the light and dark card surfaces. */
+  background: rgba(85, 85, 85, 0.08);
+}
+
+#page-telemetry-tv .telemetry-tv-guide-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#page-telemetry-tv .telemetry-tv-guide-list li {
+  display: flex;
+  gap: 10px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+#page-telemetry-tv .telemetry-tv-guide-list li + li {
+  margin-top: 6px;
+}
+
+/* Flat square bullets, timing-screen style — same idea as the RaceSync guide. */
+#page-telemetry-tv .telemetry-tv-guide-list li::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 4px;
+  height: 4px;
+  margin-top: 8px;
+  background: var(--text-primary);
+}
+
+/* The closer: a thin rule then a bolder italic line, so the panel ends on a
+   statement instead of trailing off with the last bullet. */
+#page-telemetry-tv .telemetry-tv-guide-punchline {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: 0.02em;
+}
+
+#page-telemetry-tv .telemetry-tv-guide-error {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
 #page-telemetry-tv .race-finish-card {
   margin: 18px 20px 0;
 }

@@ -1806,9 +1806,9 @@
 }
 
 /* The default, race-less state: the same map frame, carrying the workspace
-   instructions instead of a trace. Text uses the app's top-nav red (--accent,
-   the same token as the nav gradient), on a dark scrim so it stays legible
-   over the aerial. */
+   instructions instead of a trace. Text takes the neutral contrast token
+   (white in both themes — the red read as an error state), on a dark scrim
+   so it stays legible over the aerial. */
 #page-sync-f1-broadcast .racesync-stage-guide {
   position: absolute;
   inset: 0;
@@ -1821,7 +1821,7 @@
 
 #page-sync-f1-broadcast .racesync-guide-panel {
   padding: 16px 22px;
-  border: 1px solid rgba(206, 13, 20, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 10px;
   background: rgba(3, 6, 5, 0.72);
 }
@@ -1835,7 +1835,7 @@
 #page-sync-f1-broadcast .racesync-guide-list li {
   display: flex;
   gap: 10px;
-  color: var(--accent);
+  color: var(--accent-contrast);
   font-size: 13px;
   font-weight: 600;
   line-height: 1.6;
@@ -1852,7 +1852,7 @@
   width: 4px;
   height: 4px;
   margin-top: 8px;
-  background: var(--accent);
+  background: var(--accent-contrast);
 }
 
 /* The closer: a thin rule then a bolder italic line, so the panel ends on a
@@ -1860,8 +1860,8 @@
 #page-sync-f1-broadcast .racesync-guide-punchline {
   margin: 14px 0 0;
   padding-top: 12px;
-  border-top: 1px solid rgba(206, 13, 20, 0.32);
-  color: var(--accent);
+  border-top: 1px solid rgba(255, 255, 255, 0.22);
+  color: var(--accent-contrast);
   font-size: 15px;
   font-weight: 800;
   font-style: italic;

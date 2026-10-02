@@ -31,8 +31,12 @@ test.describe('TelemetryTV', () => {
 
     await page.goto('/telemetry-tv');
 
+    // Nothing loads until a race is picked: the guide stands in for the player.
     const raceSelect = page.getByLabel('Race');
-    await expect(raceSelect).toHaveValue('toronto-2025');
+    await expect(page.locator('.telemetry-tv-guide')).toBeVisible();
+    await expect(page.locator('.video-embed iframe')).toHaveCount(0);
+
+    await raceSelect.selectOption('toronto-2025');
     await expect(page.locator('.video-embed iframe')).toHaveAttribute(
       'src',
       'https://www.youtube.com/embed/UO4c-wMLhso?enablejsapi=1&playsinline=1&start=184'
