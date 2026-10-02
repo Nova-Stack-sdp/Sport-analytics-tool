@@ -167,7 +167,7 @@ function ApiDocsPage() {
               The frontend authenticates directly against Firebase (sign up, sign in, Google/GitHub OAuth), gating Submissions, Datasets, Developer, and Admin client-side.
             </p>
             <p style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
-              On the backend, <span className="mono">requireAuth</span> middleware verifies a Firebase ID token (<span className="mono">Authorization: Bearer &lt;token&gt;</span>) via <span className="mono">firebase-admin</span>. It's written and ready, but <b>not yet applied to any route</b> — every current endpoint is read-only and open.
+              On the backend, <span className="mono">requireAuth</span> middleware verifies a Firebase ID token (an <span className="mono">Authorization: Bearer</span> header, or the httpOnly <span className="mono">__session</span> cookie) via <span className="mono">firebase-admin</span>, with <span className="mono">requireAdmin</span> layered on top for admin-only work. It guards the account routes, notifications and submissions; the analytics and <span className="mono">/api/v1</span> read endpoints stay open, and are rate-limited instead.
             </p>
           </div>
 
@@ -180,7 +180,7 @@ function ApiDocsPage() {
             <div className="kv"><span>Approved submitter — must log in to submit</span><span className="pill pill-amber">Frontend gate only</span></div>
             <div className="kv"><span>API consumer — login for traceability</span><span className="pill pill-red">Not enforced</span></div>
             <div className="card-note">
-              The frontend gate for approved submitters already exists (<span className="mono">RequireAuth</span> on Submissions/Datasets); the write endpoint it would call doesn't exist yet.
+              The frontend gate for approved submitters already exists (<span className="mono">RequireAuth</span> on Submissions/Datasets), and the write endpoint behind it — <span className="mono">POST /api/submissions</span> — is guarded by <span className="mono">requireAuth</span> and <span className="mono">requireDeveloperOrAdmin</span>.
             </div>
           </div>
         </div>
