@@ -89,6 +89,53 @@ describe('GET /api/race-replay/:sessionId/state', () => {
   });
 });
 
+describe('GET /api/race-replay/:sessionId/lap-series', () => {
+  test('returns 404 for an unknown fixture', async () => {
+    mockPrisma.session.findUnique.mockResolvedValue(null);
+
+    const res = await request(createApp()).get('/api/race-replay/unknown/lap-series');
+    expect(res.status).toBe(404);
+  });
+
+  test('returns 400 for a fixture with no synced lap data', async () => {
+    // Its own sessionId, like the tests below: the context cache is keyed by
+    // sessionId, so a shared one would serve an earlier test's context.
+    mockPrisma.session.findUnique.mockResolvedValue({ ...SESSION, id: 's-series-empty' });
+    mockPrisma.entry.findMany.mockResolvedValue([]);
+    mockPrisma.event.findMany.mockResolvedValue([]);
+
+    const res = await request(createApp()).get('/api/race-replay/s-series-empty/lap-series');
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/no synced lap data/i);
+  });
+
+  test('answers the whole race in one response, lap by lap', async () => {
+    mockPrisma.session.findUnique.mockResolvedValue({ ...SESSION, id: 's-series' });
+    mockPrisma.entry.findMany.mockResolvedValue([
+      { id: 'e1', driver: { driverNumber: 1, name: 'Driver One' }, team: { name: 'Team One' } },
+    ]);
+    mockPrisma.event.findMany.mockResolvedValue([
+      { eventType: 'grid_position', entryId: 'e1', lapNumber: null, occurredAt: '2024-01-01T00:00:00Z', payload: { position: 1 } },
+      { eventType: 'lap_completed', entryId: 'e1', lapNumber: 1, occurredAt: '2024-01-01T00:02:00Z', payload: { lap_time_ms: 90000 } },
+      { eventType: 'lap_completed', entryId: 'e1', lapNumber: 2, occurredAt: '2024-01-01T00:04:00Z', payload: { lap_time_ms: 91000 } },
+      { eventType: 'classification', entryId: 'e1', lapNumber: null, occurredAt: '2024-01-01T00:04:10Z', payload: { final_position: 1, status: 'finished' } },
+    ]);
+
+    const res = await request(createApp()).get('/api/race-replay/s-series/lap-series');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ sessionId: 's-series', totalLaps: 2 });
+    expect(res.body.drivers).toHaveLength(1);
+    expect(res.body.drivers[0]).toMatchObject({
+      entryId: 'e1',
+      driverName: 'Driver One',
+      teamName: 'Team One',
+      status: 'finished',
+    });
+    expect(res.body.drivers[0].lapTimeSeconds).toEqual([90, 91]);
+  });
+});
+
 describe('GET /api/race-replay/:sessionId/track-shape', () => {
   test('returns 404 for an unknown fixture', async () => {
     mockPrisma.session.findUnique.mockResolvedValue(null);

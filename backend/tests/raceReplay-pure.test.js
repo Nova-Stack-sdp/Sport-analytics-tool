@@ -1,4 +1,4 @@
-import { indexReplayContext, computeStateAtLap } from '../src/routes/raceReplay.js';
+import { indexReplayContext, computeStateAtLap, buildLapSeries } from '../src/routes/raceReplay.js';
 
 // A tiny, fully synthetic two-driver, three-lap session — enough to exercise
 // every branch of computeStateAtLap without touching Prisma or the DB.
@@ -124,5 +124,91 @@ describe('computeStateAtLap', () => {
 
     const state = computeStateAtLap(context, 1);
     expect(state.weather).toMatchObject({ airTemperature: 25, trackTemperature: 40 });
+  });
+});
+
+describe('buildLapSeries', () => {
+  test('carries one column per lap, indexed by lap - 1', () => {
+    const { session, entries, events } = buildFixtureEvents();
+    const context = indexReplayContext(session, entries, events);
+
+    const series = buildLapSeries(context);
+    const a = series.drivers.find((d) => d.entryId === 'e1');
+
+    expect(series.totalLaps).toBe(3);
+    expect(a.lapTimeSeconds).toEqual([90, 91, 91.5]);
+    // The position change lands on lap 2, and the classification replaces
+    // every position at the flag — lap 3 is the only lap read from it.
+    expect(a.position).toEqual([1, 2, 2]);
+    expect(a.compound).toEqual(['SOFT', 'HARD', 'HARD']);
+    expect(a.stintNumber).toEqual([1, 2, 2]);
+    // The interval to the car ahead is null for whoever leads that lap — e1
+    // on lap 1, e2 afterwards; behind the leader it is the two lap records'
+    // own timestamps subtracted.
+    expect(a.gapToAhead).toEqual([null, 5, 10]);
+    expect(a.status).toBe('finished');
+  });
+
+  test('holds exactly what /state answers for the same lap', () => {
+    const { session, entries, events } = buildFixtureEvents();
+    const context = indexReplayContext(session, entries, events);
+
+    const series = buildLapSeries(context);
+    const state = computeStateAtLap(context, 2);
+
+    for (const driver of series.drivers) {
+      const onLap = state.leaderboard.find((d) => d.entryId === driver.entryId);
+      expect(driver.lapTimeSeconds[1]).toBe(onLap.lastLapTime);
+      expect(driver.position[1]).toBe(onLap.position);
+      expect(driver.compound[1]).toBe(onLap.tyreCompound);
+      expect(driver.stintNumber[1]).toBe(onLap.stintNumber);
+      expect(driver.gapToAhead[1]).toBe(onLap.gapToAhead);
+    }
+  });
+
+  test('lists the drivers in the order they finished', () => {
+    const { session, entries, events } = buildFixtureEvents();
+    const context = indexReplayContext(session, entries, events);
+
+    const series = buildLapSeries(context);
+
+    expect(series.drivers.map((d) => d.entryId)).toEqual(['e2', 'e1']);
+    expect(series.sessionId).toBe('s1');
+  });
+
+  test('leaves a lap a driver has no record of null rather than filling it in', () => {
+    const session = {
+      id: 's2',
+      type: 'Race',
+      meeting: { name: 'Test Grand Prix', circuit: { name: 'Test Circuit' } },
+    };
+    const entries = [
+      { id: 'e1', driver: { driverNumber: 1, name: 'Driver A' }, team: { name: 'Team A' } },
+    ];
+    // Lap 2 is simply absent from the log — nothing about it can be reported.
+    const events = [
+      { eventType: 'lap_completed', entryId: 'e1', lapNumber: 1, occurredAt: '2024-01-01T00:02:00Z', payload: { lap_time_ms: 90000 } },
+      { eventType: 'lap_completed', entryId: 'e1', lapNumber: 3, occurredAt: '2024-01-01T00:06:00Z', payload: { lap_time_ms: 92000 } },
+    ];
+    const context = indexReplayContext(session, entries, events);
+
+    const series = buildLapSeries(context);
+
+    expect(series.totalLaps).toBe(3);
+    expect(series.drivers[0].lapTimeSeconds).toEqual([90, null, 92]);
+  });
+
+  test('gives every driver empty columns when no lap was ever completed', () => {
+    const { session, entries } = buildFixtureEvents();
+    const context = indexReplayContext(session, entries, []);
+
+    const series = buildLapSeries(context);
+
+    expect(series.totalLaps).toBe(0);
+    expect(series.drivers).toHaveLength(2);
+    for (const driver of series.drivers) {
+      expect(driver.lapTimeSeconds).toEqual([]);
+      expect(driver.status).toBeNull();
+    }
   });
 });
