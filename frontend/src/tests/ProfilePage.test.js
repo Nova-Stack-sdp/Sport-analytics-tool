@@ -6,6 +6,7 @@ import {
   loadUserPreferences,
   readCachedUserPreferences,
   saveUserPreferences,
+  subscribeToUserPreferences,
 } from '../services/userPreferences';
 
 const mockClearAuth = jest.fn();
@@ -69,6 +70,7 @@ jest.mock('../services/userPreferences', () => ({
     ...preferences,
     storage: 'cloud',
   })),
+  subscribeToUserPreferences: jest.fn(() => () => {}),
 }));
 jest.mock('../components/profile/NewsFeedPanel', () => () => <div>Live F1 news panel</div>);
 
@@ -92,6 +94,7 @@ describe('ProfilePage', () => {
       ...value,
       storage: 'cloud',
     }));
+    subscribeToUserPreferences.mockReturnValue(() => {});
     getDrivers.mockResolvedValue({ drivers: [{ id: 'driver-1', name: 'Lando Norris' }] });
     getTeams.mockResolvedValue({ teams: [{ id: 'team-1', name: 'McLaren' }] });
     getFixtures.mockResolvedValue({
@@ -105,8 +108,7 @@ describe('ProfilePage', () => {
   test('shows the signed-in user account details', async () => {
     render(<MemoryRouter><ProfilePage /></MemoryRouter>);
 
-    expect(await screen.findByText('Firestore synced')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Alex Morgan' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Alex Morgan' })).toBeInTheDocument();
     expect(screen.getByDisplayValue('alex@example.test')).toBeDisabled();
     expect(screen.getByText('14 March 2026')).toBeInTheDocument();
     expect(screen.getByText('Standard access')).toBeInTheDocument();
@@ -115,8 +117,7 @@ describe('ProfilePage', () => {
   test('shows the profile dashboard tabs and opens the live news panel', async () => {
     render(<MemoryRouter><ProfilePage /></MemoryRouter>);
 
-    expect(await screen.findByText('Firestore synced')).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'User Profile' })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByRole('tab', { name: 'User Profile' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('tab', { name: 'Settings' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'News Feed' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Calendar' })).toBeInTheDocument();
@@ -167,13 +168,4 @@ describe('ProfilePage', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('saved to your account');
   });
 
-  test('uses the official driver and team lists when the live catalogues are empty', async () => {
-    getDrivers.mockResolvedValue({ drivers: [] });
-    getTeams.mockResolvedValue({ teams: [] });
-
-    render(<MemoryRouter><ProfilePage /></MemoryRouter>);
-
-    expect(await screen.findByRole('option', { name: 'Max Verstappen' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Cadillac' })).toBeInTheDocument();
-  });
 });

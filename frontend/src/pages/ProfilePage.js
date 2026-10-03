@@ -6,7 +6,6 @@ import { clearSession, getDrivers, getTeams } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useDeveloperMode } from '../context/DeveloperModeContext';
 import NewsFeedPanel from '../components/profile/NewsFeedPanel';
-import PreferencePicker from '../components/profile/PreferencePicker';
 import SettingsPanel from '../components/profile/SettingsPanel';
 import {
   profileImageToDataUrl,
@@ -22,6 +21,7 @@ import {
   loadUserPreferences,
   readCachedUserPreferences,
   saveUserPreferences,
+  subscribeToUserPreferences,
 } from '../services/userPreferences';
 import {
   OFFICIAL_2026_DRIVERS,
@@ -80,13 +80,10 @@ function ProfilePage() {
   const [message, setMessage] = useState('');
 // State from main branch (Preferences & URL Params)
   const [preferences, setPreferences] = useState(initialPreferences);
-  const [preferencesLoading, setPreferencesLoading] = useState(true);
-  const [preferencesNotice, setPreferencesNotice] = useState('');
   const [catalog, setCatalog] = useState({
     drivers: OFFICIAL_2026_DRIVERS,
     teams: OFFICIAL_2026_TEAMS,
   });
-  const [catalogError, setCatalogError] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = tabFromParam(searchParams.get('tab'));
 
@@ -121,26 +118,30 @@ function ProfilePage() {
     setPhotoDataUrl(savedProfile.photoDataUrl);
 
     let cancelled = false;
-    setPreferencesLoading(true);
-    setPreferencesNotice('');
     const cached = readCachedUserPreferences(user);
     setPreferences(cached);
+    const unsubscribe = subscribeToUserPreferences(user?.uid, () => {
+      if (cancelled) return;
+      setPreferences((current) => ({
+        ...current,
+        ...readCachedUserPreferences(user),
+      }));
+    });
 
     loadUserPreferences(user).then((loaded) => {
       if (cancelled) return;
       setPreferences(loaded);
       if (loaded.displayName) setDisplayName(loaded.displayName);
-      setPreferencesNotice(loaded.syncError || '');
-    }).finally(() => {
-      if (!cancelled) setPreferencesLoading(false);
     });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [user]);
 
   useEffect(() => {
     let cancelled = false;
-    setCatalogError('');
 
     Promise.allSettled([
       getDrivers({ limit: 100, offset: 0 }),
@@ -152,10 +153,6 @@ function ProfilePage() {
       const drivers = preferenceCatalog(liveDrivers, OFFICIAL_2026_DRIVERS, 'driver');
       const teams = preferenceCatalog(liveTeams, OFFICIAL_2026_TEAMS, 'team');
       setCatalog({ drivers, teams });
-      if (driversResult.status === 'rejected' || teamsResult.status === 'rejected'
-        || liveDrivers.length === 0 || liveTeams.length === 0) {
-        setCatalogError('Using the official 2026 driver and team lists while the live catalogue is unavailable.');
-      }
     });
 
     return () => { cancelled = true; };
@@ -169,11 +166,6 @@ function ProfilePage() {
   const clearStatus = () => {
     if (saveState !== 'idle') setSaveState('idle');
     if (message) setMessage('');
-  };
-
-  const updatePreference = (key, value) => {
-    setPreferences((current) => ({ ...current, [key]: value }));
-    clearStatus();
   };
 
   const handleSave = async (event) => {
@@ -208,8 +200,8 @@ function ProfilePage() {
       setSelectedPhotoName('');
       setSaveState('success');
       setMessage(savedPreferences.storage === 'cloud'
-        ? 'Your profile and news preferences have been saved to your account.'
-        : 'Your demo profile and preferences have been saved in this browser.');
+        ? 'Your profile has been saved to your account.'
+        : 'Your demo profile has been saved in this browser.');
     } catch {
       setDisplayName(nextName);
       setPreferences((current) => ({
@@ -391,67 +383,6 @@ function ProfilePage() {
             </dl>
           </section>
         </div>
-
-        <section className="card profile-card profile-preferences-card" aria-labelledby="news-preferences-title">
-          <div className="card-head">
-            <div>
-              <div className="card-title" id="news-preferences-title">News preferences</div>
-              <div className="card-title-sub">Choose the drivers and teams used by your personalised feed.</div>
-            </div>
-            <span className="profile-sync-state">
-              {preferencesLoading ? 'Loading account…' : preferences.storage === 'cloud' ? 'Firestore synced' : 'Browser fallback'}
-            </span>
-          </div>
-
-          {(preferencesNotice || catalogError) && (
-            <div className="profile-preference-notice" role="status">
-              {preferencesNotice || catalogError}
-            </div>
-          )}
-
-          <div className="profile-preferences-grid">
-            <PreferencePicker
-              label="Drivers"
-              help="Stories mentioning any followed driver appear in For You."
-              options={catalog.drivers}
-              selectedIds={preferences.followedDriverIds}
-              onChange={(ids) => updatePreference('followedDriverIds', ids)}
-              disabled={saveState === 'saving'}
-            />
-            <PreferencePicker
-              label="Teams"
-              help="Follow constructors whose news matters to you."
-              options={catalog.teams}
-              selectedIds={preferences.followedTeamIds}
-              onChange={(ids) => updatePreference('followedTeamIds', ids)}
-              disabled={saveState === 'saving'}
-            />
-          </div>
-
-          <div className="profile-default-filter">
-            <label htmlFor="profile-default-news-filter">Open the News Feed on</label>
-            <select
-              id="profile-default-news-filter"
-              value={preferences.defaultNewsFilter}
-              onChange={(event) => updatePreference('defaultNewsFilter', event.target.value)}
-              disabled={saveState === 'saving'}
-            >
-              <option value="for-you">For You</option>
-              <option value="latest">Latest</option>
-              <option value="drivers">Drivers</option>
-              <option value="teams">Teams</option>
-              <option value="races">Races</option>
-            </select>
-          </div>
-          <button
-            className="btn btn-primary profile-save"
-            type="button"
-            onClick={() => handleSave()}
-            disabled={saveState === 'saving'}
-          >
-            {saveState === 'saving' ? 'Saving…' : 'Save news preferences'}
-          </button>
-        </section>
 
         <section className="profile-actions" aria-label="Account shortcuts">
           <Link to="/telemetry-tv" className="profile-action-card">
