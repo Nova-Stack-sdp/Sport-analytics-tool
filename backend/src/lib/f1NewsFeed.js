@@ -160,7 +160,7 @@ export function createF1NewsService({
     process.env.F1_NEWS_PERSISTED_ITEMS,
     DEFAULT_PERSISTED_ITEMS
   ),
-  newsStore = firestoreNewsStore,
+  newsStore = null,
   now = () => new Date(),
 } = {}) {
   const providers = (feedUrls || (feedUrl
@@ -352,4 +352,4 @@ export function createF1NewsService({
   };
 }
 
-export const f1NewsService = createF1NewsService();
+export const f1NewsService = createF1NewsService({ newsStore: firestoreNewsStore });
