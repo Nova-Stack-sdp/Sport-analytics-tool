@@ -1,5 +1,8 @@
 import { jest } from '@jest/globals';
+import express from 'express';
+import request from 'supertest';
 import { createF1NewsService } from '../src/lib/f1NewsFeed.js';
+import { createNewsRouter } from '../src/routes/news.js';
 
 const TEST_FEED_URL = 'https://example.test/f1/news';
 
@@ -57,6 +60,16 @@ const secondStory = {
 };
 
 describe('F1 news feed service', () => {
+  function memoryStore(saved = null) {
+    return {
+      read: jest.fn().mockResolvedValue(saved),
+      write: jest.fn().mockResolvedValue({
+        saved: true,
+        persistedAt: '2026-09-24T12:00:00.000Z',
+      }),
+    };
+  }
+
   test('combines simultaneous refreshes into one provider request', async () => {
     let resolveFetch;
     const fetchImpl = jest.fn(() => new Promise((resolve) => {
@@ -66,6 +79,7 @@ describe('F1 news feed service', () => {
 
     const firstRefresh = service.refresh();
     const secondRefresh = service.refresh();
+    await new Promise((resolve) => setImmediate(resolve));
     resolveFetch(upstreamResponse(espnFeed([firstStory])));
     const [first, second] = await Promise.all([firstRefresh, secondRefresh]);
 
@@ -131,5 +145,97 @@ describe('F1 news feed service', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
     expect(snapshot.items.map((article) => article.source)).toEqual(['ESPN', 'BBC Sport']);
     expect(snapshot.stale).toBe(false);
+  });
+
+  test('persists the newest shared stories after every successful refresh', async () => {
+    const newsStore = memoryStore();
+    const fetchImpl = jest.fn().mockResolvedValue(upstreamResponse(espnFeed([
+      secondStory,
+      firstStory,
+    ])));
+    const service = createF1NewsService({
+      fetchImpl,
+      feedUrl: TEST_FEED_URL,
+      newsStore,
+      persistedItemLimit: 1,
+    });
+
+    const snapshot = await service.refresh();
+
+    expect(newsStore.read).toHaveBeenCalledTimes(1);
+    expect(newsStore.write).toHaveBeenCalledTimes(1);
+    expect(newsStore.write.mock.calls[0][0].items[0].title).toBe(secondStory.title);
+    expect(newsStore.write.mock.calls[0][1]).toEqual({ limit: 1 });
+    expect(snapshot.persistedAt).toBe('2026-09-24T12:00:00.000Z');
+  });
+
+  test('uses persisted Firestore stories when all providers are unavailable', async () => {
+    const newsStore = memoryStore({
+      items: [{ ...firstStory, source: 'BBC Sport', category: 'Formula 1' }],
+      lastUpdated: '2026-09-24T10:00:00.000Z',
+      persistedAt: '2026-09-24T10:00:01.000Z',
+    });
+    const service = createF1NewsService({
+      fetchImpl: jest.fn().mockResolvedValue(upstreamResponse('', { status: 503 })),
+      feedUrl: TEST_FEED_URL,
+      newsStore,
+    });
+
+    const snapshot = await service.refresh();
+
+    expect(snapshot.items[0].title).toBe(firstStory.title);
+    expect(snapshot.stale).toBe(true);
+    expect(newsStore.write).not.toHaveBeenCalled();
+  });
+});
+
+describe('F1 news API', () => {
+  function apiFor(service) {
+    const app = express();
+    app.use('/api/news', createNewsRouter(service));
+    return app;
+  }
+
+  test('returns a paginated persisted snapshot without refreshing providers', async () => {
+    const items = Array.from({ length: 12 }, (_, index) => ({
+      id: `story-${index}`,
+      title: `Story ${index}`,
+    }));
+    const service = {
+      hydrate: jest.fn().mockResolvedValue(undefined),
+      snapshot: jest.fn(() => ({ items, lastUpdated: '2026-09-24T10:00:00.000Z' })),
+      refresh: jest.fn(),
+    };
+
+    const response = await request(apiFor(service)).get('/api/news?limit=5&offset=5');
+
+    expect(response.status).toBe(200);
+    expect(response.body.items).toHaveLength(5);
+    expect(response.body.items[0].id).toBe('story-5');
+    expect(response.body.pagination).toEqual({
+      limit: 5,
+      offset: 5,
+      total: 12,
+      hasMore: true,
+      nextOffset: 10,
+    });
+    expect(service.refresh).not.toHaveBeenCalled();
+  });
+
+  test('manual refresh checks providers and returns the requested page', async () => {
+    const service = {
+      refresh: jest.fn().mockResolvedValue({
+        items: [firstStory, secondStory],
+        lastUpdated: '2026-09-24T11:00:00.000Z',
+      }),
+      snapshot: jest.fn(() => ({ items: [] })),
+    };
+
+    const response = await request(apiFor(service)).post('/api/news/refresh?limit=1');
+
+    expect(response.status).toBe(200);
+    expect(service.refresh).toHaveBeenCalledTimes(1);
+    expect(response.body.items).toHaveLength(1);
+    expect(response.body.pagination.total).toBe(2);
   });
 });

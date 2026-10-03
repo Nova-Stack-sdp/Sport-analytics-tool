@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { firestoreNewsStore } from './f1NewsPersistence.js';
 
 export const DEFAULT_F1_NEWS_FEED_URL = 'https://site.api.espn.com/apis/site/v2/sports/racing/f1/news?limit=50';
 export const DEFAULT_BBC_F1_NEWS_FEED_URL = 'https://feeds.bbci.co.uk/sport/formula1/rss.xml';
@@ -6,8 +7,9 @@ export const DEFAULT_F1_NEWS_FEEDS = [
   { source: 'ESPN', url: DEFAULT_F1_NEWS_FEED_URL, sourceUrl: 'https://www.espn.com/f1/' },
   { source: 'BBC Sport', url: DEFAULT_BBC_F1_NEWS_FEED_URL, sourceUrl: 'https://www.bbc.com/sport/formula1' },
 ];
-const DEFAULT_POLL_INTERVAL_MS = 60_000;
+const DEFAULT_POLL_INTERVAL_MS = 10 * 60_000;
 const DEFAULT_MAX_ITEMS = 100;
+const DEFAULT_PERSISTED_ITEMS = 30;
 
 function decodeXml(value = '') {
   return value
@@ -154,6 +156,11 @@ export function createF1NewsService({
   feedUrls,
   pollIntervalMs = positiveNumber(process.env.F1_NEWS_POLL_MS, DEFAULT_POLL_INTERVAL_MS),
   maxItems = DEFAULT_MAX_ITEMS,
+  persistedItemLimit = positiveNumber(
+    process.env.F1_NEWS_PERSISTED_ITEMS,
+    DEFAULT_PERSISTED_ITEMS
+  ),
+  newsStore = firestoreNewsStore,
   now = () => new Date(),
 } = {}) {
   const providers = (feedUrls || (feedUrl
@@ -169,7 +176,10 @@ export function createF1NewsService({
   }]));
   let articles = [];
   let lastUpdated = null;
+  let persistedAt = null;
   let lastError = null;
+  let hydrated = false;
+  let hydratePromise = null;
   let refreshPromise = null;
   let timer = null;
   const listeners = new Set();
@@ -181,6 +191,7 @@ export function createF1NewsService({
     feedUrls: providers.map((provider) => provider.url),
     items: articles,
     lastUpdated,
+    persistedAt,
     stale: Boolean(lastError),
     error: lastError,
   });
@@ -188,6 +199,25 @@ export function createF1NewsService({
   const publish = (newItems = []) => {
     const payload = { ...snapshot(), newItems };
     for (const listener of listeners) listener(payload);
+  };
+
+  const hydrate = async () => {
+    if (hydrated) return snapshot();
+    if (hydratePromise) return hydratePromise;
+
+    hydratePromise = (async () => {
+      const saved = await newsStore?.read?.();
+      if (saved?.items?.length) {
+        articles = saved.items.slice(0, maxItems);
+        lastUpdated = saved.lastUpdated || lastUpdated;
+        persistedAt = saved.persistedAt || persistedAt;
+      }
+      hydrated = true;
+      hydratePromise = null;
+      return snapshot();
+    })();
+
+    return hydratePromise;
   };
 
   const aggregateArticles = () => {
@@ -237,6 +267,7 @@ export function createF1NewsService({
 
     refreshPromise = (async () => {
       try {
+        await hydrate();
         const results = await Promise.all(providers.map(async (provider) => {
           try {
             await refreshProvider(provider);
@@ -261,6 +292,11 @@ export function createF1NewsService({
         lastUpdated = now().toISOString();
         lastError = errors.length > 0 ? errors.join('; ') : null;
 
+        const saveResult = await newsStore?.write?.(snapshot(), {
+          limit: persistedItemLimit,
+        });
+        if (saveResult?.saved) persistedAt = saveResult.persistedAt;
+
         if (changed || errors.length > 0) publish(newItems);
         return snapshot();
       } catch (error) {
@@ -278,6 +314,13 @@ export function createF1NewsService({
 
   const startPolling = () => {
     if (timer) return;
+
+    // Keep the shared feed fresh even when nobody has the application open.
+    // Northflank starts this once with the backend process; subscribers only
+    // receive updates and no longer control the lifetime of the refresh job.
+    refresh().catch((error) => {
+      console.error('Initial F1 news refresh failed:', error.message);
+    });
     timer = setInterval(() => {
       refresh().catch((error) => {
         console.error('F1 news refresh failed:', error.message);
@@ -294,20 +337,17 @@ export function createF1NewsService({
 
   const subscribe = (listener) => {
     listeners.add(listener);
-    startPolling();
-    refresh().catch((error) => {
-      console.error('Initial F1 news refresh failed:', error.message);
-    });
     return () => {
       listeners.delete(listener);
-      if (listeners.size === 0) stopPolling();
     };
   };
 
   return {
     refresh,
+    hydrate,
     snapshot,
     subscribe,
+    start: startPolling,
     stop: stopPolling,
   };
 }
