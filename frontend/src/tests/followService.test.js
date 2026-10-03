@@ -7,6 +7,7 @@ import {
   unfollowDriver,
 } from '../services/followService';
 import * as api from '../api/client';
+import { syncFollowPreference } from '../services/userPreferences';
 
 jest.mock('../api/client', () => ({
   getFollows: jest.fn(),
@@ -14,6 +15,9 @@ jest.mock('../api/client', () => ({
   unfollowDriverRequest: jest.fn(),
   followTeamRequest: jest.fn(),
   unfollowTeamRequest: jest.fn(),
+}));
+jest.mock('../services/userPreferences', () => ({
+  syncFollowPreference: jest.fn().mockResolvedValue({ storage: 'cloud' }),
 }));
 
 const driver = { id: 'd1', name: 'Kimi Antonelli' };
@@ -38,9 +42,11 @@ describe('followService', () => {
 
     await followDriver('u1', driver);
     expect(api.followDriverRequest).toHaveBeenCalledWith('d1', driver);
+    expect(syncFollowPreference).toHaveBeenCalledWith('u1', 'driver', 'd1', true);
     expect(isFollowingDriver('u1', 'd1')).toBe(true);
 
     await unfollowDriver('u1', 'd1');
+    expect(syncFollowPreference).toHaveBeenCalledWith('u1', 'driver', 'd1', false);
     expect(isFollowingDriver('u1', 'd1')).toBe(false);
   });
 });

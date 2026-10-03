@@ -1,8 +1,15 @@
-import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import {
+  arrayRemove,
+  arrayUnion,
+  doc,
+  getDoc,
+  serverTimestamp,
+  setDoc,
+} from 'firebase/firestore';
 import { db } from '../firebase';
 
 export const USER_PREFERENCES_UPDATED_EVENT = 'f1-analytics-user-preferences-updated';
-export const NEWS_FILTERS = ['for-you', 'latest', 'drivers', 'teams', 'races'];
+export const NEWS_FILTERS = ['for-you', 'latest', 'drivers', 'teams'];
 
 function preferencesStorageKey(userId) {
   return `f1-news-preferences:${userId}`;
@@ -99,6 +106,38 @@ export async function saveUserPreferences(user, value) {
   }, { merge: true });
 
   return { ...preferences, storage: 'cloud' };
+}
+
+// Keep the Drivers/Teams Follow buttons aligned with the IDs used by the
+// personalised News Feed. The backend follow is written first; this function
+// mirrors that successful change to users/{uid}. A local copy is updated even
+// when Firestore is temporarily unavailable, so the current browser still
+// personalises the feed and can try again on the next follow change.
+export async function syncFollowPreference(userId, type, entityId, following) {
+  if (!userId || !entityId) return null;
+  const field = type === 'team' ? 'followedTeamIds' : 'followedDriverIds';
+  const user = { uid: userId };
+  const cached = readCachedUserPreferences(user);
+  const currentIds = cleanIds(cached[field]);
+  const nextIds = following
+    ? cleanIds([...currentIds, entityId])
+    : currentIds.filter((id) => id !== String(entityId));
+  const next = { ...cached, [field]: nextIds };
+  cacheUserPreferences(userId, next);
+
+  try {
+    await setDoc(doc(db, 'users', userId), {
+      [field]: following ? arrayUnion(String(entityId)) : arrayRemove(String(entityId)),
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+    return { ...next, storage: 'cloud', syncError: '' };
+  } catch {
+    return {
+      ...next,
+      storage: 'browser',
+      syncError: 'The follow was saved, but Firestore will need to sync later.',
+    };
+  }
 }
 
 export function subscribeToUserPreferences(userId, callback) {

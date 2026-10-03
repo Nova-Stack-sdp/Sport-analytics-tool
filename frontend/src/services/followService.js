@@ -8,6 +8,7 @@ import {
   unfollowDriverRequest,
   unfollowTeamRequest,
 } from '../api/client';
+import { syncFollowPreference } from './userPreferences';
 
 export const FOLLOWS_UPDATED_EVENT = 'f1-analytics-follows-updated';
 
@@ -99,6 +100,7 @@ async function flushPending(userId) {
   for (const op of pending) {
     try {
       await sendOp(op);
+      await syncFollowPreference(userId, op.type, op.id, op.on);
     } catch {
       remaining.push(op);
     }
@@ -160,10 +162,15 @@ async function change(userId, type, id, snapshot, on) {
   writeStore(LOCAL_KEY(userId), optimistic);
   try {
     const serverData = await sendOp({ type, id, snapshot, on });
+    await syncFollowPreference(userId, type, id, on);
     writeStore(LOCAL_KEY(userId), normalize(serverData));
     return setCache(userId, serverData);
   } catch (err) {
     console.warn('Follow saved locally; server update failed:', err.status || err.message);
+    // Keep the personalised News Feed in sync with the local fallback too.
+    // This is what lets the localhost demo follow drivers without a backend
+    // login, and it also preserves useful behaviour during a real outage.
+    await syncFollowPreference(userId, type, id, on);
     queueOp(userId, { type, id, snapshot, on });
     return optimistic;
   }
