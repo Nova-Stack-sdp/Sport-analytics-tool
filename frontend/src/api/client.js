@@ -354,8 +354,20 @@ export function reviewSubmission(id, status) {
 // F1 news feed
 // ---------------------------------------------------------------------------
 
-export function getF1News() {
-  return request('/api/news');
+export function getF1News({ limit = 100, offset = 0 } = {}) {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
+  return request(`/api/news?${params.toString()}`);
+}
+
+export function refreshF1News({ limit = 100, offset = 0 } = {}) {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
+  return request(`/api/news/refresh?${params.toString()}`, { method: 'POST' });
 }
 
 // EventSource can't go through request(), so it needs the absolute URL.
