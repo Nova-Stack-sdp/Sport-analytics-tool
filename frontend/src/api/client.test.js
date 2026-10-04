@@ -171,4 +171,36 @@ describe('API client', () => {
 
     await expect(client.uploadDriverImage('d1', file, 'tok')).rejects.toThrow('Image is too large (max 2 MB)');
   });
+  test('attaches the registered Firebase ID token as a Bearer header on every request', async () => {
+    delete process.env.REACT_APP_API_URL;
+    global.fetch.mockResolvedValue(successfulResponse({ submissionId: 's1', status: 'pending' }));
+    const client = loadClient();
+    client.setAuthTokenProvider(() => Promise.resolve('fresh-token'));
+
+    await client.submitData({ session_key: 1, laps: [] });
+    await client.listSubmissions('pending');
+
+    expect(global.fetch).toHaveBeenNthCalledWith(1, `${FALLBACK_API_URL}/api/submissions`, expect.objectContaining({
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer fresh-token' },
+    }));
+    expect(global.fetch).toHaveBeenNthCalledWith(2, `${FALLBACK_API_URL}/api/submissions?status=pending`, expect.objectContaining({
+      headers: { Authorization: 'Bearer fresh-token' },
+    }));
+  });
+
+  test('keeps an explicit Authorization header and falls back to the cookie when no token is available', async () => {
+    delete process.env.REACT_APP_API_URL;
+    global.fetch.mockResolvedValue(successfulResponse({ uid: 'u1' }));
+    const client = loadClient();
+
+    client.setAuthTokenProvider(() => Promise.resolve('provider-token'));
+    await client.getSession('explicit');
+    client.setAuthTokenProvider(() => Promise.reject(new Error('offline')));
+    await client.getOverview();
+
+    expect(global.fetch.mock.calls[0][1].headers).toEqual({ Authorization: 'Bearer explicit' });
+    expect(global.fetch.mock.calls[1][1].headers).toBeUndefined();
+  });
 });
