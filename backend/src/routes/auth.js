@@ -29,13 +29,21 @@ export const authRouter = Router();
 // Cookie name — kept consistent across set/clear/read.
 const COOKIE_NAME = '__session';
 
+// In production the frontend (Netlify) and this API (Northflank) are on
+// different sites, so the cookie must be SameSite=None — which browsers only
+// accept together with Secure (HTTPS). Locally both run over plain HTTP on
+// localhost, where Lax works and Secure would stop the cookie being set.
+// Read per call (not at import) so tests can exercise both modes.
+const isProduction = () => process.env.NODE_ENV === 'production';
+
 // Cookie options shared by set and clear.  Secure is only meaningful over
 // HTTPS (production); in local dev the cookie is sent over plain HTTP.
 function cookieOptions() {
+  const production = isProduction();
   return {
     httpOnly: true,
-    secure: isProduction, // HTTPS required when sameSite is 'none'
-    sameSite: isProduction ? 'none' : 'lax', // CRITICAL FIX: Allows cross-site fetch calls in production
+    secure: production, // HTTPS required when sameSite is 'none'
+    sameSite: production ? 'none' : 'lax', // CRITICAL FIX: Allows cross-site fetch calls in production
     // Firebase ID tokens expire after 1 hour by default, but the SDK
     // auto-refreshes them.  Match the cookie max-age to a generous
     // 7-day window — the middleware re-verifies the token on every

@@ -87,6 +87,37 @@ describe('POST /api/auth/session', () => {
     expect(cookie).toMatch(/HttpOnly/i);
   });
 
+  // Regression: cookieOptions() once referenced an undefined variable, so
+  // every sign-in threw after the token was verified and was reported as
+  // "Invalid or expired Firebase token" (401) — nobody could get a session.
+  test('in production the cookie is SameSite=None; Secure (frontend and API are different sites)', async () => {
+    const previous = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      mockVerifyIdToken.mockResolvedValue({ uid: 'u-prod', email: 'p@b.com' });
+      const res = await request(createApp({ siteRateLimit: 0, v1RateLimit: 0, exportRateLimit: 0, cacheTtlMs: 0 }))
+        .post('/api/auth/session')
+        .send({ idToken: 'valid-firebase-token' });
+
+      expect(res.status).toBe(200);
+      const cookie = [].concat(res.headers['set-cookie'])[0];
+      expect(cookie).toMatch(/SameSite=None/i);
+      expect(cookie).toMatch(/Secure/i);
+    } finally {
+      process.env.NODE_ENV = previous;
+    }
+  });
+
+  test('outside production the cookie is SameSite=Lax and not Secure (plain-HTTP localhost)', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'u-dev', email: 'd@b.com' });
+    const res = await request(createApp()).post('/api/auth/session').send({ idToken: 'valid-firebase-token' });
+
+    expect(res.status).toBe(200);
+    const cookie = [].concat(res.headers['set-cookie'])[0];
+    expect(cookie).toMatch(/SameSite=Lax/i);
+    expect(cookie).not.toMatch(/Secure/i);
+  });
+
   test('returns 400 when idToken is missing from the body', async () => {
     const app = createApp();
 
