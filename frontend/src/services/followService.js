@@ -72,6 +72,7 @@ function writeStore(key, value) {
 const readLocal = (userId) => normalize(readStore(LOCAL_KEY(userId), null));
 const readPending = (userId) => readStore(PENDING_KEY(userId), []);
 const readPreferencePending = (userId) => readStore(PREFERENCE_PENDING_KEY(userId), []);
+let preferenceRevision = 0;
 
 function queueOp(userId, op) {
   // A newer op on the same entity replaces any older queued one.
@@ -81,10 +82,17 @@ function queueOp(userId, op) {
 }
 
 function queuePreferenceOp(userId, op) {
+  const queued = {
+    ...op,
+    revision: `${Date.now()}-${++preferenceRevision}`,
+  };
+
   const pending = readPreferencePending(userId)
     .filter((item) => !(item.type === op.type && item.id === op.id));
-  pending.push(op);
+
+  pending.push(queued);
   writeStore(PREFERENCE_PENDING_KEY(userId), pending);
+  return queued;
 }
 
 function applyLocal(userId, type, id, snapshot, on) {
@@ -102,39 +110,70 @@ async function sendOp(op) {
   return op.on ? followDriverRequest(op.id, op.snapshot) : unfollowDriverRequest(op.id);
 }
 
-async function syncPreference(userId, op) {
-  try {
-    const result = await syncFollowPreference(
-      userId,
-      op.type,
-      op.id,
-      op.on,
-      op.snapshot
-    );
-    if (result?.storage === 'cloud') return true;
-  } catch {
-    // The retry queue below also covers unexpected preference-sync failures.
-  }
+const preferenceWorkers = new Map();
 
+function runPreferenceWorker(userId) {
+  const previous = preferenceWorkers.get(userId) || Promise.resolve();
+
+  const worker = previous.catch(() => {}).then(async () => {
+    // Snapshot this batch. Later changes schedule another worker.
+    const batch = readPreferencePending(userId);
+
+    for (const op of batch) {
+      // Skip operations replaced since the batch was read.
+      const isCurrent = readPreferencePending(userId).some(
+        (item) => (
+          item.type === op.type
+          && item.id === op.id
+          && item.revision === op.revision
+        )
+      );
+
+      if (!isCurrent) continue;
+
+      try {
+        const result = await syncFollowPreference(
+          userId,
+          op.type,
+          op.id,
+          op.on,
+          op.snapshot
+        );
+
+        if (result?.storage !== 'cloud') continue;
+
+        // Read the queue again: preserve changes added during the write.
+        const remaining = readPreferencePending(userId).filter(
+          (item) => !(
+            item.type === op.type
+            && item.id === op.id
+            && item.revision === op.revision
+          )
+        );
+
+        writeStore(PREFERENCE_PENDING_KEY(userId), remaining);
+      } catch {
+        // Leave the operation queued for retry.
+      }
+    }
+  });
+
+  preferenceWorkers.set(userId, worker);
+
+  return worker.finally(() => {
+    if (preferenceWorkers.get(userId) === worker) {
+      preferenceWorkers.delete(userId);
+    }
+  });
+}
+
+async function syncPreference(userId, op) {
   queuePreferenceOp(userId, op);
-  return false;
+  await runPreferenceWorker(userId);
 }
 
 async function flushPreferencePending(userId) {
-  const pending = readPreferencePending(userId);
-  if (pending.length === 0) return;
-  const remaining = [];
-
-  for (const op of pending) {
-    try {
-      const synced = await syncPreference(userId, op);
-      if (!synced) remaining.push(op);
-    } catch {
-      remaining.push(op);
-    }
-  }
-
-  writeStore(PREFERENCE_PENDING_KEY(userId), remaining);
+  await runPreferenceWorker(userId);
 }
 
 async function flushPending(userId) {

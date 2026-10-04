@@ -52,20 +52,80 @@ describe('followService', () => {
     expect(isFollowingDriver('u1', 'd1')).toBe(false);
   });
 
-  test('queues and retries a preference write when the backend follow succeeds', async () => {
+  test('keeps a successful unfollow after a failed preference follow and reload', async () => {
     api.followDriverRequest.mockResolvedValue({ drivers: [driver], teams: [] });
-    api.getFollows.mockResolvedValue({ drivers: [driver], teams: [] });
+    api.unfollowDriverRequest.mockResolvedValue({ drivers: [], teams: [] });
+    api.getFollows.mockResolvedValue({ drivers: [], teams: [] });
     syncFollowPreference
       .mockResolvedValueOnce({ storage: 'browser' })
       .mockResolvedValueOnce({ storage: 'cloud' });
 
     await followDriver('u1', driver);
+    await unfollowDriver('u1', 'd1');
+    await loadFollows('u1', { force: true });
+
+    expect(syncFollowPreference).toHaveBeenLastCalledWith(
+      'u1',
+      'driver',
+      'd1',
+      false,
+      driver
+    );
+    expect(isFollowingDriver('u1', 'd1')).toBe(false);
     expect(JSON.parse(window.localStorage.getItem('f1-follow-preferences-pending:u1')))
-      .toEqual([{ type: 'driver', id: 'd1', snapshot: driver, on: true }]);
+      .toEqual([]);
+  });
+
+  test('preserves and processes a newer change queued during an ongoing write', async () => {
+    let finishFirstWrite;
+    const firstWrite = new Promise((resolve) => { finishFirstWrite = resolve; });
+    api.followDriverRequest.mockResolvedValue({ drivers: [driver], teams: [] });
+    api.unfollowDriverRequest.mockResolvedValue({ drivers: [], teams: [] });
+    syncFollowPreference
+      .mockReturnValueOnce(firstWrite)
+      .mockResolvedValueOnce({ storage: 'cloud' });
+
+    const followPromise = followDriver('u1', driver);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(syncFollowPreference).toHaveBeenCalledTimes(1);
+
+    const unfollowPromise = unfollowDriver('u1', 'd1');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(JSON.parse(window.localStorage.getItem('f1-follow-preferences-pending:u1')))
+      .toEqual([expect.objectContaining({ type: 'driver', id: 'd1', on: false })]);
+
+    finishFirstWrite({ storage: 'cloud' });
+    await Promise.all([followPromise, unfollowPromise]);
+
+    expect(syncFollowPreference).toHaveBeenCalledTimes(2);
+    expect(syncFollowPreference).toHaveBeenLastCalledWith(
+      'u1',
+      'driver',
+      'd1',
+      false,
+      driver
+    );
+    expect(JSON.parse(window.localStorage.getItem('f1-follow-preferences-pending:u1')))
+      .toEqual([]);
+  });
+
+  test('keeps the latest operation queued through repeated Firestore failures', async () => {
+    api.followDriverRequest.mockResolvedValue({ drivers: [driver], teams: [] });
+    api.getFollows.mockResolvedValue({ drivers: [driver], teams: [] });
+    syncFollowPreference
+      .mockResolvedValueOnce({ storage: 'browser' })
+      .mockResolvedValueOnce({ storage: 'browser' })
+      .mockResolvedValueOnce({ storage: 'cloud' });
+
+    await followDriver('u1', driver);
+    await loadFollows('u1', { force: true });
+
+    expect(JSON.parse(window.localStorage.getItem('f1-follow-preferences-pending:u1')))
+      .toEqual([expect.objectContaining({ type: 'driver', id: 'd1', on: true })]);
 
     await loadFollows('u1', { force: true });
 
-    expect(syncFollowPreference).toHaveBeenCalledTimes(2);
+    expect(syncFollowPreference).toHaveBeenCalledTimes(3);
     expect(JSON.parse(window.localStorage.getItem('f1-follow-preferences-pending:u1')))
       .toEqual([]);
     expect(api.followDriverRequest).toHaveBeenCalledTimes(1);
