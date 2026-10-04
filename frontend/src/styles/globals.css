@@ -92,13 +92,13 @@ html, body{margin:0;padding:0;background:#000000;}
 }
 
 /* ===== PAGE HEAD ===== */
-.pagehead{max-width:1400px;margin:0 auto;padding:calc(var(--nav-height) + 28px) var(--page-margin) 0;}
+.pagehead{max-width:1400px;margin:0 auto;padding:28px var(--page-margin) 0;}
 /* DriverDetailPage/TeamDetailPage have no .pagehead — their .content is the
    first thing under the fixed nav, so it needs the same top offset. */
-.page > .content:first-child{padding-top:calc(var(--nav-height) + 22px);}
+.page > .content:first-child{padding-top:22px;}
 .section-eyebrow{font-size:12px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;}
-.section-title{font-size:25.5px;font-weight:800;letter-spacing:-0.02em;}
-.section-desc{font-size:15px;color:var(--text-secondary);margin-top:6px;max-width:700px;}
+.section-title{font-size:22.5px;font-weight:800;letter-spacing:-0.02em;}
+.section-desc{font-size:12px;color:var(--text-secondary);margin-top:6px;max-width:700px;}
 
 .content{max-width:1400px;margin:0 auto;padding:22px var(--page-margin) 72px;}
 .page{animation:fadein .18s ease;}
@@ -296,9 +296,9 @@ td.secondary{color:var(--text-secondary);}
 
 @media (max-width: 760px){
   .section-title{font-size:22px;}
-  .pagehead{padding:calc(var(--nav-height) + 22px) var(--page-margin) 0;}
+  .pagehead{padding:22px var(--page-margin) 0;}
   .content{padding:16px var(--page-margin) 56px;}
-  .page > .content:first-child{padding-top:calc(var(--nav-height) + 16px);}
+  .page > .content:first-child{padding-top:16px;}
   .grid-2,.grid-3,.grid-4{grid-template-columns:1fr;}
   .card{padding:16px;}
 }
