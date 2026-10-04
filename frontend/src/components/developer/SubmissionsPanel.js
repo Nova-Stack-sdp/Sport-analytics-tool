@@ -4,6 +4,12 @@ import { submitData, listSubmissions, reviewSubmission } from '../../api/client'
 const REVIEW_TABS = ['Pending', 'Approved', 'Rejected'];
 const TAB_TO_STATUS = { Pending: 'pending', Approved: 'accepted', Rejected: 'rejected' };
 
+// Prefer the backend's own explanation over the generic "failed with status N".
+function describeError(err) {
+  if (err.status === 401) return 'You need to be signed in to do this. Please sign in again.';
+  return err.body?.error || err.message;
+}
+
 // Submissions tab of the Developer page. Wired to POST/GET/PATCH
 // /api/submissions. Batch submission is a session_key + JSON textarea for
 // now, not drag-and-drop file upload — that's a follow-up.
@@ -26,7 +32,7 @@ function SubmissionsPanel() {
       const data = await listSubmissions(TAB_TO_STATUS[tab]);
       setSubmissions(data.submissions || []);
     } catch (err) {
-      setLoadError(err.message);
+      setLoadError(describeError(err));
     } finally {
       setLoading(false);
     }
@@ -41,7 +47,7 @@ function SubmissionsPanel() {
       await reviewSubmission(id, status);
       loadSubmissions(activeTab);
     } catch (err) {
-      setLoadError(err.message);
+      setLoadError(describeError(err));
     }
   }
 
@@ -64,8 +70,13 @@ function SubmissionsPanel() {
       setSubmitResult(result);
       if (activeTab === 'Pending') loadSubmissions('Pending');
     } catch (err) {
-      if (err.body) setSubmitResult(err.body);
-      else setSubmitError(err.message);
+      // A 422 is a real submission outcome (status: 'rejected' plus the
+      // per-record reasons) — show it as a result. Anything else (401 not
+      // signed in, 403 no developer access, 404 unknown session_key, …) is
+      // an error body like { error: '...' } and must not be rendered as a
+      // "✓ undefined" success.
+      if (err.body?.status) setSubmitResult(err.body);
+      else setSubmitError(describeError(err));
     } finally {
       setSubmitting(false);
     }
