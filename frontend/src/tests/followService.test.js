@@ -25,7 +25,9 @@ const driver = { id: 'd1', name: 'Kimi Antonelli' };
 describe('followService', () => {
   beforeEach(() => {
     resetFollowCache();
+    window.localStorage.clear();
     jest.clearAllMocks();
+    syncFollowPreference.mockResolvedValue({ storage: 'cloud' });
   });
 
   test('loads follows from the backend into the cache', async () => {
@@ -42,11 +44,30 @@ describe('followService', () => {
 
     await followDriver('u1', driver);
     expect(api.followDriverRequest).toHaveBeenCalledWith('d1', driver);
-    expect(syncFollowPreference).toHaveBeenCalledWith('u1', 'driver', 'd1', true);
+    expect(syncFollowPreference).toHaveBeenCalledWith('u1', 'driver', 'd1', true, driver);
     expect(isFollowingDriver('u1', 'd1')).toBe(true);
 
     await unfollowDriver('u1', 'd1');
-    expect(syncFollowPreference).toHaveBeenCalledWith('u1', 'driver', 'd1', false);
+    expect(syncFollowPreference).toHaveBeenCalledWith('u1', 'driver', 'd1', false, driver);
     expect(isFollowingDriver('u1', 'd1')).toBe(false);
+  });
+
+  test('queues and retries a preference write when the backend follow succeeds', async () => {
+    api.followDriverRequest.mockResolvedValue({ drivers: [driver], teams: [] });
+    api.getFollows.mockResolvedValue({ drivers: [driver], teams: [] });
+    syncFollowPreference
+      .mockResolvedValueOnce({ storage: 'browser' })
+      .mockResolvedValueOnce({ storage: 'cloud' });
+
+    await followDriver('u1', driver);
+    expect(JSON.parse(window.localStorage.getItem('f1-follow-preferences-pending:u1')))
+      .toEqual([{ type: 'driver', id: 'd1', snapshot: driver, on: true }]);
+
+    await loadFollows('u1', { force: true });
+
+    expect(syncFollowPreference).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(window.localStorage.getItem('f1-follow-preferences-pending:u1')))
+      .toEqual([]);
+    expect(api.followDriverRequest).toHaveBeenCalledTimes(1);
   });
 });

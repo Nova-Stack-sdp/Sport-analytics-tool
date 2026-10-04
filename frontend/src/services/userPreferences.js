@@ -17,7 +17,28 @@ function preferencesStorageKey(userId) {
 
 function cleanIds(value) {
   if (!Array.isArray(value)) return [];
-  return [...new Set(value.map(String).map((item) => item.trim()).filter(Boolean))];
+  return [...new Set(
+    value
+      .filter((item) => item != null)
+      .map(String)
+      .map((item) => item.trim())
+      .filter(Boolean)
+  )];
+}
+
+function slug(value) {
+  return String(value)
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function preferenceEntityIds(type, entityId, entity) {
+  const prefix = type === 'team' ? 'team' : 'driver';
+  const canonicalId = entity?.name ? `${prefix}-${slug(entity.name)}` : null;
+  return cleanIds([entityId, entity?.id, entity?.sourceId, canonicalId]);
 }
 
 export function defaultUserPreferences(user) {
@@ -113,21 +134,23 @@ export async function saveUserPreferences(user, value) {
 // mirrors that successful change to users/{uid}. A local copy is updated even
 // when Firestore is temporarily unavailable, so the current browser still
 // personalises the feed and can try again on the next follow change.
-export async function syncFollowPreference(userId, type, entityId, following) {
+export async function syncFollowPreference(userId, type, entityId, following, entity = null) {
   if (!userId || !entityId) return null;
   const field = type === 'team' ? 'followedTeamIds' : 'followedDriverIds';
   const user = { uid: userId };
   const cached = readCachedUserPreferences(user);
   const currentIds = cleanIds(cached[field]);
+  const entityIds = preferenceEntityIds(type, entityId, entity);
+  const entityIdSet = new Set(entityIds);
   const nextIds = following
     ? cleanIds([...currentIds, entityId])
-    : currentIds.filter((id) => id !== String(entityId));
+    : currentIds.filter((id) => !entityIdSet.has(id));
   const next = { ...cached, [field]: nextIds };
   cacheUserPreferences(userId, next);
 
   try {
     await setDoc(doc(db, 'users', userId), {
-      [field]: following ? arrayUnion(String(entityId)) : arrayRemove(String(entityId)),
+      [field]: following ? arrayUnion(String(entityId)) : arrayRemove(...entityIds),
       updatedAt: serverTimestamp(),
     }, { merge: true });
     return { ...next, storage: 'cloud', syncError: '' };

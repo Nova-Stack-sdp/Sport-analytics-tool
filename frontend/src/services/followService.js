@@ -50,6 +50,7 @@ export function readFollows(userId) {
 // and pushed to the server the next time it responds.
 const LOCAL_KEY = (userId) => `f1-follows-local:${userId}`;
 const PENDING_KEY = (userId) => `f1-follows-pending:${userId}`;
+const PREFERENCE_PENDING_KEY = (userId) => `f1-follow-preferences-pending:${userId}`;
 
 function readStore(key, fallback) {
   try {
@@ -70,12 +71,20 @@ function writeStore(key, value) {
 
 const readLocal = (userId) => normalize(readStore(LOCAL_KEY(userId), null));
 const readPending = (userId) => readStore(PENDING_KEY(userId), []);
+const readPreferencePending = (userId) => readStore(PREFERENCE_PENDING_KEY(userId), []);
 
 function queueOp(userId, op) {
   // A newer op on the same entity replaces any older queued one.
   const pending = readPending(userId).filter((p) => !(p.type === op.type && p.id === op.id));
   pending.push(op);
   writeStore(PENDING_KEY(userId), pending);
+}
+
+function queuePreferenceOp(userId, op) {
+  const pending = readPreferencePending(userId)
+    .filter((item) => !(item.type === op.type && item.id === op.id));
+  pending.push(op);
+  writeStore(PREFERENCE_PENDING_KEY(userId), pending);
 }
 
 function applyLocal(userId, type, id, snapshot, on) {
@@ -93,6 +102,41 @@ async function sendOp(op) {
   return op.on ? followDriverRequest(op.id, op.snapshot) : unfollowDriverRequest(op.id);
 }
 
+async function syncPreference(userId, op) {
+  try {
+    const result = await syncFollowPreference(
+      userId,
+      op.type,
+      op.id,
+      op.on,
+      op.snapshot
+    );
+    if (result?.storage === 'cloud') return true;
+  } catch {
+    // The retry queue below also covers unexpected preference-sync failures.
+  }
+
+  queuePreferenceOp(userId, op);
+  return false;
+}
+
+async function flushPreferencePending(userId) {
+  const pending = readPreferencePending(userId);
+  if (pending.length === 0) return;
+  const remaining = [];
+
+  for (const op of pending) {
+    try {
+      const synced = await syncPreference(userId, op);
+      if (!synced) remaining.push(op);
+    } catch {
+      remaining.push(op);
+    }
+  }
+
+  writeStore(PREFERENCE_PENDING_KEY(userId), remaining);
+}
+
 async function flushPending(userId) {
   const pending = readPending(userId);
   if (pending.length === 0) return;
@@ -100,7 +144,7 @@ async function flushPending(userId) {
   for (const op of pending) {
     try {
       await sendOp(op);
-      await syncFollowPreference(userId, op.type, op.id, op.on);
+      await syncPreference(userId, op);
     } catch {
       remaining.push(op);
     }
@@ -117,6 +161,7 @@ export async function loadFollows(userId, { force = false } = {}) {
 
   const promise = (async () => {
     await flushPending(userId);
+    await flushPreferencePending(userId);
     try {
       const data = await getFollows();
       // Anything still queued hasn't reached the server; layer it on top.
@@ -158,22 +203,29 @@ export function isFollowingTeam(userId, teamId) {
 async function change(userId, type, id, snapshot, on) {
   // Make sure the cache belongs to this user before layering a change on it.
   if (cache.userId !== userId) setCache(userId, readLocal(userId));
-  const optimistic = applyLocal(userId, type, id, snapshot, on);
+  const key = type === 'team' ? 'teams' : 'drivers';
+  const existingSnapshot = readFollows(userId)[key].find((item) => item.id === id);
+  const preferenceSnapshot = snapshot || existingSnapshot || null;
+  const op = { type, id, snapshot: preferenceSnapshot, on };
+  const optimistic = applyLocal(userId, type, id, preferenceSnapshot, on);
   writeStore(LOCAL_KEY(userId), optimistic);
+
+  let serverData;
   try {
-    const serverData = await sendOp({ type, id, snapshot, on });
-    await syncFollowPreference(userId, type, id, on);
-    writeStore(LOCAL_KEY(userId), normalize(serverData));
-    return setCache(userId, serverData);
+    serverData = await sendOp(op);
   } catch (err) {
     console.warn('Follow saved locally; server update failed:', err.status || err.message);
     // Keep the personalised News Feed in sync with the local fallback too.
     // This is what lets the localhost demo follow drivers without a backend
     // login, and it also preserves useful behaviour during a real outage.
-    await syncFollowPreference(userId, type, id, on);
-    queueOp(userId, { type, id, snapshot, on });
+    await syncPreference(userId, op);
+    queueOp(userId, op);
     return optimistic;
   }
+
+  await syncPreference(userId, op);
+  writeStore(LOCAL_KEY(userId), normalize(serverData));
+  return setCache(userId, serverData);
 }
 
 // `driver` / `team` carry a small display snapshot (name, number, colours...)

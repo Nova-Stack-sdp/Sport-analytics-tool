@@ -15,7 +15,7 @@ import {
 
 jest.mock('../firebase', () => ({ db: { name: 'test-db' } }));
 jest.mock('firebase/firestore', () => ({
-  arrayRemove: jest.fn((value) => ({ remove: value })),
+  arrayRemove: jest.fn((...values) => ({ remove: values })),
   arrayUnion: jest.fn((value) => ({ add: value })),
   doc: jest.fn(() => ({ path: 'users/user-1' })),
   getDoc: jest.fn(),
@@ -30,7 +30,7 @@ describe('userPreferences', () => {
     window.localStorage.clear();
     jest.clearAllMocks();
     doc.mockImplementation(() => ({ path: 'users/user-1' }));
-    arrayRemove.mockImplementation((value) => ({ remove: value }));
+    arrayRemove.mockImplementation((...values) => ({ remove: values }));
     arrayUnion.mockImplementation((value) => ({ add: value }));
     serverTimestamp.mockImplementation(() => 'SERVER_TIME');
     setDoc.mockResolvedValue();
@@ -84,21 +84,41 @@ describe('userPreferences', () => {
     );
   });
 
-  test('mirrors driver follows and unfollows to the Firestore preference array', async () => {
-    await syncFollowPreference('user-1', 'driver', 'driver-1', true);
+  test('mirrors follows and removes source and canonical aliases on unfollow', async () => {
+    await syncFollowPreference('user-1', 'driver', 'norris', true, { name: 'Lando Norris' });
     expect(setDoc).toHaveBeenLastCalledWith(
       { path: 'users/user-1' },
-      expect.objectContaining({ followedDriverIds: { add: 'driver-1' } }),
+      expect.objectContaining({ followedDriverIds: { add: 'norris' } }),
       { merge: true }
     );
-    expect(readCachedUserPreferences(user).followedDriverIds).toEqual(['driver-1']);
+    expect(readCachedUserPreferences(user).followedDriverIds).toEqual(['norris']);
 
-    await syncFollowPreference('user-1', 'driver', 'driver-1', false);
+    window.localStorage.setItem('f1-news-preferences:user-1', JSON.stringify({
+      followedDriverIds: ['norris', 'driver-lando-norris'],
+    }));
+
+    await syncFollowPreference('user-1', 'driver', 'norris', false, { name: 'Lando Norris' });
     expect(setDoc).toHaveBeenLastCalledWith(
       { path: 'users/user-1' },
-      expect.objectContaining({ followedDriverIds: { remove: 'driver-1' } }),
+      expect.objectContaining({
+        followedDriverIds: { remove: ['norris', 'driver-lando-norris'] },
+      }),
       { merge: true }
     );
     expect(readCachedUserPreferences(user).followedDriverIds).toEqual([]);
+
+    window.localStorage.setItem('f1-news-preferences:user-1', JSON.stringify({
+      followedTeamIds: ['mclaren', 'team-mclaren'],
+    }));
+
+    await syncFollowPreference('user-1', 'team', 'mclaren', false, { name: 'McLaren' });
+    expect(setDoc).toHaveBeenLastCalledWith(
+      { path: 'users/user-1' },
+      expect.objectContaining({
+        followedTeamIds: { remove: ['mclaren', 'team-mclaren'] },
+      }),
+      { merge: true }
+    );
+    expect(readCachedUserPreferences(user).followedTeamIds).toEqual([]);
   });
 });
