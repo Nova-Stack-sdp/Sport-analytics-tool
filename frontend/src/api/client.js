@@ -19,14 +19,52 @@ const API_BASE_URL =
 // Give up quickly so a hung backend can't leave a button stuck on "busy".
 const DEFAULT_TIMEOUT_MS = 10000;
 
+// The httpOnly __session cookie alone is NOT reliable in production: the
+// frontend (netlify.app) and backend (code.run) are different sites, so the
+// cookie is a third-party cookie that Firefox/Safari (and increasingly
+// Chrome) block or partition. It also holds a raw Firebase ID token that
+// expires after an hour and is only refreshed on an explicit sign-in. So
+// every request also carries a fresh ID token as `Authorization: Bearer`,
+// which requireAuth on the backend checks first.
+//
+// The token source is registered from the app entry point (see index.js)
+// rather than imported here, so this module stays free of Firebase and
+// easy to test.
+let authTokenProvider = null;
+
+export function setAuthTokenProvider(provider) {
+  authTokenProvider = typeof provider === 'function' ? provider : null;
+}
+
+async function getAuthToken() {
+  if (!authTokenProvider) return null;
+  try {
+    // Firebase's getIdToken() returns the cached token and transparently
+    // refreshes it when it's close to expiry.
+    return (await authTokenProvider()) || null;
+  } catch {
+    // Can't get a token (e.g. offline) — fall back to the cookie.
+    return null;
+  }
+}
+
 async function request(path, options = {}) {
   const { timeoutMs = DEFAULT_TIMEOUT_MS, ...fetchOptions } = options;
+  // Start the clock first so a slow token refresh counts toward the timeout.
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   let res;
   try {
+    const headers = { ...(fetchOptions.headers || {}) };
+    if (!headers.Authorization) {
+      const token = await getAuthToken();
+      if (token) headers.Authorization = `Bearer ${token}`;
+    }
+    // Timed out while waiting for the token — don't start the fetch at all.
+    if (controller.signal.aborted) throw new DOMException('Timed out', 'AbortError');
     res = await fetch(`${API_BASE_URL}${path}`, {
       ...fetchOptions,
+      ...(Object.keys(headers).length ? { headers } : {}),
       credentials: 'include',
       signal: controller.signal,
     });

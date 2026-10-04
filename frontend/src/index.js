@@ -2,10 +2,16 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
+import { auth } from './firebase';
+import { setAuthTokenProvider } from './api/client';
 import './styles/globals.css';
 import './styles/TopNav.css';
 import './styles/telemetryTV.css';
 import './styles/raceSync.css';
+
+// Every backend call sends the signed-in user's Firebase ID token as a
+// Bearer header (see api/client.js for why the cookie isn't enough).
+setAuthTokenProvider(() => auth.currentUser?.getIdToken());
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
