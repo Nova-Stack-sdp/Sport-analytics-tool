@@ -8,6 +8,7 @@ import {
   unfollowDriverRequest,
   unfollowTeamRequest,
 } from '../api/client';
+import { syncFollowPreference } from './userPreferences';
 
 export const FOLLOWS_UPDATED_EVENT = 'f1-analytics-follows-updated';
 
@@ -49,6 +50,7 @@ export function readFollows(userId) {
 // and pushed to the server the next time it responds.
 const LOCAL_KEY = (userId) => `f1-follows-local:${userId}`;
 const PENDING_KEY = (userId) => `f1-follows-pending:${userId}`;
+const PREFERENCE_PENDING_KEY = (userId) => `f1-follow-preferences-pending:${userId}`;
 
 function readStore(key, fallback) {
   try {
@@ -69,12 +71,28 @@ function writeStore(key, value) {
 
 const readLocal = (userId) => normalize(readStore(LOCAL_KEY(userId), null));
 const readPending = (userId) => readStore(PENDING_KEY(userId), []);
+const readPreferencePending = (userId) => readStore(PREFERENCE_PENDING_KEY(userId), []);
+let preferenceRevision = 0;
 
 function queueOp(userId, op) {
   // A newer op on the same entity replaces any older queued one.
   const pending = readPending(userId).filter((p) => !(p.type === op.type && p.id === op.id));
   pending.push(op);
   writeStore(PENDING_KEY(userId), pending);
+}
+
+function queuePreferenceOp(userId, op) {
+  const queued = {
+    ...op,
+    revision: `${Date.now()}-${++preferenceRevision}`,
+  };
+
+  const pending = readPreferencePending(userId)
+    .filter((item) => !(item.type === op.type && item.id === op.id));
+
+  pending.push(queued);
+  writeStore(PREFERENCE_PENDING_KEY(userId), pending);
+  return queued;
 }
 
 function applyLocal(userId, type, id, snapshot, on) {
@@ -92,6 +110,72 @@ async function sendOp(op) {
   return op.on ? followDriverRequest(op.id, op.snapshot) : unfollowDriverRequest(op.id);
 }
 
+const preferenceWorkers = new Map();
+
+function runPreferenceWorker(userId) {
+  const previous = preferenceWorkers.get(userId) || Promise.resolve();
+
+  const worker = previous.catch(() => {}).then(async () => {
+    // Snapshot this batch. Later changes schedule another worker.
+    const batch = readPreferencePending(userId);
+
+    for (const op of batch) {
+      // Skip operations replaced since the batch was read.
+      const isCurrent = readPreferencePending(userId).some(
+        (item) => (
+          item.type === op.type
+          && item.id === op.id
+          && item.revision === op.revision
+        )
+      );
+
+      if (!isCurrent) continue;
+
+      try {
+        const result = await syncFollowPreference(
+          userId,
+          op.type,
+          op.id,
+          op.on,
+          op.snapshot
+        );
+
+        if (result?.storage !== 'cloud') continue;
+
+        // Read the queue again: preserve changes added during the write.
+        const remaining = readPreferencePending(userId).filter(
+          (item) => !(
+            item.type === op.type
+            && item.id === op.id
+            && item.revision === op.revision
+          )
+        );
+
+        writeStore(PREFERENCE_PENDING_KEY(userId), remaining);
+      } catch {
+        // Leave the operation queued for retry.
+      }
+    }
+  });
+
+  preferenceWorkers.set(userId, worker);
+
+  return worker.finally(() => {
+    if (preferenceWorkers.get(userId) === worker) {
+      preferenceWorkers.delete(userId);
+    }
+  });
+}
+
+async function syncPreference(userId, op) {
+  queuePreferenceOp(userId, op);
+  await runPreferenceWorker(userId);
+}
+
+async function flushPreferencePending(userId) {
+  await runPreferenceWorker(userId);
+}
+
 async function flushPending(userId) {
   const pending = readPending(userId);
   if (pending.length === 0) return;
@@ -99,6 +183,7 @@ async function flushPending(userId) {
   for (const op of pending) {
     try {
       await sendOp(op);
+      await syncPreference(userId, op);
     } catch {
       remaining.push(op);
     }
@@ -115,6 +200,7 @@ export async function loadFollows(userId, { force = false } = {}) {
 
   const promise = (async () => {
     await flushPending(userId);
+    await flushPreferencePending(userId);
     try {
       const data = await getFollows();
       // Anything still queued hasn't reached the server; layer it on top.
@@ -156,17 +242,29 @@ export function isFollowingTeam(userId, teamId) {
 async function change(userId, type, id, snapshot, on) {
   // Make sure the cache belongs to this user before layering a change on it.
   if (cache.userId !== userId) setCache(userId, readLocal(userId));
-  const optimistic = applyLocal(userId, type, id, snapshot, on);
+  const key = type === 'team' ? 'teams' : 'drivers';
+  const existingSnapshot = readFollows(userId)[key].find((item) => item.id === id);
+  const preferenceSnapshot = snapshot || existingSnapshot || null;
+  const op = { type, id, snapshot: preferenceSnapshot, on };
+  const optimistic = applyLocal(userId, type, id, preferenceSnapshot, on);
   writeStore(LOCAL_KEY(userId), optimistic);
+
+  let serverData;
   try {
-    const serverData = await sendOp({ type, id, snapshot, on });
-    writeStore(LOCAL_KEY(userId), normalize(serverData));
-    return setCache(userId, serverData);
+    serverData = await sendOp(op);
   } catch (err) {
     console.warn('Follow saved locally; server update failed:', err.status || err.message);
-    queueOp(userId, { type, id, snapshot, on });
+    // Keep the personalised News Feed in sync with the local fallback too.
+    // This is what lets the localhost demo follow drivers without a backend
+    // login, and it also preserves useful behaviour during a real outage.
+    await syncPreference(userId, op);
+    queueOp(userId, op);
     return optimistic;
   }
+
+  await syncPreference(userId, op);
+  writeStore(LOCAL_KEY(userId), normalize(serverData));
+  return setCache(userId, serverData);
 }
 
 // `driver` / `team` carry a small display snapshot (name, number, colours...)

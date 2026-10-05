@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getF1News, getF1NewsStreamUrl } from '../api/client';
+import { getF1News, getF1NewsStreamUrl, refreshF1News } from '../api/client';
 
 function newestFirst(items) {
   return [...items].sort(
@@ -14,6 +14,7 @@ export default function useF1NewsFeed() {
   const [connection, setConnection] = useState('connecting');
   const [lastUpdated, setLastUpdated] = useState(null);
   const [newItemIds, setNewItemIds] = useState([]);
+  const [loadingMore, setLoadingMore] = useState(false);
   const clearNewTimer = useRef(null);
 
   const applyPayload = useCallback((payload, announceNew = false) => {
@@ -37,6 +38,32 @@ export default function useF1NewsFeed() {
       setError(requestError.body?.error || 'Could not load the F1 news feed.');
     } finally {
       setLoading(false);
+    }
+  }, [applyPayload]);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      applyPayload(await refreshF1News());
+      return true;
+    } catch (requestError) {
+      setError(requestError.body?.error || 'Could not refresh the F1 news feed.');
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [applyPayload]);
+
+  const loadMore = useCallback(async () => {
+    setLoadingMore(true);
+    try {
+      applyPayload(await refreshF1News());
+      return true;
+    } catch (requestError) {
+      setError(requestError.body?.error || 'Could not check for more Formula 1 news.');
+      return false;
+    } finally {
+      setLoadingMore(false);
     }
   }, [applyPayload]);
 
@@ -80,6 +107,8 @@ export default function useF1NewsFeed() {
     connection,
     lastUpdated,
     newItemIds,
-    refresh: load,
+    loadingMore,
+    refresh,
+    loadMore,
   };
 }

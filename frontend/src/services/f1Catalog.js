@@ -57,6 +57,7 @@ export function preferenceCatalog(liveItems, fallbackItems, type) {
     .filter((item) => item?.name)
     .map((item) => ({
       ...item,
+      sourceId: item.id,
       id: `${type}-${slug(item.name)}`,
     }));
 }

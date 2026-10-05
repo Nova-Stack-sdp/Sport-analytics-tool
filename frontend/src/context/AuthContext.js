@@ -12,6 +12,25 @@ const AuthContext = createContext({
   signOut: () => {},
 });
 
+const LOCAL_PROFILE_PREVIEW_USER = {
+  uid: 'local-profile-preview',
+  email: 'preview@local.test',
+  displayName: 'Demo F1 Fan',
+  emailVerified: true,
+  isDemo: true,
+  providerData: [{ providerId: 'local-preview' }],
+  metadata: { creationTime: new Date().toISOString() },
+};
+
+function isLocalProfilePreview() {
+  if (process.env.NODE_ENV !== 'development' || typeof window === 'undefined') return false;
+  const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  const previewRequested = new URLSearchParams(window.location.search).get('preview') === '1';
+  if (!isLocalhost) return false;
+  if (previewRequested) window.sessionStorage.setItem('f1-local-profile-preview', '1');
+  return previewRequested || window.sessionStorage.getItem('f1-local-profile-preview') === '1';
+}
+
 // Admin status is decided by the backend (the ADMIN_UIDS allowlist — see
 // backend/src/lib/adminAccess.js), so ask it. Any failure (backend down,
 // no session yet) simply means "not an admin" — the safe default.
@@ -26,8 +45,9 @@ async function fetchIsAdmin(firebaseUser) {
 }
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const localProfilePreview = isLocalProfilePreview();
+  const [user, setUser] = useState(localProfilePreview ? LOCAL_PROFILE_PREVIEW_USER : null);
+  const [loading, setLoading] = useState(!localProfilePreview);
   // The `developer` Firebase custom claim, read out of the signed-in
   // user's ID token. This is the account-level source of truth for
   // developer mode — set once via POST /api/auth/developer-mode, it
@@ -72,6 +92,11 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    // A localhost-only profile preview lets the page be reviewed without
+    // creating or signing into a Firebase account. Production builds can
+    // never activate this path.
+    if (localProfilePreview) return undefined;
+
     // Firebase persists the session itself (localStorage by default), so
     // this fires immediately with the restored user on page load, then
     // again on every sign-in/sign-out.
@@ -112,7 +137,7 @@ export function AuthProvider({ children }) {
       }
     });
     return unsubscribe;
-  }, []);
+  }, [localProfilePreview]);
 
   return (
     <AuthContext.Provider value={{ user, loading, isDeveloperMode, isAdmin, refreshDeveloperMode, signOut }}>

@@ -39,12 +39,10 @@ function matchesItem(articleText, item, type) {
 
 function selectedItems(ids, items) {
   const selected = new Set((ids || []).map(String));
-  return (items || []).filter((item) => selected.has(String(item.id)));
-}
-
-function isCurrentRaceStory(article) {
-  const text = searchableArticle(article);
-  return /\b(grand prix|gp|race|qualifying|sprint|pole position|starting grid|circuit|race weekend)\b/i.test(text);
+  return (items || []).filter((item) => (
+    selected.has(String(item.id))
+    || (item.sourceId != null && selected.has(String(item.sourceId)))
+  ));
 }
 
 export function articleMatchesPreferences(article, preferences, catalog) {
@@ -52,7 +50,10 @@ export function articleMatchesPreferences(article, preferences, catalog) {
   const drivers = selectedItems(preferences?.followedDriverIds, catalog?.drivers);
   const teams = selectedItems(preferences?.followedTeamIds, catalog?.teams);
 
-  return drivers.some((item) => matchesItem(text, item, 'driver'))
+  return drivers.some((item) => (
+    matchesItem(text, item, 'driver')
+    || (item.teamName && matchesItem(text, { name: item.teamName }, 'team'))
+  ))
     || teams.some((item) => matchesItem(text, item, 'team'));
 }
 
@@ -65,8 +66,6 @@ export function filterNewsItems(items, filter, preferences, catalog) {
     || preferences?.followedTeamIds?.length
   );
   if (filter === 'for-you' && !hasPreferences) return items;
-  if (filter === 'races') return items.filter(isCurrentRaceStory);
-
   const selectedByType = {
     drivers: { ids: preferences?.followedDriverIds, items: catalog?.drivers, type: 'driver' },
     teams: { ids: preferences?.followedTeamIds, items: catalog?.teams, type: 'team' },
