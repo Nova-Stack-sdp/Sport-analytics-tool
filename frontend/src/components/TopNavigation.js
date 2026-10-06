@@ -16,6 +16,9 @@ const NAV_ITEMS = [
   { to: '/drivers', label: 'Drivers' },
   { to: '/timetravel', label: 'Time-Travel' },
   { to: '/replay', label: 'Race Replay' },
+  // The code submission form is developer-only, like the route it opens
+  // (RequireAuth role="developer" in AppRoutes).
+  { to: '/code-submissions', label: 'Submit Code', requiresAuth: true, requiresDeveloper: true },
   // Developer is visible to every signed-in user — it explains the role
   // and how to turn it on for those who don't have it yet. Datasets and
   // Submissions are tabs inside it (developer mode only), not nav items.

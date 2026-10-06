@@ -6,6 +6,7 @@ import StatisticsPage from '../pages/StatisticsPage';
 import TimeTravelPage from '../pages/TimeTravelPage';
 import DeveloperPage from '../pages/DeveloperPage';
 import ApiDocsPage from '../pages/ApiDocsPage';
+import CodeSubmissionPage from '../pages/CodeSubmissionPage';
 import AdminPage from '../pages/AdminPage';
 import TelemetryTVPage from '../pages/TelemetryTVPage';
 import SyncF1BroadcastPage from '../pages/SyncF1BroadcastPage';
@@ -37,6 +38,9 @@ function AppRoutes() {
       <Route path="/datasets" element={<Navigate to="/developer?tab=datasets" replace />} />
       <Route path="/developer" element={<RequireAuth><DeveloperPage /></RequireAuth>} />
       <Route path="/developer/api-docs" element={<RequireAuth role="developer"><ApiDocsPage /></RequireAuth>} />
+      {/* Code submissions share the developer gate: the format is checked in
+          the browser, the review half lives on the Admin page. */}
+      <Route path="/code-submissions" element={<RequireAuth role="developer"><CodeSubmissionPage /></RequireAuth>} />
       {/* Settings now lives as a tab on Profile — keep old links working. */}
       <Route path="/settings" element={<Navigate to="/profile?tab=settings" replace />} />
       <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />

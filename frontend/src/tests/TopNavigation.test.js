@@ -88,6 +88,8 @@ describe('TopNavigation', () => {
     expect(screen.queryByRole('link', { name: 'Admin' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Submissions' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Datasets' })).not.toBeInTheDocument();
+    // The code submission form needs developer mode, not just a session.
+    expect(screen.queryByRole('link', { name: 'Submit Code' })).not.toBeInTheDocument();
   });
 
   test('places Profile where Settings used to be — after Developer, before Admin', () => {
@@ -114,6 +116,8 @@ describe('TopNavigation', () => {
     expect(screen.queryByRole('link', { name: 'Submissions' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Datasets' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Developer' })).toBeInTheDocument();
+    // Developer mode is exactly what unlocks the submit-code route.
+    expect(screen.getByRole('link', { name: 'Submit Code' })).toHaveAttribute('href', '/code-submissions');
     // Developer mode doesn't make you an admin.
     expect(screen.queryByRole('link', { name: 'Admin' })).not.toBeInTheDocument();
     // Clicking the avatar opens the account menu now, so the title only

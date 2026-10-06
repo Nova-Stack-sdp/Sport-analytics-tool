@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import CodeSubmissionsPanel from '../components/admin/CodeSubmissionsPanel';
 
-const ADMIN_TABS = ['Submitters', 'API Keys', 'Dataset Releases', 'API Versions', 'Reconciliation'];
+const ADMIN_TABS = ['Submitters', 'Code Submissions', 'API Keys', 'Dataset Releases', 'API Versions', 'Reconciliation'];
 
 // ── Mock data ────────────────────────────────────────────────────────────────
 
@@ -386,14 +387,14 @@ function AdminPage() {
         <div className="section-eyebrow">System administration</div>
         <div className="section-title">Admin</div>
         <div className="section-desc">
-          Centralized control over submitters, API access, dataset releases, versioning, and data reconciliation — the full governance surface of the platform.
+          Centralized control over submitters, code submissions, API access, dataset releases, versioning, and data reconciliation — the full governance surface of the platform.
         </div>
       </div>
       <div className="content">
         <div className="rationale">
           <span className="ic">◆</span>
           <div>
-            <b>Why this page:</b> the administrator is the only role with authority across the entire data pipeline — from who can submit data, to which API keys are live, to how conflicting values are resolved and corrections ripple through every projection. This page consolidates that governance surface into five sections matching each distinct responsibility.
+            <b>Why this page:</b> the administrator is the only role with authority across the entire data pipeline — from who can submit data, to which API keys are live, to how conflicting values are resolved and corrections ripple through every projection. This page consolidates that governance surface into six sections matching each distinct responsibility.
           </div>
         </div>
 
@@ -410,6 +411,10 @@ function AdminPage() {
         </div>
 
         {activeTab === 'Submitters' && <SubmittersTab />}
+        {/* The only tab wired to the real API so far — the rest are still
+            placeholder surfaces, but code submissions load live data via
+            GET/PATCH /api/code-submissions. */}
+        {activeTab === 'Code Submissions' && <CodeSubmissionsPanel />}
         {activeTab === 'API Keys' && <ApiKeysTab />}
         {activeTab === 'Dataset Releases' && <DatasetReleasesTab />}
         {activeTab === 'API Versions' && <ApiVersionsTab />}
