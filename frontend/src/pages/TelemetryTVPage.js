@@ -12,12 +12,17 @@ import RaceOverview from '../components/telemetry-tv/RaceOverview';
 import RacePaceCard from '../components/telemetry-tv/RacePaceCard';
 import RacePickerBar from '../components/telemetry-tv/RacePickerBar';
 import RacePulse from '../components/telemetry-tv/RacePulse';
+import RaceStartWaitCard from '../components/telemetry-tv/RaceStartWaitCard';
 import RaceTimeline from '../components/telemetry-tv/RaceTimeline';
 import RaceWeatherPanel from '../components/telemetry-tv/RaceWeatherPanel';
 import TelemetryTVFooter from '../components/telemetry-tv/TelemetryTVFooter';
 import TelemetryTVGuide from '../components/telemetry-tv/TelemetryTVGuide';
 import { deriveIndycarLapState } from '../features/telemetry-tv/deriveIndycarLapState';
-import { lapFromVideoSeconds, videoSecondsForLap } from '../features/telemetry-tv/videoToLap';
+import {
+  lapFromVideoSeconds,
+  raceStartVideoSeconds,
+  videoSecondsForLap,
+} from '../features/telemetry-tv/videoToLap';
 import {
   buildDriverStats,
   buildFinishSummary,
@@ -41,6 +46,11 @@ function TelemetryTVPage() {
   const [lap, setLap] = useState(1);
   const [playbackStarted, setPlaybackStarted] = useState(false);
   const [videoSeconds, setVideoSeconds] = useState(null);
+  // Whether the video clock has reached the green flag — the dashboards stay
+  // dark before it, however far into the broadcast the player is. With no
+  // known race start (uncalibrated race) this is true from the first reading
+  // so those races keep the always-on behaviour.
+  const [raceStarted, setRaceStarted] = useState(false);
   const videoRef = useRef(null);
   // Seeking takes a moment to land; readings that arrive right after a slider
   // seek are ignored so they cannot yank the cursor back to the old lap.
@@ -73,6 +83,14 @@ function TelemetryTVPage() {
   const battleRadar = buildBattleRadarModel(lapState.leaderboard);
   const torontorace = buildTorontoraceIntelligence({ lapState, selectedSlug });
   const raceIntelligence = raceData?.intelligence ?? (selectedSlug === 'toronto-2025' ? torontorace : null);
+  // The broadcast's green-flag moment, once the race report has landed. Races
+  // that ship no calibration have no known start to wait for and stay
+  // always-on, exactly as before.
+  const raceStartSeconds = raceData ? raceStartVideoSeconds(raceData) : null;
+  // The dashboards wake at the green flag and go dark again whenever the
+  // player is scrubbed back into the build-up — they answer to the video
+  // clock, not to time passing.
+  const dashboardsLive = raceData != null && (raceStartSeconds == null || raceStarted);
   const commentaryEvents = buildMasterboardCommentary(raceData, lapState);
   // While the player clock is live the ticker narrates the curated broadcast
   // timeline; before that it cycles the lap-based commentary.
@@ -95,11 +113,16 @@ function TelemetryTVPage() {
   // the page reflects whatever the video is showing.
   useEffect(() => {
     if (!raceData || videoSeconds == null) return;
+    // The gate follows the clock too — including backwards: scrubbing into
+    // the pre-race build-up parks the dashboards again.
+    if (raceStartSeconds != null) {
+      setRaceStarted(videoSeconds >= raceStartSeconds);
+    }
     if (Date.now() < suppressVideoFollowUntilRef.current) return;
     const mappedLap = lapFromVideoSeconds(raceData, videoSeconds);
     if (mappedLap == null) return;
     setLap((current) => (current === mappedLap ? current : mappedLap));
-  }, [raceData, videoSeconds]);
+  }, [raceData, videoSeconds, raceStartSeconds]);
 
   function handleLapChange(nextLap) {
     setLap(nextLap);
@@ -118,6 +141,7 @@ function TelemetryTVPage() {
     setRaceLoading(false);
     setLap(1);
     setVideoSeconds(null);
+    setRaceStarted(false);
     suppressVideoFollowUntilRef.current = 0;
   }
 
@@ -169,52 +193,71 @@ function TelemetryTVPage() {
                 loading={loading}
                 error={error}
               />
-              <PlaybackStatusBar
-                race={raceData}
-                lap={lap}
-                videoSeconds={videoSeconds}
-                margin={margin}
-                leaderLap={lapState.leaderLap}
-                onLapChange={handleLapChange}
-              />
-              <LiveTicker events={tickerEvents} />
-              <RacePaceCard lapTrend={lapTrend} lap={lap} />
+              {dashboardsLive ? (
+                <>
+                  <PlaybackStatusBar
+                    race={raceData}
+                    lap={lap}
+                    videoSeconds={videoSeconds}
+                    margin={margin}
+                    leaderLap={lapState.leaderLap}
+                    onLapChange={handleLapChange}
+                  />
+                  <LiveTicker events={tickerEvents} />
+                  <RacePaceCard lapTrend={lapTrend} lap={lap} />
+                </>
+              ) : (
+                /* The broadcast has not reached the green flag: no stats are
+                   loaded into view — every dashboard waits for the race. */
+                <RaceStartWaitCard
+                  loading={raceLoading}
+                  error={raceError}
+                  videoSeconds={videoSeconds}
+                  raceStartSeconds={raceStartSeconds}
+                />
+              )}
             </div>
 
-            <div className="telemetry-tv-sidebar">
-              <Masterboard
-                race={raceData}
-                lap={lap}
-                isFinished={lapState.isFinished}
-                leaderboard={lapState.leaderboard}
-                loading={raceLoading}
-                error={raceError}
-              />
-              <DriverStatsPanel driverStats={driverStats} />
-            </div>
+            {dashboardsLive && (
+              <div className="telemetry-tv-sidebar">
+                <Masterboard
+                  race={raceData}
+                  lap={lap}
+                  isFinished={lapState.isFinished}
+                  leaderboard={lapState.leaderboard}
+                  loading={raceLoading}
+                  error={raceError}
+                />
+                <DriverStatsPanel driverStats={driverStats} />
+              </div>
+            )}
           </div>
         ) : (
           <TelemetryTVGuide error={error} />
         )}
 
-        <RaceOverview overview={raceOverview} />
+        {dashboardsLive && (
+          <>
+            <RaceOverview overview={raceOverview} />
 
-        {raceIntelligence && (
-          <RaceWeatherPanel
-            raceSlug={selectedSlug}
-            weather={raceIntelligence.weather}
-            strategySignals={raceIntelligence.strategySignals}
-            narrative={raceIntelligence.narrative}
-          />
+            {raceIntelligence && (
+              <RaceWeatherPanel
+                raceSlug={selectedSlug}
+                weather={raceIntelligence.weather}
+                strategySignals={raceIntelligence.strategySignals}
+                narrative={raceIntelligence.narrative}
+              />
+            )}
+            <BattleRadar
+              model={battleRadar}
+              context={selectedSlug === 'toronto-2025' ? torontorace.context : null}
+            />
+            <LeadBattle leadBattle={leadBattle} />
+            <RacePulse race={raceData} lapState={lapState} />
+            <RaceFinishCard finishSummary={finishSummary} totalLaps={lapState.totalLaps} />
+            <RaceTimeline race={raceData} lapState={lapState} />
+          </>
         )}
-        <BattleRadar
-          model={battleRadar}
-          context={selectedSlug === 'toronto-2025' ? torontorace.context : null}
-        />
-        <LeadBattle leadBattle={leadBattle} />
-        <RacePulse race={raceData} lapState={lapState} />
-        <RaceFinishCard finishSummary={finishSummary} totalLaps={lapState.totalLaps} />
-        <RaceTimeline race={raceData} lapState={lapState} />
 
         <TelemetryTVFooter />
       </div>

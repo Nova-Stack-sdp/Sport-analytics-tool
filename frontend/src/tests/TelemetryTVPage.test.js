@@ -309,6 +309,16 @@ describe('TelemetryTVPage', () => {
     await pickRace();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Play race' }));
+
+    // 100 s is still the pre-race build-up (green flag 184 s): the
+    // dashboards wait and the countdown says how far the broadcast is from
+    // going green.
+    await screen.findByRole('region', { name: 'Waiting for race start' });
+    deliverPlayerTime(100);
+    expect(screen.getByText('Broadcast to green')).toBeInTheDocument();
+
+    // The green flag wakes them at lap 1.
+    deliverPlayerTime(184);
     await screen.findByText('Official order at lap 1');
 
     // 300 s sits between lap 1 complete (248 s) and the checkered flag: lap 2.
@@ -342,11 +352,14 @@ describe('TelemetryTVPage', () => {
     await pickRace();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Play race' }));
-    await screen.findByText('Race start: Lap 1.');
+    // The curated anchors place the green flag at 535 s, so the race and its
+    // commentary both wait with the dashboards.
+    await screen.findByRole('region', { name: 'Waiting for race start' });
+    expect(screen.queryByText('Race start: Lap 1.')).not.toBeInTheDocument();
 
     // 600 s: past the green flag anchor (535 s), before the lap-2 anchor.
     deliverPlayerTime(600);
-    expect(screen.getByText('Green flag: Herta leads out of turn 1.')).toBeInTheDocument();
+    expect(await screen.findByText('Green flag: Herta leads out of turn 1.')).toBeInTheDocument();
     expect(screen.getByLabelText('Select race lap')).toHaveValue('1');
 
     // 2500 s: lap 2 is running and the 2400 s caution has already aired.
@@ -354,6 +367,44 @@ describe('TelemetryTVPage', () => {
     expect(screen.getByText('Caution: debris at turn 5 halts the run.')).toBeInTheDocument();
     expect(screen.queryByText('Green flag: Herta leads out of turn 1.')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Select race lap')).toHaveValue('2');
+  });
+
+  test('keeps the dashboards dark before the green flag and wakes them at race start', async () => {
+    getTelemetryTVRaces.mockResolvedValue({ races: RACES });
+    getTelemetryTVRace.mockResolvedValue({ race: RACE_WITH_ANCHORS });
+    renderPage();
+    await pickRace();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Play race' }));
+
+    // The race report has landed but the broadcast is still pre-race
+    // (green flag 535 s): no stats load into view — the standby card stands
+    // in for every dashboard at once and names the moment it waits on.
+    const waitCard = await screen.findByRole('region', { name: 'Waiting for race start' });
+    expect(within(waitCard).getByText('Green flag')).toBeInTheDocument();
+    expect(within(waitCard).getByText('0:08:55')).toBeInTheDocument();
+    expect(screen.queryByText('Master Board')).not.toBeInTheDocument();
+    expect(screen.queryByText('Official Driver Stats')).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Race overview' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Race So Far')).not.toBeInTheDocument();
+
+    // 100 s into the broadcast: still waiting, now with the countdown.
+    deliverPlayerTime(100);
+    expect(
+      within(screen.getByRole('region', { name: 'Waiting for race start' })).getByText('7:15')
+    ).toBeInTheDocument();
+
+    // The green flag wakes every dashboard at lap 1.
+    deliverPlayerTime(535);
+    expect(await screen.findByText('Official order at lap 1')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Waiting for race start' })).not.toBeInTheDocument();
+
+    // Scrubbing back into the build-up parks them again: the gate answers to
+    // the video clock, not to time passing.
+    deliverPlayerTime(300);
+    await screen.findByRole('region', { name: 'Waiting for race start' });
+    expect(screen.queryByText('Official order at lap 1')).not.toBeInTheDocument();
+    expect(screen.queryByText('Race So Far')).not.toBeInTheDocument();
   });
 
   test('plots the curated broadcast pit stops and calls them out in the ticker', async () => {
@@ -381,6 +432,9 @@ describe('TelemetryTVPage', () => {
 
     const iframe = await screen.findByTitle('YouTube video player');
     fireEvent.click(screen.getByRole('button', { name: 'Play race' }));
+    // Green flag is 184 s in this fixture: the dashboards wait until then.
+    await screen.findByRole('region', { name: 'Waiting for race start' });
+    deliverPlayerTime(184);
     await screen.findByText('Official order at lap 1');
 
     const postMessage = jest.spyOn(iframe.contentWindow, 'postMessage').mockImplementation(() => {});

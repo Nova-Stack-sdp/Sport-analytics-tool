@@ -1671,6 +1671,73 @@
   color: var(--text-secondary);
 }
 
+/* ---- Pre-race standby (video playing, green flag not yet reached) ---- */
+
+/* The wait card stands in for every dashboard at once, so it spans both grid
+   tracks under the player instead of reading as a sidebar panel. */
+#page-telemetry-tv .race-start-wait-card {
+  grid-column: 1 / -1;
+}
+
+#page-telemetry-tv .race-start-wait-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0 6px;
+}
+
+#page-telemetry-tv .race-start-wait-copy {
+  margin: 0;
+  max-width: 560px;
+  color: var(--text-secondary);
+  font-size: 13.5px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+/* The moment being waited on and how far away it still is — the same mono
+   readout discipline as the playback status bar. */
+#page-telemetry-tv .race-start-wait-clock {
+  display: flex;
+  gap: 32px;
+}
+
+#page-telemetry-tv .race-start-wait-clock-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+#page-telemetry-tv .race-start-wait-clock-label {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+#page-telemetry-tv .race-start-wait-clock-value {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Standby dot beside the title: the app's blink-dot keyframes (shared
+   globals, same reuse as this sheet's live pills), amber to read as holding
+   rather than live. */
+#page-telemetry-tv .race-start-wait-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: #FF8A00;
+  animation: blink-dot 1.2s infinite;
+}
+
 #page-telemetry-tv .race-finish-card {
   margin: 18px 20px 0;
 }
