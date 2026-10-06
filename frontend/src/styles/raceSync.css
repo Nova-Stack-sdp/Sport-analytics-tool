@@ -352,6 +352,35 @@
   flex-shrink: 0;
 }
 
+/* The app nav's ☀/☾ quick flip, carried on this bar the way the bell is: a
+   bare pale glyph over the red gradient — no pill, the divider beside it does
+   the separating. Twin of .racesync-bell just below. */
+.racesync-theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #fff5f5;
+  font: inherit;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.16s ease;
+}
+
+.racesync-theme-toggle:hover {
+  transform: translateY(-1px);
+}
+
+.racesync-theme-toggle:focus-visible {
+  outline: 2px solid #ffdede;
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
 /* The bell, now a control on the same bar: the pale glyph it always was,
    pressed as a button. */
 .racesync-bell {

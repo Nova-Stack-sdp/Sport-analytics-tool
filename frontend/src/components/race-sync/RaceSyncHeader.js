@@ -166,9 +166,9 @@ function RaceSearch() {
 }
 
 // The RaceSync page's own top bar — brand on the left, race search in the
-// middle, the signed-in user's notifications and the map's view menu on the
-// right (see raceSync.css).
-function RaceSyncHeader() {
+// middle, the theme quick-flip, the signed-in user's notifications and the
+// map's view menu on the right (see raceSync.css).
+function RaceSyncHeader({ theme, onToggleTheme }) {
   return (
     <header className="racesync-header">
       <div className="racesync-header-left">
@@ -197,9 +197,21 @@ function RaceSyncHeader() {
       <RaceSearch />
 
       <div className="racesync-account">
+        {/* The app nav's ☀/☾ quick flip — this bar replaces that nav, so it
+            carries the toggle too. A bare glyph like the bell beside it; the
+            divider is what sets it apart. */}
+        <button
+          type="button"
+          className="racesync-theme-toggle"
+          title="Toggle dark mode"
+          aria-label="Toggle dark mode"
+          onClick={onToggleTheme}
+        >
+          <span>{theme === 'dark' ? '☀' : '☾'}</span>
+        </button>
+        <span className="racesync-divider" aria-hidden="true" />
         {/* The account's own updates — see RaceSyncBell. */}
         <RaceSyncBell />
-        <span className="racesync-divider" aria-hidden="true" />
         {/* What the centre map shows — see RaceSyncViewMenu. */}
         <RaceSyncViewMenu />
       </div>

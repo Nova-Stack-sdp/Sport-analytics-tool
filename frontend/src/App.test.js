@@ -214,6 +214,9 @@ test('shows the branded RaceSync header on the RaceSync page only', () => {
   expect(screen.getByPlaceholderText('Type Race Title...')).toBeInTheDocument();
   // Notifications belong to the signed-in account — no session, no bell.
   expect(screen.queryByRole('button', { name: /Notifications/ })).not.toBeInTheDocument();
+  // The app nav's ☀/☾ quick flip rides this bar too — the theme does not
+  // stop at the route boundary.
+  expect(screen.getByTitle('Toggle dark mode')).toBeInTheDocument();
   // The chip is a prompt until the map is scoped (covered in the stage test).
   expect(
     screen.getByRole('button', { name: 'Choose what to see' })
@@ -1055,6 +1058,22 @@ test('the nav theme button flips the theme and remembers it as a preference', ()
 
   expect(document.documentElement.dataset.theme).toBe('light');
   expect(JSON.parse(window.localStorage.getItem('f1-analytics-preferences')).theme).toBe('light');
+});
+
+// The RaceSync header swaps out the nav that carried that button, so it
+// carries the flip itself — same quick flip, same remembered preference.
+test('the RaceSync header theme button flips the theme and remembers it as a preference', () => {
+  window.history.pushState({}, '', '/sync-f1-broadcast');
+  render(<App />);
+  expect(document.documentElement.dataset.theme).toBe('dark');
+  // Dark shows the sun — the glyph offers the mode you would switch to.
+  expect(screen.getByTitle('Toggle dark mode')).toHaveTextContent('☀');
+
+  fireEvent.click(screen.getByTitle('Toggle dark mode'));
+
+  expect(document.documentElement.dataset.theme).toBe('light');
+  expect(JSON.parse(window.localStorage.getItem('f1-analytics-preferences')).theme).toBe('light');
+  expect(screen.getByTitle('Toggle dark mode')).toHaveTextContent('☾');
 });
 
 test('applies saved density and reduce-motion preferences to the page', () => {
