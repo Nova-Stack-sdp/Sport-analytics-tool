@@ -9,21 +9,31 @@ function driverLabel(value) {
 
 // Lap-by-lap pace from the official leader lap times: one bar per lap, colored
 // by flag, taller is faster. The selected lap gets the cursor so the chart
-// stays glued to the playback position.
+// stays glued to the playback position. While the replay runs, only laps
+// already completed are drawn — the fastest lap, averages and the chart
+// itself reveal as the race does, never ahead of the broadcast.
 const RacePaceCard = memo(function RacePaceCard({ lapTrend, lap }) {
   if (!lapTrend || lapTrend.records.length === 0) return null;
 
-  const { records, bestLap, averageLapSeconds } = lapTrend;
-  const paced = records.filter((record) => record.lapSeconds != null);
+  const visible = lapTrend.records.filter((record) => record.lap <= lap);
+  if (visible.length === 0) return null;
+
+  const paced = visible.filter((record) => record.lapSeconds != null);
   // Green-flag average: the pace the race actually ran at once the yellow
   // laps are taken out, the number broadcasters quote for race pace.
   const greenPaced = paced.filter((record) => record.flag === 'Green');
   const greenAverageSeconds = greenPaced.length
     ? greenPaced.reduce((total, record) => total + record.lapSeconds, 0) / greenPaced.length
     : null;
-  const fastestSeconds = bestLap?.seconds ?? null;
+  const fastestRecord = paced.length
+    ? paced.reduce((best, record) => (record.lapSeconds < best.lapSeconds ? record : best))
+    : null;
+  const fastestSeconds = fastestRecord?.lapSeconds ?? null;
   const slowestSeconds = paced.length
     ? Math.max(...paced.map((record) => record.lapSeconds))
+    : null;
+  const averageLapSeconds = paced.length
+    ? paced.reduce((total, record) => total + record.lapSeconds, 0) / paced.length
     : null;
   const span = fastestSeconds != null && slowestSeconds != null
     ? Math.max(slowestSeconds - fastestSeconds, 0.05)
@@ -32,8 +42,7 @@ const RacePaceCard = memo(function RacePaceCard({ lapTrend, lap }) {
     span > 0 ? 22 + ((slowestSeconds - seconds) / span) * 78 : 60
   );
 
-  const selected = records.find((record) => record.lap === lap) ?? null;
-  const bestSource = records.find((record) => record.lap === bestLap?.lap) ?? null;
+  const selected = visible.find((record) => record.lap === lap) ?? null;
   const selectedDelta = selected?.lapSeconds != null && fastestSeconds != null
     ? selected.lapSeconds - fastestSeconds
     : null;
@@ -54,15 +63,15 @@ const RacePaceCard = memo(function RacePaceCard({ lapTrend, lap }) {
       <div
         className="pace-chart"
         role="img"
-        aria-label={bestLap
-          ? `Lap times for ${lapTrend.totalLaps} laps, fastest lap ${bestLap.lap} at ${formatLapSeconds(bestLap.seconds)}`
+        aria-label={fastestRecord
+          ? `Lap times for ${lapTrend.totalLaps} laps, fastest lap ${fastestRecord.lap} at ${formatLapSeconds(fastestRecord.lapSeconds)}`
           : `Lap times for ${lapTrend.totalLaps} laps`}
       >
         <div className="pace-bars">
           {paced.map((record) => (
             <span
               key={record.lap}
-              className={`pace-bar${record.lap === bestLap?.lap ? ' fastest' : ''}`}
+              className={`pace-bar${record === fastestRecord ? ' fastest' : ''}`}
               data-flag={record.flag ?? undefined}
               style={{ height: `${barHeight(record.lapSeconds)}%` }}
               title={[
@@ -92,17 +101,17 @@ const RacePaceCard = memo(function RacePaceCard({ lapTrend, lap }) {
             {selected == null
               ? 'No timing for this lap'
               : selectedDelta == null || selectedDelta <= 0
-                ? 'Fastest lap of the race'
+                ? (lap >= lapTrend.totalLaps ? 'Fastest lap of the race' : 'Fastest lap so far')
                 : `+${selectedDelta.toFixed(3)}s vs fastest`}
           </span>
         </div>
         <div className="pace-summary-item">
           <span className="pace-summary-label">Fastest lap</span>
-          <span className="pace-summary-value mono">{formatLapSeconds(bestLap?.seconds)}</span>
+          <span className="pace-summary-value mono">{formatLapSeconds(fastestSeconds)}</span>
           <span className="pace-summary-sub">
-            {bestLap == null
+            {fastestRecord == null
               ? '--'
-              : `lap ${bestLap.lap}${bestSource?.driver ? ` · ${driverLabel(bestSource.driver)}` : ''}`}
+              : `lap ${fastestRecord.lap}${fastestRecord.driver ? ` · ${driverLabel(fastestRecord.driver)}` : ''}`}
           </span>
         </div>
         <div className="pace-summary-item">

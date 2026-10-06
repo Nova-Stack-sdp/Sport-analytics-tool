@@ -11,7 +11,6 @@ import RaceFinishCard from '../components/telemetry-tv/RaceFinishCard';
 import RaceOverview from '../components/telemetry-tv/RaceOverview';
 import RacePaceCard from '../components/telemetry-tv/RacePaceCard';
 import RacePickerBar from '../components/telemetry-tv/RacePickerBar';
-import RacePulse from '../components/telemetry-tv/RacePulse';
 import RaceStartWaitCard from '../components/telemetry-tv/RaceStartWaitCard';
 import RaceTimeline from '../components/telemetry-tv/RaceTimeline';
 import RaceWeatherPanel from '../components/telemetry-tv/RaceWeatherPanel';
@@ -102,8 +101,12 @@ function TelemetryTVPage() {
   const finishSummary = raceData && lapState.isFinished ? buildFinishSummary(raceData) : null;
   // Official race-report numbers the payload already carries: the overview
   // band and the lead-stretch chart both read straight from the API facts.
+  // The lead battle replays as it stood at the current lap — final answers
+  // (the overview band, the full classification) wait for the checkered flag.
   const raceOverview = raceData ? buildRaceOverview(raceData) : null;
-  const leadBattle = raceData ? buildLeadBattle(raceData) : null;
+  const leadBattle = raceData
+    ? buildLeadBattle(raceData, lapState.isFinished ? null : lap)
+    : null;
 
   const handleVideoTime = useCallback((seconds) => {
     setVideoSeconds(Math.floor(seconds));
@@ -220,6 +223,9 @@ function TelemetryTVPage() {
 
             {dashboardsLive && (
               <div className="telemetry-tv-sidebar">
+                {/* The running order is live commentary; the official final
+                    classification below it is an after-the-flag answer, so
+                    it waits for the checkered flag. */}
                 <Masterboard
                   race={raceData}
                   lap={lap}
@@ -228,7 +234,7 @@ function TelemetryTVPage() {
                   loading={raceLoading}
                   error={raceError}
                 />
-                <DriverStatsPanel driverStats={driverStats} />
+                {lapState.isFinished && <DriverStatsPanel driverStats={driverStats} />}
               </div>
             )}
           </div>
@@ -238,8 +244,13 @@ function TelemetryTVPage() {
 
         {dashboardsLive && (
           <>
-            <RaceOverview overview={raceOverview} />
-
+            {/* Live phase: the battle for position is the story — Battle
+                Radar leads, the lead battle and the race sequence follow.
+                Final answers (the race overview band) wait for the flag. */}
+            <BattleRadar
+              model={battleRadar}
+              context={selectedSlug === 'toronto-2025' ? torontorace.context : null}
+            />
             {raceIntelligence && (
               <RaceWeatherPanel
                 raceSlug={selectedSlug}
@@ -248,14 +259,22 @@ function TelemetryTVPage() {
                 narrative={raceIntelligence.narrative}
               />
             )}
-            <BattleRadar
-              model={battleRadar}
-              context={selectedSlug === 'toronto-2025' ? torontorace.context : null}
+            <LeadBattle
+              leadBattle={leadBattle}
+              lap={lap}
+              isFinished={lapState.isFinished}
             />
-            <LeadBattle leadBattle={leadBattle} />
-            <RacePulse race={raceData} lapState={lapState} />
-            <RaceFinishCard finishSummary={finishSummary} totalLaps={lapState.totalLaps} />
             <RaceTimeline race={raceData} lapState={lapState} />
+
+            {/* Report phase: once the checkered flag lands, the final
+                answers take over — the podium first, then the race-level
+                numbers and the full classification. */}
+            {lapState.isFinished && (
+              <>
+                <RaceFinishCard finishSummary={finishSummary} totalLaps={lapState.totalLaps} />
+                <RaceOverview overview={raceOverview} />
+              </>
+            )}
           </>
         )}
 

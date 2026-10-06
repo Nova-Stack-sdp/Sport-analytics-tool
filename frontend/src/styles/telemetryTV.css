@@ -790,77 +790,10 @@
   color: var(--text-primary);
 }
 
-#page-telemetry-tv .race-pulse-card {
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: var(--shadow-soft);
-  margin: 18px 20px 0;
-  padding: 14px 16px;
-}
-
-#page-telemetry-tv .race-pulse-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
-  margin-top: 12px;
-}
-
-#page-telemetry-tv .pulse-stat {
-  padding: 10px 12px;
-  border-radius: 8px;
-  border-left: 3px solid transparent;
-  background: var(--surface-soft, rgba(127, 127, 127, 0.06));
-}
-
-#page-telemetry-tv .pulse-stat.green {
-  border-left-color: #22c55e;
-}
-
-#page-telemetry-tv .pulse-stat.amber {
-  border-left-color: #f59e0b;
-}
-
-#page-telemetry-tv .pulse-stat.purple {
-  border-left-color: #a855f7;
-}
-
-#page-telemetry-tv .pulse-stat.blue {
-  border-left-color: #3b82f6;
-}
-
-#page-telemetry-tv .pulse-stat-label {
-  font-size: 9px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  color: var(--text-tertiary);
-  margin-bottom: 4px;
-}
-
-#page-telemetry-tv .pulse-stat-value {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1.3;
-}
-
-#page-telemetry-tv .pulse-stat-sub {
-  font-size: 10px;
-  color: var(--text-secondary);
-  margin-top: 2px;
-}
-
-@media (max-width: 900px) {
-  #page-telemetry-tv .race-pulse-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-/* Battle Radar section */
+/* Battle Radar section — first card under the grid. The grid's own bottom
+   margin sets the gap above it; every card below stacks on a top margin. */
 #page-telemetry-tv .battle-radar-section {
-  margin: 20px;
-  margin-top: 18px;
+  margin: 0 20px;
 }
 
 #page-telemetry-tv .battle-radar-empty {
@@ -1135,14 +1068,6 @@
   background: var(--surface);
 }
 
-#page-telemetry-tv .race-pulse-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-#page-telemetry-tv .pulse-stat.red {
-  border-left-color: #ef6a62;
-}
-
 #page-telemetry-tv .race-timeline-card {
   margin: 18px 20px 0;
   padding: 14px 16px 16px;
@@ -1259,14 +1184,14 @@
     gap: 12px 18px;
   }
 
-  #page-telemetry-tv .race-pulse-card,
-  #page-telemetry-tv .race-timeline-card {
+  #page-telemetry-tv .battle-radar-section,
+  #page-telemetry-tv .race-weather-panel,
+  #page-telemetry-tv .lead-battle-card,
+  #page-telemetry-tv .race-timeline-card,
+  #page-telemetry-tv .race-finish-card,
+  #page-telemetry-tv .race-overview-card {
     margin-right: 12px;
     margin-left: 12px;
-  }
-
-  #page-telemetry-tv .race-pulse-grid {
-    grid-template-columns: 1fr;
   }
 }
 
@@ -1451,8 +1376,47 @@
 
 #page-telemetry-tv .race-overview-card,
 #page-telemetry-tv .lead-battle-card {
-  margin: 0 20px 20px;
+  margin: 18px 20px 0;
   padding: 14px 16px;
+}
+
+/* Running-total chip strips — the old Race So Far card's live numbers folded
+   into their home cards: lead changes and yellow laps under Lead Battle, the
+   biggest mover under Battle Radar. One pill recipe for both. */
+#page-telemetry-tv .lead-battle-sofar,
+#page-telemetry-tv .battle-radar-highlights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  margin-bottom: 4px;
+}
+
+#page-telemetry-tv .lead-battle-sofar-chip,
+#page-telemetry-tv .battle-radar-highlight-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: var(--surface-soft, rgba(127, 127, 127, 0.06));
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+#page-telemetry-tv .lead-battle-sofar-chip strong,
+#page-telemetry-tv .battle-radar-highlight-chip strong {
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+/* The yellow-lap chip carries the caution stripes' amber so the count reads
+   as track state at a glance. */
+#page-telemetry-tv .lead-battle-sofar-chip.is-yellow {
+  border-color: rgba(233, 173, 57, 0.45);
+  background: rgba(233, 173, 57, 0.08);
 }
 
 #page-telemetry-tv .overview-grid {
@@ -1895,11 +1859,6 @@
 }
 
 @media (max-width: 560px) {
-  #page-telemetry-tv .race-finish-card {
-    margin-right: 12px;
-    margin-left: 12px;
-  }
-
   #page-telemetry-tv .pace-summary {
     grid-template-columns: 1fr;
   }

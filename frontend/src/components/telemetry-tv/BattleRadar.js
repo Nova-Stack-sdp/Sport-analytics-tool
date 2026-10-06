@@ -42,6 +42,15 @@ function overtakeAdvice(entry) {
 }
 
 function BattleRadar({ model, context = null }) {
+  // The old Race So Far card's "Biggest Move" stat, folded in here: the one
+  // position swing on the board right now, kept live off the same leaderboard
+  // the columns read.
+  const biggestMove = model?.entries
+    ? model.entries
+      .filter((entry) => Number.isFinite(entry.lapDelta) && entry.lapDelta !== 0)
+      .sort((first, second) => Math.abs(second.lapDelta) - Math.abs(first.lapDelta))[0]
+    : null;
+
   if (!model?.entries?.length) {
     return (
       <div className="card battle-radar-section">
@@ -66,6 +75,15 @@ function BattleRadar({ model, context = null }) {
         </div>
         <span className="pill pill-blue">Race dynamics</span>
       </div>
+
+      {biggestMove && (
+        <div className="battle-radar-highlights">
+          <span className="battle-radar-highlight-chip">
+            <strong>{biggestMove.driverName ?? `Car ${biggestMove.carNumber}`}</strong>
+            {` ${biggestMove.lapDelta > 0 ? 'up' : 'down'} ${Math.abs(biggestMove.lapDelta)} place${Math.abs(biggestMove.lapDelta) === 1 ? '' : 's'} this lap`}
+          </span>
+        </div>
+      )}
 
       <div className="battle-radar-grid">
         {model.columns.map((column) => (

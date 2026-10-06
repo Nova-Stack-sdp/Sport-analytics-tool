@@ -142,6 +142,32 @@ describe('buildLeadBattle', () => {
     ]);
   });
 
+  it('clips stretches, cautions and tallies to the laps already run', () => {
+    const battle = buildLeadBattle(race, 26);
+    expect(battle.stretches).toEqual([
+      { car: '27', driver: 'Kyle Kirkwood', fromLap: 1, toLap: 22, laps: 22, isLeader: true },
+      { car: '26', driver: 'Colton Herta', fromLap: 23, toLap: 26, laps: 4, isLeader: false },
+    ]);
+    // The lap-31 restart and the lap-50 caution are still ahead of the replay.
+    expect(battle.cautions).toEqual([{ fromLap: 10, toLap: 12 }]);
+    expect(battle.lapsLed).toEqual([
+      { car: '27', driver: 'Kyle Kirkwood', laps: 22 },
+      { car: '26', driver: 'Colton Herta', laps: 4 },
+    ]);
+    expect(battle.leaderCar).toBe('27');
+    expect(battle.leaderLaps).toBe(22);
+    // A half-run race still lays the chart across the full distance.
+    expect(battle.totalLaps).toBe(85);
+    // Running totals count only what the broadcast has reached.
+    expect(battle.raceSoFar).toEqual({ leadChanges: 1, cautionLaps: 3 });
+  });
+
+  it('reports the full-race totals once the clamp lifts', () => {
+    const battle = buildLeadBattle(race, null);
+    expect(battle.raceSoFar).toEqual({ leadChanges: 2, cautionLaps: 5 });
+    expect(battle.leaderLaps).toBe(77);
+  });
+
   it('drops malformed stretches and cautions instead of guessing', () => {
     const battle = buildLeadBattle({
       leaders: [
