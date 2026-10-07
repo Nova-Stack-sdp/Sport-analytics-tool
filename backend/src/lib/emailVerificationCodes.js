@@ -22,16 +22,17 @@ export const DAILY_SEND_LIMIT = 10;
  * The HMAC pepper. Not a secret the code's strength rests on — the TTL and
  * attempt cap are what bound guessing — but it keeps a read-only database
  * leak from yielding codes that can be tried against the live endpoint.
- * Set EMAIL_CODE_PEPPER in production; the fallback is for local dev and
- * tests, where codes are printed to the log anyway.
+ * Required in production: without EMAIL_CODE_PEPPER the server refuses to
+ * hash or check codes rather than silently falling back to the well-known
+ * development default below, which would make a stolen hash table
+ * trivially crackable. The fallback is only for local dev and tests, where
+ * codes are printed to the log anyway.
  */
-let warnedAboutPepper = false;
 function pepper() {
   if (process.env.EMAIL_CODE_PEPPER) return process.env.EMAIL_CODE_PEPPER;
-  if (!warnedAboutPepper && process.env.NODE_ENV === 'production') {
-    warnedAboutPepper = true;
-    console.warn(
-      'EMAIL_CODE_PEPPER is not set — email verification codes are hashed with the built-in default. Set it in production.'
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'EMAIL_CODE_PEPPER is not set — refusing to use the development pepper in production.'
     );
   }
   return 'dev-only-pepper';
