@@ -33,13 +33,13 @@ export async function purgeRejectedCodeSubmissions(prisma, {
 } = {}) {
   // Validate direct callers too; a bad retention value must never broaden
   // the deletion window by producing an invalid/omitted date filter.
-  readRejectedCodeCleanupConfig({
+  const checked = readRejectedCodeCleanupConfig({
     REJECTED_CODE_RETENTION_DAYS: retentionDays,
     REJECTED_CODE_CLEANUP_BATCH_SIZE: batchSize,
   });
   const currentTime = new Date(now).getTime();
   if (!Number.isFinite(currentTime)) throw new Error('Cleanup requires a valid current time');
-  const cutoff = new Date(currentTime - retentionDays * DAY_MS);
+  const cutoff = new Date(currentTime - checked.retentionDays * DAY_MS);
   if (!Number.isFinite(cutoff.getTime())) throw new Error('Cleanup requires a valid cutoff');
 
   const eligible = {
@@ -55,7 +55,7 @@ export async function purgeRejectedCodeSubmissions(prisma, {
       where: eligible,
       orderBy: [{ reviewedAt: 'asc' }, { id: 'asc' }],
       select: { id: true },
-      take: batchSize,
+      take: checked.batchSize,
     });
     if (candidates.length === 0) break;
 

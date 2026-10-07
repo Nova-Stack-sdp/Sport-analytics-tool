@@ -56,6 +56,24 @@ test('an empty queue or an invalid clock never issues a deletion', async () => {
   expect(prisma.codeSubmission.deleteMany).not.toHaveBeenCalled();
 });
 
+test('direct callers use normalized empty retention and batch values, preserving fresh rejections', async () => {
+  const prisma = makePrisma();
+  const fresh = { id: 'fresh', reviewedAt: new Date(NOW.getTime() - 60_000) };
+  prisma.codeSubmission.findMany.mockImplementation(async ({ where, take }) => {
+    expect(take).toBe(100);
+    return fresh.reviewedAt <= where.reviewedAt.lte ? [{ id: fresh.id }] : [];
+  });
+
+  const result = await purgeRejectedCodeSubmissions(prisma, {
+    now: NOW, retentionDays: '', batchSize: '',
+  });
+
+  expect(result).toEqual({
+    deleted: 0, batches: 0, cutoff: new Date('2026-10-08T12:00:00Z'),
+  });
+  expect(prisma.codeSubmission.deleteMany).not.toHaveBeenCalled();
+});
+
 test('limits each run to ten batches even when records keep arriving', async () => {
   const prisma = makePrisma();
   prisma.codeSubmission.findMany.mockResolvedValue([{ id: 'candidate' }]);
