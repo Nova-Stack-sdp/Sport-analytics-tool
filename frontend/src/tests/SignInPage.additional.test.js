@@ -92,6 +92,25 @@ describe('SignInPage additional authentication branches', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
+  test('the eye reveals and re-hides the password without touching its value', async () => {
+    renderPage();
+    enterCredentials('max@example.com', 'password123');
+
+    const password = screen.getByLabelText(/^password$/i);
+    expect(password).toHaveAttribute('type', 'password');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show password' }));
+
+    expect(password).toHaveAttribute('type', 'text');
+    expect(password).toHaveValue('password123');
+    expect(screen.getByRole('button', { name: 'Hide password' })).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide password' }));
+
+    expect(password).toHaveAttribute('type', 'password');
+    expect(password).toHaveValue('password123');
+  });
+
   test('handles GitHub success and Google popup cancellation without a noisy error', async () => {
     signInWithPopup.mockResolvedValueOnce({ user: { uid: 'u1' } });
     renderPage();

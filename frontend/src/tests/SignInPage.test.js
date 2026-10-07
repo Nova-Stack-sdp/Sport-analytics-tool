@@ -52,7 +52,7 @@ describe('SignInPage', () => {
     renderPage();
     expect(screen.getByRole('heading', { name: /^sign in$/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^password$/i)).toBeInTheDocument();
   });
 
   test('shows validation errors instead of submitting when fields are empty', async () => {
@@ -70,7 +70,7 @@ describe('SignInPage', () => {
     renderPage();
 
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'driver@example.com' } });
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: 'password123' } });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() =>
@@ -88,7 +88,7 @@ describe('SignInPage', () => {
     renderPage();
 
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'driver@example.com' } });
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'wrongpass' } });
+    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: 'wrongpass' } });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     expect(await screen.findByText(/incorrect email or password/i)).toBeInTheDocument();
@@ -124,7 +124,7 @@ describe('SignInPage', () => {
     );
 
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'driver@example.com' } });
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: 'password123' } });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/replay', { replace: true }));
@@ -139,7 +139,7 @@ describe('SignInPage', () => {
     renderPage();
 
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'new@example.com' } });
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: 'password123' } });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/verify-email', { replace: true }));

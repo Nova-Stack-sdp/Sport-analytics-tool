@@ -4,6 +4,7 @@ import { signInWithPopup, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth, googleProvider, githubProvider } from '../firebase';
 import { establishSession } from '../api/client';
 import { usePreferences } from '../context/PreferencesContext';
+import PasswordInput from '../components/PasswordInput';
 import '../styles/auth.css';
 
 function friendlyAuthError(error) {
@@ -195,25 +196,17 @@ function SignInPage() {
               )}
             </label>
 
-            <label className="auth-field">
-              <span className="auth-label">Password</span>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                disabled={isSubmitting}
-                onChange={(event) => setPassword(event.target.value)}
-                aria-invalid={Boolean(fieldErrors.password)}
-                aria-describedby={fieldErrors.password ? 'signin-password-error' : undefined}
-              />
-              {fieldErrors.password && (
-                <span className="auth-field-error" id="signin-password-error">
-                  {fieldErrors.password}
-                </span>
-              )}
-            </label>
+            <PasswordInput
+              label="Password"
+              id="password"
+              name="password"
+              autoComplete="current-password"
+              value={password}
+              disabled={isSubmitting}
+              onChange={(event) => setPassword(event.target.value)}
+              error={fieldErrors.password}
+              errorId="signin-password-error"
+            />
 
             <Link className="auth-forgot" to="/forgot-password">
               Forgot password?

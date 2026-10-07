@@ -326,6 +326,49 @@
 
 .auth-field input:disabled { opacity: 0.5; }
 
+/* Show/hide eye inside password fields (PasswordInput.js). The wrapper takes
+   the input's place in the field's flex column; the extra right padding keeps
+   typed text clear of the control sitting on the input's edge. */
+.auth-input-wrap {
+  position: relative;
+  display: block;
+}
+
+.auth-input-wrap input { padding-right: 42px; }
+
+.auth-password-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 40px;
+  display: grid;
+  place-items: center;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--grey-faint);
+  cursor: pointer;
+}
+
+.auth-password-toggle svg {
+  width: 18px;
+  height: 18px;
+}
+
+.auth-password-toggle:hover:not(:disabled) { color: var(--link-blue); }
+
+.auth-password-toggle:focus-visible {
+  outline: 2px solid var(--link-blue);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+
+.auth-password-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .auth-field-error {
   font-size: 12.5px;
   color: var(--red-bright);
