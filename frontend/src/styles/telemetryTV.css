@@ -193,16 +193,52 @@
   outline-offset: 3px;
 }
 
-/* PlaybackStatusBar styles */
-#page-telemetry-tv .playback-status-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 12px;
+/* Race Control strip: the readouts row, the race-distance progress line and
+   the lap cursor that scrubs the video. */
+#page-telemetry-tv .race-control-bar {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
   background: transparent;
   border: 1px solid var(--border-soft);
   border-radius: 6px;
-  gap: 16px;
+}
+
+#page-telemetry-tv .race-control-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+}
+
+#page-telemetry-tv .race-control-title {
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+#page-telemetry-tv .race-control-progress {
+  position: relative;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--border-soft);
+}
+
+#page-telemetry-tv .race-control-progress-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: var(--accent);
+}
+
+#page-telemetry-tv .race-control-progress-fill.is-yellow {
+  background: #e9ad39;
 }
 
 #page-telemetry-tv .status-left {
@@ -653,51 +689,9 @@
   display: none;
 }
 
-/* Transparent like every other dashboard; the sky-tinted hairline keeps a
-   trace of the panel's weather identity on the themed background. */
-#page-telemetry-tv .race-weather-panel {
-  background: transparent;
-  border: 1px solid rgba(125, 211, 252, 0.2);
-  border-radius: 10px;
-  box-shadow: var(--shadow-soft);
-  margin: 18px 20px 0;
-  padding: 14px 16px;
-}
-
-#page-telemetry-tv .weather-header-badges {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-#page-telemetry-tv .race-weather-grid {
-  display: grid;
-  grid-template-columns: 1.25fr 1.75fr;
-  gap: 14px;
-  margin-top: 12px;
-}
-
-#page-telemetry-tv .weather-main-panel {
-  padding: 12px 14px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, rgba(14, 116, 144, 0.18), rgba(15, 23, 42, 0.22));
-  border: 1px solid rgba(103, 232, 249, 0.16);
-}
-
-#page-telemetry-tv .weather-kicker {
-  font-size: 9px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.38px;
-  /* sky-600 reads on the light theme's pale panel; dark restores sky-300 */
-  color: #0284c7;
-  margin-bottom: 8px;
-}
-
-[data-theme="dark"] #page-telemetry-tv .weather-kicker {
-  color: #7dd3fc;
-}
-
+/* Strategy / Tyre Analysis: the derived rows plus the curated intelligence
+   (signals, conditions, narrative) beneath them. Reuses the signal and
+   narrative recipes from the retired weather panel. */
 #page-telemetry-tv .weather-summary {
   font-size: 12px;
   line-height: 1.6;
@@ -710,38 +704,6 @@
   font-size: 11px;
   line-height: 1.55;
   color: var(--text-secondary);
-}
-
-#page-telemetry-tv .weather-chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-#page-telemetry-tv .weather-chip {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 90px;
-  padding: 7px 9px;
-  border-radius: 8px;
-  background: var(--surface-soft, rgba(127, 127, 127, 0.06));
-  border: 1px solid rgba(148, 163, 184, 0.18);
-}
-
-#page-telemetry-tv .weather-chip span {
-  font-size: 8px;
-  font-weight: 800;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
-  color: var(--text-tertiary);
-}
-
-#page-telemetry-tv .weather-chip strong {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--text-primary);
 }
 
 #page-telemetry-tv .weather-signals {
@@ -988,6 +950,10 @@
     grid-template-columns: 1fr;
   }
 
+  #page-telemetry-tv .ttv-analysis-row {
+    grid-template-columns: 1fr;
+  }
+
   #page-telemetry-tv .race-picker-bar {
     flex-wrap: wrap;
   }
@@ -1020,7 +986,7 @@
   }
 }
 
-#page-telemetry-tv .playback-status-bar {
+#page-telemetry-tv .race-control-row {
   flex-wrap: wrap;
 }
 
@@ -1185,7 +1151,9 @@
   }
 
   #page-telemetry-tv .battle-radar-section,
-  #page-telemetry-tv .race-weather-panel,
+  #page-telemetry-tv .race-header-bar,
+  #page-telemetry-tv .ttv-section-divider,
+  #page-telemetry-tv .ttv-analysis-row,
   #page-telemetry-tv .lead-battle-card,
   #page-telemetry-tv .race-timeline-card,
   #page-telemetry-tv .race-finish-card,
@@ -1862,4 +1830,208 @@
   #page-telemetry-tv .pace-summary {
     grid-template-columns: 1fr;
   }
+}
+
+/* ---- Visual hierarchy: race header, band labels, section dividers,
+        analysis row and the strategy card ---- */
+
+/* The broadcast's name band: event and live field size on the left, the lap
+   readout and the track state on the right. */
+#page-telemetry-tv .race-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 20px 14px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: linear-gradient(105deg, var(--accent-soft), transparent 42%);
+  box-shadow: var(--shadow-soft);
+}
+
+#page-telemetry-tv .race-header-main {
+  min-width: 0;
+}
+
+#page-telemetry-tv .race-header-title {
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#page-telemetry-tv .race-header-sub {
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+#page-telemetry-tv .race-header-stats {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 0 0 auto;
+}
+
+#page-telemetry-tv .race-header-lap {
+  font-size: 15px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+#page-telemetry-tv .race-header-flag {
+  padding: 5px 12px;
+  border-radius: 4px;
+  background: rgba(34, 197, 94, 0.12);
+  color: var(--status-green);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+}
+
+#page-telemetry-tv .race-header-flag.flag-yellow {
+  background: rgba(255, 138, 0, 0.2);
+  color: #FF8A00;
+}
+
+#page-telemetry-tv .race-header-flag.flag-checker,
+#page-telemetry-tv .race-header-flag.flag-standby {
+  background: var(--gray-pill-bg);
+  color: var(--text-tertiary);
+}
+
+/* The small band captions — LIVE BROADCAST over the player, LIVE ORDER over
+   the running order — that name the two observation columns. */
+#page-telemetry-tv .ttv-band-label {
+  margin: -6px 2px -12px;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* Chapter marks between the page's layers: hairline, accent arrow, label. */
+#page-telemetry-tv .ttv-section-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 26px 20px 16px;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+#page-telemetry-tv .ttv-section-divider::before,
+#page-telemetry-tv .ttv-section-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-soft);
+}
+
+#page-telemetry-tv .ttv-section-divider-arrow {
+  color: var(--accent);
+  font-size: 8px;
+}
+
+/* Pace Trend and Strategy / Tyre Analysis read side by side. */
+#page-telemetry-tv .ttv-analysis-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+  margin: 18px 20px 0;
+}
+
+#page-telemetry-tv .strategy-card {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+#page-telemetry-tv .strategy-metrics {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+#page-telemetry-tv .strategy-metric {
+  padding: 9px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-soft, rgba(127, 127, 127, 0.06));
+}
+
+#page-telemetry-tv .strategy-metric-label {
+  display: block;
+  color: var(--text-tertiary);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+#page-telemetry-tv .strategy-metric-value {
+  display: block;
+  margin-top: 3px;
+  font-size: 13.5px;
+  font-weight: 800;
+}
+
+#page-telemetry-tv .strategy-metric-value.is-yellow {
+  color: #e9ad39;
+}
+
+#page-telemetry-tv .strategy-metric-value.is-good {
+  color: #69c3a5;
+}
+
+#page-telemetry-tv .strategy-metric-sub {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+#page-telemetry-tv .strategy-signals {
+  margin-top: 12px;
+}
+
+/* Conditions block inside the strategy card: the retired weather panel's
+   sky-tinted recipe, kept as the card's supporting copy. */
+#page-telemetry-tv .strategy-conditions {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(103, 232, 249, 0.16);
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(14, 116, 144, 0.14), rgba(15, 23, 42, 0.18));
+}
+
+#page-telemetry-tv .strategy-conditions-label {
+  display: block;
+  margin-bottom: 6px;
+  /* sky-600 reads on the light theme's pale panel; dark restores sky-300 */
+  color: #0284c7;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.38px;
+  text-transform: uppercase;
+}
+
+[data-theme="dark"] #page-telemetry-tv .strategy-conditions-label {
+  color: #7dd3fc;
+}
+
+#page-telemetry-tv .strategy-conditions .weather-summary {
+  margin: 0;
+}
+
+#page-telemetry-tv .strategy-conditions .weather-grip {
+  margin-top: 8px;
 }

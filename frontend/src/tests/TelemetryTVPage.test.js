@@ -211,6 +211,13 @@ describe('TelemetryTVPage', () => {
     // Picking a race swaps the guide for the player; the detail still waits for play.
     await pickRace();
     const iframe = await screen.findByTitle('YouTube video player');
+    // The race header names the broadcast before anything is playing.
+    expect(screen.getByRole('region', { name: 'Race header' })).toHaveTextContent(
+      'Ontario Honda Dealers Indy Toronto'
+    );
+    expect(screen.getByText('Live • 27 cars')).toBeInTheDocument();
+    expect(screen.getByText('LAP -- / 90')).toBeInTheDocument();
+    expect(screen.getByText('STANDBY')).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'How to use Telemetry TV' })).not.toBeInTheDocument();
     expect(getTelemetryTVRace).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Play race' }));
@@ -240,6 +247,18 @@ describe('TelemetryTVPage', () => {
     expect(p2Driver.closest('tr').cells[7]).toHaveTextContent('±2.0');
     expect(screen.getByText('Master Board')).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Derived speed' })).toBeInTheDocument();
+    // The observation layer: named bands over the player and the running
+    // order, with the race header now answering to the report. "Live
+    // Broadcast" reads twice by design — band caption and player title.
+    expect(screen.getAllByText('Live Broadcast')).toHaveLength(2);
+    expect(screen.getByText('Live Order')).toBeInTheDocument();
+    expect(screen.getByText('Race Control')).toBeInTheDocument();
+    expect(screen.getByText('LAP 1 / 2')).toBeInTheDocument();
+    expect(screen.getByText('GREEN')).toBeInTheDocument();
+    // The analysis chapter marks sit between the live grid and the radar and
+    // between the analysis row and the race sequence.
+    expect(screen.getByText('Now we move from observation to analysis')).toBeInTheDocument();
+    expect(screen.getByText('Deeper investigation')).toBeInTheDocument();
     // Final answers wait for the checkered flag: at lap 1 the race overview
     // band and the official classification stay out of view, and the lead
     // battle carries the running totals (the old Race So Far numbers).
@@ -399,7 +418,7 @@ describe('TelemetryTVPage', () => {
     expect(screen.queryByText('Master Board')).not.toBeInTheDocument();
     expect(screen.queryByText('Official Driver Stats')).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Race overview' })).not.toBeInTheDocument();
-    expect(screen.queryByText('Battle Radar')).not.toBeInTheDocument();
+    expect(screen.queryByText('Race Intelligence')).not.toBeInTheDocument();
 
     // 100 s into the broadcast: still waiting, now with the countdown.
     deliverPlayerTime(100);
@@ -417,7 +436,7 @@ describe('TelemetryTVPage', () => {
     deliverPlayerTime(300);
     await screen.findByRole('region', { name: 'Waiting for race start' });
     expect(screen.queryByText('Official order at lap 1')).not.toBeInTheDocument();
-    expect(screen.queryByText('Battle Radar')).not.toBeInTheDocument();
+    expect(screen.queryByText('Race Intelligence')).not.toBeInTheDocument();
   });
 
   test('plots the curated broadcast pit stops and calls them out in the ticker', async () => {
@@ -435,6 +454,10 @@ describe('TelemetryTVPage', () => {
     expect(container.querySelectorAll('.pit-stop-marker')).toHaveLength(2);
     expect(screen.getByText("Pit stop: O'Ward stops on lap 2.")).toBeInTheDocument();
     expect(screen.getByText('Broadcast-called stops only (2 of 5).')).toBeInTheDocument();
+    // The strategy card's pit window reads the stop that just happened.
+    expect(screen.getByText('Pit window')).toBeInTheDocument();
+    expect(screen.getByText('0 laps since last stop')).toBeInTheDocument();
+    expect(screen.getByText("Last called: O'Ward, lap 2")).toBeInTheDocument();
   });
 
   test('seeks the embedded video when the lap slider moves', async () => {
@@ -482,6 +505,19 @@ describe('TelemetryTVPage', () => {
     expect(paceCard).toHaveTextContent('Green average');
     expect(paceCard).toHaveTextContent('1 green-flag lap');
 
+    // The strategy card reads the same single lap: not enough of a green run
+    // to call tyre fall-off, no visible stops yet, and the selected lap IS
+    // the fastest so far.
+    expect(screen.getByText('Strategy / Tyre Analysis')).toBeInTheDocument();
+    const strategyCard = container.querySelector('.strategy-card');
+    expect(strategyCard).toHaveTextContent('Tyre degradation');
+    expect(strategyCard).toHaveTextContent('Too early to call');
+    expect(strategyCard).toHaveTextContent('Opening stint');
+    expect(strategyCard).toHaveTextContent('Fastest lap');
+    expect(strategyCard).toHaveTextContent('Fastest so far: 1:04.019 (lap 1)');
+    // Race Control quotes the same fastest-so-far number.
+    expect(screen.getByText('Fastest').closest('.status-item')).toHaveTextContent('1:04.019');
+
     fireEvent.change(screen.getByLabelText('Select race lap'), { target: { value: '2' } });
     await screen.findByText('Official order at lap 2');
     // The checkered lap completes the chart: both bars and the race fastest.
@@ -489,6 +525,8 @@ describe('TelemetryTVPage', () => {
     expect(paceCard).toHaveTextContent('1:01.654');
     expect(paceCard).toHaveTextContent('lap 2');
     expect(paceCard).toHaveTextContent('Fastest lap of the race');
+    // The strategy rows follow the cursor: lap 2 is now the pace-setter.
+    expect(strategyCard).toHaveTextContent('Fastest so far: 1:01.654 (lap 2)');
   });
 
   test('shows the official per-driver classification stats', async () => {

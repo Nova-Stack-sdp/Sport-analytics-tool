@@ -8,12 +8,14 @@ import Masterboard from '../components/telemetry-tv/Masterboard';
 import PlaybackVideo from '../components/telemetry-tv/PlaybackVideo';
 import PlaybackStatusBar from '../components/telemetry-tv/PlaybackStatusBar';
 import RaceFinishCard from '../components/telemetry-tv/RaceFinishCard';
+import RaceHeaderBar from '../components/telemetry-tv/RaceHeaderBar';
 import RaceOverview from '../components/telemetry-tv/RaceOverview';
 import RacePaceCard from '../components/telemetry-tv/RacePaceCard';
 import RacePickerBar from '../components/telemetry-tv/RacePickerBar';
 import RaceStartWaitCard from '../components/telemetry-tv/RaceStartWaitCard';
 import RaceTimeline from '../components/telemetry-tv/RaceTimeline';
-import RaceWeatherPanel from '../components/telemetry-tv/RaceWeatherPanel';
+import SectionDivider from '../components/telemetry-tv/SectionDivider';
+import StrategyCard from '../components/telemetry-tv/StrategyCard';
 import TelemetryTVFooter from '../components/telemetry-tv/TelemetryTVFooter';
 import TelemetryTVGuide from '../components/telemetry-tv/TelemetryTVGuide';
 import { deriveIndycarLapState } from '../features/telemetry-tv/deriveIndycarLapState';
@@ -30,6 +32,7 @@ import {
 } from '../features/telemetry-tv/raceAnalytics';
 import { buildBattleRadarModel } from '../features/telemetry-tv/buildBattleRadarModel';
 import { buildLeadBattle, buildRaceOverview } from '../features/telemetry-tv/raceStats';
+import { buildStrategyModel } from '../features/telemetry-tv/strategyModel';
 import { buildMasterboardCommentary } from '../features/telemetry-tv/buildMasterboardCommentary';
 import { pickVideoTickerEvent } from '../features/telemetry-tv/videoTicker';
 import { buildTorontoraceIntelligence } from '../features/telemetry-tv/Torontorace';
@@ -107,6 +110,25 @@ function TelemetryTVPage() {
   const leadBattle = raceData
     ? buildLeadBattle(raceData, lapState.isFinished ? null : lap)
     : null;
+  // Strategy / Tyre Analysis rows: tyre drift across the current green run,
+  // laps since the last visible stop, and the selected lap against the
+  // fastest so far — all clipped to the lap the broadcast has reached.
+  const strategyModel = raceData
+    ? buildStrategyModel({
+      lapTrend,
+      lap,
+      cautions: lapState.visibleCautions ?? [],
+      pitStops: (lapState.visiblePitStops ?? []).flatMap((entry) => (
+        (entry.stops ?? []).map((stop) => ({ ...stop, car: entry.car, driver: entry.driver }))
+      )),
+    })
+    : null;
+  // The race header reads the same distance the dashboards do once the
+  // report has landed; before that it names the field from the catalogue
+  // entry and holds the lap readout on dashes.
+  const headerLapLabel = raceData && lapState.totalLaps
+    ? `LAP ${Math.min(lap, lapState.totalLaps)} / ${lapState.totalLaps}`
+    : `LAP -- / ${selectedRace?.totalLaps ?? '--'}`;
 
   const handleVideoTime = useCallback((seconds) => {
     setVideoSeconds(Math.floor(seconds));
@@ -178,6 +200,7 @@ function TelemetryTVPage() {
   return (
     <div className="page" id="page-telemetry-tv">
       <div className="content">
+        {/* Navigation */}
         <RacePickerBar
           races={races}
           selectedSlug={selectedSlug}
@@ -185,97 +208,113 @@ function TelemetryTVPage() {
           loading={loading}
         />
         {selectedRace ? (
-          <div className="telemetry-tv-grid">
-            <div className="telemetry-tv-primary">
-              <PlaybackVideo
-                ref={videoRef}
-                race={selectedRace}
-                onPlay={() => setPlaybackStarted(true)}
-                onVideoTime={handleVideoTime}
-                playbackStarted={playbackStarted}
-                loading={loading}
-                error={error}
-              />
-              {dashboardsLive ? (
-                <>
-                  <PlaybackStatusBar
+          <>
+            {/* Race header: who is racing, how far in, under which flag. */}
+            <RaceHeaderBar
+              race={selectedRace}
+              lapLabel={headerLapLabel}
+              flag={lapState.leaderLap?.flag ?? null}
+              fieldSize={selectedRace.fieldSize}
+            />
+
+            {/* Observation layer: the broadcast beside the live order. */}
+            <div className="telemetry-tv-grid">
+              <div className="telemetry-tv-primary">
+                <div className="ttv-band-label">Live Broadcast</div>
+                <PlaybackVideo
+                  ref={videoRef}
+                  race={selectedRace}
+                  onPlay={() => setPlaybackStarted(true)}
+                  onVideoTime={handleVideoTime}
+                  playbackStarted={playbackStarted}
+                  loading={loading}
+                  error={error}
+                />
+                {dashboardsLive ? (
+                  <>
+                    <PlaybackStatusBar
+                      race={raceData}
+                      lap={lap}
+                      videoSeconds={videoSeconds}
+                      margin={margin}
+                      leaderLap={lapState.leaderLap}
+                      lapTrend={lapTrend}
+                      onLapChange={handleLapChange}
+                    />
+                    <LiveTicker events={tickerEvents} />
+                  </>
+                ) : (
+                  /* The broadcast has not reached the green flag: no stats are
+                     loaded into view — every dashboard waits for the race. */
+                  <RaceStartWaitCard
+                    loading={raceLoading}
+                    error={raceError}
+                    videoSeconds={videoSeconds}
+                    raceStartSeconds={raceStartSeconds}
+                  />
+                )}
+              </div>
+
+              {dashboardsLive && (
+                <div className="telemetry-tv-sidebar">
+                  <div className="ttv-band-label">Live Order</div>
+                  {/* The running order is live commentary; the official final
+                      classification below it is an after-the-flag answer, so
+                      it waits for the checkered flag. */}
+                  <Masterboard
                     race={raceData}
                     lap={lap}
-                    videoSeconds={videoSeconds}
-                    margin={margin}
-                    leaderLap={lapState.leaderLap}
-                    onLapChange={handleLapChange}
+                    isFinished={lapState.isFinished}
+                    leaderboard={lapState.leaderboard}
+                    loading={raceLoading}
+                    error={raceError}
                   />
-                  <LiveTicker events={tickerEvents} />
-                  <RacePaceCard lapTrend={lapTrend} lap={lap} />
-                </>
-              ) : (
-                /* The broadcast has not reached the green flag: no stats are
-                   loaded into view — every dashboard waits for the race. */
-                <RaceStartWaitCard
-                  loading={raceLoading}
-                  error={raceError}
-                  videoSeconds={videoSeconds}
-                  raceStartSeconds={raceStartSeconds}
-                />
+                  {lapState.isFinished && <DriverStatsPanel driverStats={driverStats} />}
+                </div>
               )}
             </div>
 
             {dashboardsLive && (
-              <div className="telemetry-tv-sidebar">
-                {/* The running order is live commentary; the official final
-                    classification below it is an after-the-flag answer, so
-                    it waits for the checkered flag. */}
-                <Masterboard
-                  race={raceData}
+              <>
+                <SectionDivider label="Now we move from observation to analysis" />
+
+                {/* Analysis layer: the battle narrated by the radar, then
+                    pace and strategy read side by side from the laps run. */}
+                <BattleRadar
+                  model={battleRadar}
+                  context={selectedSlug === 'toronto-2025' ? torontorace.context : null}
+                />
+                <div className="ttv-analysis-row">
+                  <RacePaceCard lapTrend={lapTrend} lap={lap} />
+                  <StrategyCard
+                    strategy={strategyModel}
+                    raceIntelligence={raceIntelligence}
+                  />
+                </div>
+
+                <SectionDivider label="Deeper investigation" />
+
+                {/* Deeper layer: how the race unfolded — the lead stretches,
+                    the caution windows and the pit-stop rhythm — then the
+                    after-the-flag answers once the checkered lap is run. */}
+                <LeadBattle
+                  leadBattle={leadBattle}
                   lap={lap}
                   isFinished={lapState.isFinished}
-                  leaderboard={lapState.leaderboard}
-                  loading={raceLoading}
-                  error={raceError}
                 />
-                {lapState.isFinished && <DriverStatsPanel driverStats={driverStats} />}
-              </div>
-            )}
-          </div>
-        ) : (
-          <TelemetryTVGuide error={error} />
-        )}
+                <RaceTimeline race={raceData} lapState={lapState} />
 
-        {dashboardsLive && (
-          <>
-            {/* Live phase: the battle for position is the story — Battle
-                Radar leads, the lead battle and the race sequence follow.
-                Final answers (the race overview band) wait for the flag. */}
-            <BattleRadar
-              model={battleRadar}
-              context={selectedSlug === 'toronto-2025' ? torontorace.context : null}
-            />
-            {raceIntelligence && (
-              <RaceWeatherPanel
-                raceSlug={selectedSlug}
-                weather={raceIntelligence.weather}
-                strategySignals={raceIntelligence.strategySignals}
-                narrative={raceIntelligence.narrative}
-              />
-            )}
-            <LeadBattle
-              leadBattle={leadBattle}
-              lap={lap}
-              isFinished={lapState.isFinished}
-            />
-            <RaceTimeline race={raceData} lapState={lapState} />
-
-            {/* Report phase: once the checkered flag lands, the final
-                answers take over — the podium first, then the race-level
-                numbers and the full classification. */}
-            {lapState.isFinished && (
-              <>
-                <RaceFinishCard finishSummary={finishSummary} totalLaps={lapState.totalLaps} />
-                <RaceOverview overview={raceOverview} />
+                {lapState.isFinished && (
+                  <>
+                    <RaceFinishCard finishSummary={finishSummary} totalLaps={lapState.totalLaps} />
+                    <RaceOverview overview={raceOverview} />
+                  </>
+                )}
               </>
             )}
           </>
+        ) : (
+          <TelemetryTVGuide error={error} />
         )}
 
         <TelemetryTVFooter />

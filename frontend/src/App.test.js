@@ -888,10 +888,11 @@ test('the RaceSync header search loads the picked race and the view menu narrows
     within(stage).getByText('HAM', { selector: '.racesync-stage-car' })
   ).toBeInTheDocument();
   // This one flow drives the whole page — a lap-by-lap map plus six panels of
-  // readings — and every assertion above scans that whole DOM, which is more
-  // than Jest's 5s default leaves room for once the rest of the suite is
-  // running beside it.
-}, 15000);
+  // readings — and every assertion above scans that whole DOM. Measured on the
+  // dev machine the flow runs ~35s even alone, so the budget it asks for is
+  // generous on purpose: the alternative is a deterministic timeout, not a
+  // faster test.
+}, 90000);
 
 test('signed-out users can view Overview without signing in', async () => {
   render(<App />);

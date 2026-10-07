@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import AdminPage from '../pages/AdminPage';
 import DatasetsPanel from '../components/developer/DatasetsPanel';
 import SubmissionsPanel from '../components/developer/SubmissionsPanel';
@@ -65,8 +66,16 @@ describe('static platform pages', () => {
 
   test('does not embed a video when no race catalogue can be loaded', async () => {
     getTelemetryTVRaces.mockRejectedValue(new Error('catalogue unavailable'));
-    render(<TelemetryTVPage />);
-    expect(await screen.findByText('No video source configured')).toBeInTheDocument();
+    // The page renders router links (the race picker's sync entry point),
+    // so it needs a Router context like every other page test.
+    render(
+      <MemoryRouter>
+        <TelemetryTVPage />
+      </MemoryRouter>
+    );
+    // A failed catalogue leaves the page on the guide, which names the error
+    // and never mounts a player.
+    expect(await screen.findByText('catalogue unavailable')).toBeInTheDocument();
     expect(screen.queryByTitle('YouTube video player')).not.toBeInTheDocument();
   });
 });

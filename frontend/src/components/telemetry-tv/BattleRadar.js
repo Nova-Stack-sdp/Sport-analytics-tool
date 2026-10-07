@@ -1,20 +1,22 @@
-// Battle Radar - full-width section showing current race dynamics.
-// Shows each driver's gap to the car ahead and the pace advantage needed
-// to close it — the real number that matters for an overtake.
+// Race Intelligence - full-width section showing current race dynamics.
+// The three columns track the story top to bottom: the fight for the lead,
+// the midfield pressure, and the cars running the alternate strategy —
+// each entry carries the gap to the car ahead and the pace advantage needed
+// to close it, the real number that matters for an overtake.
 function BattleRadarTitle({ context }) {
   if (!context) {
     return (
       <>
-        <div className="card-title">Battle Radar</div>
-        <div className="card-title-sub">Front, midfield, and back action</div>
+        <div className="card-title">Race Intelligence</div>
+        <div className="card-title-sub">Lead battle, midfield pressure and strategy</div>
       </>
     );
   }
 
   return (
     <>
-      <div className="card-title">{context.headline ?? 'Pace & Strategy Intelligence'}</div>
-      <div className="card-title-sub">{context.subtitle ?? 'Front, midfield, and back action'}</div>
+      <div className="card-title">{context.headline ?? 'Race Intelligence'}</div>
+      <div className="card-title-sub">{context.subtitle ?? 'Lead battle, midfield pressure and strategy'}</div>
     </>
   );
 }

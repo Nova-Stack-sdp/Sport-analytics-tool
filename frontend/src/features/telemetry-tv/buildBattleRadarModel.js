@@ -89,9 +89,9 @@ export function buildBattleRadarModel(leaderboard = []) {
     .filter(Boolean);
   const midpoint = Math.floor(totalDrivers / 2);
   const columns = totalDrivers === 0 ? [] : [
-    { label: 'Front', accent: 'accent', entries: entriesAtPositions([1, 2, 3]) },
-    { label: 'Midfield', accent: 'amber', entries: entriesAtPositions([midpoint, midpoint + 1, midpoint + 2]) },
-    { label: 'Back', accent: 'red', entries: entriesAtPositions([totalDrivers, totalDrivers - 1, totalDrivers - 2]) },
+    { label: 'Lead battle', accent: 'accent', entries: entriesAtPositions([1, 2, 3]) },
+    { label: 'Midfield pressure', accent: 'amber', entries: entriesAtPositions([midpoint, midpoint + 1, midpoint + 2]) },
+    { label: 'Strategy', accent: 'red', entries: entriesAtPositions([totalDrivers, totalDrivers - 1, totalDrivers - 2]) },
   ];
 
   return {
