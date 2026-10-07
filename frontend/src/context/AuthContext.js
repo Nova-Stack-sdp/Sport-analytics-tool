@@ -177,9 +177,10 @@ export function AuthProvider({ children }) {
     // again on every sign-in/sign-out.
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Firebase knows about this user — use them directly.  The
-        // httpOnly cookie should already exist from the sign-in flow
-        // (SignInPage / SignUpPage calls establishSession after auth).
+        // Firebase knows about this user — use them directly.  Sign-in
+        // establishes the httpOnly cookie, but a fresh sign-up deliberately
+        // has none yet (its login waits for the verify code), so nothing
+        // here depends on the cookie: the verify calls carry a Bearer token.
         setUser(firebaseUser);
         const [tokenResult, admin] = await Promise.all([
           firebaseUser.getIdTokenResult(),

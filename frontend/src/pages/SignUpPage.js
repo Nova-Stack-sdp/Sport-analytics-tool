@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase';
-import { establishSession } from '../api/client';
+import { confirmSignup, establishSession, requestSignupCode } from '../api/client';
+import { usePreferences } from '../context/PreferencesContext';
+import PasswordInput from '../components/PasswordInput';
 import '../styles/auth.css';
 
 const initialForm = {
@@ -13,25 +15,83 @@ const initialForm = {
   confirmPassword: '',
 };
 
-function friendlyAuthError(error) {
-  switch (error.code) {
-    case 'auth/email-already-in-use':
-      return 'An account with that email already exists. Try signing in instead.';
-    case 'auth/weak-password':
-      return 'Choose a stronger password (at least 6 characters).';
-    case 'auth/invalid-email':
+// Used when the backend doesn't say how long to wait (it always does on the
+// cooldown response, but the button must stay honest if that ever changes).
+const RESEND_FALLBACK_SECONDS = 60;
+
+/** "ana@example.com" -> "an***@example.com" — a local stand-in for the
+ * backend's mask, used when a cooldown refusal arrives before any response
+ * could carry the masked form. */
+function maskEmail(value) {
+  const at = value.indexOf('@');
+  if (at <= 0) return value ? `${value.slice(0, 1)}***` : '';
+  const local = value.slice(0, at);
+  return `${local.slice(0, Math.min(2, local.length))}***${value.slice(at)}`;
+}
+
+// Send-stage failures. Whether the address already has an account is not
+// knowable from here — the backend answers identically either way — so
+// every message is about the request itself, never about the account.
+function sendErrorMessage(body) {
+  switch (body?.code) {
+    case 'DAILY_LIMIT':
+      return 'You have asked for too many codes in the last 24 hours. Try again later.';
+    case 'INVALID_EMAIL':
       return 'Enter a valid email.';
     default:
-      return 'Something went wrong creating your account. Try again.';
+      return "We couldn't send the code just now. Please try again.";
   }
 }
 
+// Confirm-stage failures. By this point the caller has read the code out of
+// the address's inbox, so naming an existing account is help, not a leak.
+const CONFIRM_MESSAGES = {
+  INVALID_FORMAT: 'Enter the 6-digit code from the email.',
+  NO_PENDING_SIGNUP: 'No sign-up is waiting for this email. Ask for a new code.',
+  CODE_EXPIRED: 'That code has expired. Ask for a new one.',
+  TOO_MANY_ATTEMPTS: 'Too many wrong guesses. Ask for a new one.',
+  WEAK_PASSWORD: 'Choose a password with at least 8 characters.',
+  EMAIL_EXISTS: 'An account with this email already exists. Sign in instead.',
+};
+
+function confirmErrorMessage(error) {
+  const body = error.body || {};
+  if (body.code === 'CODE_MISMATCH') return body.error || 'That code is not correct.';
+  return CONFIRM_MESSAGES[body.code] || "We couldn't create your account. Please try again.";
+}
+
+// Two stages: 'form' collects the details, 'code' waits for the code mailed
+// to the address — and the account is created by the backend only when that
+// code checks out. Nothing exists before then: no Firebase user, no profile.
+// The password stays in this component's memory between the stages; it is
+// sent exactly once, with the confirm, and never stored server-side.
 function SignUpPage() {
   const navigate = useNavigate();
+  const { preferences } = usePreferences();
+  const startPage = preferences.startPage;
+
   const [form, setForm] = useState(initialForm);
   const [fieldErrors, setFieldErrors] = useState({});
   const [status, setStatus] = useState('idle'); // idle | submitting | error
   const [message, setMessage] = useState('');
+
+  const [stage, setStage] = useState('form');
+  const [emailMasked, setEmailMasked] = useState('');
+  const [code, setCode] = useState('');
+  const [codeError, setCodeError] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [devCode, setDevCode] = useState('');
+  const [cooldown, setCooldown] = useState(0);
+  const [resending, setResending] = useState(false);
+
+  // One timeout per tick rather than an interval: the countdown can also be
+  // set from a response (a fresh cooldown, or the one the backend reports
+  // when it refuses a resend), and a chain always follows the latest value.
+  useEffect(() => {
+    if (cooldown <= 0) return undefined;
+    const timer = setTimeout(() => setCooldown((seconds) => seconds - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
 
   const updateField = (field) => (event) => {
     setForm((prev) => ({ ...prev, [field]: event.target.value }));
@@ -50,6 +110,10 @@ function SignUpPage() {
     return Object.keys(errors).length === 0;
   };
 
+  // Submit the details: this asks the backend to mail a code — it does NOT
+  // create the account. No createUserWithEmailAndPassword anywhere on this
+  // page: the account is born at the confirm below, after the code proves
+  // the address.
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (!validate()) return;
@@ -57,27 +121,108 @@ function SignUpPage() {
     setStatus('submitting');
     setMessage('');
     try {
-      const credential = await createUserWithEmailAndPassword(auth, form.email, form.password);
-      await updateProfile(credential.user, {
-        displayName: `${form.firstName} ${form.lastName}`,
-      });
-      // Firebase signs the account in immediately on creation, so there's
-      // no separate "now go sign in" step.  Exchange the token for a
-      // backend cookie before navigating.
-      const idToken = await credential.user.getIdToken();
-      await establishSession(idToken);
-      // A brand-new email/password account has never been verified, so the
-      // code page is the next step: every guarded route would bounce it there
-      // anyway (see RequireAuth), and the page mails a code on arrival. The
-      // start-page preference is applied once the code is in.
-      navigate('/verify-email', { replace: true });
+      const result = await requestSignupCode(form.email);
+      setEmailMasked(result?.email || maskEmail(form.email.trim().toLowerCase()));
+      setDevCode(result?.devCode || '');
+      setCooldown(result?.resendAfterSeconds ?? RESEND_FALLBACK_SECONDS);
+      setStatus('idle');
+      setStage('code');
     } catch (error) {
+      const body = error.body || {};
+      if (body.code === 'RESEND_COOLDOWN') {
+        // Not a failure from where the user sits: the code sent a moment
+        // ago is still waiting — show the code step and let the timer run.
+        setEmailMasked(maskEmail(form.email.trim().toLowerCase()));
+        setCooldown(body.retryAfterSeconds ?? RESEND_FALLBACK_SECONDS);
+        setStatus('idle');
+        setStage('code');
+        return;
+      }
       setStatus('error');
-      setMessage(friendlyAuthError(error));
+      setMessage(sendErrorMessage(body));
     }
   };
 
+  const handleBackToForm = () => {
+    setStage('form');
+    setCode('');
+    setCodeError('');
+    setDevCode('');
+    setCooldown(0);
+    setMessage('');
+    setStatus('idle');
+  };
+
+  const handleResend = async () => {
+    setResending(true);
+    setCodeError('');
+    try {
+      const result = await requestSignupCode(form.email);
+      setDevCode(result?.devCode || '');
+      setCooldown(result?.resendAfterSeconds ?? RESEND_FALLBACK_SECONDS);
+    } catch (error) {
+      const body = error.body || {};
+      if (body.code === 'RESEND_COOLDOWN') {
+        setCooldown(body.retryAfterSeconds ?? RESEND_FALLBACK_SECONDS);
+      } else {
+        setCodeError(sendErrorMessage(body));
+      }
+    } finally {
+      setResending(false);
+    }
+  };
+
+  const handleConfirm = async (event) => {
+    event.preventDefault();
+    const submitted = code.trim();
+    if (!/^\d{6}$/.test(submitted)) {
+      setCodeError('Enter the 6-digit code from the email.');
+      return;
+    }
+
+    setCreating(true);
+    setCodeError('');
+    try {
+      // The account is created by the backend right here — code check first,
+      // Admin createUser second — so it arrives already verified and this
+      // page never sets foot in the /verify-email flow.
+      await confirmSignup({
+        email: form.email,
+        code: submitted,
+        password: form.password,
+        firstName: form.firstName,
+        lastName: form.lastName,
+      });
+    } catch (error) {
+      setCreating(false);
+      setCodeError(confirmErrorMessage(error));
+      return;
+    }
+
+    // The account now exists. The password from the form is the only copy in
+    // hand — sign in with it and establish the backend session, just like a
+    // normal sign-in. If the sign-in leg fails (offline, say) the account is
+    // still real and the credentials are valid, so the sign-in page is the
+    // honest recovery.
+    try {
+      await signInWithEmailAndPassword(auth, form.email, form.password);
+    } catch {
+      navigate('/sign-in', { replace: true });
+      return;
+    }
+    try {
+      const idToken = await auth.currentUser.getIdToken();
+      await establishSession(idToken);
+    } catch {
+      // Best effort, same as the sign-in page: every API request also
+      // carries a fresh Bearer token (see api/client.js), so a missed
+      // cookie re-establishes itself on the next sign-in.
+    }
+    navigate(startPage, { replace: true });
+  };
+
   const isSubmitting = status === 'submitting';
+  const resendBlocked = resending || cooldown > 0;
 
   return (
     <main className="auth-page">
@@ -107,126 +252,195 @@ function SignUpPage() {
           </figure>
         </section>
 
-        <section className="auth-panel">
-          <header className="auth-statusbar">
-            <span className="auth-live">
-              <span className="auth-live-dot" aria-hidden="true" />
-              Live
-            </span>
-            <span className="auth-terminal-label">Access terminal</span>
-          </header>
+        {stage === 'code' ? (
+          <section className="auth-panel">
+            <header className="auth-statusbar">
+              <span className="auth-live">
+                <span className="auth-live-dot" aria-hidden="true" />
+                Live
+              </span>
+              <span className="auth-terminal-label">Access terminal</span>
+            </header>
 
-          <h2>Create an account</h2>
-          <p className="auth-subtitle">Fill in your details below to get started.</p>
+            <h2>Verify your email</h2>
+            <p className="auth-subtitle">
+              Enter the code we sent to <b>{emailMasked}</b>. Your account is created once it checks
+              out.
+            </p>
 
-          <form className="auth-form" onSubmit={handleSubmit} noValidate>
-            <div className="auth-row">
+            <form className="auth-form" onSubmit={handleConfirm} noValidate>
               <label className="auth-field">
-                <span className="auth-label">First name</span>
+                <span className="auth-label">Verification code</span>
                 <input
+                  id="signup-code"
+                  name="code"
                   type="text"
-                  autoComplete="given-name"
-                  value={form.firstName}
-                  disabled={isSubmitting}
-                  onChange={updateField('firstName')}
-                  aria-invalid={Boolean(fieldErrors.firstName)}
-                  aria-describedby={fieldErrors.firstName ? 'signup-firstname-error' : undefined}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  placeholder="000000"
+                  className="auth-code-input"
+                  value={code}
+                  disabled={creating}
+                  onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))}
+                  aria-invalid={Boolean(codeError)}
+                  aria-describedby={codeError ? 'signup-code-error' : undefined}
                 />
-                {fieldErrors.firstName && (
-                  <span className="auth-field-error" id="signup-firstname-error">
-                    {fieldErrors.firstName}
+                {codeError && (
+                  <span className="auth-field-error" id="signup-code-error">
+                    {codeError}
                   </span>
                 )}
               </label>
 
-              <label className="auth-field">
-                <span className="auth-label">Last name</span>
-                <input
-                  type="text"
-                  autoComplete="family-name"
-                  value={form.lastName}
-                  disabled={isSubmitting}
-                  onChange={updateField('lastName')}
-                  aria-invalid={Boolean(fieldErrors.lastName)}
-                  aria-describedby={fieldErrors.lastName ? 'signup-lastname-error' : undefined}
-                />
-                {fieldErrors.lastName && (
-                  <span className="auth-field-error" id="signup-lastname-error">
-                    {fieldErrors.lastName}
-                  </span>
-                )}
-              </label>
+              <button type="submit" className="btn btn-primary" disabled={creating}>
+                {creating ? 'Creating account…' : 'Verify and create account'}
+              </button>
+            </form>
+
+            <div className="auth-resend">
+              <span>
+                {resending
+                  ? 'Sending…'
+                  : cooldown > 0
+                    ? `You can ask for a new code in ${cooldown}s`
+                    : 'Nothing arrived?'}
+              </span>
+              <button type="button" onClick={handleResend} disabled={resendBlocked}>
+                Send a new code
+              </button>
             </div>
 
-            <label className="auth-field">
-              <span className="auth-label">Email</span>
-              <input
-                type="email"
-                autoComplete="email"
-                value={form.email}
-                disabled={isSubmitting}
-                onChange={updateField('email')}
-                aria-invalid={Boolean(fieldErrors.email)}
-                aria-describedby={fieldErrors.email ? 'signup-email-error' : undefined}
-              />
-              {fieldErrors.email && (
-                <span className="auth-field-error" id="signup-email-error">
-                  {fieldErrors.email}
-                </span>
-              )}
-            </label>
+            <div className="auth-resend">
+              <span>Wrong details?</span>
+              <button type="button" onClick={handleBackToForm} disabled={creating}>
+                Edit and try again
+              </button>
+            </div>
 
-            <label className="auth-field">
-              <span className="auth-label">Password</span>
-              <input
-                type="password"
+            {devCode && (
+              // The backend only includes this while EMAIL_PROVIDER=console
+              // and NODE_ENV isn't production — there is no inbox to read
+              // locally.
+              <p className="auth-devcode" role="status">
+                Dev only — console mail provider sent code <b>{devCode}</b> (also in the backend
+                log).
+              </p>
+            )}
+
+            <p className="auth-switch">
+              Already have an account? <Link to="/sign-in">Sign in instead</Link>
+            </p>
+          </section>
+        ) : (
+          <section className="auth-panel">
+            <header className="auth-statusbar">
+              <span className="auth-live">
+                <span className="auth-live-dot" aria-hidden="true" />
+                Live
+              </span>
+              <span className="auth-terminal-label">Access terminal</span>
+            </header>
+
+            <h2>Create an account</h2>
+            <p className="auth-subtitle">
+              Fill in your details — we'll email a code to confirm your address before the account
+              is created.
+            </p>
+
+            <form className="auth-form" onSubmit={handleSubmit} noValidate>
+              <div className="auth-row">
+                <label className="auth-field">
+                  <span className="auth-label">First name</span>
+                  <input
+                    type="text"
+                    autoComplete="given-name"
+                    value={form.firstName}
+                    disabled={isSubmitting}
+                    onChange={updateField('firstName')}
+                    aria-invalid={Boolean(fieldErrors.firstName)}
+                    aria-describedby={fieldErrors.firstName ? 'signup-firstname-error' : undefined}
+                  />
+                  {fieldErrors.firstName && (
+                    <span className="auth-field-error" id="signup-firstname-error">
+                      {fieldErrors.firstName}
+                    </span>
+                  )}
+                </label>
+
+                <label className="auth-field">
+                  <span className="auth-label">Last name</span>
+                  <input
+                    type="text"
+                    autoComplete="family-name"
+                    value={form.lastName}
+                    disabled={isSubmitting}
+                    onChange={updateField('lastName')}
+                    aria-invalid={Boolean(fieldErrors.lastName)}
+                    aria-describedby={fieldErrors.lastName ? 'signup-lastname-error' : undefined}
+                  />
+                  {fieldErrors.lastName && (
+                    <span className="auth-field-error" id="signup-lastname-error">
+                      {fieldErrors.lastName}
+                    </span>
+                  )}
+                </label>
+              </div>
+
+              <label className="auth-field">
+                <span className="auth-label">Email</span>
+                <input
+                  type="email"
+                  autoComplete="email"
+                  value={form.email}
+                  disabled={isSubmitting}
+                  onChange={updateField('email')}
+                  aria-invalid={Boolean(fieldErrors.email)}
+                  aria-describedby={fieldErrors.email ? 'signup-email-error' : undefined}
+                />
+                {fieldErrors.email && (
+                  <span className="auth-field-error" id="signup-email-error">
+                    {fieldErrors.email}
+                  </span>
+                )}
+              </label>
+
+              <PasswordInput
+                label="Password"
                 autoComplete="new-password"
                 value={form.password}
                 disabled={isSubmitting}
                 onChange={updateField('password')}
-                aria-invalid={Boolean(fieldErrors.password)}
-                aria-describedby={fieldErrors.password ? 'signup-password-error' : undefined}
+                error={fieldErrors.password}
+                errorId="signup-password-error"
               />
-              {fieldErrors.password && (
-                <span className="auth-field-error" id="signup-password-error">
-                  {fieldErrors.password}
-                </span>
-              )}
-            </label>
 
-            <label className="auth-field">
-              <span className="auth-label">Confirm password</span>
-              <input
-                type="password"
+              <PasswordInput
+                label="Confirm password"
                 autoComplete="new-password"
                 value={form.confirmPassword}
                 disabled={isSubmitting}
                 onChange={updateField('confirmPassword')}
-                aria-invalid={Boolean(fieldErrors.confirmPassword)}
-                aria-describedby={fieldErrors.confirmPassword ? 'signup-confirm-error' : undefined}
+                error={fieldErrors.confirmPassword}
+                errorId="signup-confirm-error"
               />
-              {fieldErrors.confirmPassword && (
-                <span className="auth-field-error" id="signup-confirm-error">
-                  {fieldErrors.confirmPassword}
-                </span>
-              )}
-            </label>
 
-            <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
-              {isSubmitting ? 'Creating account…' : 'Create account'}
-            </button>
-          </form>
+              <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+                {isSubmitting ? 'Sending code…' : 'Create account'}
+              </button>
+            </form>
 
-          {status === 'error' && (
-            <p className="auth-message is-error" role="alert">
-              {message}
+            {status === 'error' && (
+              <p className="auth-message is-error" role="alert">
+                {message}
+              </p>
+            )}
+
+            <p className="auth-switch">
+              Already have an account? <Link to="/sign-in">Sign in instead</Link>
             </p>
-          )}
-
-          <p className="auth-switch">
-            Already have an account? <Link to="/sign-in">Sign in instead</Link>
-          </p>
-        </section>
+          </section>
+        )}
       </section>
     </main>
   );

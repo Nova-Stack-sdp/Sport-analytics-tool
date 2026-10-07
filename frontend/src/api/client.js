@@ -223,6 +223,52 @@ export function confirmEmailVerificationCode(code, idToken) {
 }
 
 // ---------------------------------------------------------------------------
+// Account creation (the account is born only once the code is confirmed)
+//
+// The Firebase account deliberately does NOT exist when the sign-up form is
+// submitted: the backend notes a pending sign-up, mails a code to the
+// address, and creates the account (Admin SDK, already verified) only when
+// the code is confirmed — see backend/src/routes/signup.js. The caller then
+// signs in with the credentials it is still holding.
+// ---------------------------------------------------------------------------
+
+/**
+ * Note a pending sign-up for an address and have a code mailed to it.
+ * Resolves like requestEmailVerificationCode: { status, email (masked),
+ * expiresInMinutes, resendAfterSeconds } plus `devCode` while the console
+ * provider is active outside production. Rejects with a body whose `code`
+ * explains any refusal: RESEND_COOLDOWN (too soon — `retryAfterSeconds`
+ * says how long), DAILY_LIMIT, EMAIL_SEND_FAILED, INVALID_EMAIL.
+ *
+ * The response is identical whether or not the address already has an
+ * account — that only ever surfaces at confirm, where the caller has
+ * proved they can read the address's inbox.
+ */
+export function requestSignupCode(email) {
+  return request('/api/auth/signup/request', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+}
+
+/**
+ * Confirm the code and have the account created along with it. The password
+ * travels with this one call (it is handed straight to Admin createUser and
+ * never stored); a resolved promise means the account now exists, verified.
+ * Rejects with CODE_MISMATCH, CODE_EXPIRED, TOO_MANY_ATTEMPTS,
+ * NO_PENDING_SIGNUP, EMAIL_EXISTS, WEAK_PASSWORD or CREATE_FAILED in
+ * error.body.code.
+ */
+export function confirmSignup({ email, code, password, firstName, lastName }) {
+  return request('/api/auth/signup/confirm', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code, password, firstName, lastName }),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Account notifications
 // ---------------------------------------------------------------------------
 
