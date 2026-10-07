@@ -3,6 +3,7 @@ import { serverTiming } from './middleware/serverTiming.js';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { authRouter } from './routes/auth.js';
+import { signupRouter } from './routes/signup.js';
 import { emailVerificationRouter } from './routes/emailVerification.js';
 import { overviewRouter } from './routes/overview.js';
 import { statisticsRouter } from './routes/statistics.js';
@@ -39,6 +40,10 @@ function readConfig(options) {
     v1RateLimit: options.v1RateLimit ?? (isTest ? 0 : fromEnv('RATE_LIMIT_V1_PER_MINUTE', 120)),
     // File exports stream whole seasons, so they get their own, tighter limit.
     exportRateLimit: options.exportRateLimit ?? (isTest ? 0 : fromEnv('RATE_LIMIT_EXPORTS_PER_MINUTE', 10)),
+    // Sign-up mails a code to an arbitrary address, so it gets its own, tight
+    // per-IP limit on top of the per-email cooldown / daily caps the route
+    // enforces — otherwise one client could mail-bomb many different inboxes.
+    signupRateLimit: options.signupRateLimit ?? (isTest ? 0 : fromEnv('RATE_LIMIT_SIGNUP_PER_MINUTE', 10)),
     cacheTtlMs: options.cacheTtlMs ?? (isTest ? 0 : fromEnv('CACHE_TTL_SECONDS', 60) * 1000),
   };
 }
@@ -104,6 +109,9 @@ export function createApp(options = {}) {
   if (config.exportRateLimit > 0) {
     app.use('/api/v1/exports', createRateLimiter({ limit: config.exportRateLimit, name: 'export API' }));
   }
+  if (config.signupRateLimit > 0) {
+    app.use('/api/auth/signup', createRateLimiter({ limit: config.signupRateLimit, name: 'sign-up' }));
+  }
 
   // --- Response cache for repeated public reads --------------------------
   // Only data that's the same for every caller. Not auth, drivers/teams
@@ -116,8 +124,12 @@ export function createApp(options = {}) {
   app.use(['/api/statistics', '/api/overview', '/api/fixtures', '/api/race-replay'], cache);
   app.locals.responseCache = cache;
 
-  // The 6-digit email verification code endpoints mount first: a more
-  // specific path than /api/auth, so it stays obvious which router owns it.
+  // The sign-up endpoints mount first: they are public by design (no
+  // account exists until the emailed code is confirmed), and the path is
+  // more specific than /api/auth. Same for the verification-code endpoints
+  // — also more specific than /api/auth, so it stays obvious which router
+  // owns which path.
+  app.use('/api/auth/signup', signupRouter);
   app.use('/api/auth/verify-email', emailVerificationRouter);
   app.use('/api/auth', authRouter);
   app.use('/api/overview', overviewRouter);

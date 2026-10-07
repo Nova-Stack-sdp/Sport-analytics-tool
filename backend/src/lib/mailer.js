@@ -59,7 +59,7 @@ function bodyFor({ code, expiresInMinutes }) {
     '',
     `Your email verification code is: ${code}`,
     '',
-    `The code expires in ${expiresInMinutes} minutes. Enter it on the Verify Email page to finish setting up your account.`,
+    `The code expires in ${expiresInMinutes} minutes. Enter it to finish setting up your account.`,
     'If you did not create this account you can ignore this email.',
   ].join('\n');
 }
