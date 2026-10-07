@@ -28,6 +28,7 @@ import {
   OFFICIAL_2026_TEAMS,
   preferenceCatalog,
 } from '../services/f1Catalog';
+import useSmartNotifications from '../hooks/useSmartNotifications';
 
 // Each tab has a URL slug so other pages can link straight to one
 const PROFILE_TABS = [
@@ -95,6 +96,9 @@ function ProfilePage() {
   // State from your branch (Follows & Notifications)
   const [follows, setFollows] = useState(() => readFollows(user?.uid));
   const [followModalOpen, setFollowModalOpen] = useState(false);
+
+  // Trigger the smart notification sync strictly for the logged-in user
+  useSmartNotifications(user, follows);
 
   useEffect(() => {
     if (!user?.uid) return undefined;

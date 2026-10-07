@@ -161,6 +161,14 @@ export function setDeveloperModeOnServer(enabled, idToken) {
 // Account notifications
 // ---------------------------------------------------------------------------
 
+export function createNotification(notificationData) {
+  return request('/api/notifications', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(notificationData),
+  });
+}
+
 /**
  * The signed-in user's own notifications, newest first (requireAuth on the
  * backend — no session, no rows). The response is the array itself.
@@ -421,11 +429,15 @@ export function reviewCodeSubmission(id, status) {
 // F1 news feed
 // ---------------------------------------------------------------------------
 
-export function getF1News({ limit = 100, offset = 0 } = {}) {
+export function getF1News({ driverId, teamId, limit = 100, offset = 0 } = {}) {
   const params = new URLSearchParams({
     limit: String(limit),
     offset: String(offset),
   });
+  
+  if (driverId) params.set('driverId', driverId);
+  if (teamId) params.set('teamId', teamId);
+  
   return request(`/api/news?${params.toString()}`);
 }
 
