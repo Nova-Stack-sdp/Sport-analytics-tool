@@ -21,9 +21,11 @@ import { jest } from '@jest/globals';
 
 const mockVerifyIdToken = jest.fn();
 const mockDeleteUser = jest.fn();
+const mockRevokeRefreshTokens = jest.fn();
 const mockAuth = jest.fn(() => ({
   verifyIdToken: mockVerifyIdToken,
   deleteUser: mockDeleteUser,
+  revokeRefreshTokens: mockRevokeRefreshTokens,
 }));
 
 const mockDocDelete = jest.fn();
@@ -85,6 +87,7 @@ beforeEach(() => {
 
   mockDocDelete.mockResolvedValue(undefined);
   mockDeleteUser.mockResolvedValue(undefined);
+  mockRevokeRefreshTokens.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -125,6 +128,10 @@ describe('DELETE /api/auth/account', () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ status: 'deleted' });
 
+    // The token was verified with the revocation check switched on — a
+    // disabled account or a revoked token cannot trigger a deletion.
+    expect(mockVerifyIdToken).toHaveBeenCalledWith('verified-token', true);
+
     // All five tables, each narrowed to this user's own rows. Code
     // submissions are keyed by submitterId rather than userId.
     expect(mockTransaction).toHaveBeenCalledTimes(1);
@@ -137,6 +144,12 @@ describe('DELETE /api/auth/account', () => {
     // The Firestore mirror doc, then the account itself.
     expect(mockDoc).toHaveBeenCalledWith('users/u1');
     expect(mockDocDelete).toHaveBeenCalledTimes(1);
+    // Refresh tokens die first, then the account — a partial failure on the
+    // account delete must not leave live refresh tokens behind.
+    expect(mockRevokeRefreshTokens).toHaveBeenCalledWith('u1');
+    expect(mockRevokeRefreshTokens.mock.invocationCallOrder[0]).toBeLessThan(
+      mockDeleteUser.mock.invocationCallOrder[0]
+    );
     expect(mockDeleteUser).toHaveBeenCalledWith('u1');
 
     // Databases first, Firebase last: once the Firebase user is gone the
@@ -176,6 +189,7 @@ describe('DELETE /api/auth/account', () => {
     // Firebase comes last precisely so a failed transaction leaves the
     // account intact and the user can simply try again.
     expect(mockDoc).not.toHaveBeenCalled();
+    expect(mockRevokeRefreshTokens).not.toHaveBeenCalled();
     expect(mockDeleteUser).not.toHaveBeenCalled();
     expect(res.headers['set-cookie']).toBeUndefined();
   });

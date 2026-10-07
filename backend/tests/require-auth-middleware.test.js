@@ -22,11 +22,12 @@ jest.unstable_mockModule('firebase-admin', () => ({
 }));
 
 let requireAuth;
+let requireFreshAuth;
 let requireAdmin;
 let requireVerifiedEmail;
 
 beforeAll(async () => {
-  ({ requireAuth, requireAdmin, requireVerifiedEmail } = await import('../src/middleware/requireAuth.js'));
+  ({ requireAuth, requireFreshAuth, requireAdmin, requireVerifiedEmail } = await import('../src/middleware/requireAuth.js'));
 });
 
 function buildRes() {
@@ -132,6 +133,15 @@ describe('requireAuth', () => {
     expect(req.user).toEqual({ uid: 'user_123', email: 'dev@example.com', emailVerified: false, developer: true, admin: false });
     expect(next).toHaveBeenCalled();
   });
+
+  test('skips the revocation lookup — the plain variant stays one verify call', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user_123' });
+    const req = { headers: { authorization: 'Bearer good-token' } };
+
+    await requireAuth(req, buildRes(), jest.fn());
+
+    expect(mockVerifyIdToken).toHaveBeenCalledWith('good-token', false);
+  });
 });
 
 describe('requireAuth admin flag (ADMIN_UIDS allowlist)', () => {
@@ -168,6 +178,48 @@ describe('requireAuth admin flag (ADMIN_UIDS allowlist)', () => {
     await requireAuth(req, buildRes(), jest.fn());
 
     expect(req.user.admin).toBe(false);
+  });
+});
+
+describe('requireFreshAuth', () => {
+  test('asks Firebase for the revocation check on every request', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user_123', email: 'driver@example.com' });
+    const req = { headers: { authorization: 'Bearer good-token' } };
+    const res = buildRes();
+    const next = jest.fn();
+
+    await requireFreshAuth(req, res, next);
+
+    expect(mockVerifyIdToken).toHaveBeenCalledWith('good-token', true);
+    expect(req.user.uid).toBe('user_123');
+    expect(next).toHaveBeenCalled();
+  });
+
+  test('rejects a revoked or disabled account like any invalid token', async () => {
+    // With checkRevoked the Admin SDK rejects when the user was disabled,
+    // deleted, or had their refresh tokens revoked — well before expiry.
+    mockVerifyIdToken.mockRejectedValue(new Error('Firebase ID token has been revoked'));
+    const req = { headers: { authorization: 'Bearer revoked-token' } };
+    const res = buildRes();
+    const next = jest.fn();
+
+    await requireFreshAuth(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ error: 'Invalid or expired token' });
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  test('still reads the cookie transport, so the frontend needs no change', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user_123' });
+    const req = { headers: {}, cookies: { __session: 'cookie-token' } };
+    const res = buildRes();
+    const next = jest.fn();
+
+    await requireFreshAuth(req, res, next);
+
+    expect(mockVerifyIdToken).toHaveBeenCalledWith('cookie-token', true);
+    expect(next).toHaveBeenCalled();
   });
 });
 

@@ -16,6 +16,11 @@
  *   router.get('/admin-only', requireAuth, handler);
  *   router.get('/verified-only', requireAuth, requireVerifiedEmail, handler);
  *
+ * Sensitive routes (account deletion, privilege changes) use requireFreshAuth
+ * instead — same verification, plus Firebase's checkRevoked so disabled,
+ * deleted or explicitly revoked accounts stop working immediately rather
+ * than when their token happens to expire (up to one hour).
+ *
  * Requires FIREBASE_SERVICE_ACCOUNT to be set on the backend — a JSON
  * service account key (Firebase Console -> Project settings -> Service
  * accounts -> Generate new private key), stored as a single-line JSON
@@ -53,6 +58,22 @@ function extractToken(req) {
 }
 
 export async function requireAuth(req, res, next) {
+  return authenticate(req, res, next, { checkRevoked: false });
+}
+
+/**
+ * requireFreshAuth — requireAuth with Firebase's revocation check switched
+ * on, for routes where the consequence of a stale session is too high to
+ * accept the default one-hour token window: account deletion, and anything
+ * else that must stop working the moment an account is disabled or its
+ * tokens are revoked (admin.auth().revokeRefreshTokens()). Costs one extra
+ * Firebase user lookup per request, so it is for sensitive routes only.
+ */
+export async function requireFreshAuth(req, res, next) {
+  return authenticate(req, res, next, { checkRevoked: true });
+}
+
+async function authenticate(req, res, next, { checkRevoked }) {
   const token = extractToken(req);
 
   if (!token) {
@@ -71,7 +92,7 @@ export async function requireAuth(req, res, next) {
   }
 
   try {
-    const decoded = await admin.auth(app).verifyIdToken(token);
+    const decoded = await admin.auth(app).verifyIdToken(token, checkRevoked);
     // Custom claims (set via the Admin SDK, e.g. `developer: true`) ride
     // along inside the decoded token automatically — no extra lookup
     // needed here, just pull them out alongside the standard fields.

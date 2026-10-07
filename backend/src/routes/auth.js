@@ -25,7 +25,7 @@
  */
 import { Router } from 'express';
 import admin from 'firebase-admin';
-import { requireAuth, requireAdmin, requireVerifiedEmail, getAdminApp } from '../middleware/requireAuth.js';
+import { requireAuth, requireFreshAuth, requireAdmin, requireVerifiedEmail, getAdminApp } from '../middleware/requireAuth.js';
 import { isAdminUid } from '../lib/adminAccess.js';
 // 1. ADD THIS: Import your Prisma client (adjust the path if your Prisma client is exported from a lib folder)
 import { prisma } from '../lib/prisma.js';
@@ -153,10 +153,13 @@ authRouter.get('/admin-check', requireAuth, requireAdmin, (req, res) => {
 // Self-service: a signed-in user toggles their own developer mode from
 // Settings. This is NOT an admin-grant flow — anyone signed in can turn
 // it on for themselves, same as the earlier localStorage-only version,
-// just now persisted on the account instead of the browser. If developer
-// access ever needs to be admin-approved instead, this is the endpoint
-// to lock down (e.g. require an admin claim on the caller).
-authRouter.post('/developer-mode', requireAuth, requireVerifiedEmail, async (req, res) => {
+// just now persisted on the account instead of the browser. It uses
+// requireFreshAuth (revocation checked) because it writes a custom claim —
+// an account that was disabled or had its tokens revoked must not be able
+// to grant itself anything. If developer access ever needs to be
+// admin-approved instead, this is the endpoint to lock down (e.g. require
+// an admin claim on the caller).
+authRouter.post('/developer-mode', requireFreshAuth, requireVerifiedEmail, async (req, res) => {
   const { enabled } = req.body;
   if (typeof enabled !== 'boolean') {
     return res.status(400).json({ error: 'enabled must be a boolean' });
@@ -208,7 +211,11 @@ authRouter.put('/favorites', requireAuth, requireVerifiedEmail, async (req, res)
 //      a deletion that already succeeded rather than an error.
 // Code submissions go with the account: they are the user's own data, keyed
 // by submitter id, and "completely" outranks the review queue.
-authRouter.delete('/account', requireAuth, requireVerifiedEmail, async (req, res) => {
+//
+// requireFreshAuth, not requireAuth: the deletion below checks with Firebase
+// that the token has not been revoked or the account disabled, so a stolen
+// or stale session cannot trigger a deletion that the owner already cut off.
+authRouter.delete('/account', requireFreshAuth, requireVerifiedEmail, async (req, res) => {
   const uid = req.user.uid;
 
   try {
@@ -234,6 +241,12 @@ authRouter.delete('/account', requireAuth, requireVerifiedEmail, async (req, res
 
   try {
     const app = getAdminApp();
+    // Revoke refresh tokens first: even if the deleteUser call below fails,
+    // every refresh path for this account is already dead, and any ID token
+    // still inside its 1-hour window is rejected by the requireFreshAuth
+    // check on this route. auth/user-not-found means the account is already
+    // gone — a retry of a finished deletion, not an error.
+    await admin.auth(app).revokeRefreshTokens(uid);
     await admin.auth(app).deleteUser(uid);
   } catch (err) {
     if (err.code !== 'auth/user-not-found') {
