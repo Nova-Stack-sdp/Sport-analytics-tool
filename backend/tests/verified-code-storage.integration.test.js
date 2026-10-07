@@ -1,5 +1,6 @@
 import pkg from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { purgeRejectedCodeSubmissions } from '../src/jobs/rejected-code-cleanup.js';
 
 // Explicit opt-in: these tests delete fixture rows. Never accept the app's
 // DATABASE_URL or a remote/shared database as the target.
@@ -12,6 +13,8 @@ if (databaseUrl) {
   }
 }
 const integration = databaseUrl ? describe : describe.skip;
+const NOW = new Date('2026-10-15T12:00:00Z');
+const CUTOFF = new Date('2026-10-08T12:00:00Z');
 let prisma;
 
 const sourceData = (id, extra = {}) => ({
@@ -24,7 +27,7 @@ const verifiedData = (submission) => ({
   submitterId: submission.submitterId, verifiedBy: 'test-admin',
 });
 
-integration('VerifiedCode migration against PostgreSQL', () => {
+integration('VerifiedCode migration and rejected-code retention against PostgreSQL', () => {
   beforeAll(() => {
     prisma = new pkg.PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
   });
@@ -71,4 +74,38 @@ integration('VerifiedCode migration against PostgreSQL', () => {
     expect(await prisma.verifiedCode.count()).toBe(0);
   });
 
+  test('deletes only expired rejected rows, retaining recent/unreviewed/approved/pending/verified rows', async () => {
+    await prisma.codeSubmission.createMany({ data: [
+      sourceData('expired', { status: 'rejected', reviewedAt: new Date('2026-10-01T00:00:00Z') }),
+      sourceData('boundary', { status: 'rejected', reviewedAt: CUTOFF }),
+      sourceData('recent', { status: 'rejected', reviewedAt: new Date(CUTOFF.getTime() + 1) }),
+      sourceData('unreviewed', { status: 'rejected' }),
+      sourceData('approved', { status: 'approved', reviewedAt: CUTOFF }),
+      sourceData('pending', { reviewedAt: CUTOFF }),
+      sourceData('verified', { status: 'rejected', reviewedAt: CUTOFF }),
+    ] });
+    const source = await prisma.codeSubmission.findUnique({ where: { id: 'verified' } });
+    await prisma.verifiedCode.create({ data: verifiedData(source) });
+    expect((await purgeRejectedCodeSubmissions(prisma, { now: NOW, batchSize: 1 })).deleted).toBe(2);
+    const remaining = await prisma.codeSubmission.findMany({ select: { id: true }, orderBy: { id: 'asc' } });
+    expect(remaining.map(({ id }) => id)).toEqual(['approved', 'pending', 'recent', 'unreviewed', 'verified']);
+    expect(await prisma.verifiedCode.count()).toBe(1);
+    expect((await purgeRejectedCodeSubmissions(prisma, { now: NOW })).deleted).toBe(0);
+  });
+
+  test('rechecks eligibility if a review changes between selection and deletion', async () => {
+    await prisma.codeSubmission.create({ data: sourceData('changed', { status: 'rejected', reviewedAt: CUTOFF }) });
+    const concurrentPrisma = { codeSubmission: {
+      findMany: async (args) => {
+        const rows = await prisma.codeSubmission.findMany(args);
+        if (rows.length) {
+          await prisma.codeSubmission.update({ where: { id: 'changed' }, data: { status: 'approved' } });
+        }
+        return rows;
+      },
+      deleteMany: (args) => prisma.codeSubmission.deleteMany(args),
+    } };
+    expect((await purgeRejectedCodeSubmissions(concurrentPrisma, { now: NOW })).deleted).toBe(0);
+    expect((await prisma.codeSubmission.findUnique({ where: { id: 'changed' } })).status).toBe('approved');
+  });
 });
