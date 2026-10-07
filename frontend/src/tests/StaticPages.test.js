@@ -1,12 +1,14 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import AdminPage from '../pages/AdminPage';
 import DatasetsPanel from '../components/developer/DatasetsPanel';
+import SubmissionsPanel from '../components/developer/SubmissionsPanel';
 import TelemetryTVPage from '../pages/TelemetryTVPage';
 import { getTelemetryTVRaces, listCodeSubmissions } from '../api/client';
 
 jest.mock('../api/client', () => ({
   getTelemetryTVRaces: jest.fn(),
   listCodeSubmissions: jest.fn(),
+  listSubmissions: jest.fn(() => Promise.resolve({ submissions: [] })),
 }));
 
 describe('static platform pages', () => {
@@ -16,6 +18,18 @@ describe('static platform pages', () => {
     expect(screen.getByText('Request export')).toBeInTheDocument();
     expect(screen.getByText('Driver telemetry')).toBeInTheDocument();
     expect(screen.getByText('v2026.10.20')).toBeInTheDocument();
+  });
+
+  test('renders the submissions pipeline and switches review tabs', () => {
+    render(<SubmissionsPanel />);
+    expect(screen.getByText('Submit a batch')).toBeInTheDocument();
+    expect(screen.getByText('Review & approval queue')).toBeInTheDocument();
+
+    const approved = screen.getByText('Approved', { selector: '.tab' });
+    fireEvent.click(approved);
+    expect(approved).toHaveClass('active');
+    fireEvent.click(screen.getByText('Rejected', { selector: '.tab' }));
+    expect(screen.getByText('Rejected', { selector: '.tab' })).toHaveClass('active');
   });
 
   test('renders every administration tab and all data-state actions', async () => {

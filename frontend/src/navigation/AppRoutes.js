@@ -32,7 +32,7 @@ function AppRoutes() {
       <Route path="/fixtures" element={<FixturesEventsPage />} />
       <Route path="/statistics" element={<StatisticsPage />} />
       {/* Datasets and Submit Code are tabs on the Developer page now. */}
-      <Route path="/submissions" element={<Navigate to="/developer?tab=submit-code" replace />} />
+      <Route path="/submissions" element={<Navigate to="/developer?tab=submit-dataset" replace />} />
       <Route path="/timetravel" element={<TimeTravelPage />} />
       <Route path="/datasets" element={<Navigate to="/developer?tab=datasets" replace />} />
       <Route path="/developer" element={<RequireAuth><DeveloperPage /></RequireAuth>} />

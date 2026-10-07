@@ -1,19 +1,22 @@
 import { Link, useSearchParams } from 'react-router-dom';
 import { useDeveloperMode } from '../context/DeveloperModeContext';
 import DatasetsPanel from '../components/developer/DatasetsPanel';
+import SubmissionsPanel from '../components/developer/SubmissionsPanel';
 import CodeSubmissionPage from './CodeSubmissionPage';
 
-// Datasets and Submit Code used to be separate pages in the nav; they're
-// now tabs here, since they're only useful to developers anyway. Each tab
-// has a URL slug so /datasets and /code-submissions can redirect straight
-// to it. 'submissions' is the old slug of the Submit Code tab.
+// Datasets, Submit Code and Submit Dataset used to be separate pages in the
+// nav; they're now tabs here, since they're only useful to developers anyway.
+// Each tab has a URL slug so /datasets, /submissions and /code-submissions
+// can redirect straight to it. 'submissions' is the old slug of the Submit
+// Dataset tab.
 const DEVELOPER_TABS = [
   { slug: 'console', label: 'API Console' },
   { slug: 'datasets', label: 'Datasets' },
   { slug: 'submit-code', label: 'Submit Code' },
+  { slug: 'submit-dataset', label: 'Submit Dataset' },
 ];
 const DEFAULT_TAB = DEVELOPER_TABS[0].slug;
-const TAB_ALIASES = { submissions: 'submit-code' };
+const TAB_ALIASES = { submissions: 'submit-dataset' };
 
 function tabFromParam(value) {
   const slug = TAB_ALIASES[value] ?? value;
@@ -39,9 +42,10 @@ function DeveloperExplainer() {
         <div className="rationale">
           <span className="ic">◆</span>
           <div>
-            <b>What developer mode unlocks:</b> three tabs on this page — the API Console, Datasets
-            (the underlying race data available to work with) and Submit Code (where a proposed stat's
-            script is submitted for review). Nothing you submit goes live on its own — an admin
+            <b>What developer mode unlocks:</b> four tabs on this page — the API Console, Datasets
+            (the underlying race data available to work with), Submit Code (where a proposed stat's
+            script is submitted for review) and Submit Dataset (where a batch of race data is
+            submitted and its review status is tracked). Nothing you submit goes live on its own — an admin
             reviews it first.
           </div>
         </div>
@@ -132,7 +136,7 @@ function ApiConsolePanel() {
 }
 
 // Shown once developer mode is switched on: the console plus the Datasets
-// and Submit Code tools, as tabs.
+// Submit Code and Submit Dataset tools, as tabs.
 function DeveloperWorkspace() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = tabFromParam(searchParams.get('tab'));
@@ -147,8 +151,8 @@ function DeveloperWorkspace() {
         <div className="section-eyebrow">Basic → advanced · the API is the product</div>
         <div className="section-title">Developer</div>
         <div className="section-desc">
-          Keys, rate limits and usage for the API, plus the datasets you can work with and a place
-          to submit your own scripts — everything for building on the platform in one place.
+          Keys, rate limits and usage for the API, plus the datasets you can work with and places
+          to submit your own scripts and data — everything for building on the platform in one place.
         </div>
       </div>
       <div className="content">
@@ -170,6 +174,7 @@ function DeveloperWorkspace() {
         {activeTab === 'console' && <ApiConsolePanel />}
         {activeTab === 'datasets' && <DatasetsPanel />}
         {activeTab === 'submit-code' && <CodeSubmissionPage />}
+        {activeTab === 'submit-dataset' && <SubmissionsPanel />}
       </div>
     </div>
   );

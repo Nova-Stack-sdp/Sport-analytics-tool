@@ -51,6 +51,7 @@ describe('DeveloperPage', () => {
     expect(screen.getByRole('tab', { name: 'API Console' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('tab', { name: 'Datasets' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Submit Code' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Submit Dataset' })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Submissions' })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: 'Datasets' }));
@@ -59,12 +60,16 @@ describe('DeveloperPage', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: 'Submit Code' }));
     expect(screen.getByText('Submit a script')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Submit Dataset' }));
+    expect(screen.getByText('Review & approval queue')).toBeInTheDocument();
   });
 
   test.each([
     ['/developer?tab=datasets', 'Datasets', 'Build a custom export'],
     ['/developer?tab=submit-code', 'Submit Code', 'Submit a script'],
-    ['/developer?tab=submissions', 'Submit Code', 'Submit a script'],
+    ['/developer?tab=submit-dataset', 'Submit Dataset', 'Review & approval queue'],
+    ['/developer?tab=submissions', 'Submit Dataset', 'Review & approval queue'],
   ])('opens straight on the right tab from %s', (path, tabName, content) => {
     mockIsDeveloperMode = true;
     renderDeveloperPage(path);
