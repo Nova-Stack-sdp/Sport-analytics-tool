@@ -1,0 +1,143 @@
+/* Code submission page — the page's own skin.
+   Stylesheets load globally in this app (src/index.js) and there are no CSS
+   modules, so every rule is scoped under #page-code-submissions rather than
+   leaking an input recipe onto other routes. Imported from
+   pages/CodeSubmissionPage.js, like auth.css from the auth pages. */
+
+#page-code-submissions .cs-form-card .card-title{margin-bottom:4px;}
+#page-code-submissions .cs-form-card .card-title-sub{margin-bottom:18px;}
+
+/* Bands: identity (title + language) on top, the script panel in the middle,
+   metadata underneath — so the form stops reading as five identical rows. */
+#page-code-submissions .cs-form{display:flex;flex-direction:column;gap:20px;}
+#page-code-submissions .cs-band{display:grid;gap:16px;}
+#page-code-submissions .cs-band-identity{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);}
+
+#page-code-submissions .cs-field{display:flex;flex-direction:column;gap:6px;min-width:0;}
+#page-code-submissions .cs-head{display:flex;align-items:baseline;gap:8px;}
+#page-code-submissions .cs-head label{
+  font-size:11.5px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;
+  color:var(--text-secondary);
+}
+/* Required reads as a mark on the label instead of a word buried in the text
+   (the optional fields say so in their own label copy). */
+#page-code-submissions .cs-req{
+  padding:2px 7px;border-radius:999px;background:var(--accent-soft);color:var(--accent);
+  font-size:9.5px;font-weight:800;letter-spacing:0.6px;text-transform:uppercase;line-height:1.5;
+  white-space:nowrap;
+}
+
+#page-code-submissions .cs-input{
+  width:100%;padding:10px 12px;border-radius:0;
+  border:1px solid var(--border-soft);background:rgba(127,127,127,0.07);
+  color:var(--text-primary);font-family:var(--font-ui);font-size:14px;line-height:1.5;
+  transition:border-color .15s, box-shadow .15s;
+}
+#page-code-submissions .cs-input::placeholder{color:var(--text-faint);}
+#page-code-submissions .cs-input:hover{border-color:var(--border);}
+#page-code-submissions .cs-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+#page-code-submissions textarea.cs-input{resize:vertical;min-height:96px;}
+/* The open <select> list is a browser-drawn popup, not a DOM child, so it
+   doesn't inherit the page's look: give the options the app's own colors and
+   the list follows the theme instead of the platform's default light menu
+   (white rows, washed-out text in dark mode). The color-scheme hint is scoped
+   to dark so light mode keeps its defaults. */
+[data-theme="dark"] #page-code-submissions select.cs-input{color-scheme:dark;}
+#page-code-submissions .cs-input option{background:var(--bg);color:var(--text-primary);}
+#page-code-submissions .cs-input option:disabled{color:var(--text-faint);}
+#page-code-submissions .cs-input[aria-invalid='true'],
+#page-code-submissions .cs-input[aria-invalid='true']:hover{border-color:var(--status-red);}
+#page-code-submissions .cs-input[aria-invalid='true']:focus{box-shadow:0 0 0 3px var(--status-red-soft);}
+
+#page-code-submissions .cs-foot{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
+#page-code-submissions .cs-hint{font-size:11.5px;color:var(--text-faint);}
+#page-code-submissions .cs-count{
+  font-family:var(--font-mono);font-size:11px;color:var(--text-tertiary);white-space:nowrap;
+}
+#page-code-submissions .cs-count.is-over{color:var(--status-red);font-weight:700;}
+
+/* Field-level failures — same contract as .auth-field-error on the auth forms. */
+#page-code-submissions .cs-field-error{margin:0;font-size:12px;font-weight:600;color:var(--status-red);}
+
+/* The script itself is a panel, not a bare textarea: its own surface, a bar
+   naming the language, and the size readout. */
+#page-code-submissions .cs-editor{
+  display:flex;flex-direction:column;overflow:hidden;
+  border:1px solid var(--border);border-radius:0;
+  transition:border-color .15s, box-shadow .15s;
+}
+#page-code-submissions .cs-editor:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+#page-code-submissions .cs-editor.is-invalid,
+#page-code-submissions .cs-editor.is-invalid:focus-within{border-color:var(--status-red);}
+#page-code-submissions .cs-editor.is-invalid:focus-within{box-shadow:0 0 0 3px var(--status-red-soft);}
+#page-code-submissions .cs-editor-bar{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 10px;
+  padding:9px 12px;background:rgba(127,127,127,0.12);border-bottom:1px solid var(--border-soft);
+}
+#page-code-submissions .cs-editor-meta{display:flex;align-items:center;gap:10px;}
+#page-code-submissions .cs-lang{
+  font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:0.4px;
+  text-transform:uppercase;color:var(--text-secondary);white-space:nowrap;
+}
+#page-code-submissions .cs-lang.is-empty{font-weight:600;text-transform:none;color:var(--text-faint);}
+#page-code-submissions .cs-code{
+  width:100%;min-height:280px;padding:14px;border:0;background:transparent;resize:vertical;
+  color:var(--text-primary);font-family:var(--font-mono);font-size:12.5px;line-height:1.65;tab-size:2;
+}
+#page-code-submissions .cs-code:focus{outline:none;}
+#page-code-submissions .cs-code::placeholder{color:var(--text-faint);}
+#page-code-submissions .cs-editor .cs-field-error{padding:0 14px 12px;}
+
+/* Validation summary: names the offending fields; their messages sit on them. */
+#page-code-submissions .cs-summary-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
+#page-code-submissions .cs-summary-head .eh{margin-bottom:0;}
+#page-code-submissions .cs-summary-count{
+  font-size:11px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:var(--amber);
+}
+#page-code-submissions .cs-summary-fields{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+#page-code-submissions .cs-summary-fields .pill{padding:2px 9px;font-size:11.5px;}
+#page-code-submissions .cs-summary-fields .pill::before{display:none;}
+
+/* Success gets its own surface instead of borrowing the error box. */
+#page-code-submissions .cs-success{
+  margin-top:14px;padding:14px;border:1px solid var(--status-green);border-radius:8px;
+  background:var(--status-green-soft);font-size:13px;
+}
+#page-code-submissions .cs-success-head{font-weight:700;color:var(--status-green);}
+#page-code-submissions .cs-success .card-note{margin-top:8px;color:var(--text-secondary);}
+#page-code-submissions .cs-success-status{
+  display:flex;align-items:baseline;gap:10px;margin-top:10px;
+  font-size:12.5px;color:var(--text-secondary);
+}
+#page-code-submissions .cs-success-status .pill{flex:none;}
+
+/* Right card: the post-submit story — numbered steps, then the status
+   vocabulary the success surface shows. */
+#page-code-submissions .cs-steps{margin:0;padding:0;list-style:none;display:grid;gap:12px;}
+#page-code-submissions .cs-steps li{
+  display:flex;align-items:flex-start;gap:10px;font-size:12.5px;line-height:1.5;
+  color:var(--text-secondary);
+}
+#page-code-submissions .cs-step-n{
+  flex:none;width:20px;height:20px;border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;
+  background:var(--accent-soft);color:var(--accent);font-size:11px;font-weight:800;
+}
+#page-code-submissions .cs-statuses{
+  margin-top:16px;padding-top:14px;border-top:1px solid var(--border-soft);
+  display:grid;gap:10px;
+}
+#page-code-submissions .cs-statuses-head{
+  font-size:11.5px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;
+  color:var(--text-tertiary);
+}
+#page-code-submissions .cs-status-row{
+  display:flex;align-items:baseline;gap:10px;font-size:12.5px;color:var(--text-secondary);
+}
+#page-code-submissions .cs-status-row .pill{flex:none;}
+
+@media (max-width:760px){
+  /* The identity band runs its own two-up grid, so it needs its own collapse —
+     globals only knows about .grid-2. */
+  #page-code-submissions .cs-band-identity{grid-template-columns:minmax(0,1fr);}
+}

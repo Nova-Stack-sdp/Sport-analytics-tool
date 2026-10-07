@@ -71,7 +71,7 @@ describe('TeamDetailPage', () => {
     expect(getTeam).toHaveBeenCalledWith('42');
   });
 
-  test('renders API-Sports identity, local season stats, facts, and gallery', async () => {
+  test('renders API-Sports identity, local season stats, and facts', async () => {
     getTeam.mockResolvedValue(fullTeam);
 
     renderPage();
@@ -86,7 +86,8 @@ describe('TeamDetailPage', () => {
     expect(screen.getByText('Laurent Mekies')).toBeInTheDocument();
     expect(screen.getByText('RB22')).toBeInTheDocument();
     expect(screen.getByText('Red Bull Ford')).toBeInTheDocument();
-    expect(document.querySelectorAll('.gallery-cell')).toHaveLength(4);
+    expect(screen.queryByText('Gallery')).not.toBeInTheDocument();
+    expect(document.querySelector('.gallery-row')).toBeNull();
   });
 
   test('renders all safe fallbacks when optional API-Sports and derived fields are missing', async () => {

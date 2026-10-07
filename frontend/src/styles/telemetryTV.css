@@ -81,7 +81,7 @@
   padding: 12px 14px;
   background: linear-gradient(105deg, rgba(225, 6, 0, 0.12), rgba(255, 255, 255, 0.015) 48%);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 0;
 }
 
 #page-telemetry-tv .race-picker {
@@ -119,7 +119,7 @@
   min-width: 0;
   padding: 10px 12px;
   border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 5px;
+  border-radius: 0;
   background: #111;
   color: var(--text-primary);
   font: inherit;
@@ -191,7 +191,7 @@
   padding: 10px 12px;
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 6px;
+  border-radius: 0;
   gap: 16px;
 }
 
@@ -282,7 +282,7 @@
 #page-telemetry-tv .video-panel {
   padding: 0;
   overflow: hidden;
-  border-radius: 8px;
+  border-radius: 0;
 }
 
 #page-telemetry-tv .live-panel-head {
@@ -546,7 +546,7 @@
 
 #page-telemetry-tv .radar-column {
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 0;
   padding: 10px;
   background: rgba(0, 0, 0, 0.015);
 }
@@ -647,7 +647,7 @@
 #page-telemetry-tv .race-weather-panel {
   background: linear-gradient(180deg, rgba(13, 18, 28, 0.98), rgba(7, 10, 16, 1));
   border: 1px solid rgba(125, 211, 252, 0.2);
-  border-radius: 10px;
+  border-radius: 0;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 12px 26px rgba(0, 0, 0, 0.26);
   margin: 18px 20px 0;
   padding: 14px 16px;
@@ -674,7 +674,7 @@
 
 #page-telemetry-tv .weather-main-panel {
   padding: 12px 14px;
-  border-radius: 10px;
+  border-radius: 0;
   background: linear-gradient(135deg, rgba(14, 116, 144, 0.18), rgba(15, 23, 42, 0.22));
   border: 1px solid rgba(103, 232, 249, 0.16);
 }
@@ -883,7 +883,7 @@
   margin-top: 6px;
   background: #0a0a0c;
   border: 1.5px solid #e10600;
-  border-radius: 6px;
+  border-radius: 0;
   overflow: hidden;
   animation: tv-ticker-flicker 2.4s ease-in-out infinite;
 }
@@ -1497,7 +1497,7 @@
   height: 34px;
   margin-top: 10px;
   overflow: hidden;
-  border-radius: 6px;
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.04);
 }
 
@@ -1607,7 +1607,7 @@
   max-width: 620px;
   padding: 16px 22px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 0;
   /* Neutral gray wash — the red tint read as an error state. Fixed so it
      works on both the light and dark card surfaces. */
   background: rgba(85, 85, 85, 0.08);
@@ -1682,7 +1682,7 @@
   gap: 10px;
   padding: 8px 10px;
   border: 1px solid var(--border-soft);
-  border-radius: 6px;
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.03);
 }
 

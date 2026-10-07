@@ -60,7 +60,8 @@ describe('AppRoutes', () => {
 
   test.each([
     ['/datasets', 'Developer route ?tab=datasets'],
-    ['/submissions', 'Developer route ?tab=submissions'],
+    ['/submissions', 'Developer route ?tab=submit-code'],
+    ['/code-submissions', 'Developer route ?tab=submit-code'],
   ])('redirects the old %s URL to its tab on Developer', (path, page) => {
     renderRoutes(path);
 

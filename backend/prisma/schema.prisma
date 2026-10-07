@@ -365,3 +365,33 @@ model Notification {
   @@index([isRead])
   @@map("notification")
 }
+
+
+// ------------------------------------------------------------
+// 6. Code submissions (developer scripts awaiting admin review)
+// ------------------------------------------------------------
+
+enum CodeSubmissionStatus {
+  pending
+  approved
+  rejected
+}
+
+model CodeSubmission {
+  id             String               @id @default(uuid()) @map("code_submission_id")
+  submitterId    String               @map("submitter_id")
+  submitterEmail String?              @map("submitter_email")
+  title          String
+  language       String
+  code           String
+  description    String?
+  tags           String[]             @default([])
+  status         CodeSubmissionStatus @default(pending)
+  submittedAt    DateTime             @default(now()) @map("submitted_at")
+  reviewedBy     String?              @map("reviewed_by")
+  reviewedAt     DateTime?            @map("reviewed_at")
+
+  @@index([status, submittedAt])
+  @@index([submitterId])
+  @@map("code_submission")
+}

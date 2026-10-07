@@ -389,6 +389,35 @@ export function reviewSubmission(id, status) {
 }
 
 // ---------------------------------------------------------------------------
+// Code submissions (developer submits a script, admin reviews it)
+//
+// Backed by the code_submission table (backend/src/routes/codeSubmissions.js).
+// New submissions are stored as 'pending'; an admin moves them to 'approved'
+// or 'rejected'. The body shape is pinned by
+// features/code-submission/submissionFormat.js.
+// ---------------------------------------------------------------------------
+
+export function submitCodeSubmission(body) {
+  return request('/api/code-submissions', { method: 'POST', ...jsonBody(body) });
+}
+
+export function listCodeSubmissions(status) {
+  const query = status ? `?status=${encodeURIComponent(status)}` : '';
+  return request(`/api/code-submissions${query}`);
+}
+
+export function getCodeSubmission(id) {
+  return request(`/api/code-submissions/${encodeURIComponent(id)}`);
+}
+
+export function reviewCodeSubmission(id, status) {
+  return request(`/api/code-submissions/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    ...jsonBody({ status }),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // F1 news feed
 // ---------------------------------------------------------------------------
 
