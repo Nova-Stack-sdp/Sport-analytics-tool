@@ -12,42 +12,41 @@
 
 /* ---- The page's colour language -------------------------------------------
    Every colour on Telemetry TV carries exactly one meaning, so the page can be
-   read by hue before a single number is read. Nothing else on the page may
-   introduce an information colour of its own.
+   read by hue before a single number is read. The hues are Formula 1's own
+   broadcast set — the timing screen's red, green, yellow and purple — with the
+   red taken verbatim from the app's top navigation. Nothing else on the page
+   may introduce an information colour of its own.
 
      --ttv-lead      What is in front, and what is live: the race leader, the
                      winner, and the broadcast's own live signal (ticker, play
-                     control, active picker).
+                     control, active picker). The top nav's red, unchanged.
      --ttv-pace      Green-flag running and pace being found: green flag state,
                      faster laps, places gained, form holding up.
      --ttv-caution   What is being given up: cautions, degradation, time lost,
                      places dropped, battles under pressure.
-     --ttv-info      The environment: the sky and the conditions report.
      --ttv-strategy  Tyre and pit decisions: stints, stops, alternate strategy.
+                     The timing screen's purple, the fastest-lap colour.
 
    Each tone ships a -soft wash (for tile fills) and a -edge border, and the
    neutral structure of the page is left to the theme's own grays, so no tone
-   can be mistaken for plain chrome. */
+   can be mistaken for plain chrome. Light deepens each hue just enough to
+   carry on white; dark runs them at full broadcast strength. */
 #page-telemetry-tv {
   --ttv-lead: #CE0D14;
   --ttv-lead-soft: rgba(206, 13, 20, 0.08);
   --ttv-lead-edge: rgba(206, 13, 20, 0.42);
 
-  --ttv-pace: #0F7A5A;
-  --ttv-pace-soft: rgba(15, 122, 90, 0.09);
-  --ttv-pace-edge: rgba(15, 122, 90, 0.38);
+  --ttv-pace: #00843D;
+  --ttv-pace-soft: rgba(0, 210, 106, 0.1);
+  --ttv-pace-edge: rgba(0, 132, 61, 0.4);
 
-  --ttv-caution: #A9660A;
-  --ttv-caution-soft: rgba(217, 119, 6, 0.12);
-  --ttv-caution-edge: rgba(217, 119, 6, 0.4);
+  --ttv-caution: #A16207;
+  --ttv-caution-soft: rgba(255, 207, 63, 0.16);
+  --ttv-caution-edge: rgba(161, 98, 7, 0.45);
 
-  --ttv-info: #0B6E93;
-  --ttv-info-soft: rgba(3, 105, 161, 0.1);
-  --ttv-info-edge: rgba(3, 105, 161, 0.35);
-
-  --ttv-strategy: #6D3BB8;
-  --ttv-strategy-soft: rgba(109, 59, 184, 0.1);
-  --ttv-strategy-edge: rgba(109, 59, 184, 0.34);
+  --ttv-strategy: #8B2FD6;
+  --ttv-strategy-soft: rgba(177, 59, 255, 0.12);
+  --ttv-strategy-edge: rgba(139, 47, 214, 0.38);
 
   /* Structure only: the dial faces, hairlines and tile fills that carry no
      meaning of their own. */
@@ -57,28 +56,26 @@
   --ttv-dial-face: rgba(127, 127, 127, 0.1);
 }
 
-/* Dark keeps the same five meanings and re-lights them for a dark surface —
-   the hues move, the language does not. */
+/* Dark keeps the same meanings at full broadcast strength — the timing
+   screen's own hues, the ones F1's graphics run on black. The lead red stays
+   the top nav's red in both themes; the language never changes, only the
+   saturation. */
 [data-theme="dark"] #page-telemetry-tv {
-  --ttv-lead: #FF5C60;
-  --ttv-lead-soft: rgba(255, 92, 96, 0.14);
-  --ttv-lead-edge: rgba(255, 92, 96, 0.42);
+  --ttv-lead: #CE0D14;
+  --ttv-lead-soft: rgba(206, 13, 20, 0.2);
+  --ttv-lead-edge: rgba(206, 13, 20, 0.55);
 
-  --ttv-pace: #4ED6A6;
-  --ttv-pace-soft: rgba(78, 214, 166, 0.12);
-  --ttv-pace-edge: rgba(78, 214, 166, 0.38);
+  --ttv-pace: #00D26A;
+  --ttv-pace-soft: rgba(0, 210, 106, 0.13);
+  --ttv-pace-edge: rgba(0, 210, 106, 0.42);
 
-  --ttv-caution: #F0B23C;
-  --ttv-caution-soft: rgba(240, 178, 60, 0.14);
-  --ttv-caution-edge: rgba(240, 178, 60, 0.42);
+  --ttv-caution: #FFCF3F;
+  --ttv-caution-soft: rgba(255, 207, 63, 0.13);
+  --ttv-caution-edge: rgba(255, 207, 63, 0.42);
 
-  --ttv-info: #67D8F0;
-  --ttv-info-soft: rgba(103, 216, 240, 0.12);
-  --ttv-info-edge: rgba(103, 216, 240, 0.36);
-
-  --ttv-strategy: #B98BFF;
-  --ttv-strategy-soft: rgba(185, 139, 255, 0.14);
-  --ttv-strategy-edge: rgba(185, 139, 255, 0.38);
+  --ttv-strategy: #B13BFF;
+  --ttv-strategy-soft: rgba(177, 59, 255, 0.16);
+  --ttv-strategy-edge: rgba(177, 59, 255, 0.42);
 
   --ttv-ghost: rgba(190, 190, 190, 0.4);
   --ttv-tile: rgba(190, 190, 190, 0.07);
@@ -213,7 +210,7 @@
 }
 
 #page-telemetry-tv .race-picker-select:focus-visible {
-  outline: 2px solid #ff625b;
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -585,11 +582,11 @@
 }
 
 #page-telemetry-tv .grid-cell.grid-up {
-  color: #22c55e;
+  color: var(--ttv-pace);
 }
 
 #page-telemetry-tv .grid-cell.grid-down {
-  color: #ef4444;
+  color: var(--ttv-caution);
 }
 
 #page-telemetry-tv .driver-meta {
@@ -640,7 +637,7 @@
 }
 
 #page-telemetry-tv .momentum-cell {
-  color: var(--status-green);
+  color: var(--ttv-pace);
   font-weight: 700;
 }
 
@@ -808,8 +805,7 @@
 }
 
 /* Strategy / Tyre Analysis: the derived rows, the curated strategy signals and
-   the narrative beneath them. Conditions no longer live here — they are read
-   once, in the instrument band. */
+   the narrative beneath them. */
 #page-telemetry-tv .strategy-signals {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1173,7 +1169,6 @@
   justify-content: center;
   min-width: 2px;
   overflow: hidden;
-  color: #111;
   font-size: 9px;
   font-weight: 800;
 }
@@ -1739,15 +1734,15 @@
 }
 
 /* Standby dot beside the title: the app's blink-dot keyframes (shared
-   globals, same reuse as this sheet's live pills), amber to read as holding
-   rather than live. */
+   globals, same reuse as this sheet's live pills), in the page's caution
+   yellow to read as holding rather than live. */
 #page-telemetry-tv .race-start-wait-dot {
   display: inline-block;
   width: 8px;
   height: 8px;
   margin-right: 8px;
   border-radius: 50%;
-  background: #FF8A00;
+  background: var(--ttv-caution);
   animation: blink-dot 1.2s infinite;
 }
 
@@ -1933,8 +1928,7 @@
   box-shadow: var(--shadow-soft);
 }
 
-/* The event name and the conditions glyph share the left block, so the sky
-   reads as part of the broadcast's name rather than as another stat. */
+/* The event name block: everything the header names the broadcast by. */
 #page-telemetry-tv .race-header-main {
   display: flex;
   align-items: center;
@@ -2147,11 +2141,6 @@
   background: var(--ttv-caution-soft);
 }
 
-#page-telemetry-tv .ttv-instrument.is-info {
-  border-color: var(--ttv-info-edge);
-  background: var(--ttv-info-soft);
-}
-
 #page-telemetry-tv .ttv-instrument.is-strategy {
   border-color: var(--ttv-strategy-edge);
   background: var(--ttv-strategy-soft);
@@ -2211,12 +2200,6 @@
   border-color: var(--ttv-caution-edge);
   background: var(--ttv-caution-soft);
   color: var(--ttv-caution);
-}
-
-#page-telemetry-tv .ttv-instrument-tag.is-info {
-  border-color: var(--ttv-info-edge);
-  background: var(--ttv-info-soft);
-  color: var(--ttv-info);
 }
 
 #page-telemetry-tv .ttv-instrument-tag.is-strategy {
@@ -2473,54 +2456,6 @@
 #page-telemetry-tv .ttv-readout-sub {
   color: var(--text-tertiary);
   font-size: 9.5px;
-}
-
-/* ---- The conditions glyph, beside the race title -------------------------
-   One icon carries the sky the curator's own note names, in the page's
-   environment tone: the header's weather is legible before the sentence behind
-   it is read, because that sentence is the glyph's tooltip and accessible name.
-   A sky nobody stated is drawn plain, so the glyph can never read as a reading,
-   and a broadcast carrying no conditions shows no glyph at all. */
-
-#page-telemetry-tv .ttv-weather {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  color: var(--ttv-info);
-}
-
-#page-telemetry-tv .ttv-weather-glyph {
-  width: 100%;
-  height: 100%;
-}
-
-#page-telemetry-tv .ttv-weather-glyph .ttv-sky-sun circle {
-  fill: currentColor;
-}
-
-#page-telemetry-tv .ttv-weather-glyph .ttv-sky-sun line,
-#page-telemetry-tv .ttv-weather-glyph .ttv-sky-rain line {
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-}
-
-/* Group opacity, not per-shape: overlapping cloud discs must not stack into a
-   darker patch where they meet. */
-#page-telemetry-tv .ttv-weather-glyph .ttv-sky-cloud {
-  opacity: 0.68;
-}
-
-#page-telemetry-tv .ttv-weather-glyph .ttv-sky-cloud circle,
-#page-telemetry-tv .ttv-weather-glyph .ttv-sky-cloud rect {
-  fill: currentColor;
-}
-
-#page-telemetry-tv .ttv-weather-glyph.is-plain {
-  color: var(--text-faint);
 }
 
 /* ---- Folding a card away -------------------------------------------------

@@ -35,7 +35,6 @@ import { buildLeadBattle, buildRaceOverview } from '../features/telemetry-tv/rac
 import { buildStrategyModel } from '../features/telemetry-tv/strategyModel';
 import { buildPaceGauge } from '../features/telemetry-tv/paceGauge';
 import { buildMomentumModel } from '../features/telemetry-tv/momentumModel';
-import { buildConditionsModel } from '../features/telemetry-tv/conditionsModel';
 import { buildMasterboardCommentary } from '../features/telemetry-tv/buildMasterboardCommentary';
 import { pickVideoTickerEvent } from '../features/telemetry-tv/videoTicker';
 import { buildTorontoraceIntelligence } from '../features/telemetry-tv/Torontorace';
@@ -115,12 +114,10 @@ function TelemetryTVPage() {
     : null;
   // The instrument band and the strategy rows read the same clipped lap set:
   // the pace needle, its colour band and the lap strip all stop at the lap the
-  // broadcast has reached, the momentum dial samples the published margin over
-  // that same window, and the conditions glyph only reports a sky the
-  // curator's own note names.
+  // broadcast has reached, and the momentum dial samples the published margin
+  // over that same window.
   const paceGauge = buildPaceGauge(lapTrend, lap);
   const momentum = buildMomentumModel(lapTrend, lap);
-  const conditions = buildConditionsModel(raceIntelligence);
   // Strategy / Tyre Analysis rows: tyre drift across the current green run,
   // laps since the last visible stop, and the selected lap against the
   // fastest so far — all clipped to the lap the broadcast has reached.
@@ -226,7 +223,6 @@ function TelemetryTVPage() {
               lapLabel={headerLapLabel}
               flag={lapState.leaderLap?.flag ?? null}
               fieldSize={selectedRace.fieldSize}
-              conditions={conditions}
             />
 
             <SectionDivider step="01" label="Live observation" />

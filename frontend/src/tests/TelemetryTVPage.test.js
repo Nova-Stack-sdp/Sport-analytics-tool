@@ -529,18 +529,16 @@ describe('TelemetryTVPage', () => {
     expect(strategyCard).toHaveTextContent('Fastest so far: 1:01.654 (lap 2)');
   });
 
-  test('carries the conditions as a glyph beside the race title', async () => {
+  test('names the broadcast in the header without a conditions glyph', async () => {
     getTelemetryTVRaces.mockResolvedValue({ races: RACES });
     getTelemetryTVRace.mockResolvedValue({ race: RACE_WITH_STATS });
     renderPage();
     await pickRace();
 
-    // The sky reads out of the curator's own note (Toronto ships "dry race
-    // conditions with quick grip evolution"), and the glyph stands beside the
-    // event name rather than in a card of its own.
+    // The header names the event and the field and nothing else — the weather
+    // glyph was retired, so nothing in the band reads as a conditions sensor.
     const header = screen.getByRole('region', { name: 'Race header' });
-    expect(within(header).getByRole('img', { name: /Curator read: Dry · Grip building/ }))
-      .toBeInTheDocument();
+    expect(within(header).queryByRole('img')).not.toBeInTheDocument();
     expect(header.querySelector('.race-header-titles')).toHaveTextContent(
       'Ontario Honda Dealers Indy Toronto'
     );
@@ -548,8 +546,8 @@ describe('TelemetryTVPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Play race' }));
     await screen.findByText('Official order at lap 1');
 
-    // The report has landed: still one glyph, still in the header.
-    expect(within(header).getAllByRole('img')).toHaveLength(1);
+    // The report has landed: still no glyph in the header.
+    expect(within(header).queryByRole('img')).not.toBeInTheDocument();
   });
 
   test('folds the analysis cards away from their own heads', async () => {

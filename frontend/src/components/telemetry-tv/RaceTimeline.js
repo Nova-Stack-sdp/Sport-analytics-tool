@@ -1,6 +1,17 @@
 import { memo } from 'react';
 
-const LEADER_COLORS = ['#f5c451', '#69c3a5', '#e8745d', '#81a9e8', '#dc8bc0', '#b2c96b'];
+// Leader identity colours: the page's four broadcast tones at full strength,
+// each paired with the ink that keeps the car number legible on it, plus two
+// deeper variants so a race with many leaders never runs out of distinct
+// stripes. Identity, not meaning — the legend names whose run each stripe is.
+const LEADER_COLORS = [
+  { fill: '#CE0D14', ink: '#FFFFFF' },
+  { fill: '#00D26A', ink: '#0B2E18' },
+  { fill: '#FFCF3F', ink: '#1F1602' },
+  { fill: '#B13BFF', ink: '#FFFFFF' },
+  { fill: '#00843D', ink: '#FFFFFF' },
+  { fill: '#9D0D0D', ink: '#FFFFFF' },
+];
 
 const RaceTimeline = memo(function RaceTimeline({ race, lapState }) {
   if (!race) return null;
@@ -48,12 +59,13 @@ const RaceTimeline = memo(function RaceTimeline({ race, lapState }) {
         {leaders.map((entry, index) => {
           const left = ((Number(entry.from) - 1) / timelineLaps) * 100;
           const width = (Number(entry.laps) / timelineLaps) * 100;
+          const color = LEADER_COLORS[index % LEADER_COLORS.length];
           return (
             <span
               key={`${entry.car}-${entry.from}`}
               className="leader-run"
               title={`${entry.driver} (#${entry.car}), laps ${entry.from}-${entry.to}`}
-              style={{ left: `${left}%`, width: `${width}%`, backgroundColor: LEADER_COLORS[index % LEADER_COLORS.length] }}
+              style={{ left: `${left}%`, width: `${width}%`, backgroundColor: color.fill, color: color.ink }}
             >
               {width > 8 ? `#${entry.car}` : ''}
             </span>
@@ -62,16 +74,19 @@ const RaceTimeline = memo(function RaceTimeline({ race, lapState }) {
         <span className="timeline-cursor" style={{ left: '100%' }} />
       </div>
       <div className="leader-timeline-legend">
-        {leaders.map((entry, index) => (
-          <div className="leader-legend-item" key={`${entry.car}-${entry.from}`}>
-            <span
-              className="leader-legend-swatch"
-              style={{ backgroundColor: LEADER_COLORS[index % LEADER_COLORS.length] }}
-            />
-            <span>{entry.driver}</span>
-            <span className="leader-legend-laps">L{entry.from}–{entry.to}</span>
-          </div>
-        ))}
+        {leaders.map((entry, index) => {
+          const color = LEADER_COLORS[index % LEADER_COLORS.length];
+          return (
+            <div className="leader-legend-item" key={`${entry.car}-${entry.from}`}>
+              <span
+                className="leader-legend-swatch"
+                style={{ backgroundColor: color.fill }}
+              />
+              <span>{entry.driver}</span>
+              <span className="leader-legend-laps">L{entry.from}–{entry.to}</span>
+            </div>
+          );
+        })}
       </div>
 
       <div className="timeline-row-label">Cautions</div>

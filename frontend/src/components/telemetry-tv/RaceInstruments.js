@@ -8,8 +8,7 @@ import GaugeDial from './GaugeDial';
 // slowest laps already run, and whether the leader's margin is growing or being
 // clawed back. The lap-by-lap strip stays underneath as the evidence for the
 // dials: every bar is a lap the broadcast has reached, never a lap still ahead
-// of the playhead. The sky is not repeated here — the header carries it beside
-// the race title.
+// of the playhead.
 
 function countLabel(count, singular, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`;
