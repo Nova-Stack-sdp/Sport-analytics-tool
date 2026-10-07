@@ -1,9 +1,10 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import useF1NewsFeed from './useF1NewsFeed';
-import { getF1News, getF1NewsStreamUrl } from '../api/client';
+import { getF1News, getF1NewsStreamUrl, refreshF1News } from '../api/client';
 
 jest.mock('../api/client', () => ({
   getF1News: jest.fn(),
+  refreshF1News: jest.fn(),
   getF1NewsStreamUrl: jest.fn(() => 'http://localhost/api/news/stream'),
 }));
 
@@ -38,6 +39,11 @@ describe('useF1NewsFeed', () => {
       lastUpdated: '2026-09-24T09:00:00Z',
       stale: false,
     });
+    refreshF1News.mockResolvedValue({
+      items: [{ id: 'fresh', title: 'Fresh story', publishedAt: '2026-09-24T11:00:00Z' }],
+      lastUpdated: '2026-09-24T11:00:00Z',
+      stale: false,
+    });
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -70,5 +76,19 @@ describe('useF1NewsFeed', () => {
     const stream = MockEventSource.latest;
     unmount();
     expect(stream.close).toHaveBeenCalledTimes(1);
+  });
+
+  test('uses the refresh API for manual refresh and load more actions', async () => {
+    const { result, unmount } = renderHook(() => useF1NewsFeed());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.refresh();
+      await result.current.loadMore();
+    });
+
+    expect(refreshF1News).toHaveBeenCalledTimes(2);
+    expect(result.current.items[0].title).toBe('Fresh story');
+    unmount();
   });
 });

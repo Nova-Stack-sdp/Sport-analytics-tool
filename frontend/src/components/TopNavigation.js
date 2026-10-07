@@ -18,7 +18,7 @@ const NAV_ITEMS = [
   { to: '/replay', label: 'Race Replay' },
   // Developer is visible to every signed-in user — it explains the role
   // and how to turn it on for those who don't have it yet. Datasets and
-  // Submissions are tabs inside it (developer mode only), not nav items.
+  // Submit Code are tabs inside it (developer mode only), not nav items.
   { to: '/developer', label: 'Developer', requiresAuth: true },
   // Profile sits where Settings used to — Settings is now a tab inside it.
   { to: '/profile', label: 'Profile', requiresAuth: true },

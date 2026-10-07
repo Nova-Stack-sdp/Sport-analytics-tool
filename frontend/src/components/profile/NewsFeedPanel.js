@@ -3,11 +3,10 @@ import useF1NewsFeed from '../../hooks/useF1NewsFeed';
 import { filterNewsItems } from '../../services/newsFiltering';
 
 const FILTERS = [
-  ['for-you', 'For You'],
   ['latest', 'Latest'],
+  ['for-you', 'For You'],
   ['drivers', 'Drivers'],
   ['teams', 'Teams'],
-  ['races', 'Races'],
 ];
 const INITIAL_STORY_COUNT = 10;
 const STORY_BATCH_SIZE = 10;
@@ -59,35 +58,44 @@ function NewsFeedPanel({ preferences, catalog }) {
     connection,
     lastUpdated,
     newItemIds,
+    loadingMore,
     refresh,
+    loadMore,
   } = useF1NewsFeed();
-  const [activeFilter, setActiveFilter] = useState(preferences?.defaultNewsFilter || 'for-you');
+  const [activeFilter, setActiveFilter] = useState('latest');
   const [visibleCount, setVisibleCount] = useState(INITIAL_STORY_COUNT);
-  useEffect(() => {
-    setActiveFilter(preferences?.defaultNewsFilter || 'for-you');
-  }, [preferences?.defaultNewsFilter]);
   useEffect(() => {
     setVisibleCount(INITIAL_STORY_COUNT);
   }, [activeFilter]);
 
-  const visibleItems = useMemo(
-    () => filterNewsItems(items, activeFilter, preferences, catalog),
-    [activeFilter, catalog, items, preferences]
-  );
-  const displayedItems = visibleItems.slice(0, visibleCount);
-  const featured = displayedItems[0];
-  const remaining = displayedItems.slice(1);
-  const hasMoreStories = displayedItems.length < visibleItems.length;
   const hasPreferences = Boolean(
     preferences?.followedDriverIds?.length
     || preferences?.followedTeamIds?.length
   );
+  const matchedItems = useMemo(
+    () => filterNewsItems(items, activeFilter, preferences, catalog),
+    [activeFilter, catalog, items, preferences]
+  );
+  const isForYouFallback = activeFilter === 'for-you'
+    && hasPreferences
+    && items.length > 0
+    && matchedItems.length === 0;
+  const visibleItems = isForYouFallback ? items : matchedItems;
+  const displayedItems = visibleItems.slice(0, visibleCount);
+  const featured = displayedItems[0];
+  const remaining = displayedItems.slice(1);
+  const hasMoreStories = displayedItems.length < visibleItems.length;
   const connectionLabel = {
     live: 'Listening for new stories',
     connecting: 'Connecting to live updates',
     reconnecting: 'Reconnecting to live updates',
     unsupported: 'Manual refresh mode',
   }[connection];
+
+  const handleLoadMore = async () => {
+    await loadMore();
+    setVisibleCount((count) => count + STORY_BATCH_SIZE);
+  };
 
   return (
     <section className="news-content profile-news-feed" aria-label="Formula 1 news feed">
@@ -96,7 +104,7 @@ function NewsFeedPanel({ preferences, catalog }) {
           <div className="section-eyebrow">F1 newsroom</div>
           <h1>Latest Formula 1 news</h1>
         </div>
-        <p>Fresh headlines arrive automatically while this tab is open.</p>
+        <p>Fresh headlines are checked automatically every 10 minutes.</p>
       </div>
 
       <div className="news-filterbar" role="tablist" aria-label="Filter Formula 1 news">
@@ -116,8 +124,15 @@ function NewsFeedPanel({ preferences, catalog }) {
 
       {activeFilter === 'for-you' && !hasPreferences && (
         <div className="news-preference-hint" role="status">
-          Choose followed drivers or teams in the User Profile tab to personalise this feed.
+          Follow drivers or teams from their pages to personalise this feed.
           Showing Latest for now.
+        </div>
+      )}
+
+      {isForYouFallback && (
+        <div className="news-preference-hint" role="status">
+          No recent stories mention the drivers or teams you follow.
+          Showing the latest Formula 1 news instead.
         </div>
       )}
 
@@ -155,7 +170,7 @@ function NewsFeedPanel({ preferences, catalog }) {
       {!loading && items.length > 0 && visibleItems.length === 0 && (
         <div className="card news-empty">
           <div className="card-title">No matching stories right now</div>
-          <p>Try another filter or add more followed drivers and teams in User Profile.</p>
+          <p>Try another filter or follow more drivers and teams from their pages.</p>
         </div>
       )}
 
@@ -208,9 +223,10 @@ function NewsFeedPanel({ preferences, catalog }) {
           <button
             className="btn btn-ghost"
             type="button"
-            onClick={() => setVisibleCount((count) => count + STORY_BATCH_SIZE)}
+            onClick={handleLoadMore}
+            disabled={loadingMore}
           >
-            Load more stories
+            {loadingMore ? 'Checking for stories…' : 'Load more stories'}
           </button>
           <span>Showing {displayedItems.length} of {visibleItems.length}</span>
         </div>

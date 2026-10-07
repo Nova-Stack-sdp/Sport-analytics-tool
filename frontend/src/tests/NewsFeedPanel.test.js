@@ -36,6 +36,8 @@ function feedState(overrides = {}) {
     lastUpdated: new Date().toISOString(),
     newItemIds: [],
     refresh: jest.fn(),
+    loadMore: jest.fn().mockResolvedValue(true),
+    loadingMore: false,
     ...overrides,
   };
 }
@@ -71,17 +73,41 @@ describe('NewsFeedPanel', () => {
       />
     );
 
+    fireEvent.click(screen.getByRole('tab', { name: 'For You' }));
+
     expect(screen.getByRole('heading', { name: stories[0].title })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: stories[1].title })).not.toBeInTheDocument();
   });
 
-  test('shows stories in batches with a load more button', () => {
+  test('falls back to Latest when followed people have no matching stories', () => {
+    render(
+      <NewsFeedPanel
+        preferences={{
+          followedDriverIds: ['driver-max-verstappen'],
+          followedTeamIds: [],
+        }}
+        catalog={{
+          drivers: [{ id: 'driver-max-verstappen', name: 'Max Verstappen', teamName: 'Red Bull Racing' }],
+          teams: [],
+        }}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: 'For You' }));
+
+    expect(screen.getByText(/No recent stories mention/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: stories[0].title })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: stories[1].title })).toBeInTheDocument();
+  });
+
+  test('checks for fresh stories before showing the next batch', async () => {
     const manyStories = Array.from({ length: 14 }, (_, index) => ({
       ...stories[index % stories.length],
       id: `story-${index + 1}`,
       title: `Formula 1 headline ${index + 1}`,
     }));
-    useF1NewsFeed.mockReturnValue(feedState({ items: manyStories }));
+    const state = feedState({ items: manyStories });
+    useF1NewsFeed.mockReturnValue(state);
 
     render(<NewsFeedPanel />);
 
@@ -90,7 +116,8 @@ describe('NewsFeedPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Load more stories' }));
 
-    expect(screen.getByRole('heading', { name: 'Formula 1 headline 14' })).toBeInTheDocument();
+    expect(state.loadMore).toHaveBeenCalledTimes(1);
+    expect(await screen.findByRole('heading', { name: 'Formula 1 headline 14' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Load more stories' })).not.toBeInTheDocument();
   });
 });

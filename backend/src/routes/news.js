@@ -2,6 +2,37 @@ import { Router } from 'express';
 import { f1NewsService } from '../lib/f1NewsFeed.js';
 import { prisma } from '../lib/prisma.js';
 
+const DEFAULT_LIMIT = 10;
+const MAX_LIMIT = 100;
+
+function nonNegativeInteger(value, fallback) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+function page(payload, query = {}) {
+  const limit = Math.min(
+    MAX_LIMIT,
+    Math.max(1, nonNegativeInteger(query.limit, DEFAULT_LIMIT))
+  );
+  const offset = nonNegativeInteger(query.offset, 0);
+  const allItems = Array.isArray(payload.items) ? payload.items : [];
+  const items = allItems.slice(offset, offset + limit);
+  const nextOffset = offset + items.length;
+
+  return {
+    ...payload,
+    items,
+    pagination: {
+      limit,
+      offset,
+      total: allItems.length,
+      hasMore: nextOffset < allItems.length,
+      nextOffset: nextOffset < allItems.length ? nextOffset : null,
+    },
+  };
+}
+
 function writeEvent(response, event, payload) {
   response.write(`event: ${event}\n`);
   response.write(`data: ${JSON.stringify(payload)}\n\n`);
@@ -133,16 +164,20 @@ export function createNewsRouter(service = f1NewsService) {
 
   router.get('/', async (req, res) => {
     try {
-      const feedData = await service.refresh();
-      
-      const articlesArray = Array.isArray(feedData) 
-        ? feedData 
-        : (feedData.items || feedData.articles || feedData.data || []);
+      // 1. Teammate's new caching logic
+      await service.hydrate();
+      let payload = service.snapshot();
+      if (payload.items.length === 0) {
+        payload = await service.refresh();
+      }
 
-      // Run background worker to create notifications for followers
+      // 2. Extract articles for your notification worker
+      const articlesArray = payload.items || payload.articles || payload.data || [];
+
+      // 3. Run background worker to create notifications for followers
       processNewsNotifications(articlesArray).catch(console.error);
 
-      // Optional filtering if query parameters are provided
+      // 4. Your filtering logic
       const { driverId, teamId } = req.query;
       
       if (driverId || teamId) {
@@ -157,22 +192,26 @@ export function createNewsRouter(service = f1NewsService) {
                  (teamId && tags.teams.includes(teamId));
         });
         
-        if (Array.isArray(feedData)) {
-          return res.json(filteredArticles);
-        } else if (feedData.items) {
-          return res.json({ ...feedData, items: filteredArticles });
-        } else if (feedData.articles) {
-          return res.json({ ...feedData, articles: filteredArticles });
-        }
+        // Update payload with filtered items before paginating
+        payload = { ...payload, items: filteredArticles };
       }
 
-      res.json(feedData);
+      // 5. Teammate's pagination logic applied to the final payload
+      res.json(page(payload, req.query));
     } catch (err) {
       console.error('News route error:', err);
-      res.status(503).json({
+      res.status(503).json(page({ items: [], error: 'Service unavailable' }, req.query));
+    }
+  });
+
+  router.post('/refresh', async (req, res) => {
+    try {
+      res.json(page(await service.refresh(), req.query));
+    } catch {
+      res.status(503).json(page({
         ...service.snapshot(),
         error: 'The F1 news provider is temporarily unavailable.',
-      });
+      }, req.query));
     }
   });
 

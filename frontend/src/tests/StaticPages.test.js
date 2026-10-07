@@ -3,10 +3,11 @@ import AdminPage from '../pages/AdminPage';
 import DatasetsPanel from '../components/developer/DatasetsPanel';
 import SubmissionsPanel from '../components/developer/SubmissionsPanel';
 import TelemetryTVPage from '../pages/TelemetryTVPage';
-import { getTelemetryTVRaces } from '../api/client';
+import { getTelemetryTVRaces, listCodeSubmissions } from '../api/client';
 
 jest.mock('../api/client', () => ({
   getTelemetryTVRaces: jest.fn(),
+  listCodeSubmissions: jest.fn(),
   listSubmissions: jest.fn(() => Promise.resolve({ submissions: [] })),
 }));
 
@@ -23,7 +24,7 @@ describe('static platform pages', () => {
     render(<SubmissionsPanel />);
     expect(screen.getByText('Submit a batch')).toBeInTheDocument();
     expect(screen.getByText('Review & approval queue')).toBeInTheDocument();
-    
+
     const approved = screen.getByText('Approved', { selector: '.tab' });
     fireEvent.click(approved);
     expect(approved).toHaveClass('active');
@@ -31,12 +32,12 @@ describe('static platform pages', () => {
     expect(screen.getByText('Rejected', { selector: '.tab' })).toHaveClass('active');
   });
 
-  test('renders every administration tab and all data-state actions', () => {
+  test('renders every administration tab and all data-state actions', async () => {
+    listCodeSubmissions.mockResolvedValue({ submissions: [], counts: { pending: 0, approved: 0, rejected: 0 } });
     render(<AdminPage />);
-    expect(screen.getByText('Submitter accounts')).toBeInTheDocument();
-    expect(screen.getByText('Approve')).toBeInTheDocument();
-    expect(screen.getAllByText('Suspend').length).toBeGreaterThan(0);
-    expect(screen.getByText('Reactivate')).toBeInTheDocument();
+    expect(await screen.findByText('No code submissions')).toBeInTheDocument();
+    expect(screen.getByText('Code submissions')).toBeInTheDocument();
+    expect(screen.queryByText('Submitter accounts')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByText('API Keys', { selector: '.tab' }));
     expect(screen.getByText('API keys & quotas')).toBeInTheDocument();

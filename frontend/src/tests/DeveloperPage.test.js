@@ -37,32 +37,39 @@ describe('DeveloperPage', () => {
     expect(screen.queryByText(/how to turn on developer mode/i)).not.toBeInTheDocument();
   });
 
-  test('keeps the Datasets and Submissions tabs hidden until developer mode is on', () => {
+  test('keeps the Datasets and Submit Code tabs hidden until developer mode is on', () => {
     renderDeveloperPage('/developer?tab=datasets');
 
     expect(screen.queryByRole('tab', { name: 'Datasets' })).not.toBeInTheDocument();
     expect(screen.queryByText('Build a custom export')).not.toBeInTheDocument();
   });
 
-  test('shows API Console, Datasets and Submissions tabs in developer mode, opening on the console', () => {
+  test('shows API Console, Datasets and Submit Code tabs in developer mode, opening on the console', () => {
     mockIsDeveloperMode = true;
     renderDeveloperPage();
 
     expect(screen.getByRole('tab', { name: 'API Console' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('tab', { name: 'Datasets' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Submissions' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Submit Code' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Submit Dataset' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Submissions' })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: 'Datasets' }));
     expect(screen.getByText('Build a custom export')).toBeInTheDocument();
     expect(screen.queryByText('API endpoints')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Submissions' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Submit Code' }));
+    expect(screen.getByText('Submit a script')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Submit Dataset' }));
     expect(screen.getByText('Review & approval queue')).toBeInTheDocument();
   });
 
   test.each([
     ['/developer?tab=datasets', 'Datasets', 'Build a custom export'],
-    ['/developer?tab=submissions', 'Submissions', 'Review & approval queue'],
+    ['/developer?tab=submit-code', 'Submit Code', 'Submit a script'],
+    ['/developer?tab=submit-dataset', 'Submit Dataset', 'Review & approval queue'],
+    ['/developer?tab=submissions', 'Submit Dataset', 'Review & approval queue'],
   ])('opens straight on the right tab from %s', (path, tabName, content) => {
     mockIsDeveloperMode = true;
     renderDeveloperPage(path);

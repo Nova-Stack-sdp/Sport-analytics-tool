@@ -31,12 +31,14 @@ function AppRoutes() {
       <Route path="/overview" element={<OverviewPage />} />
       <Route path="/fixtures" element={<FixturesEventsPage />} />
       <Route path="/statistics" element={<StatisticsPage />} />
-      {/* Datasets and Submissions are tabs on the Developer page now. */}
-      <Route path="/submissions" element={<Navigate to="/developer?tab=submissions" replace />} />
+      {/* Datasets and Submit Code are tabs on the Developer page now. */}
+      <Route path="/submissions" element={<Navigate to="/developer?tab=submit-dataset" replace />} />
       <Route path="/timetravel" element={<TimeTravelPage />} />
       <Route path="/datasets" element={<Navigate to="/developer?tab=datasets" replace />} />
       <Route path="/developer" element={<RequireAuth><DeveloperPage /></RequireAuth>} />
       <Route path="/developer/api-docs" element={<RequireAuth role="developer"><ApiDocsPage /></RequireAuth>} />
+      {/* Submit Code is a tab on the Developer page; keep the old link working. */}
+      <Route path="/code-submissions" element={<Navigate to="/developer?tab=submit-code" replace />} />
       {/* Settings now lives as a tab on Profile — keep old links working. */}
       <Route path="/settings" element={<Navigate to="/profile?tab=settings" replace />} />
       <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
