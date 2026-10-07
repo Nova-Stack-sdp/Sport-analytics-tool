@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
-import { requireAuth } from '../middleware/requireAuth.js';
+import { requireAuth, requireVerifiedEmail } from '../middleware/requireAuth.js';
 
 export const followsRouter = Router();
 
-followsRouter.use(requireAuth);
+followsRouter.use(requireAuth, requireVerifiedEmail);
 
 const str = (v, max = 200) => (typeof v === 'string' ? v.slice(0, max) : undefined);
 

@@ -1,13 +1,13 @@
 import express from 'express';
 import { prisma } from '../lib/prisma.js';
-import { requireAuth } from '../middleware/requireAuth.js'; // Ensure this matches your middleware path
+import { requireAuth, requireVerifiedEmail } from '../middleware/requireAuth.js'; // Ensure this matches your middleware path
 import { notifyDriverFans, notifyTeamFans } from '../services/notificationService.js';
 
 export const notificationsRouter = express.Router();
 
 // GET /api/notifications
 // Retrieves all notifications for the authenticated user
-notificationsRouter.get('/', requireAuth, async (req, res) => {
+notificationsRouter.get('/', requireAuth, requireVerifiedEmail, async (req, res) => {
   try {
     // 1. Check if the user object exists
     console.log('Checking auth in notifications:', req.user);
@@ -33,7 +33,7 @@ notificationsRouter.get('/', requireAuth, async (req, res) => {
 });
 
 // PATCH /api/notifications/:id/read - Mark single notification as read
-notificationsRouter.patch('/:id/read', requireAuth, async (req, res) => {
+notificationsRouter.patch('/:id/read', requireAuth, requireVerifiedEmail, async (req, res) => {
   try {
     const updated = await prisma.notification.update({
       where: { 

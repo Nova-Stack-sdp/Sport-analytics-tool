@@ -395,3 +395,33 @@ model CodeSubmission {
   @@index([submitterId])
   @@map("code_submission")
 }
+
+
+// ------------------------------------------------------------
+// 7. Email verification codes
+// ------------------------------------------------------------
+// A 6-digit code mailed to the account, proving the address is real and
+// reachable. One row per send; the newest unconsumed row is the live code.
+//
+// codeHash is an HMAC-SHA256 of the code, never the code itself. A 6-digit
+// space has only a million possibilities, so hashing cannot make it
+// unguessable — that is what the 10-minute expiry and the attempt cap do.
+// The hash exists so a database dump alone does not hand over live codes.
+
+model EmailVerificationCode {
+  id         String    @id @default(uuid()) @map("code_id")
+  // References an auth-system user ID (e.g., Firebase UID), not a local FK.
+  userId     String    @map("user_id")
+  codeHash   String    @map("code_hash")
+  expiresAt  DateTime  @map("expires_at")
+  // Set when the code is used, replaced by a newer one, or burned after
+  // too many wrong guesses. Only unconsumed rows can still verify.
+  consumedAt DateTime? @map("consumed_at")
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  // Every read is "the newest live code for this user" and the cooldown /
+  // daily-cap checks count rows created since a timestamp.
+  @@index([userId, createdAt])
+  @@map("email_verification_code")
+}

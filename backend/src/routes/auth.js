@@ -15,11 +15,14 @@
  *   GET  /api/auth/admin-check     — 200 for admins, 403 for everyone else
  *   POST /api/auth/developer-mode  — set the `developer` custom claim on the
  *                                    signed-in user's own Firebase account
- *   PUT  /api/user/favorites       — update favorite driver and team in PostgreSQL
+ *   PUT  /api/auth/favorites       — update favorite driver and team in PostgreSQL
+ *
+ * The 6-digit email verification code lives in routes/emailVerification.js,
+ * mounted at /api/auth/verify-email.
  */
 import { Router } from 'express';
 import admin from 'firebase-admin';
-import { requireAuth, requireAdmin, getAdminApp } from '../middleware/requireAuth.js';
+import { requireAuth, requireAdmin, requireVerifiedEmail, getAdminApp } from '../middleware/requireAuth.js';
 import { isAdminUid } from '../lib/adminAccess.js';
 // 1. ADD THIS: Import your Prisma client (adjust the path if your Prisma client is exported from a lib folder)
 import { prisma } from '../lib/prisma.js';
@@ -28,6 +31,15 @@ export const authRouter = Router();
 
 // Cookie name — kept consistent across set/clear/read.
 const COOKIE_NAME = '__session';
+
+// Secure cookies require HTTPS, and SameSite=None (needed because the
+// Netlify frontend and the Northflank backend are different sites) is only
+// accepted by browsers on secure cookies — so the two flip together with
+// the environment. This must exist as a variable: the cookie options below
+// reference it, and a bare reference threw inside res.cookie(), which the
+// route's catch then reported as "Invalid or expired Firebase token" — so
+// every session exchange failed with 401 even for a perfectly valid token.
+const isProduction = process.env.NODE_ENV === 'production';
 
 // Cookie options shared by set and clear.  Secure is only meaningful over
 // HTTPS (production); in local dev the cookie is sent over plain HTTP.
@@ -79,7 +91,12 @@ authRouter.post('/session', async (req, res, next) => {
     }
 
     res.cookie(COOKIE_NAME, idToken, cookieOptions());
-    res.json({ uid: decoded.uid, email: decoded.email ?? null, admin: isAdminUid(decoded.uid) });
+    res.json({
+      uid: decoded.uid,
+      email: decoded.email ?? null,
+      emailVerified: decoded.email_verified === true,
+      admin: isAdminUid(decoded.uid),
+    });
   } catch (err) {
     // Anything reaching this catch happened before the profile upsert, i.e.
     // during token verification/admin-app setup — so it's safe to treat as
@@ -109,6 +126,7 @@ authRouter.get('/me', requireAuth, (req, res) => {
   res.json({
     uid: req.user.uid,
     email: req.user.email,
+    emailVerified: req.user.emailVerified,
     developer: req.user.developer,
     admin: req.user.admin,
   });
@@ -134,7 +152,7 @@ authRouter.get('/admin-check', requireAuth, requireAdmin, (req, res) => {
 // just now persisted on the account instead of the browser. If developer
 // access ever needs to be admin-approved instead, this is the endpoint
 // to lock down (e.g. require an admin claim on the caller).
-authRouter.post('/developer-mode', requireAuth, async (req, res) => {
+authRouter.post('/developer-mode', requireAuth, requireVerifiedEmail, async (req, res) => {
   const { enabled } = req.body;
   if (typeof enabled !== 'boolean') {
     return res.status(400).json({ error: 'enabled must be a boolean' });
@@ -156,7 +174,7 @@ authRouter.post('/developer-mode', requireAuth, async (req, res) => {
 });
 
 // PUT /api/user/favorites — Update favorite driver and team
-authRouter.put('/favorites', requireAuth, async (req, res) => {
+authRouter.put('/favorites', requireAuth, requireVerifiedEmail, async (req, res) => {
   const { favoriteTeamId, favoriteDriverId } = req.body;
 
   try {

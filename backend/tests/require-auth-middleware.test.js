@@ -23,9 +23,10 @@ jest.unstable_mockModule('firebase-admin', () => ({
 
 let requireAuth;
 let requireAdmin;
+let requireVerifiedEmail;
 
 beforeAll(async () => {
-  ({ requireAuth, requireAdmin } = await import('../src/middleware/requireAuth.js'));
+  ({ requireAuth, requireAdmin, requireVerifiedEmail } = await import('../src/middleware/requireAuth.js'));
 });
 
 function buildRes() {
@@ -103,7 +104,7 @@ describe('requireAuth', () => {
 
     await requireAuth(req, res, next);
 
-    expect(req.user).toEqual({ uid: 'user_123', email: 'driver@example.com', developer: false, admin: false });
+    expect(req.user).toEqual({ uid: 'user_123', email: 'driver@example.com', emailVerified: false, developer: false, admin: false });
     expect(next).toHaveBeenCalled();
     expect(res.status).not.toHaveBeenCalled();
   });
@@ -116,7 +117,7 @@ describe('requireAuth', () => {
 
     await requireAuth(req, res, next);
 
-    expect(req.user).toEqual({ uid: 'user_123', email: null, developer: false, admin: false });
+    expect(req.user).toEqual({ uid: 'user_123', email: null, emailVerified: false, developer: false, admin: false });
     expect(next).toHaveBeenCalled();
   });
 
@@ -128,7 +129,7 @@ describe('requireAuth', () => {
 
     await requireAuth(req, res, next);
 
-    expect(req.user).toEqual({ uid: 'user_123', email: 'dev@example.com', developer: true, admin: false });
+    expect(req.user).toEqual({ uid: 'user_123', email: 'dev@example.com', emailVerified: false, developer: true, admin: false });
     expect(next).toHaveBeenCalled();
   });
 });
@@ -196,6 +197,60 @@ describe('requireAdmin', () => {
     const res = buildRes();
 
     requireAdmin({}, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(next).not.toHaveBeenCalled();
+  });
+});
+
+describe('requireAuth emailVerified flag', () => {
+  test('carries the standard email_verified claim onto req.user', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user_123', email: 'ok@example.com', email_verified: true });
+    const req = { headers: { authorization: 'Bearer good-token' } };
+
+    await requireAuth(req, buildRes(), jest.fn());
+
+    expect(req.user.emailVerified).toBe(true);
+  });
+});
+
+describe('requireVerifiedEmail', () => {
+  test('lets a verified user through', () => {
+    const next = jest.fn();
+    const res = buildRes();
+
+    requireVerifiedEmail({ user: { uid: 'u1', emailVerified: true, admin: false } }, res, next);
+
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  test('returns 403 with EMAIL_NOT_VERIFIED for a signed-in unverified user', () => {
+    const next = jest.fn();
+    const res = buildRes();
+
+    requireVerifiedEmail({ user: { uid: 'u1', emailVerified: false, admin: false } }, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({ error: 'Email not verified', code: 'EMAIL_NOT_VERIFIED' });
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  test('exempts an admin whose own address was never verified', () => {
+    const next = jest.fn();
+    const res = buildRes();
+
+    requireVerifiedEmail({ user: { uid: 'u1', emailVerified: false, admin: true } }, res, next);
+
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  test('returns 401 when used without requireAuth having set a user', () => {
+    const next = jest.fn();
+    const res = buildRes();
+
+    requireVerifiedEmail({}, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(next).not.toHaveBeenCalled();

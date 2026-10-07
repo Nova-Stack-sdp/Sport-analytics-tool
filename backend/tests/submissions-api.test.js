@@ -38,7 +38,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   process.env.FIREBASE_SERVICE_ACCOUNT = JSON.stringify({ project_id: 'test-project' });
   // Default: a valid authenticated user, unless a specific test overrides this.
-  mockVerifyIdToken.mockResolvedValue({ uid: 'test-uid', email: null, developer: true });
+  mockVerifyIdToken.mockResolvedValue({ uid: 'test-uid', email: null, developer: true, email_verified: true });
   process.env.ADMIN_UIDS = 'test-uid';
   mockTx.submission.create.mockResolvedValue({ id: 'sub-1', status: 'pending' });
   mockTx.event.createMany.mockResolvedValue({});

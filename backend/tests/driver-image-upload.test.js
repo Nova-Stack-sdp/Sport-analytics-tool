@@ -17,8 +17,9 @@ jest.unstable_mockModule('../src/middleware/requireAuth.js', () => ({
     req.user = { uid: 'user-1', email: 'a@b.c' };
     return next();
   },
-  // auth.js (loaded via app.js) imports this too — not exercised here.
+  // auth.js (loaded via app.js) imports these too — not exercised here.
   requireAdmin: (req, res, next) => next(),
+  requireVerifiedEmail: (req, res, next) => next(),
 }));
 
 // The Firestore cache isn't under test here.

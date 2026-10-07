@@ -14,6 +14,7 @@
  * Usage:
  *   import { requireAuth } from '../middleware/requireAuth.js';
  *   router.get('/admin-only', requireAuth, handler);
+ *   router.get('/verified-only', requireAuth, requireVerifiedEmail, handler);
  *
  * Requires FIREBASE_SERVICE_ACCOUNT to be set on the backend — a JSON
  * service account key (Firebase Console -> Project settings -> Service
@@ -79,6 +80,11 @@ export async function requireAuth(req, res, next) {
     req.user = {
       uid: decoded.uid,
       email: decoded.email ?? null,
+      // `email_verified` is a standard Firebase claim rather than a custom
+      // one, so it costs no extra lookup. A token minted before the address
+      // was verified still says false, which is exactly what the gate below
+      // wants to see — the client force-refreshes after verifying.
+      emailVerified: decoded.email_verified === true,
       developer: decoded.developer === true,
       admin: isAdminUid(decoded.uid),
     };
@@ -102,6 +108,33 @@ export function requireAdmin(req, res, next) {
   }
   if (!req.user.admin) {
     return res.status(403).json({ error: 'Admin access required' });
+  }
+  next();
+}
+
+/**
+ * requireVerifiedEmail — use AFTER requireAuth on routes that need a real,
+ * reachable address, not merely a Firebase account:
+ *
+ *   router.get('/something', requireAuth, requireVerifiedEmail, handler);
+ *
+ * Firebase creates an email/password account for any syntactically valid
+ * address without ever mailing it, so "has a token" and "owns that inbox"
+ * are different things (see routes/emailVerification.js for how the address
+ * is proved). UIDs on the ADMIN_UIDS allowlist are exempt: they are already
+ * trusted operators, and an account created before verification existed
+ * would otherwise be locked out of its own admin tools.
+ *
+ * 403 (not 401) — the identity is known and valid, it just isn't verified
+ * yet — and the `code` lets the client route the user to the verify page
+ * instead of the sign-in page.
+ */
+export function requireVerifiedEmail(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Not signed in' });
+  }
+  if (!req.user.emailVerified && !req.user.admin) {
+    return res.status(403).json({ error: 'Email not verified', code: 'EMAIL_NOT_VERIFIED' });
   }
   next();
 }

@@ -69,7 +69,7 @@ afterEach(() => {
 // ------------------------------------------------------------------
 describe('POST /api/auth/session', () => {
   test('sets an httpOnly cookie and returns the user for a valid token', async () => {
-    mockVerifyIdToken.mockResolvedValue({ uid: 'u1', email: 'a@b.com' });
+    mockVerifyIdToken.mockResolvedValue({ uid: 'u1', email: 'a@b.com', email_verified: true });
     const app = createApp();
 
     const res = await request(app)
@@ -77,7 +77,7 @@ describe('POST /api/auth/session', () => {
       .send({ idToken: 'valid-firebase-token' });
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ uid: 'u1', email: 'a@b.com', admin: false });
+    expect(res.body).toEqual({ uid: 'u1', email: 'a@b.com', emailVerified: true, admin: false });
 
     // Verify the Set-Cookie header contains the httpOnly __session cookie.
     const setCookie = res.headers['set-cookie'];
@@ -133,7 +133,7 @@ describe('POST /api/auth/logout', () => {
 // ------------------------------------------------------------------
 describe('GET /api/auth/me', () => {
   test('returns the user when a valid cookie is present', async () => {
-    mockVerifyIdToken.mockResolvedValue({ uid: 'u2', email: 'me@test.com' });
+    mockVerifyIdToken.mockResolvedValue({ uid: 'u2', email: 'me@test.com', email_verified: true });
     const app = createApp();
 
     // First establish a session to get a cookie, then call /me with it.
@@ -145,11 +145,11 @@ describe('GET /api/auth/me', () => {
     const res = await agent.get('/api/auth/me');
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ uid: 'u2', email: 'me@test.com', developer: false, admin: false });
+    expect(res.body).toEqual({ uid: 'u2', email: 'me@test.com', emailVerified: true, developer: false, admin: false });
   });
 
   test('reflects a developer custom claim when one is set on the token', async () => {
-    mockVerifyIdToken.mockResolvedValue({ uid: 'u2b', email: 'dev@test.com', developer: true, admin: false });
+    mockVerifyIdToken.mockResolvedValue({ uid: 'u2b', email: 'dev@test.com', developer: true, admin: false, email_verified: true });
     const app = createApp();
 
     const agent = request.agent(app);
@@ -158,7 +158,7 @@ describe('GET /api/auth/me', () => {
     const res = await agent.get('/api/auth/me');
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ uid: 'u2b', email: 'dev@test.com', developer: true, admin: false });
+    expect(res.body).toEqual({ uid: 'u2b', email: 'dev@test.com', emailVerified: true, developer: true, admin: false });
   });
 
   test('returns 401 when no cookie or header is present', async () => {
@@ -170,7 +170,7 @@ describe('GET /api/auth/me', () => {
   });
 
   test('works with a Bearer header as well as a cookie', async () => {
-    mockVerifyIdToken.mockResolvedValue({ uid: 'u3', email: 'bearer@test.com' });
+    mockVerifyIdToken.mockResolvedValue({ uid: 'u3', email: 'bearer@test.com', email_verified: true });
     const app = createApp();
 
     const res = await request(app)
@@ -178,7 +178,17 @@ describe('GET /api/auth/me', () => {
       .set('Authorization', 'Bearer header-token');
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ uid: 'u3', email: 'bearer@test.com', developer: false, admin: false });
+    expect(res.body).toEqual({ uid: 'u3', email: 'bearer@test.com', emailVerified: true, developer: false, admin: false });
+  });
+
+  test('reports emailVerified: false when the token carries no verification claim', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'u4', email: 'nov@test.com' });
+
+    const res = await request(createApp())
+      .get('/api/auth/me')
+      .set('Authorization', 'Bearer header-token');
+
+    expect(res.body.emailVerified).toBe(false);
   });
 });
 
@@ -192,14 +202,14 @@ describe('admin access via ADMIN_UIDS', () => {
 
   test('/session and /me report admin: true for a listed UID', async () => {
     process.env.ADMIN_UIDS = 'boss-uid,other-uid';
-    mockVerifyIdToken.mockResolvedValue({ uid: 'boss-uid', email: 'boss@test.com' });
+    mockVerifyIdToken.mockResolvedValue({ uid: 'boss-uid', email: 'boss@test.com', email_verified: true });
     const agent = request.agent(createApp());
 
     const session = await agent.post('/api/auth/session').send({ idToken: 'valid-token' });
     const me = await agent.get('/api/auth/me');
 
     expect(session.body.admin).toBe(true);
-    expect(me.body).toEqual({ uid: 'boss-uid', email: 'boss@test.com', developer: false, admin: true });
+    expect(me.body).toEqual({ uid: 'boss-uid', email: 'boss@test.com', emailVerified: true, developer: false, admin: true });
   });
 
   test('/me reports admin: false for everyone when ADMIN_UIDS is unset', async () => {
@@ -238,7 +248,7 @@ describe('admin access via ADMIN_UIDS', () => {
 // ------------------------------------------------------------------
 describe('POST /api/auth/developer-mode', () => {
   function authedAgent(app, { uid = 'u1', email = 'a@b.com', developer } = {}) {
-    mockVerifyIdToken.mockResolvedValue({ uid, email, ...(developer !== undefined ? { developer } : {}) });
+    mockVerifyIdToken.mockResolvedValue({ uid, email, email_verified: true, ...(developer !== undefined ? { developer } : {}) });
     return request(app).post('/api/auth/developer-mode').set('Authorization', 'Bearer token');
   }
 
@@ -282,6 +292,20 @@ describe('POST /api/auth/developer-mode', () => {
     const res = await request(app).post('/api/auth/developer-mode').send({ enabled: true });
 
     expect(res.status).toBe(401);
+  });
+
+  test('returns 403 EMAIL_NOT_VERIFIED for a signed-in but unverified account', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'u1', email: 'a@b.com', email_verified: false });
+    const app = createApp();
+
+    const res = await request(app)
+      .post('/api/auth/developer-mode')
+      .set('Authorization', 'Bearer token')
+      .send({ enabled: true });
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('EMAIL_NOT_VERIFIED');
+    expect(mockSetCustomUserClaims).not.toHaveBeenCalled();
   });
 
   test('returns 500 when the Admin SDK call fails', async () => {

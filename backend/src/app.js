@@ -3,6 +3,7 @@ import { serverTiming } from './middleware/serverTiming.js';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { authRouter } from './routes/auth.js';
+import { emailVerificationRouter } from './routes/emailVerification.js';
 import { overviewRouter } from './routes/overview.js';
 import { statisticsRouter } from './routes/statistics.js';
 import { fixturesRouter } from './routes/fixtures.js';
@@ -115,6 +116,9 @@ export function createApp(options = {}) {
   app.use(['/api/statistics', '/api/overview', '/api/fixtures', '/api/race-replay'], cache);
   app.locals.responseCache = cache;
 
+  // The 6-digit email verification code endpoints mount first: a more
+  // specific path than /api/auth, so it stays obvious which router owns it.
+  app.use('/api/auth/verify-email', emailVerificationRouter);
   app.use('/api/auth', authRouter);
   app.use('/api/overview', overviewRouter);
   app.use('/api/statistics', statisticsRouter);
