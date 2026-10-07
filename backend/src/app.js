@@ -1,4 +1,5 @@
 import express from 'express';
+import helmet from 'helmet';
 import { serverTiming } from './middleware/serverTiming.js';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -21,6 +22,7 @@ import { codeSubmissionsRouter } from './routes/codeSubmissions.js';
 import { telemetryTVRouter } from './routes/telemetryTV.js';
 import { apiV1Router } from './api/v1/router.js';
 import { createRateLimiter } from './middleware/rateLimit.js';
+import { createOriginGuard } from './middleware/originGuard.js';
 import { createResponseCache } from './middleware/responseCache.js';
 import { followsRouter } from './routes/follows.js';
 import { notificationsRouter } from './routes/notifications.js';
@@ -44,6 +46,9 @@ function readConfig(options) {
     // per-IP limit on top of the per-email cooldown / daily caps the route
     // enforces — otherwise one client could mail-bomb many different inboxes.
     signupRateLimit: options.signupRateLimit ?? (isTest ? 0 : fromEnv('RATE_LIMIT_SIGNUP_PER_MINUTE', 10)),
+    // Token exchanges (POST /api/auth/session) are cheap to replay and the
+    // only way to spray stolen ID tokens, so they get their own tight limit.
+    sessionRateLimit: options.sessionRateLimit ?? (isTest ? 0 : fromEnv('RATE_LIMIT_SESSION_PER_MINUTE', 20)),
     cacheTtlMs: options.cacheTtlMs ?? (isTest ? 0 : fromEnv('CACHE_TTL_SECONDS', 60) * 1000),
   };
 }
@@ -56,6 +61,14 @@ export function createApp(options = {}) {
   // X-Forwarded-For so req.ip is the real client (what rate limits key on),
   // not the proxy's own address.
   app.set('trust proxy', 1);
+
+  // Standard hardening headers (nosniff, frameguard, HSTS, and so on). The
+  // API answers JSON rather than documents, but the headers still apply to
+  // whatever a browser might sniff or frame. crossOriginResourcePolicy is
+  // switched off: the Netlify frontend loads images from here and reads
+  // responses cross-origin, and helmet's default 'same-origin' would block
+  // the no-cors half of that.
+  app.use(helmet({ crossOriginResourcePolicy: false }));
 
   // Server-side response time on every response (see middleware/serverTiming.js).
   app.use(serverTiming());
@@ -83,6 +96,11 @@ export function createApp(options = {}) {
       credentials: true,
     })
   );
+  // CSRF gate for state-changing requests: the __session cookie is
+  // SameSite=None in production, so writes must come from a browser origin
+  // already on the CORS allowlist (see middleware/originGuard.js). Mounted
+  // right after cors so the two always share one origin list.
+  app.use(createOriginGuard({ allowedOrigins, wildcard: wildcardOrigin }));
   app.use('/api/submissions', express.json({ limit: '20mb' }));
   app.use(express.json());
   // cookie-parser is required so requireAuth can read the httpOnly
@@ -111,6 +129,9 @@ export function createApp(options = {}) {
   }
   if (config.signupRateLimit > 0) {
     app.use('/api/auth/signup', createRateLimiter({ limit: config.signupRateLimit, name: 'sign-up' }));
+  }
+  if (config.sessionRateLimit > 0) {
+    app.use('/api/auth/session', createRateLimiter({ limit: config.sessionRateLimit, name: 'session' }));
   }
 
   // --- Response cache for repeated public reads --------------------------
