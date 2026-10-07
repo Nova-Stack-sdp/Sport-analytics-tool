@@ -15,11 +15,10 @@ function describeError(err) {
   return err.body?.error || err.message;
 }
 
-// Developer-facing code submission form. The format contract lives in
+// "Submit Code" tab of the Developer page. The format contract lives in
 // features/code-submission/submissionFormat.js and is enforced in the browser
-// first — an invalid draft never reaches the network. The API seam is real
-// (POST /api/code-submissions); until the backend route exists the page
-// simply shows honest loading/error/empty states rather than mock data.
+// first — an invalid draft never reaches the network. A valid one is saved by
+// POST /api/code-submissions with status 'pending' until an admin reviews it.
 //
 // The draft holds exactly the fields the form collects — no tags: this page
 // doesn't ask for them, and normalizeSubmission() fills in the empty array
@@ -82,229 +81,219 @@ function CodeSubmissionPage() {
   }
 
   return (
-    <div className="page" id="page-code-submissions">
-      <div className="pagehead">
-        <div className="section-eyebrow">Developer</div>
-        <div className="section-title">Submit Code</div>
-        <div className="section-desc">
-          Add a new derived statistic: name it, paste the script that computes it, and describe
-          what it means.
+    <div className="developer-panel" id="page-code-submissions">
+      <div className="rationale">
+        <span className="ic">◆</span>
+        <div>
+          <b>Why this tab:</b> a derived statistic is a script that reads a session's events
+          — laps, stints, pit stops, weather — and computes something new from them.
         </div>
       </div>
-      <div className="content">
-        <div className="rationale">
-          <span className="ic">◆</span>
-          <div>
-            <b>Why this page:</b> a derived statistic is a script that reads a session's events
-            — laps, stints, pit stops, weather — and computes something new from them.
-          </div>
-        </div>
 
-        <div className="grid grid-2">
-          <div className="card cs-form-card">
-            <div className="card-title">Submit a script</div>
-            <div className="card-title-sub">Name the statistic and paste the script that computes it</div>
+      <div className="grid grid-2">
+        <div className="card cs-form-card">
+          <div className="card-title">Submit a script</div>
+          <div className="card-title-sub">Name the statistic and paste the script that computes it</div>
 
-            <form className="cs-form" onSubmit={handleSubmit}>
-              {/* Identity first: the two short answers side by side, so they
-                  stop carrying the same weight as the script itself. */}
-              <div className="cs-band cs-band-identity">
-                <div className="cs-field">
-                  <div className="cs-head">
-                    <label htmlFor="cs-title">Name/Title</label>
-                    <span className="cs-req">Required</span>
-                  </div>
-                  <input
-                    id="cs-title"
-                    className="cs-input"
-                    type="text"
-                    placeholder="e.g Tyre delta per stint"
-                    value={draft.title}
-                    aria-invalid={Boolean(errorFor('title'))}
-                    aria-describedby={errorFor('title') ? 'cs-title-error' : undefined}
-                    onChange={(e) => updateField('title', e.target.value)}
-                  />
-                  <div className="cs-foot">
-                    <span className="cs-hint">Cool and descriptive.</span>
-                    <span className={countClass(titleLength, LIMITS.titleMax)}>
-                      {titleLength}/{LIMITS.titleMax}
-                    </span>
-                  </div>
-                  {errorFor('title') && (
-                    <p className="cs-field-error" id="cs-title-error">{errorFor('title')}</p>
-                  )}
+          <form className="cs-form" onSubmit={handleSubmit}>
+            {/* Identity first: the two short answers side by side, so they
+                stop carrying the same weight as the script itself. */}
+            <div className="cs-band cs-band-identity">
+              <div className="cs-field">
+                <div className="cs-head">
+                  <label htmlFor="cs-title">Name/Title</label>
+                  <span className="cs-req">Required</span>
                 </div>
-
-                <div className="cs-field">
-                  <div className="cs-head">
-                    <label htmlFor="cs-language">Language</label>
-                    <span className="cs-req">Required</span>
-                  </div>
-                  <select
-                    id="cs-language"
-                    className="cs-input"
-                    value={draft.language}
-                    aria-invalid={Boolean(errorFor('language'))}
-                    aria-describedby={errorFor('language') ? 'cs-language-error' : undefined}
-                    onChange={(e) => updateField('language', e.target.value)}
-                  >
-                    <option value="">Select a language…</option>
-                    {ALLOWED_LANGUAGES.map((language) => (
-                      <option key={language} value={language}>{language}</option>
-                    ))}
-                    {/* Not selectable on purpose: what happens for an unlisted
-                        language is still to be decided, so picking it does
-                        nothing for now. */}
-                    <option disabled>Language not above?</option>
-                  </select>
-                  <div className="cs-foot">
-                    <span className="cs-hint">What language the script is written in.</span>
-                  </div>
-                  {errorFor('language') && (
-                    <p className="cs-field-error" id="cs-language-error">{errorFor('language')}</p>
-                  )}
-                </div>
-              </div>
-
-              {/* The artifact itself gets an editor surface — bar, language,
-                  readout — instead of one more anonymous textarea. */}
-              <div className={`cs-editor${errorFor('code') ? ' is-invalid' : ''}`}>
-                <div className="cs-editor-bar">
-                  <div className="cs-head">
-                    <label htmlFor="cs-code">Code</label>
-                    <span className="cs-req">Required</span>
-                  </div>
-                  <div className="cs-editor-meta">
-                    <span className={`cs-lang${draft.language ? '' : ' is-empty'}`}>
-                      {draft.language || 'No language yet'}
-                    </span>
-                    <span className={countClass(codeChars, LIMITS.codeMax)}>
-                      {codeLines} lines · {codeChars}/{LIMITS.codeMax}
-                    </span>
-                  </div>
-                </div>
-                <textarea
-                  id="cs-code"
-                  className="cs-code"
-                  rows={14}
-                  spellCheck={false}
-                  placeholder={CODE_EXAMPLE}
-                  value={draft.code}
-                  aria-invalid={Boolean(errorFor('code'))}
-                  aria-describedby={errorFor('code') ? 'cs-code-error' : undefined}
-                  onChange={(e) => updateField('code', e.target.value)}
+                <input
+                  id="cs-title"
+                  className="cs-input"
+                  type="text"
+                  placeholder="e.g Tyre delta per stint"
+                  value={draft.title}
+                  aria-invalid={Boolean(errorFor('title'))}
+                  aria-describedby={errorFor('title') ? 'cs-title-error' : undefined}
+                  onChange={(e) => updateField('title', e.target.value)}
                 />
-                {errorFor('code') && (
-                  <p className="cs-field-error" id="cs-code-error">{errorFor('code')}</p>
+                <div className="cs-foot">
+                  <span className="cs-hint">Cool and descriptive.</span>
+                  <span className={countClass(titleLength, LIMITS.titleMax)}>
+                    {titleLength}/{LIMITS.titleMax}
+                  </span>
+                </div>
+                {errorFor('title') && (
+                  <p className="cs-field-error" id="cs-title-error">{errorFor('title')}</p>
                 )}
               </div>
 
-              <div className="cs-band cs-band-meta">
-                <div className="cs-field">
-                  <div className="cs-head">
-                    <label htmlFor="cs-description">Description (optional)</label>
-                  </div>
-                  <textarea
-                    id="cs-description"
-                    className="cs-input"
-                    rows={4}
-                    placeholder={DESCRIPTION_EXAMPLE}
-                    value={draft.description}
-                    aria-invalid={Boolean(errorFor('description'))}
-                    aria-describedby={errorFor('description') ? 'cs-description-error' : undefined}
-                    onChange={(e) => updateField('description', e.target.value)}
-                  />
-                  <div className="cs-foot">
-                    <span className="cs-hint">What the statistic means.</span>
-                    <span className={countClass(descriptionLength, LIMITS.descriptionMax)}>
-                      {descriptionLength}/{LIMITS.descriptionMax}
-                    </span>
-                  </div>
-                  {errorFor('description') && (
-                    <p className="cs-field-error" id="cs-description-error">{errorFor('description')}</p>
-                  )}
+              <div className="cs-field">
+                <div className="cs-head">
+                  <label htmlFor="cs-language">Language</label>
+                  <span className="cs-req">Required</span>
                 </div>
-              </div>
-
-              <button type="submit" className="btn btn-primary btn-full" disabled={submitting}>
-                {submitting ? 'Submitting…' : 'Submit script'}
-              </button>
-            </form>
-
-            {/* The messages now sit on their fields — this box only says how
-                many there are and which ones to look at. */}
-            {validationErrors.length > 0 && (
-              <div className="error-box">
-                <div className="cs-summary-head">
-                  <span className="eh">⚠ Fix these before submitting</span>
-                  <span className="cs-summary-count">{validationErrors.length} to fix</span>
-                </div>
-                <div className="cs-summary-fields">
-                  {validationErrors.map((error) => (
-                    <span key={error.field} className="pill pill-red mono">{error.field}</span>
+                <select
+                  id="cs-language"
+                  className="cs-input"
+                  value={draft.language}
+                  aria-invalid={Boolean(errorFor('language'))}
+                  aria-describedby={errorFor('language') ? 'cs-language-error' : undefined}
+                  onChange={(e) => updateField('language', e.target.value)}
+                >
+                  <option value="">Select a language…</option>
+                  {ALLOWED_LANGUAGES.map((language) => (
+                    <option key={language} value={language}>{language}</option>
                   ))}
+                  {/* Not selectable on purpose: what happens for an unlisted
+                      language is still to be decided, so picking it does
+                      nothing for now. */}
+                  <option disabled>Language not above?</option>
+                </select>
+                <div className="cs-foot">
+                  <span className="cs-hint">What language the script is written in.</span>
                 </div>
-              </div>
-            )}
-
-            {submitError && (
-              <div className="error-box">
-                <div className="eh">⚠ {submitError}</div>
-              </div>
-            )}
-
-            {submitResult && (
-              <div className="cs-success">
-                <div className="cs-success-head">✓ Submitted</div>
-                <div className="card-note">
-                  {submitResult.id && <>Submission ID <span className="mono">{submitResult.id}</span>. </>}
-                  Keep the ID if you need to refer to it later.
-                </div>
-                <div className="cs-success-status">
-                  <span className="pill pill-amber">{submitResult.status || 'pending'}</span>
-                  <span>You'll be notified once it's approved or rejected.</span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="card">
-            <div className="card-head">
-              <div>
-                <div className="card-title">After you submit</div>
-                <div className="card-title-sub">How your script gets reviewed</div>
+                {errorFor('language') && (
+                  <p className="cs-field-error" id="cs-language-error">{errorFor('language')}</p>
+                )}
               </div>
             </div>
-            <ol className="cs-steps">
-              <li>
-                <span className="cs-step-n">1</span>
-                <span>Your script goes to the admin team for review.</span>
-              </li>
-              <li>
-                <span className="cs-step-n">2</span>
-                <span>The admin approves it or rejects it.</span>
-              </li>
-              <li>
-                <span className="cs-step-n">3</span>
-                <span>You get a notification with the outcome.</span>
-              </li>
-            </ol>
-            <div className="cs-statuses">
-              <div className="cs-statuses-head">
-                After you submit, the status shown here moves through:
+
+            {/* The artifact itself gets an editor surface — bar, language,
+                readout — instead of one more anonymous textarea. */}
+            <div className={`cs-editor${errorFor('code') ? ' is-invalid' : ''}`}>
+              <div className="cs-editor-bar">
+                <div className="cs-head">
+                  <label htmlFor="cs-code">Code</label>
+                  <span className="cs-req">Required</span>
+                </div>
+                <div className="cs-editor-meta">
+                  <span className={`cs-lang${draft.language ? '' : ' is-empty'}`}>
+                    {draft.language || 'No language yet'}
+                  </span>
+                  <span className={countClass(codeChars, LIMITS.codeMax)}>
+                    {codeLines} lines · {codeChars}/{LIMITS.codeMax}
+                  </span>
+                </div>
               </div>
-              <div className="cs-status-row">
-                <span className="pill pill-amber">pending</span>
-                <span>Waiting for the admin's decision.</span>
+              <textarea
+                id="cs-code"
+                className="cs-code"
+                rows={14}
+                spellCheck={false}
+                placeholder={CODE_EXAMPLE}
+                value={draft.code}
+                aria-invalid={Boolean(errorFor('code'))}
+                aria-describedby={errorFor('code') ? 'cs-code-error' : undefined}
+                onChange={(e) => updateField('code', e.target.value)}
+              />
+              {errorFor('code') && (
+                <p className="cs-field-error" id="cs-code-error">{errorFor('code')}</p>
+              )}
+            </div>
+
+            <div className="cs-band cs-band-meta">
+              <div className="cs-field">
+                <div className="cs-head">
+                  <label htmlFor="cs-description">Description (optional)</label>
+                </div>
+                <textarea
+                  id="cs-description"
+                  className="cs-input"
+                  rows={4}
+                  placeholder={DESCRIPTION_EXAMPLE}
+                  value={draft.description}
+                  aria-invalid={Boolean(errorFor('description'))}
+                  aria-describedby={errorFor('description') ? 'cs-description-error' : undefined}
+                  onChange={(e) => updateField('description', e.target.value)}
+                />
+                <div className="cs-foot">
+                  <span className="cs-hint">What the statistic means.</span>
+                  <span className={countClass(descriptionLength, LIMITS.descriptionMax)}>
+                    {descriptionLength}/{LIMITS.descriptionMax}
+                  </span>
+                </div>
+                {errorFor('description') && (
+                  <p className="cs-field-error" id="cs-description-error">{errorFor('description')}</p>
+                )}
               </div>
-              <div className="cs-status-row">
-                <span className="pill pill-green">approved</span>
-                <span>Accepted — the statistic goes live.</span>
+            </div>
+
+            <button type="submit" className="btn btn-primary btn-full" disabled={submitting}>
+              {submitting ? 'Submitting…' : 'Submit script'}
+            </button>
+          </form>
+
+          {/* The messages now sit on their fields — this box only says how
+              many there are and which ones to look at. */}
+          {validationErrors.length > 0 && (
+            <div className="error-box">
+              <div className="cs-summary-head">
+                <span className="eh">⚠ Fix these before submitting</span>
+                <span className="cs-summary-count">{validationErrors.length} to fix</span>
               </div>
-              <div className="cs-status-row">
-                <span className="pill pill-red">rejected</span>
-                <span>Something went wrong with your code, you can review admins decision to know what.</span>
+              <div className="cs-summary-fields">
+                {validationErrors.map((error) => (
+                  <span key={error.field} className="pill pill-red mono">{error.field}</span>
+                ))}
               </div>
+            </div>
+          )}
+
+          {submitError && (
+            <div className="error-box">
+              <div className="eh">⚠ {submitError}</div>
+            </div>
+          )}
+
+          {submitResult && (
+            <div className="cs-success">
+              <div className="cs-success-head">✓ Submitted</div>
+              <div className="card-note">
+                {submitResult.id && <>Submission ID <span className="mono">{submitResult.id}</span>. </>}
+                Keep the ID if you need to refer to it later.
+              </div>
+              <div className="cs-success-status">
+                <span className="pill pill-amber">{submitResult.status || 'pending'}</span>
+                <span>You'll be notified once it's approved or rejected.</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="card">
+          <div className="card-head">
+            <div>
+              <div className="card-title">After you submit</div>
+              <div className="card-title-sub">How your script gets reviewed</div>
+            </div>
+          </div>
+          <ol className="cs-steps">
+            <li>
+              <span className="cs-step-n">1</span>
+              <span>Your script goes to the admin team for review.</span>
+            </li>
+            <li>
+              <span className="cs-step-n">2</span>
+              <span>The admin approves it or rejects it.</span>
+            </li>
+            <li>
+              <span className="cs-step-n">3</span>
+              <span>You get a notification with the outcome.</span>
+            </li>
+          </ol>
+          <div className="cs-statuses">
+            <div className="cs-statuses-head">
+              After you submit, the status shown here moves through:
+            </div>
+            <div className="cs-status-row">
+              <span className="pill pill-amber">pending</span>
+              <span>Waiting for the admin's decision.</span>
+            </div>
+            <div className="cs-status-row">
+              <span className="pill pill-green">approved</span>
+              <span>Accepted — the statistic goes live.</span>
+            </div>
+            <div className="cs-status-row">
+              <span className="pill pill-red">rejected</span>
+              <span>Something went wrong with your code, you can review admins decision to know what.</span>
             </div>
           </div>
         </div>

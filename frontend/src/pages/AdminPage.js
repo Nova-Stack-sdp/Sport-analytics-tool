@@ -1,17 +1,9 @@
 import { useState } from 'react';
 import CodeSubmissionsPanel from '../components/admin/CodeSubmissionsPanel';
 
-const ADMIN_TABS = ['Submitters', 'Code Submissions', 'API Keys', 'Dataset Releases', 'API Versions', 'Reconciliation'];
+const ADMIN_TABS = ['Submissions', 'API Keys', 'Dataset Releases', 'API Versions', 'Reconciliation'];
 
 // ── Mock data ────────────────────────────────────────────────────────────────
-
-const SUBMITTERS = [
-  { id: 'usr_8f2a', name: 'Marcus Chen', handle: 'analyst_042', role: 'Senior Submitter', scope: 'Full season · all sessions', status: 'active', submissions: 184, lastActive: '2 hrs ago' },
-  { id: 'usr_3c71', name: 'Priya Nair', handle: 'official_017', role: 'Official Data Partner', scope: 'Race & Qualifying only', status: 'active', submissions: 92, lastActive: '14 min ago' },
-  { id: 'usr_ae09', name: 'Tomás Ferreira', handle: 'analyst_019', role: 'Junior Submitter', scope: 'FP sessions only', status: 'suspended', submissions: 31, lastActive: '8 days ago' },
-  { id: 'usr_d44b', name: 'Lena Kowalski', handle: 'analyst_088', role: 'Senior Submitter', scope: 'Full season · all sessions', status: 'pending', submissions: 0, lastActive: '—' },
-  { id: 'usr_10f6', name: 'Ravi Anand', handle: 'telemetry_r01', role: 'Telemetry Partner', scope: 'Pit & tyre data only', status: 'active', submissions: 217, lastActive: '1 hr ago' },
-];
 
 const API_KEYS = [
   { id: 'key_9a1f', consumer: 'SportTech Analytics', key: 'dev_7f8c…ab92', tier: 'Pro', quota: '1,000 / min', usage: 74, issued: 'Jan 12, 2026', status: 'active' },
@@ -41,59 +33,6 @@ const RECONCILIATIONS = [
 ];
 
 // ── Sub-components ───────────────────────────────────────────────────────────
-
-function SubmittersTab() {
-  return (
-    <>
-      <div className="grid grid-4" style={{ marginBottom: 16 }}>
-        <div className="stat-mini"><div className="l">Total submitters</div><div className="v">{SUBMITTERS.length}</div></div>
-        <div className="stat-mini"><div className="l">Active</div><div className="v ok">{SUBMITTERS.filter(s => s.status === 'active').length}</div></div>
-        <div className="stat-mini"><div className="l">Pending approval</div><div className="v warn">{SUBMITTERS.filter(s => s.status === 'pending').length}</div></div>
-        <div className="stat-mini"><div className="l">Suspended</div><div className="v accent">{SUBMITTERS.filter(s => s.status === 'suspended').length}</div></div>
-      </div>
-
-      <div className="card">
-        <div className="card-head">
-          <div>
-            <div className="card-title">Submitter accounts</div>
-            <div className="card-title-sub">Approve, scope, and revoke data submitters</div>
-          </div>
-          <button className="btn btn-primary btn-sm">+ Invite submitter</button>
-        </div>
-        <table>
-          <tbody>
-            <tr><th>Name</th><th>Handle</th><th>Role</th><th>Scope</th><th>Submissions</th><th>Status</th><th></th></tr>
-            {SUBMITTERS.map((s) => (
-              <tr key={s.id}>
-                <td>
-                  <div style={{ fontWeight: 600 }}>{s.name}</div>
-                  <div className="secondary" style={{ fontSize: 11 }}>{s.id}</div>
-                </td>
-                <td className="mono secondary">{s.handle}</td>
-                <td>{s.role}</td>
-                <td className="secondary">{s.scope}</td>
-                <td className="mono">{s.submissions}</td>
-                <td>
-                  {s.status === 'active' && <span className="pill pill-green">Active</span>}
-                  {s.status === 'pending' && <span className="pill pill-amber">Pending</span>}
-                  {s.status === 'suspended' && <span className="pill pill-red">Suspended</span>}
-                </td>
-                <td>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    {s.status === 'pending' && <button className="btn btn-primary btn-sm">Approve</button>}
-                    {s.status === 'active' && <button className="btn btn-ghost btn-sm">Suspend</button>}
-                    {s.status === 'suspended' && <button className="btn btn-ghost btn-sm">Reactivate</button>}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="card-note">Scope defines which sessions and event types a submitter is authorized to contribute. Out-of-scope submissions are rejected at the staging step.</div>
-      </div>
-    </>
-  );
-}
 
 function ApiKeysTab() {
   return (
@@ -379,7 +318,7 @@ function ReconciliationTab() {
 // ── Main component ───────────────────────────────────────────────────────────
 
 function AdminPage() {
-  const [activeTab, setActiveTab] = useState('Submitters');
+  const [activeTab, setActiveTab] = useState('Submissions');
 
   return (
     <div className="page" id="page-admin">
@@ -387,14 +326,14 @@ function AdminPage() {
         <div className="section-eyebrow">System administration</div>
         <div className="section-title">Admin</div>
         <div className="section-desc">
-          Centralized control over submitters, code submissions, API access, dataset releases, versioning, and data reconciliation — the full governance surface of the platform.
+          Centralized control over code submissions, API access, dataset releases, versioning, and data reconciliation — the full governance surface of the platform.
         </div>
       </div>
       <div className="content">
         <div className="rationale">
           <span className="ic">◆</span>
           <div>
-            <b>Why this page:</b> the administrator is the only role with authority across the entire data pipeline — from who can submit data, to which API keys are live, to how conflicting values are resolved and corrections ripple through every projection. This page consolidates that governance surface into six sections matching each distinct responsibility.
+            <b>Why this page:</b> the administrator is the only role with authority across the entire data pipeline — from who can submit data, to which API keys are live, to how conflicting values are resolved and corrections ripple through every projection. This page consolidates that governance surface into five sections matching each distinct responsibility.
           </div>
         </div>
 
@@ -410,11 +349,10 @@ function AdminPage() {
           ))}
         </div>
 
-        {activeTab === 'Submitters' && <SubmittersTab />}
         {/* The only tab wired to the real API so far — the rest are still
-            placeholder surfaces, but code submissions load live data via
+            placeholder surfaces, but submissions load live data via
             GET/PATCH /api/code-submissions. */}
-        {activeTab === 'Code Submissions' && <CodeSubmissionsPanel />}
+        {activeTab === 'Submissions' && <CodeSubmissionsPanel />}
         {activeTab === 'API Keys' && <ApiKeysTab />}
         {activeTab === 'Dataset Releases' && <DatasetReleasesTab />}
         {activeTab === 'API Versions' && <ApiVersionsTab />}

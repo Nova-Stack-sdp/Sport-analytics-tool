@@ -15,6 +15,7 @@ import { raceReplayRouter } from './routes/raceReplay.js';
 import { imagesRouter } from './routes/images.js';
 import { newsRouter } from './routes/news.js';
 import { submissionsRouter } from './routes/submissions.js';
+import { codeSubmissionsRouter } from './routes/codeSubmissions.js';
 import { telemetryTVRouter } from './routes/telemetryTV.js';
 import { apiV1Router } from './api/v1/router.js';
 import { createRateLimiter } from './middleware/rateLimit.js';
@@ -127,6 +128,7 @@ export function createApp(options = {}) {
   app.use('/api/images', imagesRouter);
   app.use('/api/news', newsRouter);
   app.use('/api/submissions', submissionsRouter);
+  app.use('/api/code-submissions', codeSubmissionsRouter);
   app.use('/api/telemetry-tv', telemetryTVRouter);
   app.use('/api/follows', followsRouter);
   app.use('/api/notifications', notificationsRouter);

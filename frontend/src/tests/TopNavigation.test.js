@@ -88,7 +88,7 @@ describe('TopNavigation', () => {
     expect(screen.queryByRole('link', { name: 'Admin' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Submissions' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Datasets' })).not.toBeInTheDocument();
-    // The code submission form needs developer mode, not just a session.
+    // Submit Code is a tab inside Developer, never a nav item.
     expect(screen.queryByRole('link', { name: 'Submit Code' })).not.toBeInTheDocument();
   });
 
@@ -104,7 +104,7 @@ describe('TopNavigation', () => {
     expect(labels.slice(-3)).toEqual(['Developer', 'Profile', 'Admin']);
   });
 
-  test('keeps Datasets and Submissions out of the nav even in developer mode (they are Developer tabs), plus display-name initials', () => {
+  test('keeps Datasets and Submit Code out of the nav even in developer mode (they are Developer tabs), plus display-name initials', () => {
     mockIsDeveloperMode = true;
     renderNav({
       user: { displayName: 'Max Verstappen', email: 'max@example.test' },
@@ -116,8 +116,7 @@ describe('TopNavigation', () => {
     expect(screen.queryByRole('link', { name: 'Submissions' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Datasets' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Developer' })).toBeInTheDocument();
-    // Developer mode is exactly what unlocks the submit-code route.
-    expect(screen.getByRole('link', { name: 'Submit Code' })).toHaveAttribute('href', '/code-submissions');
+    expect(screen.queryByRole('link', { name: 'Submit Code' })).not.toBeInTheDocument();
     // Developer mode doesn't make you an admin.
     expect(screen.queryByRole('link', { name: 'Admin' })).not.toBeInTheDocument();
     // Clicking the avatar opens the account menu now, so the title only

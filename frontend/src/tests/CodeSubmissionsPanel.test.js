@@ -1,9 +1,10 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import CodeSubmissionsPanel from '../components/admin/CodeSubmissionsPanel';
-import { listCodeSubmissions, reviewCodeSubmission } from '../api/client';
+import { listCodeSubmissions, getCodeSubmission, reviewCodeSubmission } from '../api/client';
 
 jest.mock('../api/client', () => ({
   listCodeSubmissions: jest.fn(),
+  getCodeSubmission: jest.fn(),
   reviewCodeSubmission: jest.fn(),
 }));
 
@@ -44,6 +45,33 @@ describe('CodeSubmissionsPanel', () => {
     expect(screen.getAllByText('Pending')).toHaveLength(2);
   });
 
+  test('shows the submitter email when there is one, and totals from the database counts', async () => {
+    listCodeSubmissions.mockResolvedValue({
+      submissions: [submission({ submitterEmail: 'dev@example.test' })],
+      counts: { pending: 1, approved: 4, rejected: 2 },
+    });
+    render(<CodeSubmissionsPanel />);
+
+    expect(await screen.findByText('dev@example.test')).toBeInTheDocument();
+    expect(screen.getByText('Total').nextSibling).toHaveTextContent('7');
+    expect(screen.getByText('Approved', { selector: '.l' }).nextSibling).toHaveTextContent('4');
+  });
+
+  test('loads and shows the submitted code on demand', async () => {
+    listCodeSubmissions.mockResolvedValue({ submissions: [submission()] });
+    getCodeSubmission.mockResolvedValue({ id: 'cs_1', code: 'const delta = 1;', description: 'Tyre wear per lap' });
+    render(<CodeSubmissionsPanel />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'View code' }));
+
+    expect(await screen.findByText('const delta = 1;')).toBeInTheDocument();
+    expect(screen.getByText('Tyre wear per lap')).toBeInTheDocument();
+    expect(getCodeSubmission).toHaveBeenCalledWith('cs_1');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide code' }));
+    expect(screen.queryByText('const delta = 1;')).not.toBeInTheDocument();
+  });
+
   test('shows an empty state instead of made-up rows', async () => {
     render(<CodeSubmissionsPanel />);
 
@@ -73,18 +101,18 @@ describe('CodeSubmissionsPanel', () => {
 
     fireEvent.click(screen.getByText('Approved'));
 
-    await waitFor(() => expect(listCodeSubmissions).toHaveBeenCalledWith('accepted'));
+    await waitFor(() => expect(listCodeSubmissions).toHaveBeenCalledWith('approved'));
     await screen.findByText('No code submissions');
   });
 
   test('approves a pending submission and reloads the queue', async () => {
     listCodeSubmissions.mockResolvedValue({ submissions: [submission()] });
-    reviewCodeSubmission.mockResolvedValue({ id: 'cs_1', status: 'accepted' });
+    reviewCodeSubmission.mockResolvedValue({ id: 'cs_1', status: 'approved' });
     render(<CodeSubmissionsPanel />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Approve' }));
 
-    await waitFor(() => expect(reviewCodeSubmission).toHaveBeenCalledWith('cs_1', 'accepted'));
+    await waitFor(() => expect(reviewCodeSubmission).toHaveBeenCalledWith('cs_1', 'approved'));
     await waitFor(() => expect(listCodeSubmissions).toHaveBeenCalledTimes(2));
     expect(listCodeSubmissions).toHaveBeenLastCalledWith('pending');
   });
@@ -113,7 +141,7 @@ describe('CodeSubmissionsPanel', () => {
   test('offers no review actions on already-reviewed submissions', async () => {
     listCodeSubmissions.mockResolvedValue({
       submissions: [
-        submission({ id: 'cs_2', status: 'accepted', title: 'Pit loss model' }),
+        submission({ id: 'cs_2', status: 'approved', title: 'Pit loss model' }),
         submission({ id: 'cs_3', status: 'rejected', title: 'Grid predictor' }),
       ],
     });

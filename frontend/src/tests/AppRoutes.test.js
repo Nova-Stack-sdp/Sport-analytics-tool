@@ -15,7 +15,6 @@ jest.mock('../pages/DeveloperPage', () => ({
     return <div>Developer route {location.search}</div>;
   },
 }));
-jest.mock('../pages/CodeSubmissionPage', () => ({ __esModule: true, default: () => <div>Code submissions route</div> }));
 jest.mock('../pages/ProfilePage', () => ({
   __esModule: true,
   default: function MockProfile() {
@@ -53,9 +52,6 @@ describe('AppRoutes', () => {
     ['/drivers', 'Drivers route'],
     ['/driver/max-verstappen', 'Driver detail route'],
     ['/sync-f1-broadcast', 'Sync F1 broadcast route'],
-    // RequireAuth is mocked as a pass-through, so the gated route renders
-    // its page directly here; the gate itself is covered by RequireAuth.test.js.
-    ['/code-submissions', 'Code submissions route'],
   ])('renders %s with its public route component', (path, page) => {
     renderRoutes(path);
 
@@ -64,7 +60,8 @@ describe('AppRoutes', () => {
 
   test.each([
     ['/datasets', 'Developer route ?tab=datasets'],
-    ['/submissions', 'Developer route ?tab=submissions'],
+    ['/submissions', 'Developer route ?tab=submit-code'],
+    ['/code-submissions', 'Developer route ?tab=submit-code'],
   ])('redirects the old %s URL to its tab on Developer', (path, page) => {
     renderRoutes(path);
 
