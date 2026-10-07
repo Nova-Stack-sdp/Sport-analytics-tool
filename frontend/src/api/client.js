@@ -123,6 +123,14 @@ export function setDeveloperModeOnServer(enabled, idToken) {
 // Account notifications
 // ---------------------------------------------------------------------------
 
+export function createNotification(notificationData) {
+  return request('/api/notifications', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(notificationData),
+  });
+}
+
 /**
  * The signed-in user's own notifications, newest first (requireAuth on the
  * backend — no session, no rows). The response is the array itself.
@@ -354,8 +362,17 @@ export function reviewSubmission(id, status) {
 // F1 news feed
 // ---------------------------------------------------------------------------
 
-export function getF1News() {
-  return request('/api/news');
+// ---------------------------------------------------------------------------
+// F1 news feed
+// ---------------------------------------------------------------------------
+
+export function getF1News({ driverId, teamId } = {}) {
+  const params = new URLSearchParams();
+  if (driverId) params.set('driverId', driverId);
+  if (teamId) params.set('teamId', teamId);
+  
+  const query = params.toString();
+  return request(`/api/news${query ? `?${query}` : ''}`);
 }
 
 // EventSource can't go through request(), so it needs the absolute URL.

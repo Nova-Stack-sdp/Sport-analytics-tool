@@ -363,5 +363,9 @@ model Notification {
   // Index by userId for fast queries when a user loads their profile
   @@index([userId, createdAt])
   @@index([isRead])
+  
+  // Enforces exactly one notification per user per article title
+  @@unique([userId, message])
+  
   @@map("notification")
 }

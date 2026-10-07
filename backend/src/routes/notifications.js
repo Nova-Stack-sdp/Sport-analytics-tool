@@ -32,6 +32,33 @@ notificationsRouter.get('/', requireAuth, async (req, res) => {
   }
 });
 
+// POST /api/notifications
+// Creates a personalized notification strictly for the logged-in user
+notificationsRouter.post('/', requireAuth, async (req, res) => {
+  try {
+    const { title, message, type } = req.body;
+    
+    if (!req.user || !req.user.uid) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const newNotification = await prisma.notification.create({
+      data: {
+        userId: req.user.uid,
+        title,
+        message,
+        type: type || 'system_alert', // Prisma NotificationType enum
+        isRead: false
+      }
+    });
+
+    res.status(201).json(newNotification);
+  } catch (error) {
+    console.error('CRASH in POST /api/notifications:', error);
+    res.status(500).json({ error: 'Failed to create notification' });
+  }
+});
+
 // PATCH /api/notifications/:id/read - Mark single notification as read
 notificationsRouter.patch('/:id/read', requireAuth, async (req, res) => {
   try {

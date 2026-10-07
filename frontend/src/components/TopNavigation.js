@@ -51,6 +51,7 @@ function TopNav({ theme, onToggleTheme }) {
 
   // Notifications state
   const [notifications, setNotifications] = useState([]);
+  const [selectedNotification, setSelectedNotification] = useState(null);
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   // Helper function to fetch notifications safely
@@ -238,26 +239,39 @@ function TopNav({ theme, onToggleTheme }) {
                         </div>
                       ) : (
                         notifications.slice(0, 4).map(n => (
-                          <div 
+                          <button 
                             key={n.id} 
                             className="notification-item" 
+                            onClick={() => {
+                              setSelectedNotification(n);
+                              setNotificationsOpen(false);
+                            }}
                             style={{ 
-                              padding: '0.5rem 1rem', 
-                              borderBottom: '1px solid var(--border-color, #eee)',
-                              fontWeight: n.isRead ? 'normal' : 'bold'
+                              padding: '0.75rem 1rem', 
+                              border: '1px solid var(--border-soft, #ccc)',
+                              borderRadius: '8px',
+                              marginBottom: '0.5rem',
+                              fontWeight: n.isRead ? 'normal' : 'bold',
+                              width: '100%',
+                              textAlign: 'left',
+                              background: 'var(--surface, #fff)',
+                              cursor: 'pointer',
+                              display: 'block',
+                              transition: 'border-color 0.2s ease',
                             }}
                           >
                             <strong>{n.title}</strong><br/>
                             <span style={{ fontSize: '0.85em', opacity: 0.8 }}>{n.message}</span>
-                          </div>
+                          </button>
                         ))
                       )}
                     </div>
 
                     <NavLink 
-                      to="/profile" 
+                      to="/profile?tab=notifications" 
                       className="avatar-menu-button" 
                       onClick={() => setNotificationsOpen(false)}
+                      style={{ marginTop: '0.5rem' }}
                     >
                       View all in Profile
                     </NavLink>
@@ -265,6 +279,42 @@ function TopNav({ theme, onToggleTheme }) {
                 )}
               </div>
               {/* --- END Notification Bell --- */}
+              {selectedNotification && (
+                <div className="modal-overlay" onMouseDown={() => setSelectedNotification(null)}>
+                  <div
+                    className="modal-panel"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Notification details"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    style={{ padding: '2rem', maxWidth: '400px', width: '100%' }}
+                  >
+                    <div className="modal-head" style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <h2 style={{ margin: 0 }}>{selectedNotification.title}</h2>
+                      <button type="button" className="modal-close" onClick={() => setSelectedNotification(null)} aria-label="Close" style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
+                    </div>
+                    <p style={{ marginBottom: '1.5rem' }}>{selectedNotification.message}</p>
+                    {selectedNotification.linkUrl && (
+                      <a 
+                        href={selectedNotification.linkUrl} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        style={{ 
+                          display: 'inline-block', 
+                          padding: '0.5rem 1.25rem', 
+                          background: 'var(--accent, #CE0D14)', 
+                          color: 'var(--accent-contrast, #fff)', 
+                          textDecoration: 'none', 
+                          borderRadius: '9999px',
+                          fontWeight: '600'
+                        }}
+                      >
+                        Read Article
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
             <div className="avatar-wrap" ref={menuRef}>
               <button
                 className="avatar"

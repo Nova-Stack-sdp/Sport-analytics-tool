@@ -24,6 +24,8 @@ import { isAdminUid } from '../lib/adminAccess.js';
 // 1. ADD THIS: Import your Prisma client (adjust the path if your Prisma client is exported from a lib folder)
 import { prisma } from '../lib/prisma.js';
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 export const authRouter = Router();
 
 // Cookie name — kept consistent across set/clear/read.
