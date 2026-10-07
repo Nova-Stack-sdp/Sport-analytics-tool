@@ -16,6 +16,9 @@
  *   POST /api/auth/developer-mode  — set the `developer` custom claim on the
  *                                    signed-in user's own Firebase account
  *   PUT  /api/auth/favorites       — update favorite driver and team in PostgreSQL
+ *   DELETE /api/auth/account       — delete the signed-in account everywhere:
+ *                                    uid-keyed PostgreSQL rows, the Firestore
+ *                                    mirror doc, the Firebase user, the cookie
  *
  * The 6-digit email verification code lives in routes/emailVerification.js,
  * mounted at /api/auth/verify-email.
@@ -26,6 +29,7 @@ import { requireAuth, requireAdmin, requireVerifiedEmail, getAdminApp } from '..
 import { isAdminUid } from '../lib/adminAccess.js';
 // 1. ADD THIS: Import your Prisma client (adjust the path if your Prisma client is exported from a lib folder)
 import { prisma } from '../lib/prisma.js';
+import { getFirestore } from '../lib/firebaseAdmin.js';
 
 export const authRouter = Router();
 
@@ -186,4 +190,60 @@ authRouter.put('/favorites', requireAuth, requireVerifiedEmail, async (req, res)
   } catch (err) {
     res.status(500).json({ error: 'Failed to update favorites' });
   }
+});
+
+// ------------------------------------------------------------------
+// DELETE /api/auth/account — permanently delete the signed-in account
+// ------------------------------------------------------------------
+// This is the "Delete profile" button under Profile. Deleting spans three
+// systems, and the order below is deliberate:
+//   1. PostgreSQL first, in one transaction — every uid-keyed row goes or
+//      none does, and a retry after a failure stays safe (deleteMany over
+//      rows that are already gone is a no-op).
+//   2. The Firestore mirror doc (users/{uid}: display name, follows, news
+//      preferences) — best effort, because the account is being deleted
+//      regardless and a leftover doc would be unreachable.
+//   3. The Firebase account itself, last — until it is gone the user can
+//      retry a half-finished deletion, and user-not-found means a retry of
+//      a deletion that already succeeded rather than an error.
+// Code submissions go with the account: they are the user's own data, keyed
+// by submitter id, and "completely" outranks the review queue.
+authRouter.delete('/account', requireAuth, requireVerifiedEmail, async (req, res) => {
+  const uid = req.user.uid;
+
+  try {
+    await prisma.$transaction([
+      prisma.follow.deleteMany({ where: { userId: uid } }),
+      prisma.notification.deleteMany({ where: { userId: uid } }),
+      prisma.emailVerificationCode.deleteMany({ where: { userId: uid } }),
+      prisma.codeSubmission.deleteMany({ where: { submitterId: uid } }),
+      // deleteMany rather than delete: this keeps the idempotent-retry
+      // property above (the profile row may already be gone).
+      prisma.userProfile.deleteMany({ where: { userId: uid } }),
+    ]);
+  } catch (err) {
+    console.error('auth/account delete: failed to remove database rows:', err.message);
+    return res.status(500).json({ error: 'Could not delete your account. Please try again.' });
+  }
+
+  try {
+    await getFirestore().doc(`users/${uid}`).delete();
+  } catch (err) {
+    console.error('auth/account delete: failed to remove Firestore document:', err.message);
+  }
+
+  try {
+    const app = getAdminApp();
+    await admin.auth(app).deleteUser(uid);
+  } catch (err) {
+    if (err.code !== 'auth/user-not-found') {
+      console.error('auth/account delete: failed to delete Firebase user:', err.message);
+      return res.status(500).json({ error: 'Could not delete your account. Please try again.' });
+    }
+  }
+
+  // There is no account left to use this token — clear the session cookie
+  // exactly the way logout does.
+  res.clearCookie(COOKIE_NAME, { path: '/' });
+  res.json({ status: 'deleted' });
 });

@@ -1,8 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
 import { auth } from '../firebase';
 import {
   confirmEmailVerificationCode,
+  deleteAccount as deleteAccountRequest,
   establishSession,
   getSession,
   requestEmailVerificationCode,
@@ -17,6 +18,7 @@ const AuthContext = createContext({
   refreshDeveloperMode: async () => {},
   requestEmailCode: async () => {},
   confirmEmailCode: async () => {},
+  deleteAccount: async () => {},
   signOut: () => {},
 });
 
@@ -144,6 +146,26 @@ export function AuthProvider({ children }) {
     [adoptVerifiedEmail]
   );
 
+  // Permanently delete the account — the "Delete profile" button under
+  // Profile. The backend removes the database rows, the Firestore mirror
+  // and the Firebase user itself, so a resolved promise means the account
+  // no longer exists anywhere. Throws when the backend refuses; in that
+  // case nothing local changes and the caller shows the error.
+  const deleteAccount = useCallback(async () => {
+    const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : undefined;
+    await deleteAccountRequest(idToken);
+    // The Firebase account is gone, so there is no session left to end —
+    // but the SDK still holds the stale user in local persistence (and on
+    // the next page load it would try to refresh a token for a deleted
+    // account), so clear it. Best effort either way.
+    try {
+      await firebaseSignOut(auth);
+    } catch {
+      // Ignore — local context state is cleared below regardless.
+    }
+    signOut();
+  }, []);
+
   useEffect(() => {
     // A localhost-only profile preview lets the page be reviewed without
     // creating or signing into a Firebase account. Production builds can
@@ -206,6 +228,7 @@ export function AuthProvider({ children }) {
         refreshDeveloperMode,
         requestEmailCode,
         confirmEmailCode,
+        deleteAccount,
         signOut,
       }}
     >

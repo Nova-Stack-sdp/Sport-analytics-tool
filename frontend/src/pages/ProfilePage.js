@@ -69,7 +69,7 @@ function providerLabel(user) {
 
 function ProfilePage() {
   const navigate = useNavigate();
-  const { user, isAdmin, signOut: clearAuth } = useAuth();
+  const { user, isAdmin, deleteAccount, signOut: clearAuth } = useAuth();
   const { isDeveloperMode } = useDeveloperMode();
   const initialProfile = readLocalProfile(user);
   const initialPreferences = readCachedUserPreferences(user);
@@ -78,6 +78,10 @@ function ProfilePage() {
   const [selectedPhotoName, setSelectedPhotoName] = useState('');
   const [saveState, setSaveState] = useState('idle');
   const [message, setMessage] = useState('');
+  // "Delete profile": idle → confirming → deleting, with an inline error
+  // state if the backend refuses (the account then still exists).
+  const [deleteState, setDeleteState] = useState('idle');
+  const [deleteError, setDeleteError] = useState('');
 // State from main branch (Preferences & URL Params)
   const [preferences, setPreferences] = useState(initialPreferences);
   const [catalog, setCatalog] = useState({
@@ -241,6 +245,23 @@ function ProfilePage() {
   const handleSignOut = async () => {
     clearAuth();
     await Promise.all([signOut(auth), clearSession()]);
+    navigate('/', { replace: true });
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleteState('deleting');
+    setDeleteError('');
+    try {
+      // Throws when the backend could not delete everything — the account
+      // still exists in that case, so stay on the page and say so.
+      await deleteAccount();
+    } catch (error) {
+      setDeleteState('error');
+      setDeleteError(error?.body?.error || error?.message || 'Could not delete your account. Please try again.');
+      return;
+    }
+    // The account is gone everywhere and the AuthContext has already
+    // dropped the local session — send the visitor back to the public site.
     navigate('/', { replace: true });
   };
 
@@ -411,6 +432,42 @@ function ProfilePage() {
             <div className="settings-row-desc">Sign out safely on this device.</div>
           </div>
           <button className="btn btn-ghost" type="button" onClick={handleSignOut}>Sign out</button>
+        </section>
+
+        <section className="card profile-signout-card profile-danger-card">
+          <div>
+            <div className="card-title">Delete profile</div>
+            <div className="settings-row-desc">
+              Permanently delete your account and everything linked to this email. This cannot be
+              undone.
+            </div>
+            {deleteError && (
+              <p className="profile-message is-error" role="alert">{deleteError}</p>
+            )}
+          </div>
+          {deleteState === 'confirming' ? (
+            <div className="profile-danger-actions" role="group" aria-label="Confirm account deletion">
+              <span className="profile-danger-warning">Delete your account everywhere?</span>
+              <button className="btn btn-danger" type="button" onClick={handleDeleteAccount}>
+                Yes, delete my account
+              </button>
+              <button className="btn btn-ghost" type="button" onClick={() => setDeleteState('idle')}>
+                Keep my account
+              </button>
+            </div>
+          ) : (
+            <button
+              className="btn btn-danger"
+              type="button"
+              disabled={deleteState === 'deleting'}
+              onClick={() => {
+                setDeleteError('');
+                setDeleteState('confirming');
+              }}
+            >
+              {deleteState === 'deleting' ? 'Deleting…' : 'Delete profile'}
+            </button>
+          )}
         </section>
           </>
         )}

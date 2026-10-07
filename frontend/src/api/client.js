@@ -131,6 +131,24 @@ export function getSession(idToken) {
 }
 
 /**
+ * Permanently delete the signed-in account (the "Delete profile" button
+ * under Profile). The backend removes every uid-keyed row from PostgreSQL,
+ * the Firestore mirror document and the Firebase account itself, then
+ * clears the session cookie — so a resolved promise means the account no
+ * longer exists anywhere and the caller should drop local auth state.
+ *
+ * `idToken` is optional and sent explicitly when provided, same pattern as
+ * getSession above: requireAuth checks the header first and falls back to
+ * the cookie.
+ */
+export function deleteAccount(idToken) {
+  return request('/api/auth/account', {
+    method: 'DELETE',
+    ...(idToken ? { headers: { Authorization: `Bearer ${idToken}` } } : {}),
+  });
+}
+
+/**
  * Set the `developer` custom claim on the signed-in user's own Firebase
  * account. This is self-service (any signed-in user can toggle their own
  * flag) — see the backend route for the reasoning. The frontend still

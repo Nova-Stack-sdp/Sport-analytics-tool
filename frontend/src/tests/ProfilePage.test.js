@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import ProfilePage from '../pages/ProfilePage';
 import { getDrivers, getFixtures, getTeams } from '../api/client';
 import {
@@ -10,6 +10,7 @@ import {
 } from '../services/userPreferences';
 
 const mockClearAuth = jest.fn();
+const mockDeleteAccount = jest.fn();
 const mockUser = {
   uid: 'user-123',
   displayName: 'Alex Morgan',
@@ -22,6 +23,8 @@ const mockUser = {
 jest.mock('../context/AuthContext', () => ({
   useAuth: () => ({
     user: mockUser,
+    isAdmin: false,
+    deleteAccount: mockDeleteAccount,
     signOut: mockClearAuth,
   }),
 }));
@@ -102,6 +105,7 @@ describe('ProfilePage', () => {
         id: 'race-1', meetingName: 'Spanish Grand Prix', season: 2026, type: 'Race',
       }],
     });
+    mockDeleteAccount.mockResolvedValue();
   });
   afterEach(() => jest.clearAllMocks());
 
@@ -166,6 +170,63 @@ describe('ProfilePage', () => {
       expect.objectContaining({ displayName: 'Alex Driver', defaultNewsFilter: 'for-you' })
     );
     expect(await screen.findByRole('status')).toHaveTextContent('saved to your account');
+  });
+
+  test('asks for confirmation before deleting and can be cancelled', () => {
+    render(<MemoryRouter><ProfilePage /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete profile' }));
+
+    // The irreversible action sits behind an inline confirmation.
+    expect(screen.getByRole('group', { name: 'Confirm account deletion' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep my account' }));
+
+    expect(mockDeleteAccount).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Delete profile' })).toBeInTheDocument();
+  });
+
+  test('deletes the account after confirmation and returns to the home page', async () => {
+    let resolveDelete;
+    mockDeleteAccount.mockImplementationOnce(
+      () => new Promise((resolve) => { resolveDelete = resolve; })
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/profile']}>
+        <Routes>
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/" element={<div>Home page</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete profile' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, delete my account' }));
+
+    // While the request is in flight the button is disabled and says so.
+    expect(await screen.findByRole('button', { name: 'Deleting…' })).toBeDisabled();
+
+    resolveDelete();
+
+    expect(await screen.findByText('Home page')).toBeInTheDocument();
+    expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
+  });
+
+  test('keeps the account and shows the error when the backend refuses', async () => {
+    mockDeleteAccount.mockRejectedValueOnce(
+      Object.assign(new Error('Request failed'), {
+        body: { error: 'Could not delete your account. Please try again.' },
+      })
+    );
+
+    render(<MemoryRouter><ProfilePage /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete profile' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, delete my account' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not delete your account');
+    // Back to the start, so the user can retry.
+    expect(screen.getByRole('button', { name: 'Delete profile' })).toBeInTheDocument();
   });
 
 });
