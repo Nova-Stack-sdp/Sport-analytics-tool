@@ -153,10 +153,6 @@ function VerifyEmailPage() {
           <h1>
             One last <strong className="accent">check</strong>
           </h1>
-          <p>
-            We email a 6-digit code to confirm the address is really yours. It takes a few seconds and
-            keeps the garage free of imaginary accounts.
-          </p>
         </section>
 
         <section className="auth-panel">
