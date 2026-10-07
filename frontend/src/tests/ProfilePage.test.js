@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import ProfilePage from '../pages/ProfilePage';
-import { getDrivers, getFixtures, getTeams } from '../api/client';
+import { clearSession, getDrivers, getFixtures, getTeams } from '../api/client';
 import {
   loadUserPreferences,
   readCachedUserPreferences,
@@ -227,6 +227,34 @@ describe('ProfilePage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not delete your account');
     // Back to the start, so the user can retry.
     expect(screen.getByRole('button', { name: 'Delete profile' })).toBeInTheDocument();
+  });
+
+  test('signs out and redirects home even when the backend session cannot be cleared', async () => {
+    // Reproduces the "Uncaught runtime errors: Failed to fetch" overlay:
+    // with the API unreachable, clearSession() rejects. A rejected
+    // Promise.all used to skip the redirect and leave an unhandled
+    // rejection behind.
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    clearSession.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+    render(
+      <MemoryRouter initialEntries={['/profile']}>
+        <Routes>
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/" element={<div>Home page</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+
+    expect(await screen.findByText('Home page')).toBeInTheDocument();
+    expect(mockClearAuth).toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(
+      'Sign-out: could not clear the backend session cookie.',
+      expect.any(TypeError)
+    );
+    warn.mockRestore();
   });
 
 });

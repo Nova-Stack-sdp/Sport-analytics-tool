@@ -243,8 +243,23 @@ function ProfilePage() {
   };
 
   const handleSignOut = async () => {
+    // Clear both auth layers: Firebase client session and the backend
+    // httpOnly cookie.  Clear the context immediately so the UI updates
+    // before the redirect.
     clearAuth();
-    await Promise.all([signOut(auth), clearSession()]);
+    // allSettled, not all: signing out locally must not depend on the
+    // backend being reachable.  When the API is down, clearSession()
+    // rejects with a TypeError ("Failed to fetch") — under Promise.all
+    // that rejection skipped the redirect below and surfaced as an
+    // unhandled runtime error (CRA's dev overlay), stranding the user on
+    // the page even though they were already signed out client-side.
+    const [, sessionResult] = await Promise.allSettled([signOut(auth), clearSession()]);
+    if (sessionResult.status === 'rejected') {
+      // The httpOnly cookie outlives this call (7-day max-age), so a
+      // failure here is worth knowing about — but it must not block the
+      // redirect.
+      console.warn('Sign-out: could not clear the backend session cookie.', sessionResult.reason);
+    }
     navigate('/', { replace: true });
   };
 
