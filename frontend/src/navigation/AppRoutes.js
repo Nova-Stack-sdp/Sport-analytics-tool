@@ -13,6 +13,7 @@ import ProfilePage from '../pages/ProfilePage';
 import SignInPage from '../pages/SignInPage';
 import SignUpPage from '../pages/SignUpPage';
 import ForgotPasswordPage from '../pages/ForgotPasswordPage';
+import VerifyEmailPage from '../pages/VerifyEmailPage';
 import TeamsPage from '../pages/TeamsPage';
 import TeamDetailPage from '../pages/TeamDetailPage';
 import DriversPage from '../pages/DriversPage';
@@ -27,6 +28,16 @@ function AppRoutes() {
       <Route path="/sign-in" element={<SignInPage />} />
       <Route path="/sign-up" element={<SignUpPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      {/* The one guarded route an unverified user may open — it is where
+          RequireAuth sends them from every other guarded route. */}
+      <Route
+        path="/verify-email"
+        element={
+          <RequireAuth allowUnverified>
+            <VerifyEmailPage />
+          </RequireAuth>
+        }
+      />
 
       <Route path="/overview" element={<OverviewPage />} />
       <Route path="/fixtures" element={<FixturesEventsPage />} />

@@ -1,14 +1,22 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../firebase';
-import { getSession } from '../api/client';
+import {
+  confirmEmailVerificationCode,
+  establishSession,
+  getSession,
+  requestEmailVerificationCode,
+} from '../api/client';
 
 const AuthContext = createContext({
   user: null,
   loading: true,
   isDeveloperMode: false,
   isAdmin: false,
+  emailVerified: false,
   refreshDeveloperMode: async () => {},
+  requestEmailCode: async () => {},
+  confirmEmailCode: async () => {},
   signOut: () => {},
 });
 
@@ -58,6 +66,12 @@ export function AuthProvider({ children }) {
   // `loading` clears, so an /admin guard never redirects an admin away
   // just because the check hadn't come back yet.
   const [isAdmin, setIsAdmin] = useState(false);
+  // Whether the account's email address has been proved with a 6-digit code
+  // (see backend/src/routes/emailVerification.js). Taken from the
+  // `email_verified` claim rather than firebaseUser.emailVerified, because
+  // the claim is exactly what the backend's requireVerifiedEmail gate reads.
+  // The local profile preview stands in for a fully set-up account.
+  const [emailVerified, setEmailVerified] = useState(localProfilePreview);
 
   // Immediately clear the user from context — used by the sign-out
   // handler so the UI updates before the async Firebase/backend
@@ -66,6 +80,7 @@ export function AuthProvider({ children }) {
     setUser(null);
     setIsDeveloperMode(false);
     setIsAdmin(false);
+    setEmailVerified(false);
     setLoading(false);
   };
 
@@ -91,6 +106,44 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  // The `email_verified` claim only appears in a token minted AFTER the
+  // backend flips it, and the httpOnly cookie still holds the pre-verification
+  // token — so refresh both, otherwise the very next gated request would
+  // bounce the user straight back to the verify page.
+  const adoptVerifiedEmail = useCallback(async () => {
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) return;
+    try {
+      await firebaseUser.reload();
+      const freshToken = await firebaseUser.getIdToken(/* forceRefresh */ true);
+      await establishSession(freshToken);
+    } catch {
+      // Best effort: the account is verified server-side either way, and the
+      // next forced refresh picks the claim up.
+    }
+  }, []);
+
+  // Ask the backend to mail a code. The response carries the masked address,
+  // the resend timer and — console provider only — the code itself, so the
+  // verify page can show all three.
+  const requestEmailCode = useCallback(async () => {
+    const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : undefined;
+    return requestEmailVerificationCode(idToken);
+  }, []);
+
+  // Submit the code the user typed. Throws when it is wrong, expired or
+  // spent — callers map error.body.code to a message.
+  const confirmEmailCode = useCallback(
+    async (code) => {
+      const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : undefined;
+      const result = await confirmEmailVerificationCode(code, idToken);
+      await adoptVerifiedEmail();
+      setEmailVerified(true);
+      return result;
+    },
+    [adoptVerifiedEmail]
+  );
+
   useEffect(() => {
     // A localhost-only profile preview lets the page be reviewed without
     // creating or signing into a Firebase account. Production builds can
@@ -112,6 +165,7 @@ export function AuthProvider({ children }) {
         ]);
         setIsDeveloperMode(tokenResult.claims.developer === true);
         setIsAdmin(admin);
+        setEmailVerified(tokenResult.claims.email_verified === true);
         setLoading(false);
         return;
       }
@@ -127,11 +181,13 @@ export function AuthProvider({ children }) {
         setUser({ uid: sessionUser.uid, email: sessionUser.email });
         setIsDeveloperMode(sessionUser.developer === true);
         setIsAdmin(sessionUser.admin === true);
+        setEmailVerified(sessionUser.emailVerified === true);
       } catch {
         // No valid cookie either — genuinely not authenticated.
         setUser(null);
         setIsDeveloperMode(false);
         setIsAdmin(false);
+        setEmailVerified(false);
       } finally {
         setLoading(false);
       }
@@ -140,7 +196,19 @@ export function AuthProvider({ children }) {
   }, [localProfilePreview]);
 
   return (
-    <AuthContext.Provider value={{ user, loading, isDeveloperMode, isAdmin, refreshDeveloperMode, signOut }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        isDeveloperMode,
+        isAdmin,
+        emailVerified,
+        refreshDeveloperMode,
+        requestEmailCode,
+        confirmEmailCode,
+        signOut,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

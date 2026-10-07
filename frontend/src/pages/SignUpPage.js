@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth } from '../firebase';
 import { establishSession } from '../api/client';
-import { usePreferences } from '../context/PreferencesContext';
 import '../styles/auth.css';
 
 const initialForm = {
@@ -29,9 +28,6 @@ function friendlyAuthError(error) {
 
 function SignUpPage() {
   const navigate = useNavigate();
-  // Where to land after signing in — "Start page" in Profile → Settings.
-  const { preferences } = usePreferences();
-  const startPage = preferences.startPage;
   const [form, setForm] = useState(initialForm);
   const [fieldErrors, setFieldErrors] = useState({});
   const [status, setStatus] = useState('idle'); // idle | submitting | error
@@ -70,7 +66,11 @@ function SignUpPage() {
       // backend cookie before navigating.
       const idToken = await credential.user.getIdToken();
       await establishSession(idToken);
-      navigate(startPage, { replace: true });
+      // A brand-new email/password account has never been verified, so the
+      // code page is the next step: every guarded route would bounce it there
+      // anyway (see RequireAuth), and the page mails a code on arrival. The
+      // start-page preference is applied once the code is in.
+      navigate('/verify-email', { replace: true });
     } catch (error) {
       setStatus('error');
       setMessage(friendlyAuthError(error));

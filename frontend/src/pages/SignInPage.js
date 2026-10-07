@@ -56,6 +56,16 @@ function SignInPage() {
   const [status, setStatus] = useState('idle'); // idle | submitting | error
   const [message, setMessage] = useState('');
 
+  // Where a completed sign-in lands: the start page they picked in Profile →
+  // Settings, unless the account's address hasn't been proved yet — the
+  // backend gates every protected route behind that, so /verify-email is the
+  // only useful destination until the code is in. Google and GitHub hand back
+  // an already-verified address; email/password sign-ups don't.
+  const goToStart = async () => {
+    const { claims } = await auth.currentUser.getIdTokenResult();
+    navigate(claims.email_verified === true ? startPage : '/verify-email', { replace: true });
+  };
+
   const handleGoogleSignIn = async () => {
     setStatus('submitting');
     setMessage('');
@@ -65,7 +75,7 @@ function SignInPage() {
       await signInWithPopup(auth, googleProvider);
       const idToken = await auth.currentUser.getIdToken();
       await establishSession(idToken);
-      navigate(startPage, { replace: true });
+      await goToStart();
     } catch (error) {
       const friendly = friendlyAuthError(error);
       if (friendly) {
@@ -85,7 +95,7 @@ function SignInPage() {
       await signInWithPopup(auth, githubProvider);
       const idToken = await auth.currentUser.getIdToken();
       await establishSession(idToken);
-      navigate(startPage, { replace: true });
+      await goToStart();
     } catch (error) {
       const friendly = friendlyAuthError(error);
       if (friendly) {
@@ -116,7 +126,7 @@ function SignInPage() {
       await signInWithEmailAndPassword(auth, email, password);
       const idToken = await auth.currentUser.getIdToken();
       await establishSession(idToken);
-      navigate(startPage, { replace: true });
+      await goToStart();
     } catch (error) {
       setStatus('error');
       setMessage(friendlyAuthError(error) ?? 'Something went wrong signing in. Try again.');

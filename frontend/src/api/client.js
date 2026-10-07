@@ -158,6 +158,53 @@ export function setDeveloperModeOnServer(enabled, idToken) {
 }
 
 // ---------------------------------------------------------------------------
+// Email verification (6-digit code)
+//
+// Firebase happily creates an email/password account for any syntactically
+// valid address without ever mailing it, so the backend proves the address
+// with a code sent to it (see backend/src/routes/emailVerification.js) and
+// gates the protected routes behind that proof.
+// ---------------------------------------------------------------------------
+
+/**
+ * Ask the backend to mail a fresh 6-digit code to the signed-in account's
+ * own address. Resolves with { status, email, expiresInMinutes,
+ * resendAfterSeconds } — and, while the console mail provider is active
+ * outside production, a `devCode`. Rejects with a body whose `code` explains
+ * any refusal: NO_EMAIL, RESEND_COOLDOWN (too soon — `retryAfterSeconds`
+ * says how long), DAILY_LIMIT, EMAIL_SEND_FAILED.
+ *
+ * `idToken` is optional and sent explicitly for the same reason as
+ * setDeveloperModeOnServer above.
+ */
+export function requestEmailVerificationCode(idToken) {
+  return request('/api/auth/verify-email/request', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+    },
+  });
+}
+
+/**
+ * Submit a code for checking. On success the backend flags the Firebase
+ * account as verified — which only becomes visible locally in a token minted
+ * afterwards, so the caller has to force a fresh one (see AuthContext's
+ * confirmEmailCode).
+ */
+export function confirmEmailVerificationCode(code, idToken) {
+  return request('/api/auth/verify-email/confirm', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+    },
+    body: JSON.stringify({ code }),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Account notifications
 // ---------------------------------------------------------------------------
 

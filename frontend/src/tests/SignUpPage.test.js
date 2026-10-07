@@ -52,7 +52,7 @@ describe('SignUpPage', () => {
     expect(createUserWithEmailAndPassword).not.toHaveBeenCalled();
   });
 
-  test('creates the account, sets the display name, and navigates to /overview', async () => {
+  test('creates the account, sets the display name, and sends the new account to /verify-email', async () => {
     createUserWithEmailAndPassword.mockResolvedValue({ user: { uid: 'u1', getIdToken: jest.fn().mockResolvedValue('test-id-token') } });
     updateProfile.mockResolvedValue();
     renderPage();
@@ -71,7 +71,9 @@ describe('SignUpPage', () => {
       expect.objectContaining({ uid: 'u1' }),
       { displayName: 'Ada Lovelace' }
     );
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/overview', { replace: true }));
+    // A brand-new email/password account has never proved its address, so the
+    // code page is where it goes — not the start page (see RequireAuth).
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/verify-email', { replace: true }));
   });
 
   test('shows a friendly message when the email is already in use', async () => {

@@ -70,7 +70,9 @@ describe('SignUpPage additional validation and error states', () => {
     expect(screen.getByRole('button', { name: 'Creating account…' })).toBeDisabled();
     expect(screen.getByLabelText('First name')).toBeDisabled();
     finishProfile();
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/overview', { replace: true }));
+    // The account is new, so its address is unproved: the code page is the
+    // next step rather than the start page (see RequireAuth).
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/verify-email', { replace: true }));
     expect(screen.getByRole('link', { name: 'Sign in instead' })).toHaveAttribute('href', '/sign-in');
   });
 });

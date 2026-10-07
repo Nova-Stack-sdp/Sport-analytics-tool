@@ -6,8 +6,16 @@ import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
 // The page exchanges the new Firebase ID token for a backend session cookie
 // (auth.currentUser.getIdToken() -> establishSession) before navigating, so
 // both need stand-ins here or the success path throws before navigate().
+// getIdTokenResult is the third: a verified account is the ordinary case, and
+// where the sign-in lands depends on that claim (see goToStart).
+let mockEmailVerified = true;
 jest.mock('../firebase', () => ({
-  auth: { currentUser: { getIdToken: () => Promise.resolve('test-id-token') } },
+  auth: {
+    currentUser: {
+      getIdToken: () => Promise.resolve('test-id-token'),
+      getIdTokenResult: () => Promise.resolve({ claims: { email_verified: mockEmailVerified } }),
+    },
+  },
   googleProvider: { id: 'google' },
   githubProvider: { id: 'github' },
 }));
@@ -27,7 +35,10 @@ function enterCredentials(email = 'max@example.com', password = 'password123') {
 }
 
 describe('SignInPage additional authentication branches', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockEmailVerified = true;
+  });
 
   test('validates malformed emails before it calls Firebase', async () => {
     renderPage();
