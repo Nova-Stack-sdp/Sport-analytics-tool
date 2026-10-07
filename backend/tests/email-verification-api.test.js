@@ -79,6 +79,7 @@ afterEach(() => {
   delete process.env.EMAIL_FROM;
   delete process.env.SENDGRID_API_KEY;
   delete process.env.RESEND_API_KEY;
+  delete process.env.MAILERSEND_API_KEY;
 });
 
 function requestCode(app) {
@@ -243,6 +244,33 @@ describe('POST /api/auth/verify-email/request', () => {
       expect(body.from).toEqual({ name: 'NovaStack-F1', email: 'no-reply@example.test' });
       // Whatever was mailed is six digits.
       const mailed = body.content[0].value.match(/\b\d{6}\b/);
+      expect(mailed).not.toBeNull();
+      expect(codesMatch(mailed[0], mockEmailVerificationCode.create.mock.calls[0][0].data.codeHash)).toBe(true);
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  test('mails through MailerSend when that provider is selected', async () => {
+    process.env.EMAIL_PROVIDER = 'mailersend';
+    process.env.MAILERSEND_API_KEY = 'mlsn-test-key';
+    process.env.EMAIL_FROM = 'NovaStack-F1 <no-reply@example.test>';
+    const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: true, text: async () => '' });
+
+    try {
+      const res = await requestCode(createApp());
+
+      expect(res.status).toBe(200);
+      expect(res.body.devCode).toBeUndefined();
+
+      const [url, init] = fetchSpy.mock.calls[0];
+      expect(url).toBe('https://api.mailersend.com/v1/email');
+      expect(init.headers.Authorization).toBe('Bearer mlsn-test-key');
+      const body = JSON.parse(init.body);
+      expect(body.to).toEqual([{ email: 'ana@example.test' }]);
+      expect(body.from).toEqual({ name: 'NovaStack-F1', email: 'no-reply@example.test' });
+      // Whatever was mailed is six digits.
+      const mailed = body.text.match(/\b\d{6}\b/);
       expect(mailed).not.toBeNull();
       expect(codesMatch(mailed[0], mockEmailVerificationCode.create.mock.calls[0][0].data.codeHash)).toBe(true);
     } finally {

@@ -52,8 +52,9 @@ To deploy it correctly on Northflank:
    - Email verification — the 6-digit code users type to prove their address
      is really theirs (`POST /api/auth/verify-email/request` and `/confirm`).
      `EMAIL_PROVIDER` picks the transport (`console`, the default, prints the
-     mail to the server log; `sendgrid` and `resend` post it over their HTTP
-     APIs and need `SENDGRID_API_KEY` or `RESEND_API_KEY`). `EMAIL_FROM` is
+     mail to the server log; `sendgrid`, `resend` and `mailersend` post it
+     over their HTTP APIs and need `SENDGRID_API_KEY`, `RESEND_API_KEY` or
+     `MAILERSEND_API_KEY`). `EMAIL_FROM` is
      the sender — for SendGrid, Single Sender Verification (no custom domain)
      is enough. `EMAIL_CODE_PEPPER` is the HMAC secret the codes are hashed
      with and should be set here: unset, codes fall back to a built-in

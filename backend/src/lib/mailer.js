@@ -17,7 +17,11 @@
  *            SendGrid's single sender) a domain verified in Resend before
  *            it will deliver to arbitrary recipients.
  *
- * Both HTTP providers are plain fetch calls on purpose: Node 22 has fetch
+ *   mailersend HTTP API. Needs MAILERSEND_API_KEY, and EMAIL_FROM must be
+ *            on a domain verified in MailerSend — its trial domain counts
+ *            while testing.
+ *
+ * All HTTP providers are plain fetch calls on purpose: Node 22 has fetch
  * built in, so switching from console to a real inbox costs one environment
  * variable and no npm dependency to add, patch or deploy.
  */
@@ -103,6 +107,20 @@ async function sendViaResend({ to, subject, text }) {
   return { provider: 'resend', delivered: 'email' };
 }
 
+async function sendViaMailersend({ to, subject, text }) {
+  const key = process.env.MAILERSEND_API_KEY;
+  if (!key) throw new Error('EMAIL_PROVIDER=mailersend requires MAILERSEND_API_KEY.');
+  // parseFrom's shape already matches MailerSend's `from` object; an
+  // absent display name is dropped by JSON.stringify.
+  const from = parseFrom(fromAddress());
+
+  await post('https://api.mailersend.com/v1/email', {
+    headers: { Authorization: `Bearer ${key}` },
+    body: { from, to: [{ email: to }], subject, text },
+  });
+  return { provider: 'mailersend', delivered: 'email' };
+}
+
 /**
  * Send the verification code. Resolves with { provider, delivered } or
  * throws — the route turns a throw into a 502 so a mail outage reads as
@@ -132,6 +150,7 @@ export async function sendVerificationEmail({ to, code, expiresInMinutes }) {
 
   if (provider === 'sendgrid') return sendViaSendgrid({ to, subject, text });
   if (provider === 'resend') return sendViaResend({ to, subject, text });
+  if (provider === 'mailersend') return sendViaMailersend({ to, subject, text });
 
-  throw new Error(`EMAIL_PROVIDER "${provider}" is not supported (use console, sendgrid or resend).`);
+  throw new Error(`EMAIL_PROVIDER "${provider}" is not supported (use console, sendgrid, resend or mailersend).`);
 }
