@@ -32,13 +32,24 @@ To deploy it correctly on Northflank:
      `https://your-site.netlify.app`. This controls CORS — without it, the
      API falls back to allowing all origins (`*`), which works but
      shouldn't be relied on in production. Comma-separate multiple origins
-     (e.g. a Netlify preview URL + the production domain) if needed.
+     (e.g. a Netlify preview URL + the production domain) if needed. The
+     same list gates state-changing requests: a browser POST/PUT/PATCH/
+     DELETE whose `Origin` is not on it is rejected with 403. That check
+     (see `backend/src/middleware/originGuard.js`) is what stops a hostile
+     page from riding the `SameSite=None` session cookie; requests with no
+     `Origin` header at all (curl, server-to-server) pass through. A
+     Netlify deploy preview on a URL that is not listed will therefore
+     fail its writes as well as its reads — add the preview URL to the
+     list if previews need to work.
    - Optional: `RATE_LIMIT_PER_MINUTE` (default 1200), `RATE_LIMIT_V1_PER_MINUTE`
-     (default 120), `RATE_LIMIT_EXPORTS_PER_MINUTE` (default 10) and
-     `CACHE_TTL_SECONDS` (default 60). Limits are per client IP — the app
-     trusts Northflank's proxy header to see the real client address. Both
-     the limits and the cache live in memory, which is right for our single
-     instance; running several instances would need a shared store.
+     (default 120), `RATE_LIMIT_EXPORTS_PER_MINUTE` (default 10),
+     `RATE_LIMIT_SIGNUP_PER_MINUTE` (default 10) and
+     `RATE_LIMIT_SESSION_PER_MINUTE` (default 20, for the token exchange
+     `POST /api/auth/session`) and `CACHE_TTL_SECONDS` (default 60). Limits
+     are per client IP — the app trusts Northflank's proxy header to see the
+     real client address. Both the limits and the cache live in memory,
+     which is right for our single instance; running several instances
+     would need a shared store.
    - `FIREBASE_SERVICE_ACCOUNT` — the Firebase Admin service account key,
      as a single-line JSON string. Required for everything behind
      `requireAuth`: `POST /api/auth/session`, `GET /api/auth/me`,
@@ -57,9 +68,9 @@ To deploy it correctly on Northflank:
      `MAILERSEND_API_KEY`). `EMAIL_FROM` is
      the sender — for SendGrid, Single Sender Verification (no custom domain)
      is enough. `EMAIL_CODE_PEPPER` is the HMAC secret the codes are hashed
-     with and should be set here: unset, codes fall back to a built-in
-     development default and the server warns once when it first hashes one.
-     With `console` left on, sign-up works but the code only exists in the
+     with and must be set here: the server refuses to start in production
+     without it (and refuses to hash or check codes at runtime). With
+     `console` left on, sign-up works but the code only exists in the
      server log, so users can never complete the step.
    - Optional: `ADMIN_UIDS` — who is an admin, by Firebase UID,
      comma-separated. Admins see the Admin page and are exempt from the
@@ -116,7 +127,14 @@ To deploy correctly on Netlify:
    env vars prefixed `REACT_APP_`, and only bakes them in at **build** time
    — changing this value requires a new deploy/rebuild, not just a redeploy
    of the same build.
-3. For local development, copy `frontend/.env.example` to `.env.local` and
+3. **Security headers** — `frontend/public/_headers` ships a
+   Content-Security-Policy plus the standard hardening headers on every
+   Netlify response. The CSP is the backstop for XSS (the app keeps a
+   Firebase session in the browser). If the backend URL changes or a new
+   third-party embed is added, update the `connect-src` / `frame-src`
+   lists in that file too, or those requests will be blocked by the
+   browser.
+4. For local development, copy `frontend/.env.example` to `.env.local` and
    point it at wherever you're running the backend locally (this file is
    git-ignored, so it's safe to put real values there).
 
