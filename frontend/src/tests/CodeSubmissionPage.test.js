@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import CodeSubmissionPage from '../pages/CodeSubmissionPage';
 import { submitCodeSubmission } from '../api/client';
 
@@ -15,20 +15,25 @@ function httpError(status, body) {
 
 const VALID_CODE = 'export function tyreDelta(stints) {\n  return stints.map((s) => s.delta);\n}';
 
+// The field is labelled with the question the form asks, so tests query it
+// verbatim.
+const TITLE_LABEL = 'What should this stat be called?';
+
 function fill(label, value) {
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
 }
 
+// Tags are deliberately not part of this form — it collects the stat's name,
+// language, script, and description only.
 function fillValidDraft() {
-  fill('Title', '  Tyre delta per stint  ');
+  fill(TITLE_LABEL, '  Tyre delta per stint  ');
   fireEvent.change(screen.getByLabelText('Language'), { target: { value: 'JavaScript' } });
   fill('Code', VALID_CODE);
   fill('Description (optional)', '  Lap-time delta per stint.  ');
-  fill('Tags (comma-separated, optional)', 'Tyres, #strategy');
 }
 
 function submit() {
-  fireEvent.click(screen.getByRole('button', { name: /submit for review/i }));
+  fireEvent.click(screen.getByRole('button', { name: /submit script/i }));
 }
 
 describe('CodeSubmissionPage', () => {
@@ -39,20 +44,32 @@ describe('CodeSubmissionPage', () => {
   test('renders the form with every field and the allowed languages', () => {
     render(<CodeSubmissionPage />);
 
-    expect(screen.getByLabelText('Title')).toBeInTheDocument();
+    expect(screen.getByLabelText(TITLE_LABEL)).toBeInTheDocument();
     expect(screen.getByLabelText('Language')).toBeInTheDocument();
     expect(screen.getByLabelText('Code')).toBeInTheDocument();
     expect(screen.getByLabelText('Description (optional)')).toBeInTheDocument();
-    expect(screen.getByLabelText('Tags (comma-separated, optional)')).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Select a language…' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'JavaScript' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Python' })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'Ruby' })).not.toBeInTheDocument();
+
+    // The right card teaches the post-submit flow (review → status → notification).
+    expect(screen.getByText('After you submit')).toBeInTheDocument();
+    expect(screen.getByText("Waiting for the admin's decision.")).toBeInTheDocument();
+  });
+
+  test('offers an inert escape hatch for unlisted languages', () => {
+    render(<CodeSubmissionPage />);
+
+    // Placeholder until the unlisted-language flow is decided: the option is
+    // visible but disabled, so choosing it can't change the selection. The
+    // wording is the user's own ("Language not above?") — don't tidy it.
+    expect(screen.getByRole('option', { name: 'Language not above?' })).toBeDisabled();
   });
 
   test('blocks an invalid draft in the browser and never calls the API', () => {
     render(<CodeSubmissionPage />);
-    fill('Title', 'Tyre delta per stint');
+    fill(TITLE_LABEL, 'Tyre delta per stint');
     fireEvent.change(screen.getByLabelText('Language'), { target: { value: 'JavaScript' } });
     // Code left empty on purpose.
 
@@ -81,7 +98,7 @@ describe('CodeSubmissionPage', () => {
     submit();
     expect(screen.getByText('Title is required.')).toBeInTheDocument();
 
-    fill('Title', 'Tyre delta per stint');
+    fill(TITLE_LABEL, 'Tyre delta per stint');
 
     expect(screen.queryByText('Title is required.')).not.toBeInTheDocument();
     expect(screen.queryByText(/fix these before submitting/i)).not.toBeInTheDocument();
@@ -95,12 +112,14 @@ describe('CodeSubmissionPage', () => {
     submit();
 
     await waitFor(() => expect(submitCodeSubmission).toHaveBeenCalledTimes(1));
+    // No tags field, but the POST body contract still carries the key —
+    // normalizeSubmission() fills in the empty array.
     expect(submitCodeSubmission).toHaveBeenCalledWith({
       title: 'Tyre delta per stint',
       language: 'JavaScript',
       code: VALID_CODE,
       description: 'Lap-time delta per stint.',
-      tags: ['tyres', 'strategy'],
+      tags: [],
     });
   });
 
@@ -119,19 +138,23 @@ describe('CodeSubmissionPage', () => {
 
     resolveSubmit({ id: 'cs_2', status: 'pending' });
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /submit for review/i })).toBeEnabled()
+      expect(screen.getByRole('button', { name: /submit script/i })).toBeEnabled()
     );
   });
 
-  test('shows the pending-review confirmation with the submission id on success', async () => {
+  test('shows the confirmation with the submission id on success', async () => {
     submitCodeSubmission.mockResolvedValue({ id: 'cs_123', status: 'pending' });
     render(<CodeSubmissionPage />);
 
     fillValidDraft();
     submit();
 
-    expect(await screen.findByText(/✓ Submitted — pending review/)).toBeInTheDocument();
+    expect(await screen.findByText(/✓ Submitted/)).toBeInTheDocument();
     expect(screen.getByText('cs_123')).toBeInTheDocument();
+    // The success surface shows the brand-new status ("pending" also appears in
+    // the right card's status legend, so scope the query to the box itself).
+    const success = screen.getByText(/✓ Submitted/).closest('.cs-success');
+    expect(within(success).getByText('pending')).toBeInTheDocument();
   });
 
   test('shows an auth error instead of a fake success on 401', async () => {
