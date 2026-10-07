@@ -5,13 +5,13 @@ function RaceStateBoard({ leaderboard }) {
     .map((position) => leaderboard.find((entry) => entry.position === position))
     .filter(Boolean);
   const columns = [
-    { label: 'Front', accent: 'accent', entries: entriesAtPositions([1, 2, 3]) },
+    { label: 'Front', tone: 'lead', entries: entriesAtPositions([1, 2, 3]) },
     {
       label: 'Midfield',
-      accent: 'amber',
+      tone: 'caution',
       entries: entriesAtPositions([Math.floor(totalDrivers / 2), Math.floor(totalDrivers / 2) + 1, Math.floor(totalDrivers / 2) + 2]),
     },
-    { label: 'Back', accent: 'red', entries: entriesAtPositions([totalDrivers, totalDrivers - 1, totalDrivers - 2]) },
+    { label: 'Back', tone: 'strategy', entries: entriesAtPositions([totalDrivers, totalDrivers - 1, totalDrivers - 2]) },
   ];
 
   return (
@@ -27,7 +27,7 @@ function RaceStateBoard({ leaderboard }) {
       <div className="battle-radar-grid">
         {leaderboard.length === 0 && <div className="radar-empty-state">No playback data available.</div>}
         {columns.map((column) => (
-          <div key={column.label} className={`radar-column ${column.accent}`}>
+          <div key={column.label} className={`radar-column is-${column.tone}`}>
             <div className="radar-column-header">{column.label}</div>
             {column.entries.length === 0 && <div className="radar-column-empty">No drivers in this range.</div>}
             {column.entries.map((entry) => (

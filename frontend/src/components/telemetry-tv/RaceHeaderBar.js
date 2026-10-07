@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import ConditionsIcon from './ConditionsIcon';
 
 // The broadcast's own upper-case flag wording. The DOM strings differ from
 // the report's ("Green"/"Yellow") so the track-state badge in Race Control
@@ -9,11 +10,12 @@ const FLAG_LABELS = {
   Checker: 'CHECKERED',
 };
 
-// The band that names the broadcast: event, live field size, and where the
-// race stands right now. Rendered as soon as a race is picked — before the
-// green flag it reads STANDBY, and once the report lands it answers to the
-// same leader-lap flag and lap cursor the dashboards use.
-const RaceHeaderBar = memo(function RaceHeaderBar({ race, lapLabel, flag, fieldSize }) {
+// The band that names the broadcast: event, the conditions glyph the curator's
+// note stands behind, live field size, and where the race stands right now.
+// Rendered as soon as a race is picked — before the green flag it reads
+// STANDBY, and once the report lands it answers to the same leader-lap flag and
+// lap cursor the dashboards use.
+const RaceHeaderBar = memo(function RaceHeaderBar({ race, lapLabel, flag, fieldSize, conditions }) {
   if (!race) return null;
 
   const flagClass = flag ? `flag-${String(flag).toLowerCase()}` : 'flag-standby';
@@ -21,8 +23,11 @@ const RaceHeaderBar = memo(function RaceHeaderBar({ race, lapLabel, flag, fieldS
   return (
     <section className="card race-header-bar" aria-label="Race header">
       <div className="race-header-main">
-        <div className="race-header-title">{race.eventName}</div>
-        <div className="race-header-sub">{`Live • ${fieldSize ?? '--'} cars`}</div>
+        <div className="race-header-titles">
+          <div className="race-header-title">{race.eventName}</div>
+          <div className="race-header-sub">{`Live • ${fieldSize ?? '--'} cars`}</div>
+        </div>
+        <ConditionsIcon conditions={conditions} />
       </div>
       <div className="race-header-stats">
         <span className="race-header-lap mono">{lapLabel}</span>

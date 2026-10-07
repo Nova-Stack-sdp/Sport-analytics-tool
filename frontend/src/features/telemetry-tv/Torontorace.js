@@ -40,9 +40,9 @@ function buildBattleRadarColumns(leaderboard) {
   const back = takeFromEnd(3);
 
   return [
-    { label: 'Lead battle', accent: 'accent', entries: front },
-    { label: 'Midfield pressure', accent: 'amber', entries: midfield },
-    { label: 'Strategy', accent: 'red', entries: back },
+    { label: 'Lead battle', tone: 'lead', entries: front },
+    { label: 'Midfield pressure', tone: 'caution', entries: midfield },
+    { label: 'Strategy', tone: 'strategy', entries: back },
   ];
 }
 

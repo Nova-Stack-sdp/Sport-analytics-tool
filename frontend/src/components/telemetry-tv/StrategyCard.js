@@ -1,11 +1,13 @@
 import { memo } from 'react';
 import { formatLapSeconds } from '../../features/telemetry-tv/raceAnalytics';
+import CollapsiblePanel from './CollapsiblePanel';
 
-// The analysis twin of Pace Trend: what the tyres are doing, when the next
-// stop pressure builds, and how the selected lap compares to the fastest one
-// already run. The three rows are derived (spoiler-safe) numbers; the
-// curated intelligence — strategy signals, conditions, narrative — renders
-// underneath whenever the race carries it.
+// The analysis twin of the pace instrument: what the tyres are doing, when the
+// next stop pressure builds, and how the selected lap compares to the fastest
+// one already run. The three rows are derived (spoiler-safe) numbers; the
+// curated strategy signals and narrative render underneath whenever the race
+// carries them. Conditions are read once, beside the race title, so they are
+// not repeated here.
 const StrategyCard = memo(function StrategyCard({ strategy, raceIntelligence }) {
   if (!strategy) return null;
 
@@ -38,19 +40,16 @@ const StrategyCard = memo(function StrategyCard({ strategy, raceIntelligence }) 
     : 'No timed laps yet';
 
   const signals = raceIntelligence?.strategySignals ?? [];
-  const weather = raceIntelligence?.weather ?? null;
   const narrative = raceIntelligence?.narrative ?? null;
 
   return (
-    <section className="card strategy-card" aria-label="Strategy and tyre analysis">
-      <div className="card-head">
-        <div>
-          <div className="card-title">Strategy / Tyre Analysis</div>
-          <div className="card-title-sub">Tyre, pit window and pace, read from the laps already run</div>
-        </div>
-        <span className="pill pill-blue">Analysis</span>
-      </div>
-
+    <CollapsiblePanel
+      className="strategy-card"
+      ariaLabel="Strategy and tyre analysis"
+      title="Strategy / Tyre Analysis"
+      sub="Tyre, pit window and pace, read from the laps already run"
+      aside={<span className="pill pill-blue">Analysis</span>}
+    >
       <div className="strategy-metrics">
         <div className="strategy-metric">
           <span className="strategy-metric-label">Tyre degradation</span>
@@ -70,27 +69,19 @@ const StrategyCard = memo(function StrategyCard({ strategy, raceIntelligence }) 
       </div>
 
       {signals.length > 0 && (
-        <div className="weather-signals strategy-signals">
+        <div className="strategy-signals">
           {signals.map((signal) => (
-            <div key={signal.label} className="weather-signal-item">
-              <div className="weather-signal-label">{signal.label}</div>
-              <div className="weather-signal-value">{signal.value}</div>
-              <div className="weather-signal-detail">{signal.detail}</div>
+            <div key={signal.label} className="strategy-signal-item">
+              <div className="strategy-signal-label">{signal.label}</div>
+              <div className="strategy-signal-value">{signal.value}</div>
+              <div className="strategy-signal-detail">{signal.detail}</div>
             </div>
           ))}
         </div>
       )}
 
-      {weather?.note && (
-        <div className="strategy-conditions">
-          <span className="strategy-conditions-label">Conditions</span>
-          <p className="weather-summary">{weather.note}</p>
-          {weather.grip && <p className="weather-grip">{weather.grip}</p>}
-        </div>
-      )}
-
-      {narrative && <div className="weather-narrative">{narrative}</div>}
-    </section>
+      {narrative && <div className="strategy-narrative">{narrative}</div>}
+    </CollapsiblePanel>
   );
 });
 

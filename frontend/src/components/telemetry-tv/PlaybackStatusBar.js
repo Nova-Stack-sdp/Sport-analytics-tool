@@ -3,6 +3,11 @@ import { formatGapSeconds, formatLapSeconds } from '../../features/telemetry-tv/
 // The Race Control strip: the race state at the selected lap — position in
 // the distance, the leader's published margin, the fastest lap already run —
 // plus the flag the track is under, and the lap cursor that scrubs the video.
+//
+// The readouts are split into two tiers rather than laid out as one flat row:
+// the two numbers a viewer checks constantly (the lap and the margin) are set
+// large, and the four supporting readings sit below them at one smaller size,
+// so the strip has one obvious first answer instead of six equal ones.
 function formatVideoClock(seconds) {
   if (seconds == null || !Number.isFinite(Number(seconds))) return '--';
   const total = Math.max(0, Math.floor(Number(seconds)));
@@ -35,12 +40,13 @@ function PlaybackStatusBar({ race, lap, videoSeconds, margin, onLapChange, leade
       <div className="race-control-row">
         <span className="race-control-title">Race Control</span>
 
-        <div className="status-left">
-          <div className="status-item">
+        {/* Hero tier: the two numbers the strip exists for. */}
+        <div className="status-hero">
+          <div className="status-item is-hero">
             <span className="status-label">Race lap</span>
             <span className="status-value mono">{race ? `${lap} / ${totalLaps}` : '--'}</span>
           </div>
-          <div className="status-item">
+          <div className="status-item is-hero">
             <span className="status-label">Leader margin</span>
             <span className="status-value mono" title={marginTitle}>
               {formatGapSeconds(margin?.currentGap)}
@@ -51,35 +57,39 @@ function PlaybackStatusBar({ race, lap, videoSeconds, margin, onLapChange, leade
               )}
             </span>
           </div>
-          <div className="status-item">
-            <span className="status-label">Fastest</span>
-            <span className="status-value mono" title="Fastest lap already run">
-              {formatLapSeconds(fastest?.lapSeconds)}
-            </span>
-          </div>
-          <div className="status-item">
-            <span className="status-label">Video time</span>
-            <span className="status-value mono" title="Absolute video position reported by the player">
-              {formatVideoClock(videoSeconds)}
-            </span>
-          </div>
-          <div className="status-item">
-            <span className="status-label">Leader lap</span>
-            <span className="status-value mono">{leaderLap?.lapTime ?? '--'}</span>
-          </div>
-          <div className="status-item">
-            <span className="status-label">Derived leader speed</span>
-            <span className="status-value mono">
-              {leaderLap?.speed == null ? '--' : leaderLap.car === '26'
-                ? `${Number(leaderLap.speed).toFixed(1)} mph`
-                : `${Number(leaderLap.speed).toFixed(1)} mph ±2.0`}
-            </span>
-          </div>
         </div>
 
         <div className="status-right">
           <span className={`sync-badge ${underYellow ? 'caution' : 'synced'}`}>
             {leaderLap?.flag ?? (race ? 'Race report' : 'No data')}
+          </span>
+        </div>
+      </div>
+
+      {/* Feed tier: the supporting readings, all at one size. */}
+      <div className="status-feed">
+        <div className="status-item">
+          <span className="status-label">Fastest</span>
+          <span className="status-value mono" title="Fastest lap already run">
+            {formatLapSeconds(fastest?.lapSeconds)}
+          </span>
+        </div>
+        <div className="status-item">
+          <span className="status-label">Leader lap</span>
+          <span className="status-value mono">{leaderLap?.lapTime ?? '--'}</span>
+        </div>
+        <div className="status-item">
+          <span className="status-label">Derived leader speed</span>
+          <span className="status-value mono">
+            {leaderLap?.speed == null ? '--' : leaderLap.car === '26'
+              ? `${Number(leaderLap.speed).toFixed(1)} mph`
+              : `${Number(leaderLap.speed).toFixed(1)} mph ±2.0`}
+          </span>
+        </div>
+        <div className="status-item">
+          <span className="status-label">Video time</span>
+          <span className="status-value mono" title="Absolute video position reported by the player">
+            {formatVideoClock(videoSeconds)}
           </span>
         </div>
       </div>

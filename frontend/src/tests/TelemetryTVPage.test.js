@@ -494,7 +494,7 @@ describe('TelemetryTVPage', () => {
     await screen.findByText('Official order at lap 1');
 
     expect(screen.getByText('Pace Trend')).toBeInTheDocument();
-    const paceCard = container.querySelector('.race-pace-card');
+    const paceCard = container.querySelector('.ttv-instruments');
     // Lap 1 is the only lap run: one bar, the fastest lap known so far is
     // lap 1's 1:04.019, and the eventual 1:01.654 stays hidden as a spoiler.
     expect(paceCard.querySelectorAll('.pace-bar')).toHaveLength(1);
@@ -527,6 +527,60 @@ describe('TelemetryTVPage', () => {
     expect(paceCard).toHaveTextContent('Fastest lap of the race');
     // The strategy rows follow the cursor: lap 2 is now the pace-setter.
     expect(strategyCard).toHaveTextContent('Fastest so far: 1:01.654 (lap 2)');
+  });
+
+  test('carries the conditions as a glyph beside the race title', async () => {
+    getTelemetryTVRaces.mockResolvedValue({ races: RACES });
+    getTelemetryTVRace.mockResolvedValue({ race: RACE_WITH_STATS });
+    renderPage();
+    await pickRace();
+
+    // The sky reads out of the curator's own note (Toronto ships "dry race
+    // conditions with quick grip evolution"), and the glyph stands beside the
+    // event name rather than in a card of its own.
+    const header = screen.getByRole('region', { name: 'Race header' });
+    expect(within(header).getByRole('img', { name: /Curator read: Dry · Grip building/ }))
+      .toBeInTheDocument();
+    expect(header.querySelector('.race-header-titles')).toHaveTextContent(
+      'Ontario Honda Dealers Indy Toronto'
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Play race' }));
+    await screen.findByText('Official order at lap 1');
+
+    // The report has landed: still one glyph, still in the header.
+    expect(within(header).getAllByRole('img')).toHaveLength(1);
+  });
+
+  test('folds the analysis cards away from their own heads', async () => {
+    getTelemetryTVRaces.mockResolvedValue({ races: RACES });
+    getTelemetryTVRace.mockResolvedValue({ race: RACE_WITH_STATS });
+    const { container } = renderPage();
+    await pickRace();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Play race' }));
+    await screen.findByText('Official order at lap 1');
+
+    // The analysis layer reads battle first, then the instruments, then
+    // strategy — each one foldable from its own head.
+    const panels = container.querySelectorAll('.ttv-panel');
+    expect([...panels].map((panel) => panel.querySelector('.card-title').textContent)).toEqual([
+      'Race Intelligence',
+      'Race Instruments',
+      'Strategy / Tyre Analysis',
+    ]);
+
+    const instruments = container.querySelector('.ttv-instruments');
+    const body = instruments.querySelector('.ttv-panel-body');
+    expect(body).not.toHaveAttribute('hidden');
+
+    fireEvent.click(within(instruments).getByRole('button', { name: 'Collapse Race Instruments' }));
+    expect(instruments.querySelector('.ttv-panel-body')).toHaveAttribute('hidden');
+    // Folding is a view choice, not a data loss: the readings stay in the DOM.
+    expect(instruments.querySelector('.ttv-panel-body')).toHaveTextContent('Pace Trend');
+
+    fireEvent.click(within(instruments).getByRole('button', { name: 'Expand Race Instruments' }));
+    expect(instruments.querySelector('.ttv-panel-body')).not.toHaveAttribute('hidden');
   });
 
   test('shows the official per-driver classification stats', async () => {

@@ -9,8 +9,8 @@ import PlaybackVideo from '../components/telemetry-tv/PlaybackVideo';
 import PlaybackStatusBar from '../components/telemetry-tv/PlaybackStatusBar';
 import RaceFinishCard from '../components/telemetry-tv/RaceFinishCard';
 import RaceHeaderBar from '../components/telemetry-tv/RaceHeaderBar';
+import RaceInstruments from '../components/telemetry-tv/RaceInstruments';
 import RaceOverview from '../components/telemetry-tv/RaceOverview';
-import RacePaceCard from '../components/telemetry-tv/RacePaceCard';
 import RacePickerBar from '../components/telemetry-tv/RacePickerBar';
 import RaceStartWaitCard from '../components/telemetry-tv/RaceStartWaitCard';
 import RaceTimeline from '../components/telemetry-tv/RaceTimeline';
@@ -33,6 +33,9 @@ import {
 import { buildBattleRadarModel } from '../features/telemetry-tv/buildBattleRadarModel';
 import { buildLeadBattle, buildRaceOverview } from '../features/telemetry-tv/raceStats';
 import { buildStrategyModel } from '../features/telemetry-tv/strategyModel';
+import { buildPaceGauge } from '../features/telemetry-tv/paceGauge';
+import { buildMomentumModel } from '../features/telemetry-tv/momentumModel';
+import { buildConditionsModel } from '../features/telemetry-tv/conditionsModel';
 import { buildMasterboardCommentary } from '../features/telemetry-tv/buildMasterboardCommentary';
 import { pickVideoTickerEvent } from '../features/telemetry-tv/videoTicker';
 import { buildTorontoraceIntelligence } from '../features/telemetry-tv/Torontorace';
@@ -110,6 +113,14 @@ function TelemetryTVPage() {
   const leadBattle = raceData
     ? buildLeadBattle(raceData, lapState.isFinished ? null : lap)
     : null;
+  // The instrument band and the strategy rows read the same clipped lap set:
+  // the pace needle, its colour band and the lap strip all stop at the lap the
+  // broadcast has reached, the momentum dial samples the published margin over
+  // that same window, and the conditions glyph only reports a sky the
+  // curator's own note names.
+  const paceGauge = buildPaceGauge(lapTrend, lap);
+  const momentum = buildMomentumModel(lapTrend, lap);
+  const conditions = buildConditionsModel(raceIntelligence);
   // Strategy / Tyre Analysis rows: tyre drift across the current green run,
   // laps since the last visible stop, and the selected lap against the
   // fastest so far — all clipped to the lap the broadcast has reached.
@@ -215,7 +226,10 @@ function TelemetryTVPage() {
               lapLabel={headerLapLabel}
               flag={lapState.leaderLap?.flag ?? null}
               fieldSize={selectedRace.fieldSize}
+              conditions={conditions}
             />
+
+            <SectionDivider step="01" label="Live observation" />
 
             {/* Observation layer: the broadcast beside the live order. */}
             <div className="telemetry-tv-grid">
@@ -276,23 +290,27 @@ function TelemetryTVPage() {
 
             {dashboardsLive && (
               <>
-                <SectionDivider label="Now we move from observation to analysis" />
+                <SectionDivider step="02" label="Now we move from observation to analysis" />
 
-                {/* Analysis layer: the battle narrated by the radar, then
-                    pace and strategy read side by side from the laps run. */}
+                {/* Analysis layer: the radar frames the fight first, the
+                    instrument dials answer "how fast and which way" second, and
+                    strategy then reads the same laps at full width. All three
+                    fold away from their own heads, so a viewer keeps the layer
+                    they came for. */}
                 <BattleRadar
                   model={battleRadar}
                   context={selectedSlug === 'toronto-2025' ? torontorace.context : null}
                 />
-                <div className="ttv-analysis-row">
-                  <RacePaceCard lapTrend={lapTrend} lap={lap} />
-                  <StrategyCard
-                    strategy={strategyModel}
-                    raceIntelligence={raceIntelligence}
-                  />
-                </div>
+                <RaceInstruments
+                  pace={paceGauge}
+                  momentum={momentum}
+                />
+                <StrategyCard
+                  strategy={strategyModel}
+                  raceIntelligence={raceIntelligence}
+                />
 
-                <SectionDivider label="Deeper investigation" />
+                <SectionDivider step="03" label="Deeper investigation" />
 
                 {/* Deeper layer: how the race unfolded — the lead stretches,
                     the caution windows and the pit-stop rhythm — then the
@@ -306,6 +324,7 @@ function TelemetryTVPage() {
 
                 {lapState.isFinished && (
                   <>
+                    <SectionDivider step="04" label="Checkered-flag answers" />
                     <RaceFinishCard finishSummary={finishSummary} totalLaps={lapState.totalLaps} />
                     <RaceOverview overview={raceOverview} />
                   </>
