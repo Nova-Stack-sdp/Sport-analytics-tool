@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { signOut } from 'firebase/auth';
-import { auth } from '../firebase';
+import { signOut, EmailAuthProvider, reauthenticateWithCredential, reauthenticateWithPopup } from 'firebase/auth';
+import { auth, googleProvider, githubProvider } from '../firebase';
 import { clearSession, getDrivers, getTeams } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useDeveloperMode } from '../context/DeveloperModeContext';
 import NewsFeedPanel from '../components/profile/NewsFeedPanel';
+import PasswordInput from '../components/PasswordInput';
 import SettingsPanel from '../components/profile/SettingsPanel';
 import {
   profileImageToDataUrl,
@@ -67,6 +68,30 @@ function providerLabel(user) {
   return providerId ? providerId.replace('.com', '') : 'Email account';
 }
 
+// What "prove it really is you" means for this account: password accounts
+// retype their password, Google/GitHub accounts re-run their provider popup.
+// Returns null when the account has no provider left to re-check.
+function reauthProviderFor(user) {
+  const providerId = user?.providerData?.[0]?.providerId;
+  if (providerId === 'google.com') return googleProvider;
+  if (providerId === 'github.com') return githubProvider;
+  return null;
+}
+
+function reauthErrorMessage(error) {
+  const code = error?.code || '';
+  if (code === 'auth/wrong-password' || code === 'auth/invalid-credential' || code === 'auth/invalid-login-credentials') {
+    return 'That password is not correct.';
+  }
+  if (code === 'auth/too-many-requests') {
+    return 'Too many attempts — try again in a few minutes.';
+  }
+  if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+    return 'Confirmation was cancelled — nothing was deleted.';
+  }
+  return 'Could not confirm it is you. Please try again.';
+}
+
 function ProfilePage() {
   const navigate = useNavigate();
   const { user, isAdmin, deleteAccount, signOut: clearAuth } = useAuth();
@@ -82,6 +107,9 @@ function ProfilePage() {
   // state if the backend refuses (the account then still exists).
   const [deleteState, setDeleteState] = useState('idle');
   const [deleteError, setDeleteError] = useState('');
+  // Typed only for the destructive call — never stored anywhere.
+  const [deletePassword, setDeletePassword] = useState('');
+  const needsDeletePassword = user?.providerData?.[0]?.providerId === 'password';
 // State from main branch (Preferences & URL Params)
   const [preferences, setPreferences] = useState(initialPreferences);
   const [catalog, setCatalog] = useState({
@@ -264,8 +292,33 @@ function ProfilePage() {
   };
 
   const handleDeleteAccount = async () => {
-    setDeleteState('deleting');
+    // The session cookie alone is not enough for a destructive action: the
+    // account owner proves it is them right now, with the password they
+    // signed up with or a fresh provider popup.
     setDeleteError('');
+    if (needsDeletePassword && !deletePassword) {
+      setDeleteError('Enter your current password to confirm.');
+      return;
+    }
+    setDeleteState('deleting');
+    try {
+      if (needsDeletePassword) {
+        await reauthenticateWithCredential(
+          auth.currentUser,
+          EmailAuthProvider.credential(user.email, deletePassword)
+        );
+      } else {
+        const provider = reauthProviderFor(user);
+        if (provider) await reauthenticateWithPopup(auth.currentUser, provider);
+      }
+    } catch (error) {
+      // Re-authentication failed (wrong password, popup dismissed, too many
+      // attempts) — nothing was deleted, so go back to the confirmation step
+      // and say why.
+      setDeleteState('confirming');
+      setDeleteError(reauthErrorMessage(error));
+      return;
+    }
     try {
       // Throws when the backend could not delete everything — the account
       // still exists in that case, so stay on the page and say so.
@@ -463,10 +516,26 @@ function ProfilePage() {
           {deleteState === 'confirming' ? (
             <div className="profile-danger-actions" role="group" aria-label="Confirm account deletion">
               <span className="profile-danger-warning">Delete your account everywhere?</span>
+              {needsDeletePassword && (
+                <PasswordInput
+                  label="Current password"
+                  id="delete-account-password"
+                  name="delete-account-password"
+                  value={deletePassword}
+                  onChange={(event) => setDeletePassword(event.target.value)}
+                />
+              )}
               <button className="btn btn-danger" type="button" onClick={handleDeleteAccount}>
                 Yes, delete my account
               </button>
-              <button className="btn btn-ghost" type="button" onClick={() => setDeleteState('idle')}>
+              <button
+                className="btn btn-ghost"
+                type="button"
+                onClick={() => {
+                  setDeleteState('idle');
+                  setDeletePassword('');
+                }}
+              >
                 Keep my account
               </button>
             </div>
@@ -477,6 +546,7 @@ function ProfilePage() {
               disabled={deleteState === 'deleting'}
               onClick={() => {
                 setDeleteError('');
+                setDeletePassword('');
                 setDeleteState('confirming');
               }}
             >
