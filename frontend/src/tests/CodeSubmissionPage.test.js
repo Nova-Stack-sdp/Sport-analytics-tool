@@ -15,9 +15,9 @@ function httpError(status, body) {
 
 const VALID_CODE = 'export function tyreDelta(stints) {\n  return stints.map((s) => s.delta);\n}';
 
-// The field is labelled with the question the form asks, so tests query it
-// verbatim.
-const TITLE_LABEL = 'What should this stat be called?';
+// The form labels its fields with its own wording rather than a question, so
+// tests query those labels verbatim.
+const TITLE_LABEL = 'Name/Title';
 
 function fill(label, value) {
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
