@@ -2,17 +2,20 @@ import { useRef, useState } from 'react';
 // The same id map the rail and the panels carry, so a jump here lands on
 // exactly the section the rail would.
 import { SECTION_ANCHORS } from './raceSyncAnchors';
+import { useRaceSyncSim } from './RaceSyncSimContext';
 
 // The three-phase workflow spine the page's tagline promises: Observe the
-// race, Diagnose why it happened, Simulate a change. Observe and Diagnose are
-// honest jumps to the sections that already carry those readings; Simulate
-// has no data behind it yet and says so, the same rule the rail's unavailable
-// rows follow. The spine takes a full row of the readings grid under the map
-// — the place the design gives the banner — and it gathers the replay's whole
-// transport beside its red mark: the chevrons, pause and speed used to live
-// in the race band, but every control that drives the playhead belongs on
-// one bar next to the mark that says what the replay is doing. It renders
-// only once a race is picked, so its jumps always have somewhere to land.
+// race, Diagnose why it happened, Simulate a change. Observe and Diagnose
+// are honest jumps to the sections that already carry those readings;
+// Simulate jumps to the Driver Analysis panel — where the sim console lives —
+// and flips the page into sim mode on the way, because the cause must be
+// visible the moment the step is taken. The spine takes a full row of the
+// readings grid under the map — the place the design gives the banner — and
+// it gathers the replay's whole transport beside its red mark: the chevrons,
+// pause and speed used to live in the race band, but every control that
+// drives the playhead belongs on one bar next to the mark that says what the
+// replay is doing. It renders only once a race is picked, so its jumps
+// always have somewhere to land.
 const STEPS = [
   {
     id: 'observe',
@@ -33,11 +36,10 @@ const STEPS = [
     number: 3,
     title: 'Simulate',
     question: 'What if we changed it?',
-    unavailable: {
-      hint: 'no simulation data',
-      reason:
-        'Counterfactuals need data this page doesn’t have yet — nothing here simulates a changed race',
-    },
+    anchor: SECTION_ANCHORS.driverAnalysis,
+    // Clicking Simulate enters sim mode as well as scrolling — the mode is
+    // the promise the step makes, so taking the step keeps it.
+    enterSim: true,
   },
 ];
 
@@ -57,6 +59,13 @@ function RaceSyncSpine({
   // reader last asked to go.
   const [activeId, setActiveId] = useState(STEPS[0].id);
 
+  // The mode switch reads the sim surface directly: the spine renders under
+  // the provider, so Replay/Sim is one shared state with the stage and the
+  // panels — three toggle copies could drift apart; one cannot.
+  const simContext = useRaceSyncSim();
+  const mode = simContext?.mode ?? 'replay';
+  const setMode = simContext?.setMode ?? (() => {});
+
   // The lap chip is a jump box as well as a readout, so the number being
   // typed needs a draft of its own: the replay ticking on underneath must
   // not overwrite what is being typed.
@@ -64,6 +73,7 @@ function RaceSyncSpine({
   const lapAtFocusRef = useRef(null);
 
   const jumpTo = (step) => {
+    if (step.enterSim) setMode('sim');
     const target = document.getElementById(step.anchor);
     if (target == null) return;
     target.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -149,6 +159,28 @@ function RaceSyncSpine({
       </ol>
 
       <div className="racesync-spine-tools">
+        {/* Replay is the real race; Sim is the re-run with a tweak live. The
+            switch only claims what exists — flipping to Sim with nothing
+            tweaked leaves the map untouched until a lever actually moves. */}
+        <div className="racesync-spine-mode" role="group" aria-label="View mode">
+          <button
+            type="button"
+            className={`racesync-spine-mode-btn${mode === 'replay' ? ' is-active' : ''}`}
+            aria-pressed={mode === 'replay'}
+            onClick={() => setMode('replay')}
+          >
+            Replay
+          </button>
+          <button
+            type="button"
+            className={`racesync-spine-mode-btn${mode === 'sim' ? ' is-active' : ''}`}
+            aria-pressed={mode === 'sim'}
+            onClick={() => setMode('sim')}
+          >
+            Sim
+          </button>
+        </div>
+
         {/* The replay transport, moved up from the race band so every control
             that drives the playhead sits on this one bar next to the red
             mark. The chevrons flank the type-in lap chip; pause keeps the

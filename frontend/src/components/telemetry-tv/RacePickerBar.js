@@ -41,7 +41,10 @@ function RacePickerBar({ races, selectedSlug, onSelectRace, loading }) {
         </select>
       </div>
       <Link className="sync-broadcast-button" to="/sync-f1-broadcast">
-        RaceSync
+        <span className="sync-broadcast-copy">
+          <span className="sync-broadcast-title">RaceSync</span>
+          <span className="sync-broadcast-slogan">Simulation &amp; Strategy Engine</span>
+        </span>
       </Link>
     </div>
   );

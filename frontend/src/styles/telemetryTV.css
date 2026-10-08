@@ -247,6 +247,23 @@
   animation: blink-dot 1.1s infinite;
 }
 
+/* The pill carries two stacked lines: the bold title and a smaller
+   slogan underneath, both left-aligned so the dot stays centred on
+   the pair. */
+#page-telemetry-tv .sync-broadcast-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.2;
+}
+
+#page-telemetry-tv .sync-broadcast-slogan {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: rgba(255, 245, 245, 0.82);
+}
+
 /* Hover lifts the pill and halts the blink/pulse so it reads as "armed". */
 #page-telemetry-tv .sync-broadcast-button:hover {
   background: var(--accent);

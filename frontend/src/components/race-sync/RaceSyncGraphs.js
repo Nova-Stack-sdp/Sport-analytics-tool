@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 // Read-only reuse of Race Replay's team-name → palette-key mapper, so a line on
 // a chart carries the same colour as that team's marker on the map above it.
 import { teamClassFor } from '../race-replay/raceReplayHelpers';
 import { useRaceSyncSelection } from './RaceSyncSelection';
-import { useRaceSyncLapSeries } from './useRaceSyncLapSeries';
+import { useRaceSyncSim } from './RaceSyncSimContext';
+import { DEFAULT_TWEAK, simSummaryAtLap, tweakIsNoop } from './raceSyncSim';
 import { driverPhotoUrl, useRaceSyncPeople } from './useRaceSyncPeople';
 import { entryInScope, isScopeActive, scopeLabel } from './raceSyncViewScope';
 import { displayName, driverCode } from './raceSyncDriverNames';
@@ -31,11 +32,20 @@ import {
 // as positions on a circuit. Six readings of one replay — where the field is,
 // how quick each car is, what its tyres have done, what the stops cost, and how
 // every lap compares with the pace being watched — all drawn from the race
-// replay series (see useRaceSyncLapSeries) and all following the same two
+// replay series (fetched once in RaceSyncSimContext, which this file reads)
+// and all following the same two
 // things the map follows: the view scope in the header, and the playhead. A
 // panel never shows a lap the replay hasn't reached. (How each reading is
 // derived lives beside this file, in raceSyncReadings — the same split the map
 // and the view scope already use.)
+//
+// The sim panels — the console in Driver Analysis, the pit-window briefing,
+// the two sim charts and the broadcast line — draw only in sim mode with a
+// tweak live, and everything they show comes from raceSyncSim, the delta
+// model beside raceSyncReadings: the real laps re-priced for tyre age and
+// the pit loss, never invented telemetry. The lap series and the sim are
+// read from the shared sim surface (see RaceSyncSimContext) — one fetch, one
+// sim for the stage, the panels and the spine together.
 //
 // Each panel says what it plots rather than what a mockup promised. Where the
 // synced data has no speed, brake, gear or sector channels to plot — it has
@@ -134,8 +144,10 @@ function stoppageNote(count) {
 const CHART_WIDTH = 1000;
 const CHART_HEIGHT = 220;
 
-function LapChart({ traces, reference, mode, uptoLap, totalLaps, label }) {
-  const domain = chartDomain({ traces, reference, mode });
+function LapChart({ traces, reference, mode, uptoLap, totalLaps, label, domain: domainOverride, zeroLine = false }) {
+  // The sim charts pass a domain of their own (see the two panels below);
+  // every other chart lets raceSyncReadings measure the band.
+  const domain = domainOverride ?? chartDomain({ traces, reference, mode });
   if (!domain) return <p className="racesync-panel-empty">No timed laps to plot yet.</p>;
 
   const lastLap = Math.max(
@@ -174,11 +186,28 @@ function LapChart({ traces, reference, mode, uptoLap, totalLaps, label }) {
             x2={CHART_WIDTH}
             y2={CHART_HEIGHT}
           />
+          {/* A delta chart's honest midpoint: above the line is slower than
+              the real race, below is quicker. */}
+          {zeroLine && domain.min < 0 && domain.max > 0 && (
+            <line
+              className="racesync-chart-zero"
+              x1="0"
+              x2={CHART_WIDTH}
+              y1={scaleY(0)}
+              y2={scaleY(0)}
+            />
+          )}
           {traces.map((trace) => {
-            const points = trace.points.map(
-              (point) => `${scaleX(point.lap)},${scaleY(plottedValue(point, { mode, reference }))}`
-            );
-            if (points.length === 0) return null;
+            const toPoints = (list) =>
+              list.map(
+                (point) =>
+                  `${scaleX(point.lap)},${scaleY(plottedValue(point, { mode, reference }))}`
+              );
+            const points = toPoints(trace.points);
+            // The ghost of the real race under a sim line: same driver, same
+            // team colour, drawn first so the solid sim line rides on top.
+            const ghostPoints = trace.ghostPoints ? toPoints(trace.ghostPoints) : null;
+            if (points.length === 0 && (!ghostPoints || ghostPoints.length === 0)) return null;
             // One lap is not a line: an opening lap gets a short flat mark so
             // the race's first lap is visible at all.
             if (points.length === 1) {
@@ -186,11 +215,22 @@ function LapChart({ traces, reference, mode, uptoLap, totalLaps, label }) {
               points.push(`${Number(points[0].split(',')[0]) - 5},${points[0].split(',')[1]}`);
             }
             return (
-              <polyline
-                key={trace.entryId}
-                className={`racesync-chart-line racesync-car-${teamClassFor(trace.teamName)}`}
-                points={points.join(' ')}
-              />
+              <g key={trace.entryId}>
+                {ghostPoints && ghostPoints.length > 0 && (
+                  <polyline
+                    className={`racesync-chart-line is-ghost racesync-car-${teamClassFor(
+                      trace.teamName
+                    )}`}
+                    points={ghostPoints.join(' ')}
+                  />
+                )}
+                {points.length > 0 && (
+                  <polyline
+                    className={`racesync-chart-line racesync-car-${teamClassFor(trace.teamName)}`}
+                    points={points.join(' ')}
+                  />
+                )}
+              </g>
             );
           })}
         </svg>
@@ -228,9 +268,182 @@ function ChartLegend({ traces }) {
   );
 }
 
+// The pace dial's readout: "+0.15s/lap" eases off, "-0.15s/lap" finds time,
+// and zero says exactly what it means — the real race's pace.
+function paceDeltaLabel(value) {
+  if (!Number.isFinite(value) || value === 0) return 'race pace';
+  return `${value < 0 ? '-' : '+'}${Math.abs(value).toFixed(2)}s/lap`;
+}
+
+// The briefing under the sim console: the pit window each tweaked driver
+// still has to take, beside what the change has cost so far. It follows the
+// playhead like every other reading, folds away when the reader wants the
+// console's full height, and fades once every tweaked car has taken its
+// last stop — the window has closed, and the card says so by stepping back
+// instead of leaving the page.
+function SimBriefing({ sim, driversById, lap }) {
+  const [open, setOpen] = useState(true);
+  const rows = sim.tweaked
+    .map((entryId) => simSummaryAtLap(sim, entryId, driversById, lap))
+    .filter(Boolean);
+  if (rows.length === 0) return null;
+  const windowOpen = rows.some((row) => row.nextStop != null);
+  return (
+    <div className={`racesync-briefing${windowOpen ? '' : ' is-dim'}`}>
+      <button
+        type="button"
+        className="racesync-briefing-head"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span className="racesync-briefing-title">Pit window</span>
+        <span className="racesync-briefing-chevron" aria-hidden="true">
+          {open ? '▾' : '▸'}
+        </span>
+      </button>
+      {open && (
+        <ul className="racesync-briefing-list">
+          {rows.map((row) => (
+            <li key={row.entryId} className="racesync-briefing-row">
+              <span
+                className={`racesync-briefing-driver racesync-team-text racesync-car-${teamClassFor(
+                  row.teamName
+                )}`}
+              >
+                {driverCode(row.driverName)}
+              </span>
+              <span className="racesync-briefing-stop">
+                {row.nextStop != null ? (
+                  <>
+                    Next stop <strong>L{row.nextStop}</strong>
+                    {row.nextStopDelta != null && row.nextStopDelta !== 0 && (
+                      <span className="racesync-briefing-shift">
+                        {' '}
+                        ({Math.abs(row.nextStopDelta)}{' '}
+                        {row.nextStopDelta < 0 ? 'earlier' : 'later'} than the real race)
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span className="racesync-briefing-done">All stops taken</span>
+                )}
+              </span>
+              {row.raceDelta != null && (
+                <span
+                  className={`racesync-briefing-delta${
+                    row.raceDelta > 0 ? ' is-loss' : row.raceDelta < 0 ? ' is-gain' : ''
+                  }`}
+                >
+                  {formatDelta(row.raceDelta)}s
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// The broadcast sentence under the spine: what was changed, what it has
+// cost, who it moved. Numbers carry the weight (bold), drivers carry their
+// team colours, and the clause order is cause → effect — the same order
+// the sim computes them.
+function SimBroadcast({ sim, driversById, lap }) {
+  const rows = sim.tweaked
+    .map((entryId) => simSummaryAtLap(sim, entryId, driversById, lap))
+    .filter(Boolean);
+  if (rows.length === 0) return null;
+  return (
+    <div className="racesync-broadcast" aria-live="polite">
+      {rows.map((row) => (
+        <p key={row.entryId} className="racesync-broadcast-line">
+          <span
+            className={`racesync-broadcast-driver racesync-team-text racesync-car-${teamClassFor(
+              row.teamName
+            )}`}
+          >
+            {driverCode(row.driverName)}
+          </span>{' '}
+          <SimCause row={row} />
+          {row.swing && (
+            <>
+              {' '}and{' '}
+              <strong>
+                {row.swing.places > 0
+                  ? `gained ${row.swing.places}`
+                  : `lost ${Math.abs(row.swing.places)}`}
+              </strong>{' '}
+              {Math.abs(row.swing.places) === 1 ? 'place' : 'places'} on lap{' '}
+              <strong>{row.swing.lap}</strong>
+              {row.swing.tradedName && (
+                <>
+                  {' '}to{' '}
+                  <span
+                    className={`racesync-broadcast-driver racesync-team-text racesync-car-${teamClassFor(
+                      row.swing.tradedTeam
+                    )}`}
+                  >
+                    {driverCode(row.swing.tradedName)}
+                  </span>
+                </>
+              )}
+            </>
+          )}
+          {row.raceDelta != null && (
+            <>
+              {' '}— net <strong>{formatDelta(row.raceDelta)}s</strong>
+            </>
+          )}
+          {row.nextStop != null && (
+            <>
+              {', '}next stop <strong>L{row.nextStop}</strong>
+            </>
+          )}
+          .
+        </p>
+      ))}
+    </div>
+  );
+}
+
+// The cause clause of the broadcast sentence, from what the sim actually
+// applied: the first stop's real movement (clamped by the race — the
+// sentence reports what happened, not what was asked for) and the pace dial.
+function SimCause({ row }) {
+  const parts = [];
+  if (row.firstStopDelta != null && row.firstStopDelta !== 0) {
+    parts.push(
+      `stopped ${Math.abs(row.firstStopDelta)} ${
+        Math.abs(row.firstStopDelta) === 1 ? 'lap' : 'laps'
+      } ${row.firstStopDelta < 0 ? 'early' : 'late'}`
+    );
+  }
+  if (row.paceDelta !== 0) {
+    parts.push(
+      row.paceDelta < 0
+        ? `found ${Math.abs(row.paceDelta).toFixed(2)}s a lap`
+        : `eased off ${Math.abs(row.paceDelta).toFixed(2)}s a lap`
+    );
+  }
+  return <>{parts.length > 0 ? parts.join(' and ') : 'changed strategy'}</>;
+}
+
 function RaceSyncGraphs({ sessionId, snapshot, race, workflow, children }) {
   const { scope } = useRaceSyncSelection();
-  const { series, error } = useRaceSyncLapSeries(sessionId);
+  // The lap series and the sim both come from the shared surface: one fetch,
+  // one sim, so the panels, the stage and the spine can never disagree about
+  // what the race was or what a change did. (The panels used to own this
+  // fetch; it moved up into RaceSyncSimContext with the sim.)
+  const {
+    series,
+    seriesError: error,
+    sim,
+    simLive,
+    tweaks,
+    updateTweak,
+    resetTweak,
+  } = useRaceSyncSim();
   const people = useRaceSyncPeople();
 
   const lap = snapshot?.lap ?? 0;
@@ -293,6 +506,103 @@ function RaceSyncGraphs({ sessionId, snapshot, race, workflow, children }) {
   // second flag drawing.
   const focusNation =
     people.driverByName(focusEntry?.driverName)?.countryCode?.toUpperCase() ?? null;
+
+  // The focused driver in the sim: the ACTUAL stop laps a shift produced and
+  // the tweak they carry, so the console below shows what really happened
+  // (clamped by the race) rather than what was asked for.
+  const focusSim = useMemo(
+    () => (sim && focusEntry ? sim.drivers.get(focusEntry.entryId) ?? null : null),
+    [sim, focusEntry]
+  );
+  const focusTweak = tweaks[focusEntry?.entryId] ?? DEFAULT_TWEAK;
+  const focusTweaked = !tweakIsNoop(focusTweak);
+
+  // Every series driver keyed by entryId, for naming the car a position was
+  // traded with in the briefing and the broadcast line.
+  const driversById = useMemo(
+    () => new Map((series?.drivers ?? []).map((driver) => [driver.entryId, driver])),
+    [series]
+  );
+
+  // The sim's two charts, cut at the playhead like every other reading. The
+  // gap chart keeps the real race alongside as a ghost trace under each sim
+  // line; the delta chart is the tweaked drivers' cumulative gain or loss
+  // against their own logged race.
+  const simGapTraces = useMemo(() => {
+    if (!simLive || !sim || lap < 1) return null;
+    const cut = Math.min(lap, sim.totalLaps);
+    const traces = drivers
+      .map((driver) => {
+        const simGap = sim.simGapToLeader.get(driver.entryId);
+        const baseGap = sim.baseGapToLeader.get(driver.entryId);
+        if (!simGap && !baseGap) return null;
+        const toPoints = (array) => {
+          const points = [];
+          for (let l = 1; l <= cut; l += 1) {
+            const value = array?.[l - 1];
+            if (Number.isFinite(value)) points.push({ lap: l, seconds: value });
+          }
+          return points;
+        };
+        return {
+          entryId: driver.entryId,
+          driverName: driver.driverName,
+          teamName: driver.teamName,
+          points: toPoints(simGap),
+          ghostPoints: toPoints(baseGap),
+        };
+      })
+      .filter(Boolean);
+    return traces.length > 0 ? traces : null;
+  }, [simLive, sim, drivers, lap]);
+
+  const simDeltaTraces = useMemo(() => {
+    if (!simLive || !sim || lap < 1) return null;
+    const cut = Math.min(lap, sim.totalLaps);
+    const traces = sim.tweaked
+      .map((entryId) => {
+        const driver = sim.drivers.get(entryId);
+        if (!driver) return null;
+        const points = [];
+        for (let l = 1; l <= cut; l += 1) {
+          const value = driver.deltaVsBaseline[l - 1];
+          if (Number.isFinite(value)) points.push({ lap: l, seconds: value });
+        }
+        if (points.length === 0) return null;
+        return {
+          entryId: driver.entryId,
+          driverName: driver.driverName,
+          teamName: driver.teamName,
+          points,
+        };
+      })
+      .filter(Boolean);
+    return traces.length > 0 ? traces : null;
+  }, [simLive, sim, lap]);
+
+  // Domains the sim charts have to force. The gap chart covers ghost and
+  // solid traces together (the baseline can sit above the sim early in a
+  // stint), and the delta chart is symmetric about its zero line so a gain
+  // and a loss read at the same weight.
+  const simGapDomain = useMemo(() => {
+    if (!simGapTraces) return null;
+    const values = simGapTraces.flatMap((trace) =>
+      [...trace.points, ...trace.ghostPoints].map((point) => point.seconds)
+    );
+    if (values.length === 0) return null;
+    const low = Math.min(...values);
+    const high = Math.max(...values);
+    const pad = (high - low || 1) * 0.12;
+    return { min: Math.max(0, low - pad), max: high + pad };
+  }, [simGapTraces]);
+
+  const simDeltaDomain = useMemo(() => {
+    if (!simDeltaTraces) return null;
+    const values = simDeltaTraces.flatMap((trace) => trace.points.map((point) => point.seconds));
+    if (values.length === 0) return null;
+    const extent = Math.max(Math.abs(Math.min(...values)), Math.abs(Math.max(...values)), 0.5);
+    return { min: -extent * 1.15, max: extent * 1.15 };
+  }, [simDeltaTraces]);
 
   if (!sessionId) return null;
 
@@ -581,8 +891,9 @@ function RaceSyncGraphs({ sessionId, snapshot, race, workflow, children }) {
             rail: who they are — introduced by the app's own driver and team
             records, so the photo and the badge are the same assets the driver
             and team pages serve — and the summary the synced data honestly
-            supports. The strategy recommendation the mockup draws has no
-            simulation behind it and says so instead of inventing one. */}
+            supports. Under that, the sim console: the two levers the delta
+            model prices, the pit window the tweaked drivers still hold, and
+            the sentence under the spine that says what the change is doing. */}
         <Panel
           title="Driver Analysis"
           caption={drivers.length === 1 ? 'in scope' : lap > 0 ? 'race leader' : 'starting grid'}
@@ -690,23 +1001,100 @@ function RaceSyncGraphs({ sessionId, snapshot, race, workflow, children }) {
                 <NoLaps />
               )}
 
-              {/* The recommendation block the design draws, honest rather
-                  than present: no alternate strategy can be computed from one
-                  race that already happened, so the row names that and the
-                  button stays out — the same rule as the spine's Simulate. */}
+              {/* The sim console: the two levers the delta model prices —
+                  when the stop happens and how fast the car runs. The stop
+                  readout shows the ACTUAL laps the shift produced (clamped
+                  by the race), never the requested fantasy, and a tweak
+                  that returns to zero leaves the roster instead of sitting
+                  there as a row of defaults. Touching any lever enters sim
+                  mode — the cause appears the moment it exists. */}
               <div className="racesync-driver-strategy">
-                <span className="racesync-driver-strategy-label">Recommended strategy</span>
-                <span className="racesync-driver-strategy-hint">no simulation data</span>
-                <button
-                  type="button"
-                  className="racesync-driver-sim"
-                  disabled
-                  aria-disabled="true"
-                  title="Nothing on this page simulates alternate strategies — the synced data is one race that already happened"
-                >
-                  Run Simulation
-                </button>
+                <span className="racesync-driver-strategy-label">Simulation</span>
+                {focusSim ? (
+                  <div className="racesync-sim-controls">
+                    <div className="racesync-sim-pit">
+                      <span className="racesync-sim-label">Pit stop</span>
+                      <div className="racesync-sim-stepper">
+                        <button
+                          type="button"
+                          className="racesync-sim-stepper-btn"
+                          title="Stop earlier"
+                          aria-label="Stop earlier"
+                          onClick={() =>
+                            updateTweak(focusEntry.entryId, {
+                              pitShift: (focusTweak.pitShift ?? 0) - 1,
+                            })
+                          }
+                        >
+                          −
+                        </button>
+                        <span className="racesync-sim-pit-laps">
+                          {focusSim.newStopLaps.length > 0
+                            ? focusSim.newStopLaps.map((stopLap) => `L${stopLap}`).join(' · ')
+                            : 'No stops'}
+                        </span>
+                        <button
+                          type="button"
+                          className="racesync-sim-stepper-btn"
+                          title="Stop later"
+                          aria-label="Stop later"
+                          onClick={() =>
+                            updateTweak(focusEntry.entryId, {
+                              pitShift: (focusTweak.pitShift ?? 0) + 1,
+                            })
+                          }
+                        >
+                          +
+                        </button>
+                      </div>
+                      {(focusTweak.pitShift ?? 0) !== 0 && (
+                        <span className="racesync-sim-note">
+                          {Math.abs(focusTweak.pitShift)}{' '}
+                          {Math.abs(focusTweak.pitShift) === 1 ? 'lap' : 'laps'}{' '}
+                          {focusTweak.pitShift < 0 ? 'earlier' : 'later'} than the real race
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="racesync-sim-pace">
+                      <span className="racesync-sim-label">Pace</span>
+                      <input
+                        type="range"
+                        className="racesync-sim-pace-slider"
+                        min="-0.5"
+                        max="0.5"
+                        step="0.05"
+                        value={focusTweak.paceDelta ?? 0}
+                        aria-label="Pace change per lap"
+                        onChange={(event) =>
+                          updateTweak(focusEntry.entryId, {
+                            paceDelta: Number(event.target.value),
+                          })
+                        }
+                      />
+                      <span className="racesync-sim-pace-value">
+                        {paceDeltaLabel(focusTweak.paceDelta ?? 0)}
+                      </span>
+                    </div>
+
+                    {focusTweaked && (
+                      <button
+                        type="button"
+                        className="racesync-sim-reset"
+                        onClick={() => resetTweak(focusEntry.entryId)}
+                      >
+                        Reset {driverCode(focusEntry.driverName)}
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <span className="racesync-driver-strategy-hint">
+                    No lap data to simulate for this driver.
+                  </span>
+                )}
               </div>
+
+              {simLive && sim && <SimBriefing sim={sim} driversById={driversById} lap={lap} />}
             </div>
           )}
         </Panel>
@@ -715,6 +1103,11 @@ function RaceSyncGraphs({ sessionId, snapshot, race, workflow, children }) {
             the three phases lead on the left, and every control that drives
             the playhead sits on it beside the replay mark. */}
         {workflow}
+
+        {/* The broadcast line rides directly under the spine: one sentence
+            per tweaked driver, saying what the change is doing at the
+            playhead — cause first, then the cost, then who it moved. */}
+        {simLive && sim && <SimBroadcast sim={sim} driversById={driversById} lap={lap} />}
 
         {/* The caption stands where it stood when the readings were a row of
             panels under the map: between the map's band and the readings that
@@ -822,6 +1215,50 @@ function RaceSyncGraphs({ sessionId, snapshot, race, workflow, children }) {
             </>
           )}
         </Panel>
+
+        {/* The sim's two charts, drawn only while a sim is live. The gap
+            chart holds the real race alongside as a ghost trace — the
+            baseline is the comparison, never deleted — and the delta chart
+            is symmetric about zero so a gain and a loss read at the same
+            weight. */}
+        {simLive && simGapTraces && simGapDomain && (
+          <Panel title="Simulated Gap to Leader" caption="solid sim · ghost real" wide>
+            <LapChart
+              traces={simGapTraces}
+              mode="pace"
+              uptoLap={lap}
+              totalLaps={totalLaps}
+              label="Simulated gap to leader"
+              domain={simGapDomain}
+            />
+            <ChartLegend traces={simGapTraces} />
+            <p className="racesync-panel-note">
+              Solid lines are the sim; the ghosted line under each is the same
+              driver’s real race. The sim re-prices tyre age and the pit loss —
+              everything else in the log is left exactly as it happened.
+            </p>
+          </Panel>
+        )}
+
+        {simLive && simDeltaTraces && simDeltaDomain && (
+          <Panel title="Cumulative Delta" caption="sim vs the real race" wide>
+            <LapChart
+              traces={simDeltaTraces}
+              mode="pace"
+              uptoLap={lap}
+              totalLaps={totalLaps}
+              label="Cumulative delta"
+              domain={simDeltaDomain}
+              zeroLine
+            />
+            <ChartLegend traces={simDeltaTraces} />
+            <p className="racesync-panel-note">
+              Seconds gained or lost against the driver’s own logged race, lap
+              by lap — above the line is slower than the real race, below is
+              quicker.
+            </p>
+          </Panel>
+        )}
       </div>
     </section>
   );

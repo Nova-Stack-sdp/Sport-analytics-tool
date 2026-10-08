@@ -228,7 +228,7 @@ describe('TelemetryTVPage', () => {
     );
     expect(screen.getByLabelText('Choose a race')).toHaveValue('toronto-2025');
     expect(screen.getByLabelText('Choose a race').closest('.race-picker-bar')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'RaceSync' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /RaceSync/ })).toHaveAttribute(
       'href',
       '/sync-f1-broadcast'
     );

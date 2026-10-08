@@ -2603,8 +2603,8 @@
   background: var(--racesync-red);
 }
 
-/* The recommendation row, drawn where the design draws it but honest: it
-   says there is no simulation behind it, and the button stays out. */
+/* The sim console row in Driver Analysis: the dashed border marks it as the
+   one interactive zone on an otherwise read-only card. */
 #page-sync-f1-broadcast .racesync-driver-strategy {
   flex: 1 1 220px;
   display: flex;
@@ -2626,21 +2626,6 @@
 #page-sync-f1-broadcast .racesync-driver-strategy-hint {
   color: var(--text-tertiary);
   font-size: 10.5px;
-}
-
-#page-sync-f1-broadcast .racesync-driver-sim {
-  margin-top: 2px;
-  padding: 6px 10px;
-  border: 0;
-  border-radius: 6px;
-  background: var(--border-soft);
-  color: var(--text-tertiary);
-  font-family: inherit;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: not-allowed;
 }
 
 /* In the right rail the card reads top to bottom â€” identity, tiles,
@@ -3162,4 +3147,331 @@
   #page-sync-f1-broadcast .racesync-chart {
     grid-template-columns: 46px minmax(0, 1fr);
   }
+}
+
+/* --- Simulation & Strategy Engine (slice 1: pit timing + pace) --------------
+   Everything the sim adds reuses the palette and type already on the page —
+   the hierarchy is opacity and weight, never a new hue. */
+
+/* The mode switch on the workflow spine: Replay is the real race, Sim is
+   the re-run — one segmented control, the active side in the page's red. */
+#page-sync-f1-broadcast .racesync-spine-mode {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border-soft);
+  border-radius: 7px;
+}
+
+#page-sync-f1-broadcast .racesync-spine-mode-btn {
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+#page-sync-f1-broadcast .racesync-spine-mode-btn:hover {
+  color: var(--text-primary);
+}
+
+#page-sync-f1-broadcast .racesync-spine-mode-btn.is-active {
+  background: var(--racesync-red);
+  color: #fff;
+}
+
+#page-sync-f1-broadcast .racesync-spine-mode-btn:focus-visible {
+  outline: 2px solid var(--racesync-red);
+  outline-offset: 1px;
+}
+
+/* The ghost/solid hierarchy on the map. The real field stays on the circuit
+   but steps back — same team colour at a fraction of its weight, no ring —
+   while a simmed car runs solid on top with its colour doubled as a halo,
+   so the counterfactual is the solid claim and the truth underneath is
+   never deleted. */
+#page-sync-f1-broadcast .racesync-stage-car.is-ghost {
+  opacity: 0.38;
+  box-shadow: none;
+}
+
+#page-sync-f1-broadcast .racesync-stage-car.is-sim {
+  z-index: 3;
+  box-shadow: 0 0 0 2px var(--racesync-car), 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* The roster's SIM chip: the same red as the mode switch, so "this car is
+   the counterfactual" reads identically everywhere. */
+#page-sync-f1-broadcast .racesync-stage-legend-sim {
+  margin-left: auto;
+  padding: 1px 6px;
+  border: 1px solid var(--racesync-red);
+  border-radius: 4px;
+  color: var(--racesync-red);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+/* Team-coloured WORDS (the broadcast line, the briefing): the palette class
+   publishes the hue as --racesync-car and paints a fill for dots and
+   markers; these spans are words, so the fill is stripped and the same
+   colour comes through as text. Equal specificity to the palette rules,
+   winning by order. */
+#page-sync-f1-broadcast .racesync-team-text.racesync-car-redbull,
+#page-sync-f1-broadcast .racesync-team-text.racesync-car-mercedes,
+#page-sync-f1-broadcast .racesync-team-text.racesync-car-ferrari,
+#page-sync-f1-broadcast .racesync-team-text.racesync-car-mclaren,
+#page-sync-f1-broadcast .racesync-team-text.racesync-car-astonmartin,
+#page-sync-f1-broadcast .racesync-team-text.racesync-car-alpine,
+#page-sync-f1-broadcast .racesync-team-text.racesync-car-williams,
+#page-sync-f1-broadcast .racesync-team-text.racesync-car-haas,
+#page-sync-f1-broadcast .racesync-team-text.racesync-car-sauber,
+#page-sync-f1-broadcast .racesync-team-text.racesync-car-racingbulls,
+#page-sync-f1-broadcast .racesync-team-text.racesync-car-default {
+  background: transparent;
+  color: var(--racesync-car);
+}
+
+/* The sim console in Driver Analysis: the two levers, stacked and quiet. */
+#page-sync-f1-broadcast .racesync-sim-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#page-sync-f1-broadcast .racesync-sim-label {
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+#page-sync-f1-broadcast .racesync-sim-pit {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+#page-sync-f1-broadcast .racesync-sim-stepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#page-sync-f1-broadcast .racesync-sim-stepper-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.16s ease;
+}
+
+#page-sync-f1-broadcast .racesync-sim-stepper-btn:hover {
+  background: var(--border-soft);
+}
+
+#page-sync-f1-broadcast .racesync-sim-stepper-btn:focus-visible {
+  outline: 2px solid var(--racesync-red);
+  outline-offset: 1px;
+}
+
+#page-sync-f1-broadcast .racesync-sim-pit-laps {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+#page-sync-f1-broadcast .racesync-sim-note {
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+}
+
+#page-sync-f1-broadcast .racesync-sim-pace {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+#page-sync-f1-broadcast .racesync-sim-pace-slider {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--racesync-red);
+}
+
+#page-sync-f1-broadcast .racesync-sim-pace-value {
+  min-width: 76px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: right;
+  white-space: nowrap;
+}
+
+#page-sync-f1-broadcast .racesync-sim-reset {
+  align-self: flex-start;
+  padding: 5px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+#page-sync-f1-broadcast .racesync-sim-reset:hover {
+  background: var(--border-soft);
+  color: var(--text-primary);
+}
+
+/* The pit-window briefing under the console. It fades — instead of leaving —
+   once every tweaked car has taken its last stop: the window has closed. */
+#page-sync-f1-broadcast .racesync-briefing {
+  margin-top: 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: opacity 0.25s ease;
+}
+
+#page-sync-f1-broadcast .racesync-briefing.is-dim {
+  opacity: 0.45;
+}
+
+#page-sync-f1-broadcast .racesync-briefing-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  background: var(--border-soft);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+#page-sync-f1-broadcast .racesync-briefing-chevron {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+#page-sync-f1-broadcast .racesync-briefing-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 10px;
+  list-style: none;
+}
+
+#page-sync-f1-broadcast .racesync-briefing-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 11.5px;
+}
+
+#page-sync-f1-broadcast .racesync-briefing-driver {
+  font-weight: 800;
+}
+
+#page-sync-f1-broadcast .racesync-briefing-stop {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-secondary);
+}
+
+#page-sync-f1-broadcast .racesync-briefing-stop strong {
+  color: var(--text-primary);
+}
+
+#page-sync-f1-broadcast .racesync-briefing-shift,
+#page-sync-f1-broadcast .racesync-briefing-done {
+  color: var(--text-tertiary);
+}
+
+/* The same gain/loss language the Pit Stops panel speaks. */
+#page-sync-f1-broadcast .racesync-briefing-delta.is-gain {
+  color: var(--status-green);
+}
+
+#page-sync-f1-broadcast .racesync-briefing-delta.is-loss {
+  color: var(--status-red);
+}
+
+/* The broadcast line under the spine: a timing-screen sentence, not a
+   table. Numbers carry the weight, drivers carry their team colours. */
+#page-sync-f1-broadcast .racesync-broadcast {
+  margin-top: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--racesync-red);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+#page-sync-f1-broadcast .racesync-broadcast-line {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+#page-sync-f1-broadcast .racesync-broadcast-line + .racesync-broadcast-line {
+  margin-top: 5px;
+}
+
+#page-sync-f1-broadcast .racesync-broadcast-line strong {
+  color: var(--text-primary);
+  font-weight: 800;
+}
+
+#page-sync-f1-broadcast .racesync-broadcast-driver {
+  font-weight: 800;
+}
+
+/* The baseline under a sim chart line: same team colour, ghost weight and a
+   light dash — the real race is always underneath, never deleted. */
+#page-sync-f1-broadcast .racesync-chart-line.is-ghost {
+  opacity: 0.3;
+  stroke-dasharray: 4 3;
+}
+
+/* The delta chart's zero line: the honest midpoint between gained and
+   lost. */
+#page-sync-f1-broadcast .racesync-chart-zero {
+  stroke: var(--text-tertiary);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+  opacity: 0.6;
+  vector-effect: non-scaling-stroke;
 }

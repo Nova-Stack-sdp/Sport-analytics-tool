@@ -9,6 +9,8 @@ import { teamClassFor } from '../race-replay/raceReplayHelpers';
 import { useRaceReplaySnapshots } from '../race-replay/useRaceReplaySnapshots';
 import { useRaceSyncCarMotion } from './useRaceSyncCarMotion';
 import { useRaceSyncSelection } from './RaceSyncSelection';
+import { useRaceSyncSim } from './RaceSyncSimContext';
+import { simPositionAtLap } from './raceSyncSim';
 import {
   addToScope,
   entryInScope,
@@ -256,7 +258,7 @@ function buildWeatherChips(weather) {
 // a scope is set — the single icon that moves it on or off the map. The rows
 // under the legend reuse it, so adding a car reads as the mirror of removing
 // one and both are recognisably the same thing.
-function RosterRow({ row, onMap, control }) {
+function RosterRow({ row, onMap, control, simmed }) {
   return (
     <li className={`racesync-stage-legend-item${onMap ? '' : ' is-off'}`}>
       <span
@@ -265,6 +267,14 @@ function RosterRow({ row, onMap, control }) {
       />
       <span className="racesync-stage-legend-code">{row.code}</span>
       <span className="racesync-stage-legend-name">{row.name}</span>
+      {/* While the sim is live, the rows carrying a tweak say so — the same
+          red the mode switch uses, so "this car is the counterfactual" reads
+          identically everywhere. */}
+      {simmed && (
+        <span className="racesync-stage-legend-sim" title="Carrying a simulation tweak">
+          SIM
+        </span>
+      )}
       {control && (
         <button
           type="button"
@@ -288,6 +298,11 @@ function RaceSyncTrackStage({ sessionId, race }) {
   // in the shared selection; this stage loads the session, so it is the one
   // that publishes the roster.
   const { scope, setRoster, setScope } = useRaceSyncSelection();
+  // The sim surface: the overlay (solid sim cars riding over ghosted real
+  // ones) and the roster's SIM chips both read it, and everything sim
+  // no-ops until simLive — sim mode chosen AND a tweak carried — so the
+  // untouched map is never repainted.
+  const { sim, simLive, tweaks } = useRaceSyncSim();
   // The replay itself. The engine is Race Replay's own: it fetches the track
   // outline, holds the lap clock (one lap every BASE_TICK_MS / speed) and
   // caches each lap's snapshot, and hands back the state for the lap it is on.
@@ -458,6 +473,30 @@ function RaceSyncTrackStage({ sessionId, race }) {
   const gridSize = Array.isArray(snapshot?.leaderboard) ? snapshot.leaderboard.length : 0;
   const field = useMemo(() => buildField(visible), [visible]);
 
+  // The sim's solid cars: one per tweaked driver who is on the map AND has a
+  // sim position at the playhead, aimed at the slot the sim's running order
+  // gives them (0-based rank). They ride the same motion instance as the
+  // real field — a second clock could drift from the replay's own — and they
+  // clean themselves up: the hook forgets any car absent from the field, so
+  // a tweak reset or a scope-out removes the marker by leaving this list.
+  const simCars = useMemo(() => {
+    if (!simLive || !sim) return [];
+    const atLap = snapshot?.lap ?? 0;
+    const cars = [];
+    for (const entryId of sim.tweaked) {
+      const position = simPositionAtLap(sim, entryId, atLap);
+      const base = field.find((driver) => driver.entryId === entryId);
+      if (position == null || !base) continue;
+      cars.push({ ...base, entryId: `${entryId}:sim`, rank: position - 1 });
+    }
+    return cars;
+  }, [simLive, sim, snapshot, field]);
+
+  const motionField = useMemo(
+    () => (simCars.length > 0 ? [...field, ...simCars] : field),
+    [field, simCars]
+  );
+
   // How the cars get around the circuit: the paced motion Race Replay's viewer
   // gives its dots — about one lap per tick, sped up or slowed down by at most
   // a sixth so a change of position settles over a few ticks, glided frame by
@@ -465,7 +504,7 @@ function RaceSyncTrackStage({ sessionId, race }) {
   // leaderboard and the trace; it decides nothing about the race itself.
   const registerCar = useRaceSyncCarMotion({
     geometry,
-    field,
+    field: motionField,
     totalDrivers: gridSize,
     lap: snapshot?.lap ?? 0,
     playing,
@@ -703,11 +742,27 @@ function RaceSyncTrackStage({ sessionId, race }) {
                     {field.map((driver) => (
                       /* Where a marker sits is written straight to the node by
                          the motion hook, sixty times a second, instead of
-                         rendered — see useRaceSyncCarMotion for why. */
+                         rendered — see useRaceSyncCarMotion for why. While
+                         the sim is live the real field steps back into a
+                         ghost: the truth underneath, never deleted. */
                       <span
                         key={driver.entryId}
                         ref={registerCar(driver.entryId)}
-                        className={`racesync-stage-car racesync-car-${driver.teamKey}`}
+                        className={`racesync-stage-car racesync-car-${driver.teamKey}${
+                          simLive ? ' is-ghost' : ''
+                        }`}
+                      >
+                        {driver.code}
+                      </span>
+                    ))}
+                    {simCars.map((driver) => (
+                      /* The same driver's sim car, solid on top of their own
+                         ghost — keyed apart (:sim) so the two markers never
+                         fight over one node. */
+                      <span
+                        key={driver.entryId}
+                        ref={registerCar(driver.entryId)}
+                        className={`racesync-stage-car is-sim racesync-car-${driver.teamKey}`}
                       >
                         {driver.code}
                       </span>
@@ -781,6 +836,7 @@ function RaceSyncTrackStage({ sessionId, race }) {
                       key={driver.entryId}
                       row={driver}
                       onMap
+                      simmed={simLive && Boolean(tweaks[driver.entryId])}
                       control={
                         scopeActive
                           ? {
