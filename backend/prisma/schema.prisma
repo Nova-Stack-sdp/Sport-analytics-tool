@@ -413,6 +413,10 @@ model VerifiedCode {
   description        String?
   tags               String[] @default([])
   submitterId        String   @map("submitter_id")
+  // Carried over from the submission so its history survives once the
+  // code_submission row is gone.
+  submitterEmail     String?  @map("submitter_email")
+  submittedAt        DateTime @default(now()) @map("submitted_at")
   verifiedBy         String   @map("verified_by")
   verifiedAt         DateTime @default(now()) @map("verified_at")
 
