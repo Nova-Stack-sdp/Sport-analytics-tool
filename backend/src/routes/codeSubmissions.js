@@ -209,6 +209,80 @@ codeSubmissionsRouter.get('/:id', requireAuth, requireVerifiedEmail, requireAdmi
   }
 });
 
+// Thrown inside the approval transaction to roll it back when the
+// submission stopped being pending between the read and the delete.
+class ReviewConflict extends Error {
+  constructor(currentStatus) {
+    super('review conflict');
+    this.currentStatus = currentStatus;
+  }
+}
+
+// Approving MOVES the code: the verified_code row is created and the
+// code_submission row is deleted in one transaction, so the code is never
+// stored twice and never lost. Rejecting only changes the status; rejected
+// rows are deleted later by jobs/rejected-code-cleanup.js.
+async function approveSubmission(id, adminUid) {
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const submission = await tx.codeSubmission.findUnique({ where: { id } });
+      if (!submission) {
+        const verified = await tx.verifiedCode.findUnique({
+          where: { sourceSubmissionId: id },
+          select: { id: true },
+        });
+        return verified
+          ? { ok: false, currentStatus: 'approved' }
+          : { ok: false, notFound: true };
+      }
+      if (submission.status !== 'pending') return { ok: false, currentStatus: submission.status };
+
+      await tx.verifiedCode.create({
+        data: {
+          sourceSubmissionId: submission.id,
+          title: submission.title,
+          language: submission.language,
+          code: submission.code,
+          description: submission.description,
+          tags: submission.tags,
+          submitterId: submission.submitterId,
+          submitterEmail: submission.submitterEmail,
+          submittedAt: submission.submittedAt,
+          verifiedBy: adminUid,
+        },
+      });
+
+      // Only delete if it is still pending. If a concurrent reject got there
+      // first, nothing is deleted and throwing undoes the insert above.
+      const { count } = await tx.codeSubmission.deleteMany({ where: { id, status: 'pending' } });
+      if (count !== 1) {
+        const current = await tx.codeSubmission.findUnique({ where: { id }, select: { status: true } });
+        throw new ReviewConflict(current?.status ?? 'approved');
+      }
+      return { ok: true };
+    }, { maxWait: 15000, timeout: 30000 });
+  } catch (err) {
+    if (err instanceof ReviewConflict) return { ok: false, currentStatus: err.currentStatus };
+    // Two admins approving at once: the second insert hits the unique index
+    // on source_submission_id and its transaction rolls back.
+    if (err?.code === 'P2002') return { ok: false, currentStatus: 'approved' };
+    throw err;
+  }
+}
+
+async function rejectSubmission(id, adminUid) {
+  const { count } = await prisma.codeSubmission.updateMany({
+    where: { id, status: 'pending' },
+    data: { status: 'rejected', reviewedBy: adminUid, reviewedAt: new Date() },
+  });
+  if (count === 1) return { ok: true };
+
+  const existing = await prisma.codeSubmission.findUnique({ where: { id }, select: { status: true } });
+  if (existing) return { ok: false, currentStatus: existing.status };
+  const verified = await prisma.verifiedCode.findUnique({ where: { sourceSubmissionId: id }, select: { id: true } });
+  return verified ? { ok: false, currentStatus: 'approved' } : { ok: false, notFound: true };
+}
+
 codeSubmissionsRouter.patch('/:id', requireAuth, requireVerifiedEmail, requireAdmin, async (req, res, next) => {
   try {
     const { status } = req.body ?? {};
@@ -216,40 +290,9 @@ codeSubmissionsRouter.patch('/:id', requireAuth, requireVerifiedEmail, requireAd
       return res.status(400).json({ error: "status must be 'approved' or 'rejected'" });
     }
 
-    const result = await prisma.$transaction(async (tx) => {
-      const { count } = await tx.codeSubmission.updateMany({
-        where: { id: req.params.id, status: 'pending' },
-        data: { status, reviewedBy: req.user.uid, reviewedAt: new Date() },
-      });
-
-      if (count === 0) {
-        const existing = await tx.codeSubmission.findUnique({
-          where: { id: req.params.id },
-          select: { status: true },
-        });
-        return { ok: false, notFound: !existing, currentStatus: existing?.status };
-      }
-
-      if (status === 'approved') {
-        const submission = await tx.codeSubmission.findUnique({ where: { id: req.params.id } });
-        await tx.verifiedCode.create({
-          data: {
-            sourceSubmissionId: submission.id,
-            title: submission.title,
-            language: submission.language,
-            code: submission.code,
-            description: submission.description,
-            tags: submission.tags,
-            submitterId: submission.submitterId,
-            submitterEmail: submission.submitterEmail,
-            submittedAt: submission.submittedAt,
-            verifiedBy: req.user.uid,
-          },
-        });
-      }
-
-      return { ok: true };
-    }, { maxWait: 15000, timeout: 30000 });
+    const result = status === 'approved'
+      ? await approveSubmission(req.params.id, req.user.uid)
+      : await rejectSubmission(req.params.id, req.user.uid);
 
     if (!result.ok) {
       if (result.notFound) return res.status(404).json({ error: 'Code submission not found' });
