@@ -3,6 +3,7 @@ import pkg from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth, requireAdmin, requireVerifiedEmail } from '../middleware/requireAuth.js';
 import { runDerivationForSession } from '../derivation/index.js';
+import { buildUploadRecord } from '../lib/datasetUpload.js';
 import {
   mapLap,
   mapPitStop,
@@ -115,6 +116,7 @@ submissionsRouter.post('/', requireAuth, requireVerifiedEmail, requireDeveloperO
     }
 
     const status = events.length === 0 ? SubmissionStatus.rejected : SubmissionStatus.pending;
+    const upload = buildUploadRecord(req);
 
     const submission = await prisma.$transaction(
       async (tx) => {
@@ -127,6 +129,10 @@ submissionsRouter.post('/', requireAuth, requireVerifiedEmail, requireDeveloperO
             validationErrors: rejections.length > 0 ? rejections : undefined,
           },
         });
+
+        // The original upload is kept even when nothing in it validated, so
+        // an admin can see exactly what was sent.
+        await tx.submissionUpload.create({ data: { submissionId: created.id, ...upload } });
 
         if (events.length > 0) {
           await tx.event.createMany({

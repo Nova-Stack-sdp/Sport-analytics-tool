@@ -17,6 +17,7 @@ jest.unstable_mockModule('../src/derivation/index.js', () => ({
 const mockTx = {
   submission: { create: jest.fn() },
   event: { createMany: jest.fn() },
+  submissionUpload: { create: jest.fn() },
 };
 const mockPrisma = {
   session: { findUnique: jest.fn() },
@@ -147,6 +148,53 @@ describe('POST /api/submissions — event processing', () => {
         data: expect.objectContaining({ submitterId: 'test-uid', source: 'manual_upload' }),
       })
     );
+  });
+});
+
+describe('POST /api/submissions — original upload', () => {
+  beforeEach(() => {
+    mockPrisma.session.findUnique.mockResolvedValue({ id: 'session-1', openf1Key: 11230 });
+    mockPrisma.entry.findMany.mockResolvedValue([{ id: 'entry-1', driver: { driverNumber: 1 } }]);
+  });
+
+  test('stores the request body byte for byte, with its size and SHA-256', async () => {
+    // Odd spacing and key order on purpose: a re-serialised copy would differ.
+    const raw = '{ "laps": [ {"lap_number":5, "driver_number":1, "lap_duration":81.20, "date_start":"2026-03-07T05:10:00Z"} ],\n  "session_key": 11230 }';
+
+    const res = await authed(request(createApp()).post('/api/submissions'))
+      .set('Content-Type', 'application/json')
+      .send(raw);
+
+    expect(res.status).toBe(201);
+    expect(mockTx.submissionUpload.create).toHaveBeenCalledTimes(1);
+    const { data } = mockTx.submissionUpload.create.mock.calls[0][0];
+    expect(data.submissionId).toBe('sub-1');
+    expect(Buffer.isBuffer(data.data)).toBe(true);
+    expect(data.data.toString('utf8')).toBe(raw);
+    expect(data.sizeBytes).toBe(Buffer.byteLength(raw));
+    expect(data.contentType).toBe('application/json');
+    const { createHash } = await import('node:crypto');
+    expect(data.sha256).toBe(createHash('sha256').update(raw).digest('hex'));
+  });
+
+  test('keeps the upload even when every record is rejected', async () => {
+    mockTx.submission.create.mockResolvedValue({ id: 'sub-2', status: 'rejected' });
+    const res = await authed(request(createApp()).post('/api/submissions')).send({
+      session_key: 11230,
+      laps: [{ driver_number: 999, lap_number: 1, lap_duration: 80, date_start: '2026-03-07T05:10:00Z' }],
+    });
+
+    expect(res.status).toBe(422);
+    expect(mockTx.submissionUpload.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ submissionId: 'sub-2' }),
+    });
+  });
+
+  test('stores nothing when the request is refused before validation', async () => {
+    mockPrisma.session.findUnique.mockResolvedValue(null);
+    const res = await authed(request(createApp()).post('/api/submissions')).send({ session_key: 1 });
+    expect(res.status).toBe(404);
+    expect(mockTx.submissionUpload.create).not.toHaveBeenCalled();
   });
 });
 
