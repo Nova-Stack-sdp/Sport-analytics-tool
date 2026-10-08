@@ -131,6 +131,24 @@ export function getSession(idToken) {
 }
 
 /**
+ * Permanently delete the signed-in account (the "Delete profile" button
+ * under Profile). The backend removes every uid-keyed row from PostgreSQL,
+ * the Firestore mirror document and the Firebase account itself, then
+ * clears the session cookie — so a resolved promise means the account no
+ * longer exists anywhere and the caller should drop local auth state.
+ *
+ * `idToken` is optional and sent explicitly when provided, same pattern as
+ * getSession above: requireAuth checks the header first and falls back to
+ * the cookie.
+ */
+export function deleteAccount(idToken) {
+  return request('/api/auth/account', {
+    method: 'DELETE',
+    ...(idToken ? { headers: { Authorization: `Bearer ${idToken}` } } : {}),
+  });
+}
+
+/**
  * Set the `developer` custom claim on the signed-in user's own Firebase
  * account. This is self-service (any signed-in user can toggle their own
  * flag) — see the backend route for the reasoning. The frontend still
@@ -158,8 +176,109 @@ export function setDeveloperModeOnServer(enabled, idToken) {
 }
 
 // ---------------------------------------------------------------------------
+// Email verification (6-digit code)
+//
+// Firebase happily creates an email/password account for any syntactically
+// valid address without ever mailing it, so the backend proves the address
+// with a code sent to it (see backend/src/routes/emailVerification.js) and
+// gates the protected routes behind that proof.
+// ---------------------------------------------------------------------------
+
+/**
+ * Ask the backend to mail a fresh 6-digit code to the signed-in account's
+ * own address. Resolves with { status, email, expiresInMinutes,
+ * resendAfterSeconds } — and, while the console mail provider is active
+ * outside production, a `devCode`. Rejects with a body whose `code` explains
+ * any refusal: NO_EMAIL, RESEND_COOLDOWN (too soon — `retryAfterSeconds`
+ * says how long), DAILY_LIMIT, EMAIL_SEND_FAILED.
+ *
+ * `idToken` is optional and sent explicitly for the same reason as
+ * setDeveloperModeOnServer above.
+ */
+export function requestEmailVerificationCode(idToken) {
+  return request('/api/auth/verify-email/request', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+    },
+  });
+}
+
+/**
+ * Submit a code for checking. On success the backend flags the Firebase
+ * account as verified — which only becomes visible locally in a token minted
+ * afterwards, so the caller has to force a fresh one (see AuthContext's
+ * confirmEmailCode).
+ */
+export function confirmEmailVerificationCode(code, idToken) {
+  return request('/api/auth/verify-email/confirm', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+    },
+    body: JSON.stringify({ code }),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Account creation (the account is born only once the code is confirmed)
+//
+// The Firebase account deliberately does NOT exist when the sign-up form is
+// submitted: the backend notes a pending sign-up, mails a code to the
+// address, and creates the account (Admin SDK, already verified) only when
+// the code is confirmed — see backend/src/routes/signup.js. The caller then
+// signs in with the credentials it is still holding.
+// ---------------------------------------------------------------------------
+
+/**
+ * Note a pending sign-up for an address and have a code mailed to it.
+ * Resolves like requestEmailVerificationCode: { status, email (masked),
+ * expiresInMinutes, resendAfterSeconds } plus `devCode` while the console
+ * provider is active outside production. Rejects with a body whose `code`
+ * explains any refusal: RESEND_COOLDOWN (too soon — `retryAfterSeconds`
+ * says how long), DAILY_LIMIT, EMAIL_SEND_FAILED, INVALID_EMAIL.
+ *
+ * The response is identical whether or not the address already has an
+ * account — that only ever surfaces at confirm, where the caller has
+ * proved they can read the address's inbox.
+ */
+export function requestSignupCode(email) {
+  return request('/api/auth/signup/request', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+}
+
+/**
+ * Confirm the code and have the account created along with it. The password
+ * travels with this one call (it is handed straight to Admin createUser and
+ * never stored); a resolved promise means the account now exists, verified.
+ * Rejects with CODE_MISMATCH, CODE_EXPIRED, TOO_MANY_ATTEMPTS,
+ * NO_PENDING_SIGNUP, EMAIL_EXISTS, WEAK_PASSWORD or CREATE_FAILED in
+ * error.body.code.
+ */
+export function confirmSignup({ email, code, password, firstName, lastName }) {
+  return request('/api/auth/signup/confirm', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code, password, firstName, lastName }),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Account notifications
 // ---------------------------------------------------------------------------
+
+export function createNotification(notificationData) {
+  return request('/api/notifications', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(notificationData),
+  });
+}
 
 /**
  * The signed-in user's own notifications, newest first (requireAuth on the
@@ -421,11 +540,15 @@ export function reviewCodeSubmission(id, status) {
 // F1 news feed
 // ---------------------------------------------------------------------------
 
-export function getF1News({ limit = 100, offset = 0 } = {}) {
+export function getF1News({ driverId, teamId, limit = 100, offset = 0 } = {}) {
   const params = new URLSearchParams({
     limit: String(limit),
     offset: String(offset),
   });
+  
+  if (driverId) params.set('driverId', driverId);
+  if (teamId) params.set('teamId', teamId);
+  
   return request(`/api/news?${params.toString()}`);
 }
 

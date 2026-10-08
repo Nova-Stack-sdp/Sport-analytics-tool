@@ -4,6 +4,15 @@ import { f1NewsService } from './lib/f1NewsFeed.js';
 import { prisma } from './lib/prisma.js';
 import { createRejectedCodeCleanup } from './jobs/rejected-code-cleanup.js';
 
+// Refuse to start production without the code-hashing secret — a deploy-time
+// crash is cheaper to notice than verification codes hashed with a
+// publicly-known development default. src/lib/emailVerificationCodes.js
+// throws on first use as well, so a missing pepper can never silently pass.
+if (process.env.NODE_ENV === 'production' && !process.env.EMAIL_CODE_PEPPER) {
+  console.error('EMAIL_CODE_PEPPER is not set — refusing to start in production.');
+  process.exit(1);
+}
+
 const app = createApp();
 const rejectedCodeCleanup = createRejectedCodeCleanup({ prisma });
 

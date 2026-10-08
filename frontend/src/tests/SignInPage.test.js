@@ -7,8 +7,17 @@ import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
 // The page exchanges the new Firebase ID token for a backend session cookie
 // (auth.currentUser.getIdToken() -> establishSession) before navigating, so
 // both need stand-ins here or the success path throws before navigate().
+// getIdTokenResult is the third one: where the sign-in lands depends on the
+// account's email_verified claim (see goToStart), and a verified account is
+// the ordinary case.
+let mockEmailVerified = true;
 jest.mock('../firebase', () => ({
-  auth: { currentUser: { getIdToken: () => Promise.resolve('test-id-token') } },
+  auth: {
+    currentUser: {
+      getIdToken: () => Promise.resolve('test-id-token'),
+      getIdTokenResult: () => Promise.resolve({ claims: { email_verified: mockEmailVerified } }),
+    },
+  },
   googleProvider: {},
   githubProvider: {},
 }));
@@ -35,6 +44,7 @@ function renderPage() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockEmailVerified = true;
 });
 
 describe('SignInPage', () => {
@@ -42,7 +52,7 @@ describe('SignInPage', () => {
     renderPage();
     expect(screen.getByRole('heading', { name: /^sign in$/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^password$/i)).toBeInTheDocument();
   });
 
   test('shows validation errors instead of submitting when fields are empty', async () => {
@@ -60,7 +70,7 @@ describe('SignInPage', () => {
     renderPage();
 
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'driver@example.com' } });
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: 'password123' } });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() =>
@@ -78,7 +88,7 @@ describe('SignInPage', () => {
     renderPage();
 
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'driver@example.com' } });
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'wrongpass' } });
+    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: 'wrongpass' } });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     expect(await screen.findByText(/incorrect email or password/i)).toBeInTheDocument();
@@ -114,10 +124,24 @@ describe('SignInPage', () => {
     );
 
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'driver@example.com' } });
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: 'password123' } });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/replay', { replace: true }));
     window.localStorage.clear();
+  });
+
+  test('sends an unverified account to the verify page instead of the start page', async () => {
+    // Email/password accounts arrive with email_verified false until the 6-digit
+    // code is confirmed, and every guarded route is closed to them until then.
+    mockEmailVerified = false;
+    signInWithEmailAndPassword.mockResolvedValue({ user: { uid: 'u1' } });
+    renderPage();
+
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'new@example.com' } });
+    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: 'password123' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/verify-email', { replace: true }));
   });
 });

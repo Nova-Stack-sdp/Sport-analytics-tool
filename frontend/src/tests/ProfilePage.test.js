@@ -1,7 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { EmailAuthProvider, reauthenticateWithCredential, reauthenticateWithPopup } from 'firebase/auth';
 import ProfilePage from '../pages/ProfilePage';
-import { getDrivers, getFixtures, getTeams } from '../api/client';
+import { clearSession, getDrivers, getFixtures, getTeams } from '../api/client';
 import {
   loadUserPreferences,
   readCachedUserPreferences,
@@ -10,6 +11,7 @@ import {
 } from '../services/userPreferences';
 
 const mockClearAuth = jest.fn();
+const mockDeleteAccount = jest.fn();
 const mockUser = {
   uid: 'user-123',
   displayName: 'Alex Morgan',
@@ -18,10 +20,15 @@ const mockUser = {
   metadata: { creationTime: '2026-03-14T10:00:00Z' },
   providerData: [{ providerId: 'password' }],
 };
+// The user the mocked AuthContext hands out; individual tests can swap it
+// (e.g. to a Google account) and beforeEach puts the password account back.
+let mockActiveUser = mockUser;
 
 jest.mock('../context/AuthContext', () => ({
   useAuth: () => ({
-    user: mockUser,
+    user: mockActiveUser,
+    isAdmin: false,
+    deleteAccount: mockDeleteAccount,
     signOut: mockClearAuth,
   }),
 }));
@@ -31,9 +38,14 @@ jest.mock('../context/DeveloperModeContext', () => ({
 jest.mock('../firebase', () => ({
   auth: {},
   db: {},
+  googleProvider: { providerId: 'google.com' },
+  githubProvider: { providerId: 'github.com' },
 }));
 jest.mock('firebase/auth', () => ({
   signOut: jest.fn().mockResolvedValue(),
+  EmailAuthProvider: { credential: jest.fn(() => ({ providerId: 'password' })) },
+  reauthenticateWithCredential: jest.fn().mockResolvedValue(),
+  reauthenticateWithPopup: jest.fn().mockResolvedValue(),
 }));
 jest.mock('../api/client', () => ({
   clearSession: jest.fn().mockResolvedValue(),
@@ -77,6 +89,7 @@ jest.mock('../components/profile/NewsFeedPanel', () => () => <div>Live F1 news p
 describe('ProfilePage', () => {
   beforeEach(() => {
     window.localStorage.clear();
+    mockActiveUser = mockUser;
     const preferences = {
       displayName: 'Alex Morgan',
       followedDriverIds: [],
@@ -102,6 +115,7 @@ describe('ProfilePage', () => {
         id: 'race-1', meetingName: 'Spanish Grand Prix', season: 2026, type: 'Race',
       }],
     });
+    mockDeleteAccount.mockResolvedValue();
   });
   afterEach(() => jest.clearAllMocks());
 
@@ -166,6 +180,156 @@ describe('ProfilePage', () => {
       expect.objectContaining({ displayName: 'Alex Driver', defaultNewsFilter: 'for-you' })
     );
     expect(await screen.findByRole('status')).toHaveTextContent('saved to your account');
+  });
+
+  test('asks for confirmation before deleting and can be cancelled', () => {
+    render(<MemoryRouter><ProfilePage /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete profile' }));
+
+    // The irreversible action sits behind an inline confirmation.
+    expect(screen.getByRole('group', { name: 'Confirm account deletion' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep my account' }));
+
+    expect(mockDeleteAccount).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Delete profile' })).toBeInTheDocument();
+  });
+
+  test('deletes the account after confirmation and returns to the home page', async () => {
+    let resolveDelete;
+    mockDeleteAccount.mockImplementationOnce(
+      () => new Promise((resolve) => { resolveDelete = resolve; })
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/profile']}>
+        <Routes>
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/" element={<div>Home page</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete profile' }));
+    fireEvent.change(screen.getByLabelText(/current password/i), {
+      target: { value: 'hunter2secret' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, delete my account' }));
+
+    // The password was proved with Firebase first, and only then did the
+    // destructive backend call go out.
+    await waitFor(() => expect(reauthenticateWithCredential).toHaveBeenCalledTimes(1));
+    expect(EmailAuthProvider.credential).toHaveBeenCalledWith('alex@example.test', 'hunter2secret');
+    expect(reauthenticateWithCredential.mock.invocationCallOrder[0]).toBeLessThan(
+      mockDeleteAccount.mock.invocationCallOrder[0]
+    );
+
+    // While the request is in flight the button is disabled and says so.
+    expect(await screen.findByRole('button', { name: 'Deleting…' })).toBeDisabled();
+
+    resolveDelete();
+
+    expect(await screen.findByText('Home page')).toBeInTheDocument();
+    expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
+  });
+
+  test('keeps the account and shows the error when the backend refuses', async () => {
+    mockDeleteAccount.mockRejectedValueOnce(
+      Object.assign(new Error('Request failed'), {
+        body: { error: 'Could not delete your account. Please try again.' },
+      })
+    );
+
+    render(<MemoryRouter><ProfilePage /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete profile' }));
+    fireEvent.change(screen.getByLabelText(/current password/i), {
+      target: { value: 'hunter2secret' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, delete my account' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not delete your account');
+    // Back to the start, so the user can retry.
+    expect(screen.getByRole('button', { name: 'Delete profile' })).toBeInTheDocument();
+  });
+
+  test('will not start deleting until the current password is entered', async () => {
+    render(<MemoryRouter><ProfilePage /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete profile' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, delete my account' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Enter your current password to confirm.'
+    );
+    expect(reauthenticateWithCredential).not.toHaveBeenCalled();
+    expect(mockDeleteAccount).not.toHaveBeenCalled();
+    // Still on the confirmation step, field ready for the retry.
+    expect(screen.getByRole('group', { name: 'Confirm account deletion' })).toBeInTheDocument();
+  });
+
+  test('shows a message when the password is wrong and keeps the account', async () => {
+    reauthenticateWithCredential.mockRejectedValueOnce(
+      Object.assign(new Error('wrong password'), { code: 'auth/wrong-password' })
+    );
+
+    render(<MemoryRouter><ProfilePage /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete profile' }));
+    fireEvent.change(screen.getByLabelText(/current password/i), {
+      target: { value: 'not-the-one' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, delete my account' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('That password is not correct.');
+    expect(mockDeleteAccount).not.toHaveBeenCalled();
+    // Back on the confirmation step next to the password field, not the idle button.
+    expect(screen.getByRole('group', { name: 'Confirm account deletion' })).toBeInTheDocument();
+  });
+
+  test('Google accounts confirm with a provider popup instead of a password', async () => {
+    mockActiveUser = { ...mockUser, providerData: [{ providerId: 'google.com' }] };
+
+    render(<MemoryRouter><ProfilePage /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete profile' }));
+
+    // No password to type — the popup is the proof.
+    expect(screen.queryByLabelText(/current password/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, delete my account' }));
+
+    await waitFor(() => expect(reauthenticateWithPopup).toHaveBeenCalledTimes(1));
+    expect(reauthenticateWithPopup.mock.calls[0][1]).toEqual({ providerId: 'google.com' });
+    expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
+  });
+
+  test('signs out and redirects home even when the backend session cannot be cleared', async () => {
+    // Reproduces the "Uncaught runtime errors: Failed to fetch" overlay:
+    // with the API unreachable, clearSession() rejects. A rejected
+    // Promise.all used to skip the redirect and leave an unhandled
+    // rejection behind.
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    clearSession.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+    render(
+      <MemoryRouter initialEntries={['/profile']}>
+        <Routes>
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/" element={<div>Home page</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+
+    expect(await screen.findByText('Home page')).toBeInTheDocument();
+    expect(mockClearAuth).toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(
+      'Sign-out: could not clear the backend session cookie.',
+      expect.any(TypeError)
+    );
+    warn.mockRestore();
   });
 
 });

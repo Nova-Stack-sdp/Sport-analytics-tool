@@ -1,13 +1,13 @@
 import express from 'express';
 import { prisma } from '../lib/prisma.js';
-import { requireAuth } from '../middleware/requireAuth.js'; // Ensure this matches your middleware path
+import { requireAuth, requireVerifiedEmail } from '../middleware/requireAuth.js'; // Ensure this matches your middleware path
 import { notifyDriverFans, notifyTeamFans } from '../services/notificationService.js';
 
 export const notificationsRouter = express.Router();
 
 // GET /api/notifications
 // Retrieves all notifications for the authenticated user
-notificationsRouter.get('/', requireAuth, async (req, res) => {
+notificationsRouter.get('/', requireAuth, requireVerifiedEmail, async (req, res) => {
   try {
     // 1. Check if the user object exists
     console.log('Checking auth in notifications:', req.user);
@@ -32,8 +32,35 @@ notificationsRouter.get('/', requireAuth, async (req, res) => {
   }
 });
 
+// POST /api/notifications
+// Creates a personalized notification strictly for the logged-in user
+notificationsRouter.post('/', requireAuth, async (req, res) => {
+  try {
+    const { title, message, type } = req.body;
+    
+    if (!req.user || !req.user.uid) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const newNotification = await prisma.notification.create({
+      data: {
+        userId: req.user.uid,
+        title,
+        message,
+        type: type || 'system_alert', // Prisma NotificationType enum
+        isRead: false
+      }
+    });
+
+    res.status(201).json(newNotification);
+  } catch (error) {
+    console.error('CRASH in POST /api/notifications:', error);
+    res.status(500).json({ error: 'Failed to create notification' });
+  }
+});
+
 // PATCH /api/notifications/:id/read - Mark single notification as read
-notificationsRouter.patch('/:id/read', requireAuth, async (req, res) => {
+notificationsRouter.patch('/:id/read', requireAuth, requireVerifiedEmail, async (req, res) => {
   try {
     const updated = await prisma.notification.update({
       where: { 

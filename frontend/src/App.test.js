@@ -11,6 +11,8 @@ import {
   getSession,
   getTeams,
   markNotificationRead,
+  requestEmailVerificationCode,
+  confirmEmailVerificationCode,
   setDeveloperModeOnServer,
 } from './api/client';
 
@@ -56,18 +58,26 @@ jest.mock('./api/client', () => ({
   // The signed-in user's notifications — the header bell's own reads.
   getNotifications: jest.fn(),
   markNotificationRead: jest.fn(),
+  // The verify-email page's two calls. It mails a code on arrival, so a test
+  // that lands there needs an answer rather than a rejected network call.
+  requestEmailVerificationCode: jest.fn(),
+  confirmEmailVerificationCode: jest.fn(),
 }));
 
 // A stand-in for a real Firebase User. `devFlag` is a { value } ref so a
 // test can flip it (simulating the backend having set the custom claim)
 // and have the NEXT getIdTokenResult() call see the new value — same
 // shape as the real round trip: toggle -> backend call -> forced refresh.
-function fakeFirebaseUser(overrides = {}, devFlag = { value: false }) {
+// `verifiedFlag` is the same trick for email_verified, which defaults to
+// true because the guarded routes check it (see RequireAuth).
+function fakeFirebaseUser(overrides = {}, devFlag = { value: false }, verifiedFlag = { value: true }) {
   return {
     uid: 'u1',
     ...overrides,
     getIdTokenResult: jest.fn().mockImplementation(() =>
-      Promise.resolve({ claims: { developer: devFlag.value } })
+      Promise.resolve({
+        claims: { developer: devFlag.value, email_verified: verifiedFlag.value },
+      })
     ),
     // DeveloperModeContext fetches this to attach an explicit Authorization
     // header alongside the cookie when saving the toggle (see api/client.js).
@@ -122,6 +132,14 @@ beforeEach(() => {
   getNotifications.mockRejectedValue(new Error('no notifications'));
   markNotificationRead.mockReset();
   markNotificationRead.mockResolvedValue({});
+  requestEmailVerificationCode.mockReset();
+  requestEmailVerificationCode.mockResolvedValue({
+    status: 'sent',
+    email: 'ne***@example.test',
+    expiresInMinutes: 10,
+    resendAfterSeconds: 60,
+  });
+  confirmEmailVerificationCode.mockReset();
 });
 
 test('renders the welcome page by default, with the persistent top nav', () => {
@@ -887,8 +905,10 @@ test('the RaceSync header search loads the picked race and the view menu narrows
   // This one flow drives the whole page — a lap-by-lap map plus six panels of
   // readings — and every assertion above scans that whole DOM, which is more
   // than Jest's 5s default leaves room for once the rest of the suite is
-  // running beside it.
-}, 15000);
+  // running beside it. The flow's real runtime measures 15–35s depending on
+  // machine load, so the budget is well clear of the measured range rather
+  // than sitting on its edge.
+}, 90000);
 
 test('signed-out users can view Overview without signing in', async () => {
   render(<App />);
@@ -930,7 +950,7 @@ test('signed-in users see the logged-in nav links, and Submissions and Datasets 
   expect(screen.queryByRole('link', { name: 'Datasets' })).not.toBeInTheDocument();
 });
 
-test('turning on developer mode from Profile → Settings unlocks the Datasets and Submissions tabs on Developer', async () => {
+test('turning on developer mode from Profile → Settings unlocks the Datasets and Submit Code tabs on Developer', async () => {
   const devFlag = { value: false };
   setDeveloperModeOnServer.mockImplementation(async (enabled) => {
     devFlag.value = enabled;
@@ -950,7 +970,10 @@ test('turning on developer mode from Profile → Settings unlocks the Datasets a
 
   fireEvent.click(getTopNavLink('Developer'));
   expect(await screen.findByRole('tab', { name: 'Datasets' })).toBeInTheDocument();
-  expect(screen.getByRole('tab', { name: 'Submissions' })).toBeInTheDocument();
+  // "Submissions" was the old tab's label; the Developer page calls it
+  // "Submit Code" now (its /datasets and /code-submissions slugs still
+  // resolve to it — see DeveloperPage's TAB_ALIASES).
+  expect(screen.getByRole('tab', { name: 'Submit Code' })).toBeInTheDocument();
   // They're tabs now, never nav links.
   expect(screen.queryByRole('link', { name: 'Submissions' })).not.toBeInTheDocument();
   expect(screen.queryByRole('link', { name: 'Datasets' })).not.toBeInTheDocument();
@@ -970,7 +993,10 @@ test('an admin (per the backend) sees the Admin link and can open the Admin page
     return link;
   }));
 
-  expect(await screen.findByText('Submitter accounts')).toBeInTheDocument();
+  // The Admin page's own masthead — the "Submitter accounts" card this used
+  // to wait for was replaced when the page was rewired to the real
+  // code-submission records.
+  expect(await screen.findByText('System administration')).toBeInTheDocument();
 });
 
 test('a signed-in non-admin who goes straight to /admin by URL lands on Overview instead', async () => {
@@ -982,7 +1008,7 @@ test('a signed-in non-admin who goes straight to /admin by URL lands on Overview
   });
 
   await waitFor(() => expect(window.location.pathname).toBe('/overview'));
-  expect(screen.queryByText('Submitter accounts')).not.toBeInTheDocument();
+  expect(screen.queryByText('System administration')).not.toBeInTheDocument();
 });
 
 test('a signed-out user who navigates straight to /submissions by URL is redirected to sign-in', async () => {
@@ -1066,4 +1092,22 @@ test('applies saved density and reduce-motion preferences to the page', () => {
 
   expect(document.documentElement.dataset.density).toBe('compact');
   expect(document.documentElement.dataset.reduceMotion).toBe('true');
+});
+
+// The verify-email route is the one guarded route an unverified account can
+// open, and RequireAuth sends it there from every other one — the frontend
+// half of the backend's requireVerifiedEmail gate.
+test('an unverified account asking for a guarded route lands on the verify page with a code already sent', async () => {
+  window.history.pushState({}, '', '/profile');
+  render(<App />);
+  await act(async () => {
+    auth.currentUser = fakeFirebaseUser({ email: 'new@example.test' }, { value: false }, { value: false });
+    authCallback(auth.currentUser);
+  });
+
+  await waitFor(() => expect(window.location.pathname).toBe('/verify-email'));
+  expect(await screen.findByRole('heading', { name: 'Verify your email' })).toBeInTheDocument();
+  // A code is mailed on arrival: no "send" click before anything happens.
+  await waitFor(() => expect(requestEmailVerificationCode).toHaveBeenCalledTimes(1));
+  expect(await screen.findByLabelText('Verification code')).toBeInTheDocument();
 });

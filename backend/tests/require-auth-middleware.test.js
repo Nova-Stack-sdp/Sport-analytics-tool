@@ -22,10 +22,12 @@ jest.unstable_mockModule('firebase-admin', () => ({
 }));
 
 let requireAuth;
+let requireFreshAuth;
 let requireAdmin;
+let requireVerifiedEmail;
 
 beforeAll(async () => {
-  ({ requireAuth, requireAdmin } = await import('../src/middleware/requireAuth.js'));
+  ({ requireAuth, requireFreshAuth, requireAdmin, requireVerifiedEmail } = await import('../src/middleware/requireAuth.js'));
 });
 
 function buildRes() {
@@ -103,7 +105,7 @@ describe('requireAuth', () => {
 
     await requireAuth(req, res, next);
 
-    expect(req.user).toEqual({ uid: 'user_123', email: 'driver@example.com', developer: false, admin: false });
+    expect(req.user).toEqual({ uid: 'user_123', email: 'driver@example.com', emailVerified: false, developer: false, admin: false });
     expect(next).toHaveBeenCalled();
     expect(res.status).not.toHaveBeenCalled();
   });
@@ -116,7 +118,7 @@ describe('requireAuth', () => {
 
     await requireAuth(req, res, next);
 
-    expect(req.user).toEqual({ uid: 'user_123', email: null, developer: false, admin: false });
+    expect(req.user).toEqual({ uid: 'user_123', email: null, emailVerified: false, developer: false, admin: false });
     expect(next).toHaveBeenCalled();
   });
 
@@ -128,8 +130,17 @@ describe('requireAuth', () => {
 
     await requireAuth(req, res, next);
 
-    expect(req.user).toEqual({ uid: 'user_123', email: 'dev@example.com', developer: true, admin: false });
+    expect(req.user).toEqual({ uid: 'user_123', email: 'dev@example.com', emailVerified: false, developer: true, admin: false });
     expect(next).toHaveBeenCalled();
+  });
+
+  test('skips the revocation lookup — the plain variant stays one verify call', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user_123' });
+    const req = { headers: { authorization: 'Bearer good-token' } };
+
+    await requireAuth(req, buildRes(), jest.fn());
+
+    expect(mockVerifyIdToken).toHaveBeenCalledWith('good-token', false);
   });
 });
 
@@ -170,6 +181,48 @@ describe('requireAuth admin flag (ADMIN_UIDS allowlist)', () => {
   });
 });
 
+describe('requireFreshAuth', () => {
+  test('asks Firebase for the revocation check on every request', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user_123', email: 'driver@example.com' });
+    const req = { headers: { authorization: 'Bearer good-token' } };
+    const res = buildRes();
+    const next = jest.fn();
+
+    await requireFreshAuth(req, res, next);
+
+    expect(mockVerifyIdToken).toHaveBeenCalledWith('good-token', true);
+    expect(req.user.uid).toBe('user_123');
+    expect(next).toHaveBeenCalled();
+  });
+
+  test('rejects a revoked or disabled account like any invalid token', async () => {
+    // With checkRevoked the Admin SDK rejects when the user was disabled,
+    // deleted, or had their refresh tokens revoked — well before expiry.
+    mockVerifyIdToken.mockRejectedValue(new Error('Firebase ID token has been revoked'));
+    const req = { headers: { authorization: 'Bearer revoked-token' } };
+    const res = buildRes();
+    const next = jest.fn();
+
+    await requireFreshAuth(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ error: 'Invalid or expired token' });
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  test('still reads the cookie transport, so the frontend needs no change', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user_123' });
+    const req = { headers: {}, cookies: { __session: 'cookie-token' } };
+    const res = buildRes();
+    const next = jest.fn();
+
+    await requireFreshAuth(req, res, next);
+
+    expect(mockVerifyIdToken).toHaveBeenCalledWith('cookie-token', true);
+    expect(next).toHaveBeenCalled();
+  });
+});
+
 describe('requireAdmin', () => {
   test('lets an admin through', () => {
     const next = jest.fn();
@@ -196,6 +249,60 @@ describe('requireAdmin', () => {
     const res = buildRes();
 
     requireAdmin({}, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(next).not.toHaveBeenCalled();
+  });
+});
+
+describe('requireAuth emailVerified flag', () => {
+  test('carries the standard email_verified claim onto req.user', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user_123', email: 'ok@example.com', email_verified: true });
+    const req = { headers: { authorization: 'Bearer good-token' } };
+
+    await requireAuth(req, buildRes(), jest.fn());
+
+    expect(req.user.emailVerified).toBe(true);
+  });
+});
+
+describe('requireVerifiedEmail', () => {
+  test('lets a verified user through', () => {
+    const next = jest.fn();
+    const res = buildRes();
+
+    requireVerifiedEmail({ user: { uid: 'u1', emailVerified: true, admin: false } }, res, next);
+
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  test('returns 403 with EMAIL_NOT_VERIFIED for a signed-in unverified user', () => {
+    const next = jest.fn();
+    const res = buildRes();
+
+    requireVerifiedEmail({ user: { uid: 'u1', emailVerified: false, admin: false } }, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({ error: 'Email not verified', code: 'EMAIL_NOT_VERIFIED' });
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  test('exempts an admin whose own address was never verified', () => {
+    const next = jest.fn();
+    const res = buildRes();
+
+    requireVerifiedEmail({ user: { uid: 'u1', emailVerified: false, admin: true } }, res, next);
+
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  test('returns 401 when used without requireAuth having set a user', () => {
+    const next = jest.fn();
+    const res = buildRes();
+
+    requireVerifiedEmail({}, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(next).not.toHaveBeenCalled();
