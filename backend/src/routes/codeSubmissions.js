@@ -94,6 +94,54 @@ codeSubmissionsRouter.post('/', requireAuth, requireVerifiedEmail, requireDevelo
   }
 });
 
+// Approved code lives in verified_code, not code_submission. These map a
+// verified row onto the same shape the admin list/detail already use, with
+// `id` set to the original submission ID so links and keys stay stable.
+const LIST_SELECT = {
+  id: true,
+  title: true,
+  language: true,
+  status: true,
+  submitterId: true,
+  submitterEmail: true,
+  submittedAt: true,
+  reviewedBy: true,
+  reviewedAt: true,
+};
+
+function verifiedAsListRow(v) {
+  return {
+    id: v.sourceSubmissionId,
+    verifiedCodeId: v.id,
+    title: v.title,
+    language: v.language,
+    status: 'approved',
+    submitterId: v.submitterId,
+    submitterEmail: v.submitterEmail,
+    submittedAt: v.submittedAt,
+    reviewedBy: v.verifiedBy,
+    reviewedAt: v.verifiedAt,
+  };
+}
+
+function findVerifiedForList(take) {
+  return prisma.verifiedCode.findMany({
+    orderBy: { submittedAt: 'desc' },
+    take,
+    select: {
+      id: true,
+      sourceSubmissionId: true,
+      title: true,
+      language: true,
+      submitterId: true,
+      submitterEmail: true,
+      submittedAt: true,
+      verifiedBy: true,
+      verifiedAt: true,
+    },
+  });
+}
+
 codeSubmissionsRouter.get('/', requireAuth, requireVerifiedEmail, requireAdmin, async (req, res, next) => {
   try {
     const { status } = req.query;
@@ -101,28 +149,32 @@ codeSubmissionsRouter.get('/', requireAuth, requireVerifiedEmail, requireAdmin, 
       return res.status(400).json({ error: `status must be one of: ${STATUSES.join(', ')}` });
     }
 
-    const [submissions, grouped] = await Promise.all([
-      prisma.codeSubmission.findMany({
-        where: status ? { status } : {},
-        orderBy: { submittedAt: 'desc' },
-        take: LIST_LIMIT,
-        select: {
-          id: true,
-          title: true,
-          language: true,
-          status: true,
-          submitterId: true,
-          submitterEmail: true,
-          submittedAt: true,
-          reviewedBy: true,
-          reviewedAt: true,
-        },
-      }),
+    // Pending and rejected rows come from code_submission; approved rows
+    // come from verified_code. code_submission rows still marked 'approved'
+    // (from before approval moved code) are never listed, so nothing shows
+    // twice.
+    const [unreviewed, verified, grouped, approvedCount] = await Promise.all([
+      status === 'approved'
+        ? []
+        : prisma.codeSubmission.findMany({
+          where: status ? { status } : { status: { in: ['pending', 'rejected'] } },
+          orderBy: { submittedAt: 'desc' },
+          take: LIST_LIMIT,
+          select: LIST_SELECT,
+        }),
+      status === undefined || status === 'approved' ? findVerifiedForList(LIST_LIMIT) : [],
       prisma.codeSubmission.groupBy({ by: ['status'], _count: { _all: true } }),
+      prisma.verifiedCode.count(),
     ]);
 
-    const counts = { pending: 0, approved: 0, rejected: 0 };
-    for (const row of grouped) counts[row.status] = row._count._all;
+    const submissions = [...unreviewed, ...verified.map(verifiedAsListRow)]
+      .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))
+      .slice(0, LIST_LIMIT);
+
+    const counts = { pending: 0, approved: approvedCount, rejected: 0 };
+    for (const row of grouped) {
+      if (row.status !== 'approved') counts[row.status] = row._count._all;
+    }
 
     res.json({ submissions, counts });
   } catch (err) {

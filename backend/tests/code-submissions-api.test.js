@@ -21,6 +21,11 @@ const mockPrisma = {
     updateMany: jest.fn(),
     groupBy: jest.fn(),
   },
+  verifiedCode: {
+    findMany: jest.fn(),
+    findUnique: jest.fn(),
+    count: jest.fn(),
+  },
   $transaction: jest.fn((callback) => callback(mockTx)),
 };
 jest.unstable_mockModule('../src/lib/prisma.js', () => ({ prisma: mockPrisma }));
@@ -45,6 +50,9 @@ beforeEach(() => {
   });
   mockPrisma.codeSubmission.findMany.mockResolvedValue([]);
   mockPrisma.codeSubmission.groupBy.mockResolvedValue([]);
+  mockPrisma.verifiedCode.findMany.mockResolvedValue([]);
+  mockPrisma.verifiedCode.findUnique.mockResolvedValue(null);
+  mockPrisma.verifiedCode.count.mockResolvedValue(0);
   mockPrisma.codeSubmission.updateMany.mockResolvedValue({ count: 1 });
     mockTx.codeSubmission.updateMany.mockResolvedValue({ count: 1 });
   mockTx.codeSubmission.findUnique.mockResolvedValue({
@@ -155,20 +163,74 @@ describe('GET /api/code-submissions', () => {
     expect(res.status).toBe(403);
   });
 
-  test('returns the rows and per-status counts from the database', async () => {
+  test('returns pending rows and per-status counts, with approved counted from verified code', async () => {
     asAdmin();
     mockPrisma.codeSubmission.findMany.mockResolvedValue([{ id: 'cs-1', title: 'Tyre delta', status: 'pending' }]);
     mockPrisma.codeSubmission.groupBy.mockResolvedValue([
       { status: 'pending', _count: { _all: 2 } },
-      { status: 'approved', _count: { _all: 5 } },
+      { status: 'rejected', _count: { _all: 1 } },
+      // A leftover 'approved' code_submission row must not be counted; the
+      // approved count comes from verified_code.
+      { status: 'approved', _count: { _all: 9 } },
     ]);
+    mockPrisma.verifiedCode.count.mockResolvedValue(5);
 
     const res = await authed(request(createApp()).get('/api/code-submissions?status=pending'));
 
     expect(res.status).toBe(200);
     expect(res.body.submissions).toHaveLength(1);
-    expect(res.body.counts).toEqual({ pending: 2, approved: 5, rejected: 0 });
+    expect(res.body.counts).toEqual({ pending: 2, approved: 5, rejected: 1 });
     expect(mockPrisma.codeSubmission.findMany.mock.calls[0][0].where).toEqual({ status: 'pending' });
+    expect(mockPrisma.verifiedCode.findMany).not.toHaveBeenCalled();
+  });
+
+  const verifiedRow = {
+    id: 'vc-1',
+    sourceSubmissionId: 'cs-7',
+    title: 'Average pit loss',
+    language: 'JavaScript',
+    submitterId: 'dev-uid',
+    submitterEmail: 'dev@example.test',
+    submittedAt: new Date('2026-10-06T08:00:00Z'),
+    verifiedBy: 'admin-uid',
+    verifiedAt: new Date('2026-10-07T08:00:00Z'),
+  };
+
+  test('the approved tab reads verified code, keyed by the original submission id', async () => {
+    asAdmin();
+    mockPrisma.verifiedCode.findMany.mockResolvedValue([verifiedRow]);
+
+    const res = await authed(request(createApp()).get('/api/code-submissions?status=approved'));
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.codeSubmission.findMany).not.toHaveBeenCalled();
+    expect(res.body.submissions).toEqual([{
+      id: 'cs-7',
+      verifiedCodeId: 'vc-1',
+      title: 'Average pit loss',
+      language: 'JavaScript',
+      status: 'approved',
+      submitterId: 'dev-uid',
+      submitterEmail: 'dev@example.test',
+      submittedAt: '2026-10-06T08:00:00.000Z',
+      reviewedBy: 'admin-uid',
+      reviewedAt: '2026-10-07T08:00:00.000Z',
+    }]);
+  });
+
+  test('with no filter, merges both tables newest first and never lists a leftover approved row twice', async () => {
+    asAdmin();
+    mockPrisma.codeSubmission.findMany.mockResolvedValue([
+      { id: 'cs-new', status: 'pending', submittedAt: new Date('2026-10-08T08:00:00Z') },
+      { id: 'cs-old', status: 'rejected', submittedAt: new Date('2026-10-01T08:00:00Z') },
+    ]);
+    mockPrisma.verifiedCode.findMany.mockResolvedValue([verifiedRow]);
+
+    const res = await authed(request(createApp()).get('/api/code-submissions'));
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.codeSubmission.findMany.mock.calls[0][0].where).toEqual({ status: { in: ['pending', 'rejected'] } });
+    expect(res.body.submissions.map((s) => s.id)).toEqual(['cs-new', 'cs-7', 'cs-old']);
   });
 
   test('rejects an unknown status filter', async () => {
