@@ -613,3 +613,41 @@ export function getTelemetryTVRaces() {
 export function getTelemetryTVRace(slug) {
   return request(`/api/telemetry-tv/races/${encodeURIComponent(slug)}`);
 }
+
+// ---------------------------------------------------------------------------
+// Approved code — public API (backend/src/api/v1/code.js)
+//
+// No sign-in needed. Each item is
+//   { slug, name, description, language, code, tags, approvedAt, endpoint }
+// where endpoint is the path to call it, e.g. /api/v1/code/average-pit-loss.
+// ---------------------------------------------------------------------------
+
+export function listPublicCode({ language, tag } = {}) {
+  const params = new URLSearchParams();
+  if (language) params.set('language', language);
+  if (tag) params.set('tag', tag);
+  const query = params.toString();
+  return request(`/api/v1/code${query ? `?${query}` : ''}`);
+}
+
+export function getPublicCode(slug) {
+  return request(`/api/v1/code/${encodeURIComponent(slug)}`);
+}
+
+// Full public URL of a script, for showing "how to call it".
+export function publicCodeUrl(endpoint) {
+  return `${API_BASE_URL}${endpoint}`;
+}
+
+// ---------------------------------------------------------------------------
+// Approved code — admin management (backend/src/routes/adminVerifiedCode.js)
+// ---------------------------------------------------------------------------
+
+export function listPublishedCode() {
+  return request('/api/admin/verified-code');
+}
+
+// Permanent: takes the script off the public API. Confirm with the admin first.
+export function removePublishedCode(id) {
+  return request(`/api/admin/verified-code/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}

@@ -20,6 +20,7 @@ import { newsRouter } from './routes/news.js';
 import { submissionsRouter } from './routes/submissions.js';
 import { adminDatasetsRouter } from './routes/adminDatasets.js';
 import { codeSubmissionsRouter } from './routes/codeSubmissions.js';
+import { adminVerifiedCodeRouter } from './routes/adminVerifiedCode.js';
 import { telemetryTVRouter } from './routes/telemetryTV.js';
 import { apiV1Router } from './api/v1/router.js';
 import { createRateLimiter } from './middleware/rateLimit.js';
@@ -181,6 +182,7 @@ export function createApp(options = {}) {
   app.use('/api/submissions', submissionsRouter);
   app.use('/api/admin/datasets', adminDatasetsRouter);
   app.use('/api/code-submissions', codeSubmissionsRouter);
+  app.use('/api/admin/verified-code', adminVerifiedCodeRouter);
   app.use('/api/telemetry-tv', telemetryTVRouter);
   app.use('/api/follows', followsRouter);
   app.use('/api/notifications', notificationsRouter);

@@ -37,6 +37,7 @@ import {
 } from './filters.js';
 import * as shape from './serializers.js';
 import { csvRow } from './csv.js';
+import { codeRouter } from './code.js';
 
 export const apiV1Router = Router();
 
@@ -92,9 +93,16 @@ apiV1Router.get('/', (req, res) => {
       'GET /api/v1/statistics/teams',
       'GET /api/v1/exports/events',
       'GET /api/v1/exports/driver-season-stats',
+      'GET /api/v1/code',
+      'GET /api/v1/code/:slug',
     ],
   });
 });
+
+// ------------------------------------------------------------------
+// Approved code (see ./code.js)
+// ------------------------------------------------------------------
+apiV1Router.use('/code', codeRouter);
 
 // ------------------------------------------------------------------
 // Fixtures

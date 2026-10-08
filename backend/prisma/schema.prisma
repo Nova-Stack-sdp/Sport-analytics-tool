@@ -443,6 +443,12 @@ model VerifiedCode {
   id                 String   @id @default(uuid()) @map("verified_code_id")
   sourceSubmissionId String   @unique @map("source_submission_id")
   title              String
+  // Public address of the script: /api/v1/code/<slug>. Filled in by the
+  // database on insert (trigger verified_code_assign_slug, see migration
+  // 20261009120000_add_verified_code_slug) from the title, e.g.
+  // "Average pit loss" -> average-pit-loss, with -2, -3... on clashes.
+  // Never changes afterwards, so links keep working.
+  slug               String   @unique @default("")
   language           String
   code               String
   description        String?

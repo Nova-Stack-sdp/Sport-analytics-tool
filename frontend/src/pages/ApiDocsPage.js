@@ -16,7 +16,23 @@ const V1_ENDPOINTS = [
   ['/api/v1/statistics/teams?season=', 'Season totals per team'],
   ['/api/v1/exports/events?format=csv|json', 'Download a filtered slice of events as a file (same filters as /events)'],
   ['/api/v1/exports/driver-season-stats?format=csv|json', 'Download the season table as a file'],
+  ['/api/v1/code?language=&tag=', 'Every approved developer script, newest first'],
+  ['/api/v1/code/:slug', 'One approved script: its code exactly as written, and what it does'],
 ];
+
+// What GET /api/v1/code/:slug returns (backend/src/api/v1/code.js).
+const CODE_EXAMPLE = `{
+  "data": {
+    "slug": "average-pit-loss",
+    "name": "Average pit loss",
+    "description": "Mean pit-lane time lost per stop, in seconds.",
+    "language": "JavaScript",
+    "code": "export function avgPitLoss(stops) { ... }",
+    "tags": ["pits", "strategy"],
+    "approvedAt": "2026-10-08T12:00:00.000Z",
+    "endpoint": "/api/v1/code/average-pit-loss"
+  }
+}`;
 
 function ApiDocsPage() {
   return (
@@ -155,6 +171,30 @@ function ApiDocsPage() {
           <div className="card-note">
             <b>Fair use:</b> each client may make 120 requests a minute to <span className="mono">/api/v1</span> and 10 exports a minute; beyond that the API answers <span className="mono">429</span> with a <span className="mono">Retry-After</span> header. Every response carries <span className="mono">RateLimit-Limit / -Remaining / -Reset</span> so a client can slow down before it gets there.
             {' '}<b>Caching:</b> repeated reads are served from memory for up to 60 seconds (<span className="mono">X-Cache: HIT</span>), so figures can lag a new sync by up to a minute. Responses carry an <span className="mono">ETag</span> — send it back as <span className="mono">If-None-Match</span> to get <span className="mono">304 Not Modified</span> instead of the same data again.
+          </div>
+        </div>
+
+        <div className="card" style={{ marginBottom: 16 }} id="api-v1-code">
+          <div className="card-head">
+            <div>
+              <div className="card-title">Approved code</div>
+              <div className="card-title-sub">Scripts developers submitted and an admin reviewed and approved</div>
+            </div>
+            <span className="pill pill-green">Live</span>
+          </div>
+          <p className="card-note" style={{ fontSize: 12.5, marginTop: 0 }}>
+            When an admin approves a developer's script it becomes part of the public API at a permanent address
+            made from its name: <span className="mono">Average pit loss</span> is served at{' '}
+            <span className="mono">/api/v1/code/average-pit-loss</span> (a second script with the same name gets
+            <span className="mono"> -2</span>). The API returns the code exactly as it was submitted and the
+            description of what it does; it does not run the code. Who submitted it is not part of the response.
+          </p>
+          <pre className="mono" style={{ margin: 0, padding: 12, overflowX: 'auto', background: 'var(--border-soft)', fontSize: 11.5 }}>{CODE_EXAMPLE}</pre>
+          <div className="card-note">
+            <span className="mono">GET /api/v1/code</span> returns <span className="mono">{'{ data: [ ... ] }'}</span> with the same
+            fields for every approved script, newest first; filter with <span className="mono">language=JavaScript|Python</span> and{' '}
+            <span className="mono">tag</span>. An unknown slug returns <span className="mono">404</span>. If an admin removes a script,
+            its address stops working (within the 60-second cache).
           </div>
         </div>
 
