@@ -18,11 +18,13 @@ const { SubmissionSource, SubmissionStatus } = pkg;
 
 export const submissionsRouter = Router();
 
-function requireDeveloperOrAdmin(req, res, next) {
-  if (!req.user.developer && !req.user.admin) {
-    return res.status(403).json({ error: 'Developer or admin access required to submit data' });
-  }
-  next();
+function developerOrAdminTo(action) {
+  return function requireDeveloperOrAdmin(req, res, next) {
+    if (!req.user.developer && !req.user.admin) {
+      return res.status(403).json({ error: `Developer or admin access required to ${action}` });
+    }
+    next();
+  };
 }
 
 /**
@@ -60,7 +62,7 @@ async function buildEntryLookup(sessionId) {
  * pending: events exist in the log but are excluded from derived stats
  * until an admin approves (see the LIVE filter in derivation/db.js).
  */
-submissionsRouter.post('/', requireAuth, requireVerifiedEmail, requireDeveloperOrAdmin, async (req, res, next) => {
+submissionsRouter.post('/', requireAuth, requireVerifiedEmail, developerOrAdminTo('submit data'), async (req, res, next) => {
   try {
     const { session_key: sessionKey } = req.body;
     if (!sessionKey) {
@@ -158,15 +160,27 @@ submissionsRouter.post('/', requireAuth, requireVerifiedEmail, requireDeveloperO
   }
 });
 
+const LISTABLE_STATUSES = Object.values(SubmissionStatus);
+
 /**
  * GET /api/submissions?status=pending
  * Review queue. Shape matches overview.js's existing submissionQueue
  * fields, plus review-relevant extras (submitterId, validationErrors).
+ *
+ * Admins see every submission. Developers see only their own — the rows
+ * carry other submitters' IDs and the raw records that failed validation,
+ * so they must not be visible to anyone else. Everyone else gets 403.
  */
-submissionsRouter.get('/', requireAuth, requireVerifiedEmail, async (req, res, next) => {
+submissionsRouter.get('/', requireAuth, requireVerifiedEmail, developerOrAdminTo('view submissions'), async (req, res, next) => {
   try {
     const { status } = req.query;
-    const where = status ? { status } : {};
+    if (status !== undefined && !LISTABLE_STATUSES.includes(status)) {
+      return res.status(400).json({ error: `status must be one of: ${LISTABLE_STATUSES.join(', ')}` });
+    }
+    const where = {
+      ...(status ? { status } : {}),
+      ...(req.user.admin ? {} : { submitterId: req.user.uid }),
+    };
     const submissions = await prisma.submission.findMany({
       where,
       orderBy: { submittedAt: 'desc' },

@@ -62,14 +62,14 @@ describe('DeveloperPage', () => {
     expect(screen.getByText('Submit a script')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: 'Submit Dataset' }));
-    expect(screen.getByText('Review & approval queue')).toBeInTheDocument();
+    expect(screen.getByText('My submissions')).toBeInTheDocument();
   });
 
   test.each([
     ['/developer?tab=datasets', 'Datasets', 'Build a custom export'],
     ['/developer?tab=submit-code', 'Submit Code', 'Submit a script'],
-    ['/developer?tab=submit-dataset', 'Submit Dataset', 'Review & approval queue'],
-    ['/developer?tab=submissions', 'Submit Dataset', 'Review & approval queue'],
+    ['/developer?tab=submit-dataset', 'Submit Dataset', 'My submissions'],
+    ['/developer?tab=submissions', 'Submit Dataset', 'My submissions'],
   ])('opens straight on the right tab from %s', (path, tabName, content) => {
     mockIsDeveloperMode = true;
     renderDeveloperPage(path);

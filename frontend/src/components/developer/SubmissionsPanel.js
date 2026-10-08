@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { submitData, listSubmissions, reviewSubmission } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 
 const REVIEW_TABS = ['Pending', 'Approved', 'Rejected'];
 const TAB_TO_STATUS = { Pending: 'pending', Approved: 'accepted', Rejected: 'rejected' };
@@ -13,7 +14,12 @@ function describeError(err) {
 // Submissions tab of the Developer page. Wired to POST/GET/PATCH
 // /api/submissions. Batch submission is a session_key + JSON textarea for
 // now, not drag-and-drop file upload — that's a follow-up.
+//
+// Admins see every submission and can approve/reject from here. Developers
+// see only their own submissions (the backend scopes the list) and no review
+// buttons, since the backend would refuse the action anyway.
 function SubmissionsPanel() {
+  const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState('Pending');
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -150,7 +156,9 @@ function SubmissionsPanel() {
         </div>
 
         <div className="card">
-          <div className="card-head"><div className="card-title">Review &amp; approval queue</div></div>
+          <div className="card-head">
+            <div className="card-title">{isAdmin ? 'Review & approval queue' : 'My submissions'}</div>
+          </div>
           <div className="tabs">
             {REVIEW_TABS.map((tab) => (
               <div
@@ -181,7 +189,7 @@ function SubmissionsPanel() {
                       {s.status === 'rejected' && <span className="pill status-rejected">Rejected</span>}
                     </td>
                     <td>
-                      {s.status === 'pending' && (
+                      {isAdmin && s.status === 'pending' && (
                         <div style={{ display: 'flex', gap: 6 }}>
                           <button className="btn btn-primary btn-sm" onClick={() => handleReview(s.id, 'accepted')}>Approve</button>
                           <button className="btn btn-ghost btn-sm" onClick={() => handleReview(s.id, 'rejected')}>Reject</button>
@@ -193,7 +201,11 @@ function SubmissionsPanel() {
               </tbody>
             </table>
           )}
-          <div className="card-note" style={{ marginTop: 14 }}>Approve/reject require admin access.</div>
+          <div className="card-note" style={{ marginTop: 14 }}>
+            {isAdmin
+              ? 'You are an admin, so this lists every submitter\'s batches.'
+              : 'Only you can see your submissions here. An admin reviews each pending batch.'}
+          </div>
         </div>
       </div>
     </div>
