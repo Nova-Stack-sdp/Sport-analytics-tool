@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { createApp } from './app.js';
 import { f1NewsService } from './lib/f1NewsFeed.js';
+import { processRaceReminders } from './services/raceReminderService.js';
 import { prisma } from './lib/prisma.js';
 import { createRejectedCodeCleanup } from './jobs/rejected-code-cleanup.js';
 
@@ -25,5 +26,14 @@ const server = app.listen(port, '0.0.0.0', () => {
   console.log(`Backend listening on port ${port}`);
   f1NewsService.start();
   rejectedCodeCleanup.start();
+
+  // Run race reminder worker every 15 minutes
+  setInterval(async () => {
+    try {
+      await processRaceReminders();
+    } catch (err) {
+      console.error('Error running race reminders:', err);
+    }
+  }, 15 * 60 * 1000);
 });
 server.on('close', () => { void rejectedCodeCleanup.stop(); });
