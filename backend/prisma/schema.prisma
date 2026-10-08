@@ -212,11 +212,29 @@ model Submission {
   deletedBy        String?          @map("deleted_by")
 
   events Event[]
+  upload SubmissionUpload?
 
   @@index([sessionId])
   @@index([status])
   @@index([purpose, deletedAt, submittedAt])
   @@map("submission")
+}
+
+// The dataset exactly as it was uploaded, byte for byte, so an admin can
+// download what the developer sent. Kept in its own table (like driver_image)
+// so queries that list submissions never pull megabytes of upload along.
+// Submissions made before this table existed have no row here.
+model SubmissionUpload {
+  submissionId String     @id @map("submission_id")
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  data         Bytes
+  contentType  String     @map("content_type")
+  sizeBytes    Int        @map("size_bytes")
+  // Hex SHA-256 of data, so a download can be checked against what arrived.
+  sha256       String
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  @@map("submission_upload")
 }
 
 enum EventType {
