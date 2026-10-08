@@ -180,4 +180,14 @@ describe('in the app', () => {
     expect((await request(app).get('/api/fixtures')).status).toBe(429);
     expect((await request(app).get('/api/v1')).status).toBe(200);
   });
+
+  test('token exchanges have their own tight limit (POST /api/auth/session)', async () => {
+    const app = createApp({ sessionRateLimit: 2 });
+    // No idToken in the body: the route answers 400, but every hit still
+    // counts — the point is that the token-exchange endpoint cannot be
+    // hammered to spray or brute-force tokens.
+    expect((await request(app).post('/api/auth/session').send({})).status).toBe(400);
+    expect((await request(app).post('/api/auth/session').send({})).status).toBe(400);
+    expect((await request(app).post('/api/auth/session').send({})).status).toBe(429);
+  });
 });

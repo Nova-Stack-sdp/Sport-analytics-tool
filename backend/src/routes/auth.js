@@ -15,14 +15,21 @@
  *   GET  /api/auth/admin-check     — 200 for admins, 403 for everyone else
  *   POST /api/auth/developer-mode  — set the `developer` custom claim on the
  *                                    signed-in user's own Firebase account
- *   PUT  /api/user/favorites       — update favorite driver and team in PostgreSQL
+ *   PUT  /api/auth/favorites       — update favorite driver and team in PostgreSQL
+ *   DELETE /api/auth/account       — delete the signed-in account everywhere:
+ *                                    uid-keyed PostgreSQL rows, the Firestore
+ *                                    mirror doc, the Firebase user, the cookie
+ *
+ * The 6-digit email verification code lives in routes/emailVerification.js,
+ * mounted at /api/auth/verify-email.
  */
 import { Router } from 'express';
 import admin from 'firebase-admin';
-import { requireAuth, requireAdmin, getAdminApp } from '../middleware/requireAuth.js';
+import { requireAuth, requireFreshAuth, requireAdmin, requireVerifiedEmail, getAdminApp } from '../middleware/requireAuth.js';
 import { isAdminUid } from '../lib/adminAccess.js';
 // 1. ADD THIS: Import your Prisma client (adjust the path if your Prisma client is exported from a lib folder)
 import { prisma } from '../lib/prisma.js';
+import { getFirestore } from '../lib/firebaseAdmin.js';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -30,6 +37,14 @@ export const authRouter = Router();
 
 // Cookie name — kept consistent across set/clear/read.
 const COOKIE_NAME = '__session';
+
+// Secure cookies require HTTPS, and SameSite=None (needed because the
+// Netlify frontend and the Northflank backend are different sites) is only
+// accepted by browsers on secure cookies — so the two flip together with
+// the environment. This must exist as a variable: the cookie options below
+// reference it, and a bare reference threw inside res.cookie(), which the
+// route's catch then reported as "Invalid or expired Firebase token" — so
+// every session exchange failed with 401 even for a perfectly valid token.
 
 // Cookie options shared by set and clear.  Secure is only meaningful over
 // HTTPS (production); in local dev the cookie is sent over plain HTTP.
@@ -81,7 +96,12 @@ authRouter.post('/session', async (req, res, next) => {
     }
 
     res.cookie(COOKIE_NAME, idToken, cookieOptions());
-    res.json({ uid: decoded.uid, email: decoded.email ?? null, admin: isAdminUid(decoded.uid) });
+    res.json({
+      uid: decoded.uid,
+      email: decoded.email ?? null,
+      emailVerified: decoded.email_verified === true,
+      admin: isAdminUid(decoded.uid),
+    });
   } catch (err) {
     // Anything reaching this catch happened before the profile upsert, i.e.
     // during token verification/admin-app setup — so it's safe to treat as
@@ -111,6 +131,7 @@ authRouter.get('/me', requireAuth, (req, res) => {
   res.json({
     uid: req.user.uid,
     email: req.user.email,
+    emailVerified: req.user.emailVerified,
     developer: req.user.developer,
     admin: req.user.admin,
   });
@@ -133,10 +154,13 @@ authRouter.get('/admin-check', requireAuth, requireAdmin, (req, res) => {
 // Self-service: a signed-in user toggles their own developer mode from
 // Settings. This is NOT an admin-grant flow — anyone signed in can turn
 // it on for themselves, same as the earlier localStorage-only version,
-// just now persisted on the account instead of the browser. If developer
-// access ever needs to be admin-approved instead, this is the endpoint
-// to lock down (e.g. require an admin claim on the caller).
-authRouter.post('/developer-mode', requireAuth, async (req, res) => {
+// just now persisted on the account instead of the browser. It uses
+// requireFreshAuth (revocation checked) because it writes a custom claim —
+// an account that was disabled or had its tokens revoked must not be able
+// to grant itself anything. If developer access ever needs to be
+// admin-approved instead, this is the endpoint to lock down (e.g. require
+// an admin claim on the caller).
+authRouter.post('/developer-mode', requireFreshAuth, requireVerifiedEmail, async (req, res) => {
   const { enabled } = req.body;
   if (typeof enabled !== 'boolean') {
     return res.status(400).json({ error: 'enabled must be a boolean' });
@@ -158,7 +182,7 @@ authRouter.post('/developer-mode', requireAuth, async (req, res) => {
 });
 
 // PUT /api/user/favorites — Update favorite driver and team
-authRouter.put('/favorites', requireAuth, async (req, res) => {
+authRouter.put('/favorites', requireAuth, requireVerifiedEmail, async (req, res) => {
   const { favoriteTeamId, favoriteDriverId } = req.body;
 
   try {
@@ -170,4 +194,70 @@ authRouter.put('/favorites', requireAuth, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Failed to update favorites' });
   }
+});
+
+// ------------------------------------------------------------------
+// DELETE /api/auth/account — permanently delete the signed-in account
+// ------------------------------------------------------------------
+// This is the "Delete profile" button under Profile. Deleting spans three
+// systems, and the order below is deliberate:
+//   1. PostgreSQL first, in one transaction — every uid-keyed row goes or
+//      none does, and a retry after a failure stays safe (deleteMany over
+//      rows that are already gone is a no-op).
+//   2. The Firestore mirror doc (users/{uid}: display name, follows, news
+//      preferences) — best effort, because the account is being deleted
+//      regardless and a leftover doc would be unreachable.
+//   3. The Firebase account itself, last — until it is gone the user can
+//      retry a half-finished deletion, and user-not-found means a retry of
+//      a deletion that already succeeded rather than an error.
+// Code submissions go with the account: they are the user's own data, keyed
+// by submitter id, and "completely" outranks the review queue.
+//
+// requireFreshAuth, not requireAuth: the deletion below checks with Firebase
+// that the token has not been revoked or the account disabled, so a stolen
+// or stale session cannot trigger a deletion that the owner already cut off.
+authRouter.delete('/account', requireFreshAuth, requireVerifiedEmail, async (req, res) => {
+  const uid = req.user.uid;
+
+  try {
+    await prisma.$transaction([
+      prisma.follow.deleteMany({ where: { userId: uid } }),
+      prisma.notification.deleteMany({ where: { userId: uid } }),
+      prisma.emailVerificationCode.deleteMany({ where: { userId: uid } }),
+      prisma.codeSubmission.deleteMany({ where: { submitterId: uid } }),
+      // deleteMany rather than delete: this keeps the idempotent-retry
+      // property above (the profile row may already be gone).
+      prisma.userProfile.deleteMany({ where: { userId: uid } }),
+    ]);
+  } catch (err) {
+    console.error('auth/account delete: failed to remove database rows:', err.message);
+    return res.status(500).json({ error: 'Could not delete your account. Please try again.' });
+  }
+
+  try {
+    await getFirestore().doc(`users/${uid}`).delete();
+  } catch (err) {
+    console.error('auth/account delete: failed to remove Firestore document:', err.message);
+  }
+
+  try {
+    const app = getAdminApp();
+    // Revoke refresh tokens first: even if the deleteUser call below fails,
+    // every refresh path for this account is already dead, and any ID token
+    // still inside its 1-hour window is rejected by the requireFreshAuth
+    // check on this route. auth/user-not-found means the account is already
+    // gone — a retry of a finished deletion, not an error.
+    await admin.auth(app).revokeRefreshTokens(uid);
+    await admin.auth(app).deleteUser(uid);
+  } catch (err) {
+    if (err.code !== 'auth/user-not-found') {
+      console.error('auth/account delete: failed to delete Firebase user:', err.message);
+      return res.status(500).json({ error: 'Could not delete your account. Please try again.' });
+    }
+  }
+
+  // There is no account left to use this token — clear the session cookie
+  // exactly the way logout does.
+  res.clearCookie(COOKIE_NAME, { path: '/' });
+  res.json({ status: 'deleted' });
 });

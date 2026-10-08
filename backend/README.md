@@ -61,11 +61,17 @@ Create a `.env` file in `backend/` (never committed — see `.gitignore`):
 
 ```
 DATABASE_URL="your-neon-connection-string"
+DIRECT_URL="the-same-string-with-pooling-off"
 ```
 
-Get the connection string from the team's Neon dashboard. Prisma 7 needs this
-loaded explicitly — `prisma.config.ts` imports `dotenv/config` for this reason;
-don't remove that import.
+Both come from the team's Neon dashboard (Connect → your branch → the
+**Connection pooling** toggle): `DATABASE_URL` is the pooled string (host
+contains `-pooler`) the app runs on, `DIRECT_URL` the unpooled one migrations
+run on — PgBouncer can't serve the session-level connection migrations need,
+and running them over the pooled host fails with `prepared statement ...
+already exists`. If `DIRECT_URL` is absent, the CLI falls back to
+`DATABASE_URL`. Prisma 7 needs this loaded explicitly — `prisma.config.ts`
+imports `dotenv/config` for this reason; don't remove that import.
 
 ```bash
 npx prisma generate

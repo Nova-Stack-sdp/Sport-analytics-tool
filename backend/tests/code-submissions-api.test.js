@@ -37,7 +37,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   process.env.FIREBASE_SERVICE_ACCOUNT = JSON.stringify({ project_id: 'test-project' });
   process.env.ADMIN_UIDS = 'admin-uid';
-  mockVerifyIdToken.mockResolvedValue({ uid: 'dev-uid', email: 'dev@example.test', developer: true });
+  mockVerifyIdToken.mockResolvedValue({ uid: 'dev-uid', email: 'dev@example.test', developer: true, email_verified: true });
   mockPrisma.codeSubmission.create.mockResolvedValue({
     id: 'cs-1',
     status: 'pending',
@@ -69,7 +69,7 @@ function authed(req) {
 }
 
 function asAdmin() {
-  mockVerifyIdToken.mockResolvedValue({ uid: 'admin-uid', email: 'admin@example.test', developer: false });
+  mockVerifyIdToken.mockResolvedValue({ uid: 'admin-uid', email: 'admin@example.test', developer: false, email_verified: true });
 }
 
 const VALID_BODY = {
@@ -90,6 +90,20 @@ describe('POST /api/code-submissions', () => {
     mockVerifyIdToken.mockResolvedValue({ uid: 'plain-uid', email: null });
     const res = await authed(request(createApp()).post('/api/code-submissions')).send(VALID_BODY);
     expect(res.status).toBe(403);
+    expect(mockPrisma.codeSubmission.create).not.toHaveBeenCalled();
+  });
+
+  test('rejects a developer whose email is not verified yet', async () => {
+    mockVerifyIdToken.mockResolvedValue({
+      uid: 'dev-uid',
+      email: 'dev@example.test',
+      developer: true,
+      email_verified: false,
+    });
+    const res = await authed(request(createApp()).post('/api/code-submissions')).send(VALID_BODY);
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('EMAIL_NOT_VERIFIED');
     expect(mockPrisma.codeSubmission.create).not.toHaveBeenCalled();
   });
 

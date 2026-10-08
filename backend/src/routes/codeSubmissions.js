@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
-import { requireAuth, requireAdmin } from '../middleware/requireAuth.js';
+import { requireAuth, requireAdmin, requireVerifiedEmail } from '../middleware/requireAuth.js';
 
 export const codeSubmissionsRouter = Router();
 
@@ -71,7 +71,7 @@ function validateBody(body = {}) {
   return { errors, value: { title, language, code, description: description || null, tags } };
 }
 
-codeSubmissionsRouter.post('/', requireAuth, requireDeveloperOrAdmin, async (req, res, next) => {
+codeSubmissionsRouter.post('/', requireAuth, requireVerifiedEmail, requireDeveloperOrAdmin, async (req, res, next) => {
   try {
     const { errors, value } = validateBody(req.body);
     if (errors.length > 0) {
@@ -94,7 +94,7 @@ codeSubmissionsRouter.post('/', requireAuth, requireDeveloperOrAdmin, async (req
   }
 });
 
-codeSubmissionsRouter.get('/', requireAuth, requireAdmin, async (req, res, next) => {
+codeSubmissionsRouter.get('/', requireAuth, requireVerifiedEmail, requireAdmin, async (req, res, next) => {
   try {
     const { status } = req.query;
     if (status !== undefined && !STATUSES.includes(status)) {
@@ -130,7 +130,7 @@ codeSubmissionsRouter.get('/', requireAuth, requireAdmin, async (req, res, next)
   }
 });
 
-codeSubmissionsRouter.get('/:id', requireAuth, requireAdmin, async (req, res, next) => {
+codeSubmissionsRouter.get('/:id', requireAuth, requireVerifiedEmail, requireAdmin, async (req, res, next) => {
   try {
     const submission = await prisma.codeSubmission.findUnique({ where: { id: req.params.id } });
     if (!submission) return res.status(404).json({ error: 'Code submission not found' });
@@ -140,7 +140,7 @@ codeSubmissionsRouter.get('/:id', requireAuth, requireAdmin, async (req, res, ne
   }
 });
 
-codeSubmissionsRouter.patch('/:id', requireAuth, requireAdmin, async (req, res, next) => {
+codeSubmissionsRouter.patch('/:id', requireAuth, requireVerifiedEmail, requireAdmin, async (req, res, next) => {
   try {
     const { status } = req.body ?? {};
     if (!REVIEW_STATUSES.includes(status)) {
