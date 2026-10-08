@@ -216,10 +216,9 @@ submissionsRouter.get('/', requireAuth, requireVerifiedEmail, async (req, res, n
 /**
  * PATCH /api/submissions/:id
  * Body: { status: 'accepted' | 'rejected' }
- * Admin review action. No role check yet — any authenticated user can
- * approve/reject (no Submitter/Role model exists in the schema yet; see
- * project notes). Approving triggers derivation so the now-live events
- * actually count toward stats.
+ * Admin review action (requireAdmin). Approving triggers derivation so the
+ * now-live events actually count toward stats. Test data (purpose
+ * code_test) and deleted datasets cannot be reviewed here.
  */
 submissionsRouter.patch('/:id', requireAuth, requireVerifiedEmail, requireAdmin, async (req, res, next) => {
   try {
@@ -230,20 +229,33 @@ submissionsRouter.patch('/:id', requireAuth, requireVerifiedEmail, requireAdmin,
 
     const submission = await prisma.submission.findUnique({ where: { id: req.params.id } });
     if (!submission) return res.status(404).json({ error: 'Submission not found' });
+    if (submission.deletedAt) {
+      return res.status(409).json({ error: 'Submission has been deleted; restore it before reviewing' });
+    }
+    if (submission.purpose === SubmissionPurpose.code_test) {
+      return res.status(409).json({
+        error: 'Test data is not reviewed on its own; it is reviewed together with the code it belongs to',
+      });
+    }
     if (submission.status !== SubmissionStatus.pending) {
       return res.status(409).json({ error: `Submission is already '${submission.status}', not pending` });
     }
 
-    const updated = await prisma.submission.update({
-      where: { id: submission.id },
+    // Conditional update: if the submission was reviewed or deleted after the
+    // read above, nothing changes and the admin gets a conflict.
+    const { count } = await prisma.submission.updateMany({
+      where: { id: submission.id, status: SubmissionStatus.pending, deletedAt: null },
       data: { status, reviewedBy: req.user.uid, reviewedAt: new Date() },
     });
+    if (count === 0) {
+      return res.status(409).json({ error: 'Submission changed while it was being reviewed; reload and try again' });
+    }
 
     if (status === SubmissionStatus.accepted) {
       await runDerivationForSession(prisma, submission.sessionId);
     }
 
-    res.json({ submissionId: updated.id, status: updated.status });
+    res.json({ submissionId: submission.id, status });
   } catch (err) {
     next(err);
   }

@@ -22,7 +22,7 @@ const mockTx = {
 const mockPrisma = {
   session: { findUnique: jest.fn() },
   entry: { findMany: jest.fn() },
-  submission: { findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
+  submission: { findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
   $transaction: jest.fn((callback) => callback(mockTx)),
 };
 jest.unstable_mockModule('../src/lib/prisma.js', () => ({ prisma: mockPrisma }));
@@ -301,29 +301,55 @@ describe('PATCH /api/submissions/:id', () => {
   });
 
   test('approving a pending submission updates it and triggers derivation', async () => {
-    mockPrisma.submission.findUnique.mockResolvedValue({ id: 'sub-1', status: 'pending', sessionId: 'session-1' });
-    mockPrisma.submission.update.mockResolvedValue({ id: 'sub-1', status: 'accepted' });
+    mockPrisma.submission.findUnique.mockResolvedValue({ id: 'sub-1', status: 'pending', sessionId: 'session-1', purpose: 'race_data', deletedAt: null });
+    mockPrisma.submission.updateMany.mockResolvedValue({ count: 1 });
 
     const app = createApp();
     const res = await authed(request(app).patch('/api/submissions/sub-1')).send({ status: 'accepted' });
 
     expect(res.status).toBe(200);
-    expect(res.body.status).toBe('accepted');
+    expect(res.body).toEqual({ submissionId: 'sub-1', status: 'accepted' });
     expect(mockRunDerivationForSession).toHaveBeenCalledWith(mockPrisma, 'session-1');
-    expect(mockPrisma.submission.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ reviewedBy: 'test-uid' }) })
-    );
+    expect(mockPrisma.submission.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'sub-1', status: 'pending', deletedAt: null },
+      data: expect.objectContaining({ status: 'accepted', reviewedBy: 'test-uid' }),
+    }));
   });
 
   test('rejecting a pending submission updates it without triggering derivation', async () => {
-    mockPrisma.submission.findUnique.mockResolvedValue({ id: 'sub-1', status: 'pending', sessionId: 'session-1' });
-    mockPrisma.submission.update.mockResolvedValue({ id: 'sub-1', status: 'rejected' });
+    mockPrisma.submission.findUnique.mockResolvedValue({ id: 'sub-1', status: 'pending', sessionId: 'session-1', purpose: 'race_data', deletedAt: null });
+    mockPrisma.submission.updateMany.mockResolvedValue({ count: 1 });
 
     const app = createApp();
     const res = await authed(request(app).patch('/api/submissions/sub-1')).send({ status: 'rejected' });
 
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('rejected');
+    expect(mockRunDerivationForSession).not.toHaveBeenCalled();
+  });
+
+  test('refuses to review test data on its own', async () => {
+    mockPrisma.submission.findUnique.mockResolvedValue({ id: 'sub-1', status: 'pending', purpose: 'code_test', deletedAt: null });
+    const res = await authed(request(createApp()).patch('/api/submissions/sub-1')).send({ status: 'accepted' });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(/Test data is not reviewed on its own/);
+    expect(mockPrisma.submission.updateMany).not.toHaveBeenCalled();
+    expect(mockRunDerivationForSession).not.toHaveBeenCalled();
+  });
+
+  test('refuses to review a deleted dataset', async () => {
+    mockPrisma.submission.findUnique.mockResolvedValue({ id: 'sub-1', status: 'pending', purpose: 'race_data', deletedAt: new Date() });
+    const res = await authed(request(createApp()).patch('/api/submissions/sub-1')).send({ status: 'accepted' });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(/deleted/);
+    expect(mockPrisma.submission.updateMany).not.toHaveBeenCalled();
+  });
+
+  test('returns 409, without deriving, if the dataset changed between the read and the update', async () => {
+    mockPrisma.submission.findUnique.mockResolvedValue({ id: 'sub-1', status: 'pending', sessionId: 'session-1', purpose: 'race_data', deletedAt: null });
+    mockPrisma.submission.updateMany.mockResolvedValue({ count: 0 });
+    const res = await authed(request(createApp()).patch('/api/submissions/sub-1')).send({ status: 'accepted' });
+    expect(res.status).toBe(409);
     expect(mockRunDerivationForSession).not.toHaveBeenCalled();
   });
 });
