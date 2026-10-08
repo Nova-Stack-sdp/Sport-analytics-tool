@@ -45,7 +45,6 @@ const COOKIE_NAME = '__session';
 // reference it, and a bare reference threw inside res.cookie(), which the
 // route's catch then reported as "Invalid or expired Firebase token" — so
 // every session exchange failed with 401 even for a perfectly valid token.
-const isProduction = process.env.NODE_ENV === 'production';
 
 // Cookie options shared by set and clear.  Secure is only meaningful over
 // HTTPS (production); in local dev the cookie is sent over plain HTTP.
