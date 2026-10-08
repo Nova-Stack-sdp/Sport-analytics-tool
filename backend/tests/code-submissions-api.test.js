@@ -255,6 +255,40 @@ describe('GET /api/code-submissions/:id', () => {
     const res = await authed(request(createApp()).get('/api/code-submissions/cs-1'));
     expect(res.status).toBe(200);
     expect(res.body.code).toBe('x = 1');
+    expect(mockPrisma.verifiedCode.findUnique).not.toHaveBeenCalled();
+  });
+
+  test('finds approved code in verified_code by its original submission id', async () => {
+    asAdmin();
+    mockPrisma.codeSubmission.findUnique.mockResolvedValue(null);
+    mockPrisma.verifiedCode.findUnique.mockResolvedValue({
+      id: 'vc-1',
+      sourceSubmissionId: 'cs-7',
+      title: 'Average pit loss',
+      language: 'Python',
+      code: 'def avg(stops): ...',
+      description: 'Mean pit-lane loss',
+      tags: ['pits'],
+      submitterId: 'dev-uid',
+      submitterEmail: 'dev@example.test',
+      submittedAt: new Date('2026-10-06T08:00:00Z'),
+      verifiedBy: 'admin-uid',
+      verifiedAt: new Date('2026-10-07T08:00:00Z'),
+    });
+
+    const res = await authed(request(createApp()).get('/api/code-submissions/cs-7'));
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.verifiedCode.findUnique).toHaveBeenCalledWith({ where: { sourceSubmissionId: 'cs-7' } });
+    expect(res.body).toMatchObject({
+      id: 'cs-7',
+      verifiedCodeId: 'vc-1',
+      status: 'approved',
+      code: 'def avg(stops): ...',
+      description: 'Mean pit-lane loss',
+      tags: ['pits'],
+      reviewedBy: 'admin-uid',
+    });
   });
 });
 

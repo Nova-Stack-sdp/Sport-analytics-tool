@@ -182,11 +182,28 @@ codeSubmissionsRouter.get('/', requireAuth, requireVerifiedEmail, requireAdmin, 
   }
 });
 
+function verifiedAsDetail(v) {
+  return {
+    ...verifiedAsListRow(v),
+    code: v.code,
+    description: v.description,
+    tags: v.tags,
+  };
+}
+
+// Looks in code_submission first (pending, rejected, and rows approved
+// before approval moved code), then in verified_code by the original
+// submission ID, since that is the ID the admin list hands out for
+// approved rows.
 codeSubmissionsRouter.get('/:id', requireAuth, requireVerifiedEmail, requireAdmin, async (req, res, next) => {
   try {
     const submission = await prisma.codeSubmission.findUnique({ where: { id: req.params.id } });
-    if (!submission) return res.status(404).json({ error: 'Code submission not found' });
-    res.json(submission);
+    if (submission) return res.json(submission);
+
+    const verified = await prisma.verifiedCode.findUnique({ where: { sourceSubmissionId: req.params.id } });
+    if (verified) return res.json(verifiedAsDetail(verified));
+
+    res.status(404).json({ error: 'Code submission not found' });
   } catch (err) {
     next(err);
   }
