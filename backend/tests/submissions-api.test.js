@@ -173,6 +173,59 @@ describe('GET /api/submissions', () => {
       expect.objectContaining({ where: { status: 'pending' } })
     );
   });
+
+  test('an admin sees every submitter\'s submissions', async () => {
+    mockPrisma.submission.findMany.mockResolvedValue([]);
+
+    const app = createApp();
+    const res = await authed(request(app).get('/api/submissions'));
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.submission.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: {} })
+    );
+  });
+
+  test('a developer who is not an admin only sees their own submissions', async () => {
+    process.env.ADMIN_UIDS = 'someone-else';
+    mockPrisma.submission.findMany.mockResolvedValue([]);
+
+    const app = createApp();
+    const res = await authed(request(app).get('/api/submissions?status=rejected'));
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.submission.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { status: 'rejected', submitterId: 'test-uid' } })
+    );
+  });
+
+  test('a signed-in user who is neither developer nor admin gets 403 and no data', async () => {
+    process.env.ADMIN_UIDS = 'someone-else';
+    mockVerifyIdToken.mockResolvedValue({ uid: 'plain-uid', email: null, developer: false, email_verified: true });
+
+    const app = createApp();
+    const res = await authed(request(app).get('/api/submissions'));
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('Developer or admin access required to view submissions');
+    expect(mockPrisma.submission.findMany).not.toHaveBeenCalled();
+  });
+
+  test('a request with no token gets 401', async () => {
+    const app = createApp();
+    const res = await request(app).get('/api/submissions');
+
+    expect(res.status).toBe(401);
+    expect(mockPrisma.submission.findMany).not.toHaveBeenCalled();
+  });
+
+  test('returns 400 for an unknown status filter instead of querying with it', async () => {
+    const app = createApp();
+    const res = await authed(request(app).get('/api/submissions?status=approved'));
+
+    expect(res.status).toBe(400);
+    expect(mockPrisma.submission.findMany).not.toHaveBeenCalled();
+  });
 });
 
 describe('PATCH /api/submissions/:id', () => {
