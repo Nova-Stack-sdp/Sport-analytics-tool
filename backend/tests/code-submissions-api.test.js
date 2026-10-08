@@ -9,6 +9,10 @@ jest.unstable_mockModule('firebase-admin', () => ({
   },
 }));
 
+const mockTx = {
+  codeSubmission: { updateMany: jest.fn(), findUnique: jest.fn() },
+  verifiedCode: { create: jest.fn() },
+};
 const mockPrisma = {
   codeSubmission: {
     create: jest.fn(),
@@ -17,6 +21,7 @@ const mockPrisma = {
     updateMany: jest.fn(),
     groupBy: jest.fn(),
   },
+  $transaction: jest.fn((callback) => callback(mockTx)),
 };
 jest.unstable_mockModule('../src/lib/prisma.js', () => ({ prisma: mockPrisma }));
 
@@ -41,6 +46,17 @@ beforeEach(() => {
   mockPrisma.codeSubmission.findMany.mockResolvedValue([]);
   mockPrisma.codeSubmission.groupBy.mockResolvedValue([]);
   mockPrisma.codeSubmission.updateMany.mockResolvedValue({ count: 1 });
+    mockTx.codeSubmission.updateMany.mockResolvedValue({ count: 1 });
+  mockTx.codeSubmission.findUnique.mockResolvedValue({
+    id: 'cs-1',
+    title: 'Tyre delta',
+    language: 'JavaScript',
+    code: 'x = 1',
+    description: null,
+    tags: [],
+    submitterId: 'dev-uid',
+  });
+  mockTx.verifiedCode.create.mockResolvedValue({ id: 'vc-1' });
 });
 
 afterEach(() => {
@@ -170,7 +186,7 @@ describe('PATCH /api/code-submissions/:id', () => {
   test('is admin only', async () => {
     const res = await authed(request(createApp()).patch('/api/code-submissions/cs-1')).send({ status: 'approved' });
     expect(res.status).toBe(403);
-    expect(mockPrisma.codeSubmission.updateMany).not.toHaveBeenCalled();
+    expect(mockTx.codeSubmission.updateMany).not.toHaveBeenCalled();
   });
 
   test.each(['approved', 'rejected'])('sets the status to %s and records who reviewed it', async (status) => {
@@ -179,7 +195,7 @@ describe('PATCH /api/code-submissions/:id', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ id: 'cs-1', status });
-    const args = mockPrisma.codeSubmission.updateMany.mock.calls[0][0];
+    const args = mockTx.codeSubmission.updateMany.mock.calls[0][0];
     expect(args.where).toEqual({ id: 'cs-1', status: 'pending' });
     expect(args.data).toMatchObject({ status, reviewedBy: 'admin-uid' });
     expect(args.data.reviewedAt).toBeInstanceOf(Date);
@@ -189,23 +205,61 @@ describe('PATCH /api/code-submissions/:id', () => {
     asAdmin();
     const res = await authed(request(createApp()).patch('/api/code-submissions/cs-1')).send({ status });
     expect(res.status).toBe(400);
-    expect(mockPrisma.codeSubmission.updateMany).not.toHaveBeenCalled();
+    expect(mockTx.codeSubmission.updateMany).not.toHaveBeenCalled();
   });
 
   test('returns 404 when the submission does not exist', async () => {
     asAdmin();
-    mockPrisma.codeSubmission.updateMany.mockResolvedValue({ count: 0 });
-    mockPrisma.codeSubmission.findUnique.mockResolvedValue(null);
+    mockTx.codeSubmission.updateMany.mockResolvedValue({ count: 0 });
+    mockTx.codeSubmission.findUnique.mockResolvedValue(null);
     const res = await authed(request(createApp()).patch('/api/code-submissions/nope')).send({ status: 'approved' });
     expect(res.status).toBe(404);
+    expect(mockTx.verifiedCode.create).not.toHaveBeenCalled();
   });
 
   test('returns 409 when the submission was already reviewed', async () => {
     asAdmin();
-    mockPrisma.codeSubmission.updateMany.mockResolvedValue({ count: 0 });
-    mockPrisma.codeSubmission.findUnique.mockResolvedValue({ status: 'approved' });
+    mockTx.codeSubmission.updateMany.mockResolvedValue({ count: 0 });
+    mockTx.codeSubmission.findUnique.mockResolvedValue({ status: 'approved' });
     const res = await authed(request(createApp()).patch('/api/code-submissions/cs-1')).send({ status: 'rejected' });
     expect(res.status).toBe(409);
     expect(res.body.error).toMatch(/already 'approved'/);
+    expect(mockTx.verifiedCode.create).not.toHaveBeenCalled();
+  });
+
+  test('approving writes a matching VerifiedCode row', async () => {
+    asAdmin();
+    mockTx.codeSubmission.findUnique.mockResolvedValue({
+      id: 'cs-1',
+      title: 'Tyre delta',
+      language: 'JavaScript',
+      code: 'export const tyreDelta = (s) => s.delta;',
+      description: 'Lap-time loss per lap.',
+      tags: ['tyres'],
+      submitterId: 'dev-uid',
+    });
+
+    const res = await authed(request(createApp()).patch('/api/code-submissions/cs-1')).send({ status: 'approved' });
+
+    expect(res.status).toBe(200);
+    expect(mockTx.verifiedCode.create).toHaveBeenCalledWith({
+      data: {
+        sourceSubmissionId: 'cs-1',
+        title: 'Tyre delta',
+        language: 'JavaScript',
+        code: 'export const tyreDelta = (s) => s.delta;',
+        description: 'Lap-time loss per lap.',
+        tags: ['tyres'],
+        submitterId: 'dev-uid',
+        verifiedBy: 'admin-uid',
+      },
+    });
+  });
+
+  test('rejecting does not write a VerifiedCode row', async () => {
+    asAdmin();
+    const res = await authed(request(createApp()).patch('/api/code-submissions/cs-1')).send({ status: 'rejected' });
+    expect(res.status).toBe(200);
+    expect(mockTx.verifiedCode.create).not.toHaveBeenCalled();
   });
 });

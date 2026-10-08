@@ -147,18 +147,42 @@ codeSubmissionsRouter.patch('/:id', requireAuth, requireAdmin, async (req, res, 
       return res.status(400).json({ error: "status must be 'approved' or 'rejected'" });
     }
 
-    const { count } = await prisma.codeSubmission.updateMany({
-      where: { id: req.params.id, status: 'pending' },
-      data: { status, reviewedBy: req.user.uid, reviewedAt: new Date() },
-    });
-
-    if (count === 0) {
-      const existing = await prisma.codeSubmission.findUnique({
-        where: { id: req.params.id },
-        select: { status: true },
+    const result = await prisma.$transaction(async (tx) => {
+      const { count } = await tx.codeSubmission.updateMany({
+        where: { id: req.params.id, status: 'pending' },
+        data: { status, reviewedBy: req.user.uid, reviewedAt: new Date() },
       });
-      if (!existing) return res.status(404).json({ error: 'Code submission not found' });
-      return res.status(409).json({ error: `Code submission is already '${existing.status}', not pending` });
+
+      if (count === 0) {
+        const existing = await tx.codeSubmission.findUnique({
+          where: { id: req.params.id },
+          select: { status: true },
+        });
+        return { ok: false, notFound: !existing, currentStatus: existing?.status };
+      }
+
+      if (status === 'approved') {
+        const submission = await tx.codeSubmission.findUnique({ where: { id: req.params.id } });
+        await tx.verifiedCode.create({
+          data: {
+            sourceSubmissionId: submission.id,
+            title: submission.title,
+            language: submission.language,
+            code: submission.code,
+            description: submission.description,
+            tags: submission.tags,
+            submitterId: submission.submitterId,
+            verifiedBy: req.user.uid,
+          },
+        });
+      }
+
+      return { ok: true };
+    }, { maxWait: 15000, timeout: 30000 });
+
+    if (!result.ok) {
+      if (result.notFound) return res.status(404).json({ error: 'Code submission not found' });
+      return res.status(409).json({ error: `Code submission is already '${result.currentStatus}', not pending` });
     }
 
     res.json({ id: req.params.id, status });
