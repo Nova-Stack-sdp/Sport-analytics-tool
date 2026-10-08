@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
+import { FROM_UNDELETED_DATASET } from '../lib/eventVisibility.js';
 
 export const fixturesRouter = Router();
 
@@ -24,7 +25,7 @@ fixturesRouter.get('/', async (req, res, next) => {
       }),
       prisma.event.groupBy({
         by: ['sessionId'],
-        where: { supersededById: { not: null } },
+        where: { supersededById: { not: null }, ...FROM_UNDELETED_DATASET },
         _count: { _all: true },
       }),
       // One query for every session's event-type coverage, rather than N+1 —
@@ -32,7 +33,7 @@ fixturesRouter.get('/', async (req, res, next) => {
       // required types each session has.
       prisma.event.groupBy({
         by: ['sessionId', 'eventType'],
-        where: { eventType: { in: REPLAY_REQUIRED_EVENT_TYPES } },
+        where: { eventType: { in: REPLAY_REQUIRED_EVENT_TYPES }, ...FROM_UNDELETED_DATASET },
       }),
     ]);
     const correctedSessionIds = new Set(correctedGroups.map((g) => g.sessionId));
@@ -78,7 +79,7 @@ fixturesRouter.get('/:sessionId/events', async (req, res, next) => {
         include: { meeting: { include: { circuit: true } } },
       }),
       prisma.event.findMany({
-        where: { sessionId },
+        where: { sessionId, ...FROM_UNDELETED_DATASET },
         orderBy: { occurredAt: 'asc' },
         include: { entry: { include: { driver: true } } },
         take: 200, // guard against an unbounded event log on one request

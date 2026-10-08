@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
+import { FROM_UNDELETED_DATASET } from '../lib/eventVisibility.js';
 import { computeSessionStatsForEntry } from '../derivation/pure.js';
 
 export const timeTravelRouter = Router();
@@ -85,7 +86,7 @@ timeTravelRouter.get('/changelog', async (req, res, next) => {
     if (!entry) return res.status(404).json({ error: 'Entry not found' });
 
     const events = await prisma.event.findMany({
-      where: { entryId, eventType: 'classification' },
+      where: { entryId, eventType: 'classification', ...FROM_UNDELETED_DATASET },
       orderBy: { ingestedAt: 'asc' },
     });
 
@@ -132,7 +133,7 @@ timeTravelRouter.get('/asof', async (req, res, next) => {
     }
 
     const events = await prisma.event.findMany({
-      where: { sessionId, entryId },
+      where: { sessionId, entryId, ...FROM_UNDELETED_DATASET },
       include: {
         sourceSubmission: { select: { submittedAt: true } },
         supersededBy: { include: { sourceSubmission: { select: { submittedAt: true } } } },

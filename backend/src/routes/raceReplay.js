@@ -21,6 +21,7 @@
 
 import { Router } from 'express';
 import { fetchSessionTrackTelemetryRaw } from './openf1.js';
+import { FROM_UNDELETED_DATASET } from '../lib/eventVisibility.js';
 import { deriveTrackShapeFromTelemetry, readStaticTrackShape } from '../lib/trackShape.js';
 
 export const raceReplayRouter = Router();
@@ -53,7 +54,7 @@ export async function buildReplayContext(sessionId) {
   });
 
   const events = await prisma.event.findMany({
-    where: { sessionId },
+    where: { sessionId, ...FROM_UNDELETED_DATASET },
     orderBy: { occurredAt: 'asc' },
   });
 
