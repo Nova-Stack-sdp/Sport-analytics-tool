@@ -20,6 +20,9 @@ function SubmissionsPanel() {
   const [loadError, setLoadError] = useState(null);
 
   const [sessionKey, setSessionKey] = useState('');
+  // race_data counts toward the platform once accepted; code_test is sample
+  // data for an admin to test submitted code with, never added to the stats.
+  const [purpose, setPurpose] = useState('race_data');
   const [payloadText, setPayloadText] = useState('{\n  "laps": []\n}');
   const [submitResult, setSubmitResult] = useState(null);
   const [submitError, setSubmitError] = useState(null);
@@ -65,6 +68,8 @@ function SubmissionsPanel() {
       return;
     }
     body.session_key = Number(sessionKey);
+    // Race data is the backend's default, so only test data needs saying.
+    if (purpose !== 'race_data') body.purpose = purpose;
     try {
       const result = await submitData(body);
       setSubmitResult(result);
@@ -107,6 +112,17 @@ function SubmissionsPanel() {
               />
             </label>
             <label style={{ display: 'block', marginBottom: 8 }}>
+              What is this data for?
+              <select
+                value={purpose}
+                onChange={(e) => setPurpose(e.target.value)}
+                style={{ display: 'block', width: '100%', marginTop: 4 }}
+              >
+                <option value="race_data">Race data for the platform (counts once an admin accepts it)</option>
+                <option value="code_test">Test data for my submitted code (never added to statistics)</option>
+              </select>
+            </label>
+            <label style={{ display: 'block', marginBottom: 8 }}>
               Event data (JSON — e.g. {"{"}"laps": [...]{"}"})
               <textarea
                 value={payloadText}
@@ -130,7 +146,10 @@ function SubmissionsPanel() {
             <div className="error-box" style={{ marginTop: 12 }}>
               <div className="eh">
                 {submitResult.status === 'rejected' ? '⚠ Rejected' : `✓ ${submitResult.status}`}
-                {' — '}{submitResult.eventsWritten ?? 0} event(s) written
+                {' — '}
+                {submitResult.purpose === 'code_test'
+                  ? `${submitResult.validRecords ?? 0} valid record(s) checked; test data is kept for review but not added to the event log`
+                  : `${submitResult.eventsWritten ?? 0} event(s) written`}
               </div>
               {submitResult.rejections?.length > 0 && (
                 <table>
@@ -179,6 +198,8 @@ function SubmissionsPanel() {
                       {s.status === 'pending' && <span className="pill pill-amber">Pending</span>}
                       {s.status === 'accepted' && <span className="pill pill-green">Approved</span>}
                       {s.status === 'rejected' && <span className="pill status-rejected">Rejected</span>}
+                      {s.purpose === 'code_test' && <span className="pill pill-blue" style={{ marginLeft: 4 }}>Test data</span>}
+                      {s.deletedAt && <span className="pill pill-gray" style={{ marginLeft: 4 }}>Deleted by admin</span>}
                     </td>
                     <td>
                       {s.status === 'pending' && (
