@@ -62,6 +62,7 @@ describe('GET /api/v1/events', () => {
       eventType: { in: ['lap_completed'] },
       entry: { driver: { driverNumber: 44 } },
       supersededById: null,
+      sourceSubmission: { deletedAt: null },
     });
     expect(args.take).toBe(3);
     expect(args.orderBy).toEqual([{ occurredAt: 'asc' }, { id: 'asc' }]);
@@ -176,6 +177,7 @@ describe('GET /api/v1/exports/events', () => {
     expect(lines[1]).toContain('"Canadian Grand Prix, Montreal"');
     expect(mockPrisma.event.findMany.mock.calls[0][0].where).toEqual({
       session: { meeting: { season: 2025 } }, eventType: { in: ['lap_completed'] }, supersededById: null,
+      sourceSubmission: { deletedAt: null },
     });
   });
 
@@ -199,5 +201,33 @@ describe('/api/v1 index and unknown paths', () => {
     const missing = await request(createApp()).get('/api/v1/nope');
     expect(missing.status).toBe(404);
     expect(missing.body.hint).toMatch(/GET \/api\/v1/);
+  });
+});
+
+describe('events from deleted datasets', () => {
+  test('GET /api/v1/events/:id answers 404 for an event whose dataset was deleted', async () => {
+    mockPrisma.event.findUnique.mockResolvedValue(eventRow(1, {
+      supersedes: null,
+      sourceSubmission: { deletedAt: new Date('2026-10-09T10:00:00Z') },
+    }));
+    const res = await request(createApp()).get(`/api/v1/events/${uuid(1)}`);
+    expect(res.status).toBe(404);
+  });
+
+  test('GET /api/v1/events/:id still serves an event from a live dataset', async () => {
+    mockPrisma.event.findUnique.mockResolvedValue(eventRow(1, { supersedes: null, sourceSubmission: { deletedAt: null } }));
+    const res = await request(createApp()).get(`/api/v1/events/${uuid(1)}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.id).toBe(uuid(1));
+    expect(mockPrisma.event.findUnique.mock.calls[0][0].include.sourceSubmission).toEqual({ select: { deletedAt: true } });
+  });
+
+  test('fixture statistics traceability only uses events from undeleted datasets', async () => {
+    mockPrisma.entry.findUnique.mockResolvedValue({ id: 'entry-1', driver, team, sessionStats: null });
+    mockPrisma.event.findMany.mockResolvedValue([]);
+    await request(createApp()).get(`/api/v1/fixtures/${FX}/statistics/${DRV}`);
+    expect(mockPrisma.event.findMany.mock.calls[0][0].where).toEqual({
+      entryId: 'entry-1', supersededById: null, sourceSubmission: { deletedAt: null },
+    });
   });
 });

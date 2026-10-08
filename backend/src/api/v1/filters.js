@@ -7,6 +7,7 @@
  * Pure (no database access) — unit tested directly.
  */
 import { parsers, EVENT_TYPES, SESSION_TYPES, SESSION_STATUSES } from './params.js';
+import { FROM_UNDELETED_DATASET } from '../../lib/eventVisibility.js';
 
 export const fixtureFilterSpec = {
   season: parsers.int({ min: 1950, max: 2100 }),
@@ -76,6 +77,8 @@ export function eventWhere(v) {
     ...(Object.keys(occurredAt).length && { occurredAt }),
     // By default only current events; corrected-away versions on request.
     ...(!v.includeSuperseded && { supersededById: null }),
+    // Events of a dataset an admin deleted are never served.
+    ...FROM_UNDELETED_DATASET,
   };
 }
 
