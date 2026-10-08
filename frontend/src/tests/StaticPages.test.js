@@ -24,7 +24,7 @@ describe('static platform pages', () => {
   test('renders the submissions pipeline and switches review tabs', () => {
     render(<SubmissionsPanel />);
     expect(screen.getByText('Submit a batch')).toBeInTheDocument();
-    expect(screen.getByText('Review & approval queue')).toBeInTheDocument();
+    expect(screen.getByText('My submissions')).toBeInTheDocument();
 
     const approved = screen.getByText('Approved', { selector: '.tab' });
     fireEvent.click(approved);
