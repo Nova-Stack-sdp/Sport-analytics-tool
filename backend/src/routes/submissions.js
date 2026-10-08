@@ -15,7 +15,8 @@ import {
   mapClassification,
 } from '../validation/event-records.js';
 
-const { SubmissionSource, SubmissionStatus } = pkg;
+const { SubmissionSource, SubmissionStatus, SubmissionPurpose } = pkg;
+const PURPOSES = Object.values(SubmissionPurpose);
 
 export const submissionsRouter = Router();
 
@@ -67,6 +68,15 @@ submissionsRouter.post('/', requireAuth, requireVerifiedEmail, requireDeveloperO
     if (!sessionKey) {
       return res.status(400).json({ error: 'session_key is required' });
     }
+    // race_data (default): events go into the event log, pending review.
+    // code_test: sample data for testing a developer's code. Validated the
+    // same way and stored as uploaded, but never written to the event log,
+    // so it can never reach statistics, the public API or replays.
+    const purpose = req.body.purpose ?? SubmissionPurpose.race_data;
+    if (!PURPOSES.includes(purpose)) {
+      return res.status(400).json({ error: `purpose must be one of: ${PURPOSES.join(', ')}` });
+    }
+    const isTestData = purpose === SubmissionPurpose.code_test;
 
     const session = await prisma.session.findUnique({
       where: { openf1Key: Number(sessionKey) },
@@ -117,6 +127,7 @@ submissionsRouter.post('/', requireAuth, requireVerifiedEmail, requireDeveloperO
 
     const status = events.length === 0 ? SubmissionStatus.rejected : SubmissionStatus.pending;
     const upload = buildUploadRecord(req);
+    const eventsToWrite = isTestData ? [] : events;
 
     const submission = await prisma.$transaction(
       async (tx) => {
@@ -126,7 +137,13 @@ submissionsRouter.post('/', requireAuth, requireVerifiedEmail, requireDeveloperO
             submitterId: req.user.uid,
             sessionId: session.id,
             status,
+            purpose,
             validationErrors: rejections.length > 0 ? rejections : undefined,
+            summary: {
+              validRecords: events.length,
+              rejectedRecords: rejections.length,
+              eventsWritten: eventsToWrite.length,
+            },
           },
         });
 
@@ -134,9 +151,9 @@ submissionsRouter.post('/', requireAuth, requireVerifiedEmail, requireDeveloperO
         // an admin can see exactly what was sent.
         await tx.submissionUpload.create({ data: { submissionId: created.id, ...upload } });
 
-        if (events.length > 0) {
+        if (eventsToWrite.length > 0) {
           await tx.event.createMany({
-            data: events.map((e) => ({
+            data: eventsToWrite.map((e) => ({
               sessionId: session.id,
               entryId: e.entryId,
               eventType: e.eventType,
@@ -156,7 +173,9 @@ submissionsRouter.post('/', requireAuth, requireVerifiedEmail, requireDeveloperO
     res.status(status === SubmissionStatus.rejected ? 422 : 201).json({
       submissionId: submission.id,
       status: submission.status,
-      eventsWritten: events.length,
+      purpose,
+      validRecords: events.length,
+      eventsWritten: eventsToWrite.length,
       rejections,
     });
   } catch (err) {

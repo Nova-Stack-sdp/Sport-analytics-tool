@@ -151,6 +151,58 @@ describe('POST /api/submissions — event processing', () => {
   });
 });
 
+describe('POST /api/submissions — purpose', () => {
+  beforeEach(() => {
+    mockPrisma.session.findUnique.mockResolvedValue({ id: 'session-1', openf1Key: 11230 });
+    mockPrisma.entry.findMany.mockResolvedValue([{ id: 'entry-1', driver: { driverNumber: 1 } }]);
+  });
+  const lap = (n, duration = 80) => ({ driver_number: 1, lap_number: n, lap_duration: duration, date_start: '2026-03-07T05:10:00Z' });
+
+  test('defaults to race data, writes events and records a summary', async () => {
+    const res = await authed(request(createApp()).post('/api/submissions')).send({ session_key: 11230, laps: [lap(1), lap(2, -1)] });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ purpose: 'race_data', validRecords: 1, eventsWritten: 1 });
+    expect(mockTx.event.createMany).toHaveBeenCalledTimes(1);
+    expect(mockTx.submission.create.mock.calls[0][0].data).toMatchObject({
+      purpose: 'race_data',
+      summary: { validRecords: 1, rejectedRecords: 1, eventsWritten: 1 },
+    });
+  });
+
+  test('test data is validated and stored but never written to the event log', async () => {
+    const res = await authed(request(createApp()).post('/api/submissions'))
+      .send({ session_key: 11230, purpose: 'code_test', laps: [lap(1), lap(2), lap(3, -1)] });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ status: 'pending', purpose: 'code_test', validRecords: 2, eventsWritten: 0 });
+    expect(res.body.rejections).toHaveLength(1);
+    expect(mockTx.event.createMany).not.toHaveBeenCalled();
+    expect(mockTx.submissionUpload.create).toHaveBeenCalledTimes(1);
+    expect(mockTx.submission.create.mock.calls[0][0].data).toMatchObject({
+      purpose: 'code_test',
+      summary: { validRecords: 2, rejectedRecords: 1, eventsWritten: 0 },
+    });
+  });
+
+  test('test data where nothing validates is still auto-rejected', async () => {
+    mockTx.submission.create.mockResolvedValue({ id: 'sub-3', status: 'rejected' });
+    const res = await authed(request(createApp()).post('/api/submissions'))
+      .send({ session_key: 11230, purpose: 'code_test', laps: [lap(1, -1)] });
+    expect(res.status).toBe(422);
+    expect(res.body).toMatchObject({ status: 'rejected', purpose: 'code_test', validRecords: 0 });
+  });
+
+  test('an unknown purpose is refused before anything is looked up or stored', async () => {
+    const res = await authed(request(createApp()).post('/api/submissions'))
+      .send({ session_key: 11230, purpose: 'production', laps: [lap(1)] });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/purpose must be one of: race_data, code_test/);
+    expect(mockPrisma.session.findUnique).not.toHaveBeenCalled();
+    expect(mockTx.submission.create).not.toHaveBeenCalled();
+  });
+});
+
 describe('POST /api/submissions — original upload', () => {
   beforeEach(() => {
     mockPrisma.session.findUnique.mockResolvedValue({ id: 'session-1', openf1Key: 11230 });
