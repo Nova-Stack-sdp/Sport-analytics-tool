@@ -10,8 +10,8 @@ jest.unstable_mockModule('firebase-admin', () => ({
 }));
 
 const mockTx = {
-  codeSubmission: { updateMany: jest.fn(), findUnique: jest.fn() },
-  verifiedCode: { create: jest.fn() },
+  codeSubmission: { findUnique: jest.fn(), deleteMany: jest.fn() },
+  verifiedCode: { create: jest.fn(), findUnique: jest.fn() },
 };
 const mockPrisma = {
   codeSubmission: {
@@ -20,6 +20,11 @@ const mockPrisma = {
     findUnique: jest.fn(),
     updateMany: jest.fn(),
     groupBy: jest.fn(),
+  },
+  verifiedCode: {
+    findMany: jest.fn(),
+    findUnique: jest.fn(),
+    count: jest.fn(),
   },
   $transaction: jest.fn((callback) => callback(mockTx)),
 };
@@ -45,8 +50,10 @@ beforeEach(() => {
   });
   mockPrisma.codeSubmission.findMany.mockResolvedValue([]);
   mockPrisma.codeSubmission.groupBy.mockResolvedValue([]);
+  mockPrisma.verifiedCode.findMany.mockResolvedValue([]);
+  mockPrisma.verifiedCode.findUnique.mockResolvedValue(null);
+  mockPrisma.verifiedCode.count.mockResolvedValue(0);
   mockPrisma.codeSubmission.updateMany.mockResolvedValue({ count: 1 });
-    mockTx.codeSubmission.updateMany.mockResolvedValue({ count: 1 });
   mockTx.codeSubmission.findUnique.mockResolvedValue({
     id: 'cs-1',
     title: 'Tyre delta',
@@ -54,9 +61,14 @@ beforeEach(() => {
     code: 'x = 1',
     description: null,
     tags: [],
+    status: 'pending',
     submitterId: 'dev-uid',
+    submitterEmail: 'dev@example.test',
+    submittedAt: new Date('2026-10-07T09:00:00Z'),
   });
+  mockTx.codeSubmission.deleteMany.mockResolvedValue({ count: 1 });
   mockTx.verifiedCode.create.mockResolvedValue({ id: 'vc-1' });
+  mockTx.verifiedCode.findUnique.mockResolvedValue(null);
 });
 
 afterEach(() => {
@@ -155,20 +167,74 @@ describe('GET /api/code-submissions', () => {
     expect(res.status).toBe(403);
   });
 
-  test('returns the rows and per-status counts from the database', async () => {
+  test('returns pending rows and per-status counts, with approved counted from verified code', async () => {
     asAdmin();
     mockPrisma.codeSubmission.findMany.mockResolvedValue([{ id: 'cs-1', title: 'Tyre delta', status: 'pending' }]);
     mockPrisma.codeSubmission.groupBy.mockResolvedValue([
       { status: 'pending', _count: { _all: 2 } },
-      { status: 'approved', _count: { _all: 5 } },
+      { status: 'rejected', _count: { _all: 1 } },
+      // A leftover 'approved' code_submission row must not be counted; the
+      // approved count comes from verified_code.
+      { status: 'approved', _count: { _all: 9 } },
     ]);
+    mockPrisma.verifiedCode.count.mockResolvedValue(5);
 
     const res = await authed(request(createApp()).get('/api/code-submissions?status=pending'));
 
     expect(res.status).toBe(200);
     expect(res.body.submissions).toHaveLength(1);
-    expect(res.body.counts).toEqual({ pending: 2, approved: 5, rejected: 0 });
+    expect(res.body.counts).toEqual({ pending: 2, approved: 5, rejected: 1 });
     expect(mockPrisma.codeSubmission.findMany.mock.calls[0][0].where).toEqual({ status: 'pending' });
+    expect(mockPrisma.verifiedCode.findMany).not.toHaveBeenCalled();
+  });
+
+  const verifiedRow = {
+    id: 'vc-1',
+    sourceSubmissionId: 'cs-7',
+    title: 'Average pit loss',
+    language: 'JavaScript',
+    submitterId: 'dev-uid',
+    submitterEmail: 'dev@example.test',
+    submittedAt: new Date('2026-10-06T08:00:00Z'),
+    verifiedBy: 'admin-uid',
+    verifiedAt: new Date('2026-10-07T08:00:00Z'),
+  };
+
+  test('the approved tab reads verified code, keyed by the original submission id', async () => {
+    asAdmin();
+    mockPrisma.verifiedCode.findMany.mockResolvedValue([verifiedRow]);
+
+    const res = await authed(request(createApp()).get('/api/code-submissions?status=approved'));
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.codeSubmission.findMany).not.toHaveBeenCalled();
+    expect(res.body.submissions).toEqual([{
+      id: 'cs-7',
+      verifiedCodeId: 'vc-1',
+      title: 'Average pit loss',
+      language: 'JavaScript',
+      status: 'approved',
+      submitterId: 'dev-uid',
+      submitterEmail: 'dev@example.test',
+      submittedAt: '2026-10-06T08:00:00.000Z',
+      reviewedBy: 'admin-uid',
+      reviewedAt: '2026-10-07T08:00:00.000Z',
+    }]);
+  });
+
+  test('with no filter, merges both tables newest first and never lists a leftover approved row twice', async () => {
+    asAdmin();
+    mockPrisma.codeSubmission.findMany.mockResolvedValue([
+      { id: 'cs-new', status: 'pending', submittedAt: new Date('2026-10-08T08:00:00Z') },
+      { id: 'cs-old', status: 'rejected', submittedAt: new Date('2026-10-01T08:00:00Z') },
+    ]);
+    mockPrisma.verifiedCode.findMany.mockResolvedValue([verifiedRow]);
+
+    const res = await authed(request(createApp()).get('/api/code-submissions'));
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.codeSubmission.findMany.mock.calls[0][0].where).toEqual({ status: { in: ['pending', 'rejected'] } });
+    expect(res.body.submissions.map((s) => s.id)).toEqual(['cs-new', 'cs-7', 'cs-old']);
   });
 
   test('rejects an unknown status filter', async () => {
@@ -193,87 +259,206 @@ describe('GET /api/code-submissions/:id', () => {
     const res = await authed(request(createApp()).get('/api/code-submissions/cs-1'));
     expect(res.status).toBe(200);
     expect(res.body.code).toBe('x = 1');
+    expect(mockPrisma.verifiedCode.findUnique).not.toHaveBeenCalled();
+  });
+
+  test('finds approved code in verified_code by its original submission id', async () => {
+    asAdmin();
+    mockPrisma.codeSubmission.findUnique.mockResolvedValue(null);
+    mockPrisma.verifiedCode.findUnique.mockResolvedValue({
+      id: 'vc-1',
+      sourceSubmissionId: 'cs-7',
+      title: 'Average pit loss',
+      language: 'Python',
+      code: 'def avg(stops): ...',
+      description: 'Mean pit-lane loss',
+      tags: ['pits'],
+      submitterId: 'dev-uid',
+      submitterEmail: 'dev@example.test',
+      submittedAt: new Date('2026-10-06T08:00:00Z'),
+      verifiedBy: 'admin-uid',
+      verifiedAt: new Date('2026-10-07T08:00:00Z'),
+    });
+
+    const res = await authed(request(createApp()).get('/api/code-submissions/cs-7'));
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.verifiedCode.findUnique).toHaveBeenCalledWith({ where: { sourceSubmissionId: 'cs-7' } });
+    expect(res.body).toMatchObject({
+      id: 'cs-7',
+      verifiedCodeId: 'vc-1',
+      status: 'approved',
+      code: 'def avg(stops): ...',
+      description: 'Mean pit-lane loss',
+      tags: ['pits'],
+      reviewedBy: 'admin-uid',
+    });
   });
 });
 
 describe('PATCH /api/code-submissions/:id', () => {
+  const patch = (id, body) => authed(request(createApp()).patch(`/api/code-submissions/${id}`)).send(body);
+
   test('is admin only', async () => {
-    const res = await authed(request(createApp()).patch('/api/code-submissions/cs-1')).send({ status: 'approved' });
+    const res = await patch('cs-1', { status: 'approved' });
     expect(res.status).toBe(403);
-    expect(mockTx.codeSubmission.updateMany).not.toHaveBeenCalled();
-  });
-
-  test.each(['approved', 'rejected'])('sets the status to %s and records who reviewed it', async (status) => {
-    asAdmin();
-    const res = await authed(request(createApp()).patch('/api/code-submissions/cs-1')).send({ status });
-
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual({ id: 'cs-1', status });
-    const args = mockTx.codeSubmission.updateMany.mock.calls[0][0];
-    expect(args.where).toEqual({ id: 'cs-1', status: 'pending' });
-    expect(args.data).toMatchObject({ status, reviewedBy: 'admin-uid' });
-    expect(args.data.reviewedAt).toBeInstanceOf(Date);
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockPrisma.codeSubmission.updateMany).not.toHaveBeenCalled();
   });
 
   test.each(['accepted', 'pending', undefined])('rejects status %p', async (status) => {
     asAdmin();
-    const res = await authed(request(createApp()).patch('/api/code-submissions/cs-1')).send({ status });
+    const res = await patch('cs-1', { status });
     expect(res.status).toBe(400);
-    expect(mockTx.codeSubmission.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockPrisma.codeSubmission.updateMany).not.toHaveBeenCalled();
   });
 
-  test('returns 404 when the submission does not exist', async () => {
-    asAdmin();
-    mockTx.codeSubmission.updateMany.mockResolvedValue({ count: 0 });
-    mockTx.codeSubmission.findUnique.mockResolvedValue(null);
-    const res = await authed(request(createApp()).patch('/api/code-submissions/nope')).send({ status: 'approved' });
-    expect(res.status).toBe(404);
-    expect(mockTx.verifiedCode.create).not.toHaveBeenCalled();
-  });
-
-  test('returns 409 when the submission was already reviewed', async () => {
-    asAdmin();
-    mockTx.codeSubmission.updateMany.mockResolvedValue({ count: 0 });
-    mockTx.codeSubmission.findUnique.mockResolvedValue({ status: 'approved' });
-    const res = await authed(request(createApp()).patch('/api/code-submissions/cs-1')).send({ status: 'rejected' });
-    expect(res.status).toBe(409);
-    expect(res.body.error).toMatch(/already 'approved'/);
-    expect(mockTx.verifiedCode.create).not.toHaveBeenCalled();
-  });
-
-  test('approving writes a matching VerifiedCode row', async () => {
-    asAdmin();
-    mockTx.codeSubmission.findUnique.mockResolvedValue({
-      id: 'cs-1',
-      title: 'Tyre delta',
-      language: 'JavaScript',
-      code: 'export const tyreDelta = (s) => s.delta;',
-      description: 'Lap-time loss per lap.',
-      tags: ['tyres'],
-      submitterId: 'dev-uid',
-    });
-
-    const res = await authed(request(createApp()).patch('/api/code-submissions/cs-1')).send({ status: 'approved' });
-
-    expect(res.status).toBe(200);
-    expect(mockTx.verifiedCode.create).toHaveBeenCalledWith({
-      data: {
-        sourceSubmissionId: 'cs-1',
+  describe('approving', () => {
+    test('moves the code: creates the verified row, then deletes the pending submission', async () => {
+      asAdmin();
+      mockTx.codeSubmission.findUnique.mockResolvedValue({
+        id: 'cs-1',
         title: 'Tyre delta',
         language: 'JavaScript',
         code: 'export const tyreDelta = (s) => s.delta;',
         description: 'Lap-time loss per lap.',
         tags: ['tyres'],
+        status: 'pending',
         submitterId: 'dev-uid',
-        verifiedBy: 'admin-uid',
-      },
+        submitterEmail: 'dev@example.test',
+        submittedAt: new Date('2026-10-07T09:00:00Z'),
+      });
+
+      const res = await patch('cs-1', { status: 'approved' });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ id: 'cs-1', status: 'approved' });
+      expect(mockTx.verifiedCode.create).toHaveBeenCalledWith({
+        data: {
+          sourceSubmissionId: 'cs-1',
+          title: 'Tyre delta',
+          language: 'JavaScript',
+          code: 'export const tyreDelta = (s) => s.delta;',
+          description: 'Lap-time loss per lap.',
+          tags: ['tyres'],
+          submitterId: 'dev-uid',
+          submitterEmail: 'dev@example.test',
+          submittedAt: new Date('2026-10-07T09:00:00Z'),
+          verifiedBy: 'admin-uid',
+        },
+      });
+      expect(mockTx.codeSubmission.deleteMany).toHaveBeenCalledWith({ where: { id: 'cs-1', status: 'pending' } });
+      // The insert happens before the delete, inside one transaction.
+      expect(mockTx.verifiedCode.create.mock.invocationCallOrder[0])
+        .toBeLessThan(mockTx.codeSubmission.deleteMany.mock.invocationCallOrder[0]);
+      // Approval no longer flips the status on the old row.
+      expect(mockPrisma.codeSubmission.updateMany).not.toHaveBeenCalled();
+    });
+
+    test('returns 404 when neither table has the id', async () => {
+      asAdmin();
+      mockTx.codeSubmission.findUnique.mockResolvedValue(null);
+      const res = await patch('nope', { status: 'approved' });
+      expect(res.status).toBe(404);
+      expect(mockTx.verifiedCode.create).not.toHaveBeenCalled();
+    });
+
+    test('returns 409 when the code was already approved and moved', async () => {
+      asAdmin();
+      mockTx.codeSubmission.findUnique.mockResolvedValue(null);
+      mockTx.verifiedCode.findUnique.mockResolvedValue({ id: 'vc-1' });
+      const res = await patch('cs-1', { status: 'approved' });
+      expect(res.status).toBe(409);
+      expect(res.body.error).toMatch(/already 'approved'/);
+      expect(mockTx.verifiedCode.create).not.toHaveBeenCalled();
+    });
+
+    test('returns 409 when the submission was already rejected', async () => {
+      asAdmin();
+      mockTx.codeSubmission.findUnique.mockResolvedValue({ id: 'cs-1', status: 'rejected' });
+      const res = await patch('cs-1', { status: 'approved' });
+      expect(res.status).toBe(409);
+      expect(res.body.error).toMatch(/already 'rejected'/);
+      expect(mockTx.verifiedCode.create).not.toHaveBeenCalled();
+      expect(mockTx.codeSubmission.deleteMany).not.toHaveBeenCalled();
+    });
+
+    test('returns 409 and rolls back when a concurrent reject wins before the delete', async () => {
+      asAdmin();
+      mockTx.codeSubmission.findUnique
+        .mockResolvedValueOnce({ id: 'cs-1', status: 'pending', title: 't', language: 'Python', code: 'x', tags: [] })
+        .mockResolvedValueOnce({ status: 'rejected' });
+      mockTx.codeSubmission.deleteMany.mockResolvedValue({ count: 0 });
+      let rolledBack = false;
+      mockPrisma.$transaction.mockImplementationOnce(async (callback) => {
+        try { return await callback(mockTx); } catch (err) { rolledBack = true; throw err; }
+      });
+
+      const res = await patch('cs-1', { status: 'approved' });
+
+      expect(res.status).toBe(409);
+      expect(res.body.error).toMatch(/already 'rejected'/);
+      expect(rolledBack).toBe(true);
+    });
+
+    test('returns 409 when a concurrent approval already created the verified row', async () => {
+      asAdmin();
+      mockTx.verifiedCode.create.mockRejectedValue(Object.assign(new Error('Unique constraint failed'), { code: 'P2002' }));
+      const res = await patch('cs-1', { status: 'approved' });
+      expect(res.status).toBe(409);
+      expect(res.body.error).toMatch(/already 'approved'/);
+      expect(mockTx.codeSubmission.deleteMany).not.toHaveBeenCalled();
+    });
+
+    test('an unexpected database error is a 500, not a silent success', async () => {
+      asAdmin();
+      mockTx.verifiedCode.create.mockRejectedValue(new Error('connection lost'));
+      const res = await patch('cs-1', { status: 'approved' });
+      expect(res.status).toBe(500);
     });
   });
 
-  test('rejecting does not write a VerifiedCode row', async () => {
-    asAdmin();
-    const res = await authed(request(createApp()).patch('/api/code-submissions/cs-1')).send({ status: 'rejected' });
-    expect(res.status).toBe(200);
-    expect(mockTx.verifiedCode.create).not.toHaveBeenCalled();
+  describe('rejecting', () => {
+    test('sets the status to rejected and records who reviewed it, without touching verified code', async () => {
+      asAdmin();
+      const res = await patch('cs-1', { status: 'rejected' });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ id: 'cs-1', status: 'rejected' });
+      const args = mockPrisma.codeSubmission.updateMany.mock.calls[0][0];
+      expect(args.where).toEqual({ id: 'cs-1', status: 'pending' });
+      expect(args.data).toMatchObject({ status: 'rejected', reviewedBy: 'admin-uid' });
+      expect(args.data.reviewedAt).toBeInstanceOf(Date);
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      expect(mockTx.verifiedCode.create).not.toHaveBeenCalled();
+    });
+
+    test('returns 409 when the submission was already rejected', async () => {
+      asAdmin();
+      mockPrisma.codeSubmission.updateMany.mockResolvedValue({ count: 0 });
+      mockPrisma.codeSubmission.findUnique.mockResolvedValue({ status: 'rejected' });
+      const res = await patch('cs-1', { status: 'rejected' });
+      expect(res.status).toBe(409);
+      expect(res.body.error).toMatch(/already 'rejected'/);
+    });
+
+    test('returns 409 when the code was already approved and moved', async () => {
+      asAdmin();
+      mockPrisma.codeSubmission.updateMany.mockResolvedValue({ count: 0 });
+      mockPrisma.codeSubmission.findUnique.mockResolvedValue(null);
+      mockPrisma.verifiedCode.findUnique.mockResolvedValue({ id: 'vc-1' });
+      const res = await patch('cs-1', { status: 'rejected' });
+      expect(res.status).toBe(409);
+      expect(res.body.error).toMatch(/already 'approved'/);
+    });
+
+    test('returns 404 when neither table has the id', async () => {
+      asAdmin();
+      mockPrisma.codeSubmission.updateMany.mockResolvedValue({ count: 0 });
+      mockPrisma.codeSubmission.findUnique.mockResolvedValue(null);
+      const res = await patch('nope', { status: 'rejected' });
+      expect(res.status).toBe(404);
+    });
   });
 });
