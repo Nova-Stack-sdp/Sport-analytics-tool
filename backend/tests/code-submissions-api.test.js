@@ -251,6 +251,8 @@ describe('PATCH /api/code-submissions/:id', () => {
       description: 'Lap-time loss per lap.',
       tags: ['tyres'],
       submitterId: 'dev-uid',
+      submitterEmail: 'dev@example.test',
+      submittedAt: new Date('2026-10-07T09:00:00Z'),
     });
 
     const res = await authed(request(createApp()).patch('/api/code-submissions/cs-1')).send({ status: 'approved' });
@@ -265,6 +267,8 @@ describe('PATCH /api/code-submissions/:id', () => {
         description: 'Lap-time loss per lap.',
         tags: ['tyres'],
         submitterId: 'dev-uid',
+        submitterEmail: 'dev@example.test',
+        submittedAt: new Date('2026-10-07T09:00:00Z'),
         verifiedBy: 'admin-uid',
       },
     });

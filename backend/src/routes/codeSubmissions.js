@@ -172,6 +172,8 @@ codeSubmissionsRouter.patch('/:id', requireAuth, requireVerifiedEmail, requireAd
             description: submission.description,
             tags: submission.tags,
             submitterId: submission.submitterId,
+            submitterEmail: submission.submitterEmail,
+            submittedAt: submission.submittedAt,
             verifiedBy: req.user.uid,
           },
         });
