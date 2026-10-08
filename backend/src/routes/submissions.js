@@ -205,6 +205,8 @@ submissionsRouter.get('/', requireAuth, requireVerifiedEmail, async (req, res, n
         reviewedBy: true,
         reviewedAt: true,
         validationErrors: true,
+        purpose: true,
+        deletedAt: true,
       },
     });
     res.json({ submissions });

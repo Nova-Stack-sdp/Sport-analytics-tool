@@ -353,3 +353,15 @@ describe('PATCH /api/submissions/:id', () => {
     expect(mockRunDerivationForSession).not.toHaveBeenCalled();
   });
 });
+
+describe('GET /api/submissions — purpose and deletion', () => {
+  test('each row says whether it is test data and whether an admin deleted it', async () => {
+    mockPrisma.submission.findMany.mockResolvedValue([
+      { id: 'sub-1', status: 'pending', purpose: 'code_test', deletedAt: null },
+    ]);
+    const res = await authed(request(createApp()).get('/api/submissions'));
+    expect(res.status).toBe(200);
+    expect(mockPrisma.submission.findMany.mock.calls[0][0].select).toMatchObject({ purpose: true, deletedAt: true });
+    expect(res.body.submissions[0]).toMatchObject({ purpose: 'code_test', deletedAt: null });
+  });
+});
