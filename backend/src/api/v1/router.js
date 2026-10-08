@@ -26,6 +26,7 @@
  */
 import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
+import { FROM_UNDELETED_DATASET, isFromDeletedDataset } from '../../lib/eventVisibility.js';
 import {
   parseQuery, parsers, pagingSpec, badRequest, DEFAULT_LIMIT,
 } from './params.js';
@@ -158,7 +159,7 @@ apiV1Router.get('/fixtures/:id/statistics/:driverId', async (req, res, next) => 
     if (!entry) return notFound(res, 'Driver in this fixture');
 
     const events = await prisma.event.findMany({
-      where: { entryId: entry.id, supersededById: null },
+      where: { entryId: entry.id, supersededById: null, ...FROM_UNDELETED_DATASET },
       orderBy: eventOrder,
       include: eventInclude,
     });
@@ -215,9 +216,13 @@ apiV1Router.get('/events/:id', async (req, res, next) => {
     if (!checkId(res, 'id', req.params.id)) return undefined;
     const e = await prisma.event.findUnique({
       where: { id: req.params.id },
-      include: { ...eventInclude, supersedes: { select: { id: true } } },
+      include: {
+        ...eventInclude,
+        supersedes: { select: { id: true } },
+        sourceSubmission: { select: { deletedAt: true } },
+      },
     });
-    if (!e) return notFound(res, 'Event');
+    if (!e || isFromDeletedDataset(e)) return notFound(res, 'Event');
     // `supersedes` = the older event this one corrected, if any.
     return res.json({ data: { ...shape.event(e), supersedes: e.supersedes?.id ?? null } });
   } catch (err) {

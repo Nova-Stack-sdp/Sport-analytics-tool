@@ -49,7 +49,9 @@ async function getAuthToken() {
 }
 
 async function request(path, options = {}) {
-  const { timeoutMs = DEFAULT_TIMEOUT_MS, ...fetchOptions } = options;
+  // raw: resolve with the Response itself (e.g. to read a file as a Blob)
+  // instead of parsing it as JSON. Errors are reported the same way.
+  const { timeoutMs = DEFAULT_TIMEOUT_MS, raw = false, ...fetchOptions } = options;
   // Start the clock first so a slow token refresh counts toward the timeout.
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -92,7 +94,7 @@ async function request(path, options = {}) {
     }
     throw error;
   }
-  return res.json();
+  return raw ? res : res.json();
 }
 
 // ---------------------------------------------------------------------------
@@ -505,6 +507,41 @@ export function reviewSubmission(id, status) {
     method: 'PATCH',
     ...jsonBody({ status }),
   });
+}
+
+// ---------------------------------------------------------------------------
+// Dataset submissions — admin view (backend/src/routes/adminDatasets.js)
+//
+// view is one of: pending, accepted, rejected, test, deleted. Accepting or
+// rejecting race data stays on reviewSubmission() above.
+// ---------------------------------------------------------------------------
+
+export function listAdminDatasets(view = 'pending') {
+  return request(`/api/admin/datasets?view=${encodeURIComponent(view)}`);
+}
+
+export function getAdminDataset(id) {
+  return request(`/api/admin/datasets/${encodeURIComponent(id)}`);
+}
+
+// Resolves with { blob, kind } where kind is 'original' (the exact upload)
+// or 'rebuilt' (an older dataset reconstructed from what was stored).
+// Large files get a longer timeout than ordinary API calls.
+export async function downloadAdminDataset(id) {
+  const res = await request(`/api/admin/datasets/${encodeURIComponent(id)}/upload`, {
+    raw: true,
+    timeoutMs: 60000,
+  });
+  const blob = await res.blob();
+  return { blob, kind: res.headers.get('X-Dataset-Upload') === 'rebuilt' ? 'rebuilt' : 'original' };
+}
+
+export function deleteAdminDataset(id) {
+  return request(`/api/admin/datasets/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export function restoreAdminDataset(id) {
+  return request(`/api/admin/datasets/${encodeURIComponent(id)}/restore`, { method: 'POST' });
 }
 
 // ---------------------------------------------------------------------------

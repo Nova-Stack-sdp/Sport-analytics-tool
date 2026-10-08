@@ -18,6 +18,7 @@ import { raceReplayRouter } from './routes/raceReplay.js';
 import { imagesRouter } from './routes/images.js';
 import { newsRouter } from './routes/news.js';
 import { submissionsRouter } from './routes/submissions.js';
+import { adminDatasetsRouter } from './routes/adminDatasets.js';
 import { codeSubmissionsRouter } from './routes/codeSubmissions.js';
 import { telemetryTVRouter } from './routes/telemetryTV.js';
 import { apiV1Router } from './api/v1/router.js';
@@ -98,6 +99,10 @@ export function createApp(options = {}) {
         return callback(null, false);
       },
       credentials: true,
+      // The frontend is on another site, so the browser hides response
+      // headers it isn't told it may read. These describe a dataset
+      // download (original vs rebuilt, and the stored checksum).
+      exposedHeaders: ['X-Dataset-Upload', 'X-Content-SHA256'],
     })
   );
   // CSRF gate for state-changing requests: the __session cookie is
@@ -105,7 +110,12 @@ export function createApp(options = {}) {
   // already on the CORS allowlist (see middleware/originGuard.js). Mounted
   // right after cors so the two always share one origin list.
   app.use(createOriginGuard({ allowedOrigins, wildcard: wildcardOrigin }));
-  app.use('/api/submissions', express.json({ limit: '20mb' }));
+  // Dataset uploads: keep the exact bytes received (req.rawBody) as well as
+  // the parsed JSON, so the original upload can be stored and downloaded.
+  app.use('/api/submissions', express.json({
+    limit: '20mb',
+    verify: (req, res, buf) => { req.rawBody = buf; },
+  }));
   app.use(express.json());
   // cookie-parser is required so requireAuth can read the httpOnly
   // __session cookie set by POST /api/auth/session.
@@ -169,6 +179,7 @@ export function createApp(options = {}) {
   app.use('/api/images', imagesRouter);
   app.use('/api/news', newsRouter);
   app.use('/api/submissions', submissionsRouter);
+  app.use('/api/admin/datasets', adminDatasetsRouter);
   app.use('/api/code-submissions', codeSubmissionsRouter);
   app.use('/api/telemetry-tv', telemetryTVRouter);
   app.use('/api/follows', followsRouter);

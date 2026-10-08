@@ -3,6 +3,7 @@ import pkg from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth, requireAdmin, requireVerifiedEmail } from '../middleware/requireAuth.js';
 import { runDerivationForSession } from '../derivation/index.js';
+import { buildUploadRecord } from '../lib/datasetUpload.js';
 import {
   mapLap,
   mapPitStop,
@@ -14,7 +15,8 @@ import {
   mapClassification,
 } from '../validation/event-records.js';
 
-const { SubmissionSource, SubmissionStatus } = pkg;
+const { SubmissionSource, SubmissionStatus, SubmissionPurpose } = pkg;
+const PURPOSES = Object.values(SubmissionPurpose);
 
 export const submissionsRouter = Router();
 
@@ -68,6 +70,15 @@ submissionsRouter.post('/', requireAuth, requireVerifiedEmail, developerOrAdminT
     if (!sessionKey) {
       return res.status(400).json({ error: 'session_key is required' });
     }
+    // race_data (default): events go into the event log, pending review.
+    // code_test: sample data for testing a developer's code. Validated the
+    // same way and stored as uploaded, but never written to the event log,
+    // so it can never reach statistics, the public API or replays.
+    const purpose = req.body.purpose ?? SubmissionPurpose.race_data;
+    if (!PURPOSES.includes(purpose)) {
+      return res.status(400).json({ error: `purpose must be one of: ${PURPOSES.join(', ')}` });
+    }
+    const isTestData = purpose === SubmissionPurpose.code_test;
 
     const session = await prisma.session.findUnique({
       where: { openf1Key: Number(sessionKey) },
@@ -117,6 +128,8 @@ submissionsRouter.post('/', requireAuth, requireVerifiedEmail, developerOrAdminT
     }
 
     const status = events.length === 0 ? SubmissionStatus.rejected : SubmissionStatus.pending;
+    const upload = buildUploadRecord(req);
+    const eventsToWrite = isTestData ? [] : events;
 
     const submission = await prisma.$transaction(
       async (tx) => {
@@ -126,13 +139,23 @@ submissionsRouter.post('/', requireAuth, requireVerifiedEmail, developerOrAdminT
             submitterId: req.user.uid,
             sessionId: session.id,
             status,
+            purpose,
             validationErrors: rejections.length > 0 ? rejections : undefined,
+            summary: {
+              validRecords: events.length,
+              rejectedRecords: rejections.length,
+              eventsWritten: eventsToWrite.length,
+            },
           },
         });
 
-        if (events.length > 0) {
+        // The original upload is kept even when nothing in it validated, so
+        // an admin can see exactly what was sent.
+        await tx.submissionUpload.create({ data: { submissionId: created.id, ...upload } });
+
+        if (eventsToWrite.length > 0) {
           await tx.event.createMany({
-            data: events.map((e) => ({
+            data: eventsToWrite.map((e) => ({
               sessionId: session.id,
               entryId: e.entryId,
               eventType: e.eventType,
@@ -152,7 +175,9 @@ submissionsRouter.post('/', requireAuth, requireVerifiedEmail, developerOrAdminT
     res.status(status === SubmissionStatus.rejected ? 422 : 201).json({
       submissionId: submission.id,
       status: submission.status,
-      eventsWritten: events.length,
+      purpose,
+      validRecords: events.length,
+      eventsWritten: eventsToWrite.length,
       rejections,
     });
   } catch (err) {
@@ -194,6 +219,8 @@ submissionsRouter.get('/', requireAuth, requireVerifiedEmail, developerOrAdminTo
         reviewedBy: true,
         reviewedAt: true,
         validationErrors: true,
+        purpose: true,
+        deletedAt: true,
       },
     });
     res.json({ submissions });
@@ -205,10 +232,9 @@ submissionsRouter.get('/', requireAuth, requireVerifiedEmail, developerOrAdminTo
 /**
  * PATCH /api/submissions/:id
  * Body: { status: 'accepted' | 'rejected' }
- * Admin review action. No role check yet — any authenticated user can
- * approve/reject (no Submitter/Role model exists in the schema yet; see
- * project notes). Approving triggers derivation so the now-live events
- * actually count toward stats.
+ * Admin review action (requireAdmin). Approving triggers derivation so the
+ * now-live events actually count toward stats. Test data (purpose
+ * code_test) and deleted datasets cannot be reviewed here.
  */
 submissionsRouter.patch('/:id', requireAuth, requireVerifiedEmail, requireAdmin, async (req, res, next) => {
   try {
@@ -219,20 +245,33 @@ submissionsRouter.patch('/:id', requireAuth, requireVerifiedEmail, requireAdmin,
 
     const submission = await prisma.submission.findUnique({ where: { id: req.params.id } });
     if (!submission) return res.status(404).json({ error: 'Submission not found' });
+    if (submission.deletedAt) {
+      return res.status(409).json({ error: 'Submission has been deleted; restore it before reviewing' });
+    }
+    if (submission.purpose === SubmissionPurpose.code_test) {
+      return res.status(409).json({
+        error: 'Test data is not reviewed on its own; it is reviewed together with the code it belongs to',
+      });
+    }
     if (submission.status !== SubmissionStatus.pending) {
       return res.status(409).json({ error: `Submission is already '${submission.status}', not pending` });
     }
 
-    const updated = await prisma.submission.update({
-      where: { id: submission.id },
+    // Conditional update: if the submission was reviewed or deleted after the
+    // read above, nothing changes and the admin gets a conflict.
+    const { count } = await prisma.submission.updateMany({
+      where: { id: submission.id, status: SubmissionStatus.pending, deletedAt: null },
       data: { status, reviewedBy: req.user.uid, reviewedAt: new Date() },
     });
+    if (count === 0) {
+      return res.status(409).json({ error: 'Submission changed while it was being reviewed; reload and try again' });
+    }
 
     if (status === SubmissionStatus.accepted) {
       await runDerivationForSession(prisma, submission.sessionId);
     }
 
-    res.json({ submissionId: updated.id, status: updated.status });
+    res.json({ submissionId: submission.id, status });
   } catch (err) {
     next(err);
   }
