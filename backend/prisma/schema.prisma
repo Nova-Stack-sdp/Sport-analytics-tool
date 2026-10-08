@@ -176,6 +176,15 @@ enum SubmissionStatus {
   partially_accepted
 }
 
+// Why a dataset was submitted. race_data is race data meant for the platform:
+// its events go into the event log and count once an admin accepts it.
+// code_test is sample data a developer sends so an admin can test their code:
+// it is validated and stored as uploaded, but never written to the event log.
+enum SubmissionPurpose {
+  race_data
+  code_test
+}
+
 model Submission {
   id               String           @id @default(uuid()) @map("submission_id")
   source           SubmissionSource
@@ -194,11 +203,19 @@ model Submission {
   // References an auth-system user ID (admin who reviewed), not a local FK.
   reviewedBy       String?          @map("reviewed_by")
   reviewedAt       DateTime?        @map("reviewed_at")
+  purpose          SubmissionPurpose @default(race_data)
+  // Soft delete: an admin can delete a dataset, which hides it and its events
+  // everywhere (statistics, public API, replay) but keeps the rows so it can
+  // be restored. Both are null while the dataset is live.
+  deletedAt        DateTime?        @map("deleted_at")
+  // References an auth-system user ID (the admin who deleted it).
+  deletedBy        String?          @map("deleted_by")
 
   events Event[]
 
   @@index([sessionId])
   @@index([status])
+  @@index([purpose, deletedAt, submittedAt])
   @@map("submission")
 }
 
