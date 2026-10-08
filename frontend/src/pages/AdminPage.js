@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import CodeSubmissionsPanel from '../components/admin/CodeSubmissionsPanel';
+import DatasetSubmissionsPanel from '../components/admin/DatasetSubmissionsPanel';
 
-const ADMIN_TABS = ['Submissions', 'API Keys', 'Dataset Releases', 'API Versions', 'Reconciliation'];
+const ADMIN_TABS = ['Code Submissions', 'Dataset Submissions', 'API Keys', 'Dataset Releases', 'API Versions', 'Reconciliation'];
 
 // ── Mock data ────────────────────────────────────────────────────────────────
 
@@ -318,7 +319,7 @@ function ReconciliationTab() {
 // ── Main component ───────────────────────────────────────────────────────────
 
 function AdminPage() {
-  const [activeTab, setActiveTab] = useState('Submissions');
+  const [activeTab, setActiveTab] = useState('Code Submissions');
 
   return (
     <div className="page" id="page-admin">
@@ -349,10 +350,11 @@ function AdminPage() {
           ))}
         </div>
 
-        {/* The only tab wired to the real API so far — the rest are still
-            placeholder surfaces, but submissions load live data via
-            GET/PATCH /api/code-submissions. */}
-        {activeTab === 'Submissions' && <CodeSubmissionsPanel />}
+        {/* The two submission tabs are wired to the real API (code via
+            /api/code-submissions, datasets via /api/admin/datasets); the
+            rest are still placeholder surfaces. */}
+        {activeTab === 'Code Submissions' && <CodeSubmissionsPanel />}
+        {activeTab === 'Dataset Submissions' && <DatasetSubmissionsPanel />}
         {activeTab === 'API Keys' && <ApiKeysTab />}
         {activeTab === 'Dataset Releases' && <DatasetReleasesTab />}
         {activeTab === 'API Versions' && <ApiVersionsTab />}

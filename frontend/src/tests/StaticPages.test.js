@@ -4,11 +4,12 @@ import AdminPage from '../pages/AdminPage';
 import DatasetsPanel from '../components/developer/DatasetsPanel';
 import SubmissionsPanel from '../components/developer/SubmissionsPanel';
 import TelemetryTVPage from '../pages/TelemetryTVPage';
-import { getTelemetryTVRaces, listCodeSubmissions } from '../api/client';
+import { getTelemetryTVRaces, listCodeSubmissions, listAdminDatasets } from '../api/client';
 
 jest.mock('../api/client', () => ({
   getTelemetryTVRaces: jest.fn(),
   listCodeSubmissions: jest.fn(),
+  listAdminDatasets: jest.fn(),
   listSubmissions: jest.fn(() => Promise.resolve({ submissions: [] })),
 }));
 
@@ -39,6 +40,11 @@ describe('static platform pages', () => {
     expect(await screen.findByText('No code submissions')).toBeInTheDocument();
     expect(screen.getByText('Code submissions')).toBeInTheDocument();
     expect(screen.queryByText('Submitter accounts')).not.toBeInTheDocument();
+
+    listAdminDatasets.mockResolvedValue({ datasets: [], counts: { pending: 0, accepted: 0, rejected: 0, test: 0, deleted: 0 } });
+    fireEvent.click(screen.getByText('Dataset Submissions', { selector: '.tab' }));
+    expect(await screen.findByText('No datasets')).toBeInTheDocument();
+    expect(listAdminDatasets).toHaveBeenCalledWith('pending');
 
     fireEvent.click(screen.getByText('API Keys', { selector: '.tab' }));
     expect(screen.getByText('API keys & quotas')).toBeInTheDocument();
