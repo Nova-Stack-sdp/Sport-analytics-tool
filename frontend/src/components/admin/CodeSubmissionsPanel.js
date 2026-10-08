@@ -11,8 +11,10 @@ function describeError(err) {
 }
 
 // Submissions tab of the Admin page. Every row, count and status comes from
-// the code_submission table via GET/PATCH /api/code-submissions; there is no
-// mock data, so an unreachable backend shows an error or an empty queue.
+// GET/PATCH /api/code-submissions; there is no mock data, so an unreachable
+// backend shows an error or an empty queue. Pending and rejected scripts are
+// read from code_submission; approving MOVES a script into verified_code,
+// which is where the Approved tab reads from.
 function CodeSubmissionsPanel() {
   const [activeTab, setActiveTab] = useState('Pending');
   const [submissions, setSubmissions] = useState([]);
@@ -20,6 +22,7 @@ function CodeSubmissionsPanel() {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [detail, setDetail] = useState(NO_DETAIL);
+  const [notice, setNotice] = useState(null);
 
   const loadSubmissions = useCallback(async (tab) => {
     setLoading(true);
@@ -37,13 +40,18 @@ function CodeSubmissionsPanel() {
 
   useEffect(() => {
     setDetail(NO_DETAIL);
+    setNotice(null);
     loadSubmissions(activeTab);
   }, [activeTab, loadSubmissions]);
 
-  async function handleReview(id, status) {
+  async function handleReview(submission, status) {
+    setNotice(null);
     try {
-      await reviewCodeSubmission(id, status);
+      await reviewCodeSubmission(submission.id, status);
       setDetail(NO_DETAIL);
+      setNotice(status === 'approved'
+        ? `“${submission.title}” approved and moved to the Approved tab.`
+        : `“${submission.title}” rejected. Rejected scripts are deleted automatically after 7 days.`);
       loadSubmissions(activeTab);
     } catch (err) {
       setLoadError(describeError(err));
@@ -95,15 +103,16 @@ function CodeSubmissionsPanel() {
             </div>
           ))}
         </div>
+        {notice && <div className="card-note" role="status" style={{ color: 'var(--status-green)' }}>{notice}</div>}
         {loading && <div className="card-note">Loading…</div>}
         {loadError && <div className="card-note" style={{ color: 'var(--status-red)' }}>{loadError}</div>}
         {!loading && !loadError && (
           <div className="table-scroll">
             <table>
               <tbody>
-                <tr><th>Title</th><th>Language</th><th>Submitter</th><th>Submitted</th><th>Status</th><th></th></tr>
+                <tr><th>Title</th><th>Language</th><th>Submitter</th><th>Submitted</th><th>Reviewed</th><th>Status</th><th></th></tr>
                 {submissions.length === 0 && (
-                  <tr><td colSpan={6} className="secondary">No code submissions</td></tr>
+                  <tr><td colSpan={7} className="secondary">No code submissions</td></tr>
                 )}
                 {submissions.map((s) => (
                   <Fragment key={s.id}>
@@ -113,6 +122,9 @@ function CodeSubmissionsPanel() {
                       <td className="mono secondary">{s.submitterEmail || s.submitterId || '—'}</td>
                       <td className="secondary mono">
                         {s.submittedAt ? new Date(s.submittedAt).toLocaleString() : '—'}
+                      </td>
+                      <td className="secondary mono">
+                        {s.reviewedAt ? new Date(s.reviewedAt).toLocaleString() : '—'}
                       </td>
                       <td>
                         {s.status === 'pending' && <span className="pill pill-amber">Pending</span>}
@@ -126,8 +138,8 @@ function CodeSubmissionsPanel() {
                           </button>
                           {s.status === 'pending' && (
                             <>
-                              <button className="btn btn-primary btn-sm" onClick={() => handleReview(s.id, 'approved')}>Approve</button>
-                              <button className="btn btn-ghost btn-sm" onClick={() => handleReview(s.id, 'rejected')}>Reject</button>
+                              <button className="btn btn-primary btn-sm" onClick={() => handleReview(s, 'approved')}>Approve</button>
+                              <button className="btn btn-ghost btn-sm" onClick={() => handleReview(s, 'rejected')}>Reject</button>
                             </>
                           )}
                         </div>
@@ -135,7 +147,7 @@ function CodeSubmissionsPanel() {
                     </tr>
                     {detail.id === s.id && (
                       <tr>
-                        <td colSpan={6}>
+                        <td colSpan={7}>
                           {detail.loading && <div className="card-note" style={{ marginTop: 0 }}>Loading code…</div>}
                           {detail.error && <div className="card-note" style={{ marginTop: 0, color: 'var(--status-red)' }}>{detail.error}</div>}
                           {detail.data && (
@@ -154,8 +166,9 @@ function CodeSubmissionsPanel() {
           </div>
         )}
         <div className="card-note" style={{ marginTop: 14 }}>
-          Approving a submission makes its derived statistic available on the platform; rejecting
-          leaves it in the submitter's history. Both outcomes are recorded against the reviewing admin.
+          Approving a script moves it out of the review queue into the verified code library, so it is
+          stored once, under the Approved tab. Rejected scripts stay under the Rejected tab for 7 days and
+          are then deleted automatically. Both outcomes are recorded against the reviewing admin.
         </div>
       </div>
     </>

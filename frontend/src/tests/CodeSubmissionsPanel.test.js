@@ -155,4 +155,51 @@ describe('CodeSubmissionsPanel', () => {
     expect(screen.getAllByText('Approved')).toHaveLength(2);
     expect(screen.getAllByText('Rejected')).toHaveLength(2);
   });
+
+  test('after approving, says the script moved to the Approved tab', async () => {
+    listCodeSubmissions.mockResolvedValue({ submissions: [submission()] });
+    reviewCodeSubmission.mockResolvedValue({ id: 'cs_1', status: 'approved' });
+    render(<CodeSubmissionsPanel />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Approve' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('“Tyre delta per stint” approved and moved to the Approved tab.');
+  });
+
+  test('after rejecting, mentions the 7-day retention', async () => {
+    listCodeSubmissions.mockResolvedValue({ submissions: [submission()] });
+    reviewCodeSubmission.mockResolvedValue({ id: 'cs_1', status: 'rejected' });
+    render(<CodeSubmissionsPanel />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Reject' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/rejected\. Rejected scripts are deleted automatically after 7 days/);
+  });
+
+  test('the notice clears when switching tabs', async () => {
+    listCodeSubmissions.mockResolvedValue({ submissions: [submission()] });
+    reviewCodeSubmission.mockResolvedValue({ id: 'cs_1', status: 'approved' });
+    render(<CodeSubmissionsPanel />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Approve' }));
+    await screen.findByRole('status');
+
+    fireEvent.click(screen.getByText('Rejected'));
+
+    await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument());
+  });
+
+  test('shows when a reviewed script was reviewed, and a dash while pending', async () => {
+    listCodeSubmissions.mockResolvedValue({
+      submissions: [
+        submission({ id: 'cs_4', status: 'approved', title: 'Reviewed one', reviewedAt: '2026-10-06T09:30:00.000Z' }),
+        submission({ id: 'cs_5', title: 'Still pending' }),
+      ],
+    });
+    render(<CodeSubmissionsPanel />);
+
+    expect(await screen.findByRole('columnheader', { name: 'Reviewed' })).toBeInTheDocument();
+    expect(screen.getByText(new Date('2026-10-06T09:30:00.000Z').toLocaleString())).toBeInTheDocument();
+    const pendingRow = screen.getByText('Still pending').closest('tr');
+    expect(pendingRow).toHaveTextContent('—');
+  });
 });
