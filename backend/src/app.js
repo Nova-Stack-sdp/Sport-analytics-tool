@@ -105,7 +105,12 @@ export function createApp(options = {}) {
   // already on the CORS allowlist (see middleware/originGuard.js). Mounted
   // right after cors so the two always share one origin list.
   app.use(createOriginGuard({ allowedOrigins, wildcard: wildcardOrigin }));
-  app.use('/api/submissions', express.json({ limit: '20mb' }));
+  // Dataset uploads: keep the exact bytes received (req.rawBody) as well as
+  // the parsed JSON, so the original upload can be stored and downloaded.
+  app.use('/api/submissions', express.json({
+    limit: '20mb',
+    verify: (req, res, buf) => { req.rawBody = buf; },
+  }));
   app.use(express.json());
   // cookie-parser is required so requireAuth can read the httpOnly
   // __session cookie set by POST /api/auth/session.
