@@ -43,35 +43,42 @@ integration('VerifiedCode migration and rejected-code retention against PostgreS
     } finally { await prisma.$disconnect(); }
   });
 
-  test('stores a linked copy with review metadata and rejects duplicate/orphan copies', async () => {
+  test('stores verified code with review metadata, one row per source submission', async () => {
     const source = await prisma.codeSubmission.create({ data: sourceData('source', { status: 'approved' }) });
     const copy = await prisma.verifiedCode.create({ data: verifiedData(source) });
     expect(copy.code).toBe(source.code);
     expect(copy.tags).toEqual([]);
     expect(copy.verifiedAt).toBeInstanceOf(Date);
+    expect(copy.submittedAt).toBeInstanceOf(Date);
     expect(copy.verifiedBy).toBe('test-admin');
-    const linked = await prisma.codeSubmission.findUnique({ where: { id: source.id }, include: { verifiedCode: true } });
-    expect(linked.verifiedCode.id).toBe(copy.id);
+    // The unique index on source_submission_id still prevents two verified
+    // rows for the same submission.
     await expect(prisma.verifiedCode.create({ data: verifiedData(source) })).rejects.toMatchObject({ code: 'P2002' });
-    await expect(prisma.verifiedCode.create({ data: { ...verifiedData(source), sourceSubmissionId: 'missing' } }))
-      .rejects.toMatchObject({ code: 'P2003' });
-    await expect(prisma.codeSubmission.delete({ where: { id: source.id } })).rejects.toThrow();
-    // Also bypass Prisma's relation check to prove PostgreSQL itself
-    // rejects deletion of a source that has a verified copy.
-    await expect(prisma.$executeRaw`DELETE FROM "code_submission" WHERE "code_submission_id" = ${source.id}`)
-      .rejects.toThrow();
-    expect(await prisma.codeSubmission.findUnique({ where: { id: source.id } })).not.toBeNull();
     expect(await prisma.verifiedCode.count()).toBe(1);
   });
 
-  test('supports a pipeline transaction that rolls back status if the verified copy fails', async () => {
+  test('verified code no longer depends on its code_submission row existing', async () => {
+    const source = await prisma.codeSubmission.create({ data: sourceData('source', { status: 'approved' }) });
+    await prisma.verifiedCode.create({ data: verifiedData(source) });
+    // With the foreign key dropped, PostgreSQL lets the original be removed
+    // (this is what approval does) and the verified row is untouched.
+    await prisma.$executeRaw`DELETE FROM "code_submission" WHERE "code_submission_id" = ${source.id}`;
+    expect(await prisma.codeSubmission.findUnique({ where: { id: source.id } })).toBeNull();
+    const kept = await prisma.verifiedCode.findUnique({ where: { sourceSubmissionId: source.id } });
+    expect(kept.title).toBe(source.title);
+  });
+
+  test('a failed verified insert rolls back the status change in the same transaction', async () => {
     const source = await prisma.codeSubmission.create({ data: sourceData('pending') });
+    // An existing verified row for this source makes the insert below fail
+    // on the unique index, standing in for any failure mid-transaction.
+    await prisma.verifiedCode.create({ data: verifiedData(source) });
     await expect(prisma.$transaction(async (tx) => {
       await tx.codeSubmission.update({ where: { id: source.id }, data: { status: 'approved' } });
-      await tx.verifiedCode.create({ data: { ...verifiedData(source), sourceSubmissionId: 'missing' } });
-    })).rejects.toMatchObject({ code: 'P2003' });
+      await tx.verifiedCode.create({ data: verifiedData(source) });
+    })).rejects.toMatchObject({ code: 'P2002' });
     expect((await prisma.codeSubmission.findUnique({ where: { id: source.id } })).status).toBe('pending');
-    expect(await prisma.verifiedCode.count()).toBe(0);
+    expect(await prisma.verifiedCode.count()).toBe(1);
   });
 
   test('deletes only expired rejected rows, retaining recent/unreviewed/approved/pending/verified rows', async () => {

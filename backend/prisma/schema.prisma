@@ -394,7 +394,6 @@ model CodeSubmission {
   submittedAt    DateTime             @default(now()) @map("submitted_at")
   reviewedBy     String?              @map("reviewed_by")
   reviewedAt     DateTime?            @map("reviewed_at")
-  verifiedCode   VerifiedCode?
 
   @@index([status, submittedAt])
   @@index([status, reviewedAt])
@@ -402,8 +401,9 @@ model CodeSubmission {
   @@map("code_submission")
 }
 
-// Approved code is copied here by the review pipeline. The original row
-// stays available for its submission/review history.
+// Approved code lives here. sourceSubmissionId is the ID the submission had
+// in code_submission; it is a plain column, not a foreign key, so the
+// original row can be removed once its code has been approved.
 model VerifiedCode {
   id                 String   @id @default(uuid()) @map("verified_code_id")
   sourceSubmissionId String   @unique @map("source_submission_id")
@@ -419,8 +419,6 @@ model VerifiedCode {
   submittedAt        DateTime @default(now()) @map("submitted_at")
   verifiedBy         String   @map("verified_by")
   verifiedAt         DateTime @default(now()) @map("verified_at")
-
-  sourceSubmission CodeSubmission @relation(fields: [sourceSubmissionId], references: [id], onDelete: Restrict)
 
   @@index([submitterId, verifiedAt])
   @@map("verified_code")
