@@ -203,4 +203,44 @@ describe('API client', () => {
     expect(global.fetch.mock.calls[0][1].headers).toEqual({ Authorization: 'Bearer explicit' });
     expect(global.fetch.mock.calls[1][1].headers).toBeUndefined();
   });
+
+  describe('admin dataset helpers', () => {
+    test('list, detail, delete and restore call the admin dataset endpoints', async () => {
+      process.env.REACT_APP_API_URL = 'https://api.example.test';
+      global.fetch.mockResolvedValue(successfulResponse({ ok: true }));
+      const client = loadClient();
+
+      await client.listAdminDatasets('deleted');
+      await client.getAdminDataset('sub 1');
+      await client.deleteAdminDataset('sub-1');
+      await client.restoreAdminDataset('sub-1');
+
+      const calls = global.fetch.mock.calls.map(([url, opts]) => [url, opts.method ?? 'GET']);
+      expect(calls).toEqual([
+        ['https://api.example.test/api/admin/datasets?view=deleted', 'GET'],
+        ['https://api.example.test/api/admin/datasets/sub%201', 'GET'],
+        ['https://api.example.test/api/admin/datasets/sub-1', 'DELETE'],
+        ['https://api.example.test/api/admin/datasets/sub-1/restore', 'POST'],
+      ]);
+    });
+
+    test('downloadAdminDataset returns the file as a Blob plus whether it is the original', async () => {
+      process.env.REACT_APP_API_URL = 'https://api.example.test';
+      const blob = new Blob(['{"laps":[]}'], { type: 'application/json' });
+      const headers = { get: jest.fn((name) => (name === 'X-Dataset-Upload' ? 'rebuilt' : null)) };
+      global.fetch.mockResolvedValue({ ok: true, status: 200, headers, blob: jest.fn().mockResolvedValue(blob), json: jest.fn() });
+      const client = loadClient();
+
+      const result = await client.downloadAdminDataset('old-1');
+
+      expect(global.fetch.mock.calls[0][0]).toBe('https://api.example.test/api/admin/datasets/old-1/upload');
+      expect(result).toEqual({ blob, kind: 'rebuilt' });
+    });
+
+    test('a failed download rejects with the backend error, not a Blob', async () => {
+      global.fetch.mockResolvedValue({ ok: false, status: 404, json: jest.fn().mockResolvedValue({ error: 'Dataset not found' }) });
+      const client = loadClient();
+      await expect(client.downloadAdminDataset('nope')).rejects.toMatchObject({ status: 404, body: { error: 'Dataset not found' } });
+    });
+  });
 });
