@@ -23,7 +23,6 @@ import { createResponseCache } from './middleware/responseCache.js';
 import { followsRouter } from './routes/follows.js';
 import { notificationsRouter } from './routes/notifications.js';
 
-import { processRaceReminders } from './services/raceReminderService.js'; // adjust path if needed
 
 
 // Rate limits (requests per minute, per client IP) and cache lifetime.
@@ -48,21 +47,8 @@ function readConfig(options) {
 export function createApp(options = {}) {
   const app = express();
   const config = readConfig(options);
-  const PORT = process.env.PORT || 8080;
 
-  // Start the server...
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-
-    // Run race reminder worker every 15 minutes
-    setInterval(async () => {
-      try {
-        await processRaceReminders();
-      } catch (err) {
-        console.error('Error running race reminders:', err);
-      }
-    }, 15 * 60 * 1000);
-  });
+  // Northflank sits in front of the app as a proxy: trust its
 
   // Northflank sits in front of the app as a proxy: trust its
   // X-Forwarded-For so req.ip is the real client (what rate limits key on),

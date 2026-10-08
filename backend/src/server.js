@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { createApp } from './app.js';
 import { f1NewsService } from './lib/f1NewsFeed.js';
+import { processRaceReminders } from './services/raceReminderService.js';
 
 const app = createApp();
 
@@ -12,4 +13,13 @@ const port = process.env.PORT || 8080;
 app.listen(port, '0.0.0.0', () => {
   console.log(`Backend listening on port ${port}`);
   f1NewsService.start();
+
+  // Run race reminder worker every 15 minutes
+  setInterval(async () => {
+    try {
+      await processRaceReminders();
+    } catch (err) {
+      console.error('Error running race reminders:', err);
+    }
+  }, 15 * 60 * 1000);
 });
