@@ -45,24 +45,40 @@ export async function purgeRejectedCodeSubmissions(prisma, {
   const eligible = {
     status: 'rejected',
     reviewedAt: { lte: cutoff },
-    verifiedCode: { is: null },
   };
   let deleted = 0;
   let batches = 0;
+  // Rows already looked at and kept because verified code points at them.
+  // Excluding them lets the next batch move on instead of re-reading them.
+  const protectedIds = [];
 
   for (; batches < MAX_BATCHES; batches += 1) {
     const candidates = await prisma.codeSubmission.findMany({
-      where: eligible,
+      where: protectedIds.length ? { ...eligible, id: { notIn: protectedIds } } : eligible,
       orderBy: [{ reviewedAt: 'asc' }, { id: 'asc' }],
       select: { id: true },
       take: checked.batchSize,
     });
     if (candidates.length === 0) break;
 
-    // Recheck status, age and the verified relation at deletion time. A
-    // concurrent review or another backend's cleanup must not widen this.
+    // Approval moves code out of code_submission, so a rejected row should
+    // never have verified code. verified_code no longer has a database link
+    // back to code_submission, so check by ID instead and keep any rejected
+    // row that verified code still refers to.
+    const candidateIds = candidates.map(({ id }) => id);
+    const referenced = await prisma.verifiedCode.findMany({
+      where: { sourceSubmissionId: { in: candidateIds } },
+      select: { sourceSubmissionId: true },
+    });
+    const keep = new Set(referenced.map(({ sourceSubmissionId }) => sourceSubmissionId));
+    protectedIds.push(...keep);
+    const deletable = candidateIds.filter((id) => !keep.has(id));
+    if (deletable.length === 0) continue;
+
+    // Recheck status and age at deletion time. A concurrent review or another
+    // backend's cleanup must not widen this.
     const result = await prisma.codeSubmission.deleteMany({
-      where: { ...eligible, id: { in: candidates.map(({ id }) => id) } },
+      where: { ...eligible, id: { in: deletable } },
     });
     deleted += result.count;
   }

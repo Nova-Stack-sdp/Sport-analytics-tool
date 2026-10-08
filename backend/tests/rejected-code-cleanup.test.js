@@ -9,6 +9,7 @@ const NOW = new Date('2026-10-15T12:00:00Z');
 const config = { enabled: true, retentionDays: 7, intervalMs: 3600000, batchSize: 2 };
 const makePrisma = () => ({
   codeSubmission: { findMany: jest.fn().mockResolvedValue([]), deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+  verifiedCode: { findMany: jest.fn().mockResolvedValue([]) },
 });
 
 afterEach(() => { jest.useRealTimers(); });
@@ -25,14 +26,14 @@ test('uses seven days and an hourly interval; rejects unsafe configuration', () 
   ]) expect(() => readRejectedCodeCleanupConfig({ [name]: value })).toThrow(name);
 });
 
-test('deletes bounded batches, repeating the age/status/verified guards on each delete', async () => {
+test('deletes bounded batches, repeating the age/status guards on each delete', async () => {
   const prisma = makePrisma();
   prisma.codeSubmission.findMany
     .mockResolvedValueOnce([{ id: 'old-a' }, { id: 'old-b' }])
     .mockResolvedValueOnce([{ id: 'old-c' }]);
   prisma.codeSubmission.deleteMany.mockResolvedValueOnce({ count: 2 }).mockResolvedValueOnce({ count: 1 });
   const expectedGuard = {
-    status: 'rejected', reviewedAt: { lte: new Date('2026-10-08T12:00:00Z') }, verifiedCode: { is: null },
+    status: 'rejected', reviewedAt: { lte: new Date('2026-10-08T12:00:00Z') },
   };
   expect(await purgeRejectedCodeSubmissions(prisma, { now: NOW, batchSize: 2 })).toEqual({
     deleted: 3, batches: 2, cutoff: expectedGuard.reviewedAt.lte,
@@ -46,6 +47,40 @@ test('deletes bounded batches, repeating the age/status/verified guards on each 
   expect(prisma.codeSubmission.deleteMany).toHaveBeenNthCalledWith(2, {
     where: { ...expectedGuard, id: { in: ['old-c'] } },
   });
+});
+
+test('keeps a rejected row that verified code still refers to, and moves past it', async () => {
+  const prisma = makePrisma();
+  const cutoff = new Date('2026-10-08T12:00:00Z');
+  prisma.codeSubmission.findMany
+    .mockResolvedValueOnce([{ id: 'linked' }, { id: 'old-a' }])
+    .mockResolvedValueOnce([{ id: 'old-b' }])
+    .mockResolvedValueOnce([]);
+  prisma.verifiedCode.findMany
+    .mockResolvedValueOnce([{ sourceSubmissionId: 'linked' }])
+    .mockResolvedValueOnce([]);
+  prisma.codeSubmission.deleteMany.mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 1 });
+
+  expect((await purgeRejectedCodeSubmissions(prisma, { now: NOW, batchSize: 2 })).deleted).toBe(2);
+
+  expect(prisma.verifiedCode.findMany).toHaveBeenNthCalledWith(1, {
+    where: { sourceSubmissionId: { in: ['linked', 'old-a'] } }, select: { sourceSubmissionId: true },
+  });
+  expect(prisma.codeSubmission.deleteMany).toHaveBeenNthCalledWith(1, {
+    where: { status: 'rejected', reviewedAt: { lte: cutoff }, id: { in: ['old-a'] } },
+  });
+  // The kept row is excluded from later selections instead of being re-read.
+  expect(prisma.codeSubmission.findMany.mock.calls[1][0].where).toEqual({
+    status: 'rejected', reviewedAt: { lte: cutoff }, id: { notIn: ['linked'] },
+  });
+});
+
+test('a batch made only of referenced rows deletes nothing', async () => {
+  const prisma = makePrisma();
+  prisma.codeSubmission.findMany.mockResolvedValueOnce([{ id: 'linked' }]).mockResolvedValueOnce([]);
+  prisma.verifiedCode.findMany.mockResolvedValueOnce([{ sourceSubmissionId: 'linked' }]);
+  expect((await purgeRejectedCodeSubmissions(prisma, { now: NOW })).deleted).toBe(0);
+  expect(prisma.codeSubmission.deleteMany).not.toHaveBeenCalled();
 });
 
 test('an empty queue or an invalid clock never issues a deletion', async () => {

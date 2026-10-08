@@ -104,7 +104,7 @@ integration('VerifiedCode migration and rejected-code retention against PostgreS
         return rows;
       },
       deleteMany: (args) => prisma.codeSubmission.deleteMany(args),
-    } };
+    }, verifiedCode: prisma.verifiedCode };
     expect((await purgeRejectedCodeSubmissions(concurrentPrisma, { now: NOW })).deleted).toBe(0);
     expect((await prisma.codeSubmission.findUnique({ where: { id: 'changed' } })).status).toBe('approved');
   });
