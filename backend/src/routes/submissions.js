@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import pkg from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
-import { requireAuth, requireAdmin } from '../middleware/requireAuth.js';
+import { requireAuth, requireAdmin, requireVerifiedEmail } from '../middleware/requireAuth.js';
 import { runDerivationForSession } from '../derivation/index.js';
 import {
   mapLap,
@@ -60,7 +60,7 @@ async function buildEntryLookup(sessionId) {
  * pending: events exist in the log but are excluded from derived stats
  * until an admin approves (see the LIVE filter in derivation/db.js).
  */
-submissionsRouter.post('/', requireAuth, requireDeveloperOrAdmin, async (req, res, next) => {
+submissionsRouter.post('/', requireAuth, requireVerifiedEmail, requireDeveloperOrAdmin, async (req, res, next) => {
   try {
     const { session_key: sessionKey } = req.body;
     if (!sessionKey) {
@@ -163,7 +163,7 @@ submissionsRouter.post('/', requireAuth, requireDeveloperOrAdmin, async (req, re
  * Review queue. Shape matches overview.js's existing submissionQueue
  * fields, plus review-relevant extras (submitterId, validationErrors).
  */
-submissionsRouter.get('/', requireAuth, async (req, res, next) => {
+submissionsRouter.get('/', requireAuth, requireVerifiedEmail, async (req, res, next) => {
   try {
     const { status } = req.query;
     const where = status ? { status } : {};
@@ -196,7 +196,7 @@ submissionsRouter.get('/', requireAuth, async (req, res, next) => {
  * project notes). Approving triggers derivation so the now-live events
  * actually count toward stats.
  */
-submissionsRouter.patch('/:id', requireAuth, requireAdmin, async (req, res, next) => {
+submissionsRouter.patch('/:id', requireAuth, requireVerifiedEmail, requireAdmin, async (req, res, next) => {
   try {
     const { status } = req.body;
     if (![SubmissionStatus.accepted, SubmissionStatus.rejected].includes(status)) {

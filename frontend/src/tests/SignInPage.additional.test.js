@@ -6,8 +6,16 @@ import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
 // The page exchanges the new Firebase ID token for a backend session cookie
 // (auth.currentUser.getIdToken() -> establishSession) before navigating, so
 // both need stand-ins here or the success path throws before navigate().
+// getIdTokenResult is the third: a verified account is the ordinary case, and
+// where the sign-in lands depends on that claim (see goToStart).
+let mockEmailVerified = true;
 jest.mock('../firebase', () => ({
-  auth: { currentUser: { getIdToken: () => Promise.resolve('test-id-token') } },
+  auth: {
+    currentUser: {
+      getIdToken: () => Promise.resolve('test-id-token'),
+      getIdTokenResult: () => Promise.resolve({ claims: { email_verified: mockEmailVerified } }),
+    },
+  },
   googleProvider: { id: 'google' },
   githubProvider: { id: 'github' },
 }));
@@ -27,7 +35,10 @@ function enterCredentials(email = 'max@example.com', password = 'password123') {
 }
 
 describe('SignInPage additional authentication branches', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockEmailVerified = true;
+  });
 
   test('validates malformed emails before it calls Firebase', async () => {
     renderPage();
@@ -79,6 +90,25 @@ describe('SignInPage additional authentication branches', () => {
     await waitFor(() => expect(signInWithPopup).toHaveBeenCalled());
     await waitFor(() => expect(screen.getByRole('button', { name: /Continue with Google/i })).not.toBeDisabled());
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  test('the eye reveals and re-hides the password without touching its value', async () => {
+    renderPage();
+    enterCredentials('max@example.com', 'password123');
+
+    const password = screen.getByLabelText(/^password$/i);
+    expect(password).toHaveAttribute('type', 'password');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show password' }));
+
+    expect(password).toHaveAttribute('type', 'text');
+    expect(password).toHaveValue('password123');
+    expect(screen.getByRole('button', { name: 'Hide password' })).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide password' }));
+
+    expect(password).toHaveAttribute('type', 'password');
+    expect(password).toHaveValue('password123');
   });
 
   test('handles GitHub success and Google popup cancellation without a noisy error', async () => {
