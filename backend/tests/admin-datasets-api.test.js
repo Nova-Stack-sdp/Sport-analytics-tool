@@ -325,3 +325,10 @@ describe('DELETE /api/admin/datasets/:id and POST /:id/restore', () => {
     expect(mockPrisma.submission.updateMany).not.toHaveBeenCalled();
   });
 });
+
+test('a cross-site frontend may read the download headers', async () => {
+  mockPrisma.submission.findFirst.mockResolvedValue(null);
+  const res = await get('/api/admin/datasets/sub-1/upload').set('Origin', 'http://localhost:3000');
+  expect(res.headers['access-control-allow-origin']).toBe('http://localhost:3000');
+  expect(res.headers['access-control-expose-headers']).toBe('X-Dataset-Upload,X-Content-SHA256');
+});

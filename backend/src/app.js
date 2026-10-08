@@ -99,6 +99,10 @@ export function createApp(options = {}) {
         return callback(null, false);
       },
       credentials: true,
+      // The frontend is on another site, so the browser hides response
+      // headers it isn't told it may read. These describe a dataset
+      // download (original vs rebuilt, and the stored checksum).
+      exposedHeaders: ['X-Dataset-Upload', 'X-Content-SHA256'],
     })
   );
   // CSRF gate for state-changing requests: the __session cookie is
