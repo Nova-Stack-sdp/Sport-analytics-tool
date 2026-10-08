@@ -132,3 +132,81 @@ adminDatasetsRouter.get('/:id', async (req, res, next) => {
     next(err);
   }
 });
+
+/**
+ * Builds a downloadable stand-in for a dataset uploaded before originals
+ * were kept: the records that were accepted (as stored events) and the ones
+ * that were rejected (with their reasons). It is clearly marked as rebuilt,
+ * because formatting and any fields the validator dropped cannot be
+ * recovered.
+ */
+export function buildRebuiltUpload(submission, events) {
+  return {
+    rebuilt: true,
+    note: 'Uploaded before original files were kept. Rebuilt from the stored events (accepted records) and the validation report (rejected records); formatting and fields that were not stored are not recoverable.',
+    submission_id: submission.id,
+    purpose: submission.purpose,
+    session_key: submission.session?.openf1Key ?? null,
+    submitted_at: submission.submittedAt,
+    accepted_records: events.map((e) => ({
+      event_type: e.eventType,
+      driver_number: e.entry?.driver?.driverNumber ?? null,
+      lap_number: e.lapNumber,
+      occurred_at: e.occurredAt,
+      payload: e.payload,
+    })),
+    rejected_records: Array.isArray(submission.validationErrors) ? submission.validationErrors : [],
+  };
+}
+
+// GET /api/admin/datasets/:id/upload — download the dataset. The original
+// bytes when they were kept (X-Dataset-Upload: original), otherwise a
+// rebuilt JSON file (X-Dataset-Upload: rebuilt). Always sent as an
+// attachment so the browser saves it instead of rendering it.
+adminDatasetsRouter.get('/:id/upload', async (req, res, next) => {
+  try {
+    const submission = await prisma.submission.findFirst({
+      where: { id: req.params.id, ...MANUAL },
+      select: {
+        id: true,
+        purpose: true,
+        submittedAt: true,
+        validationErrors: true,
+        session: { select: { openf1Key: true } },
+        upload: { select: { data: true, contentType: true, sha256: true } },
+      },
+    });
+    if (!submission) return res.status(404).json({ error: 'Dataset not found' });
+
+    res.set('Cache-Control', 'no-store');
+    if (submission.upload) {
+      res.set({
+        'Content-Type': submission.upload.contentType,
+        'Content-Disposition': `attachment; filename="dataset-${submission.id}.json"`,
+        'X-Dataset-Upload': 'original',
+        'X-Content-SHA256': submission.upload.sha256,
+      });
+      return res.send(Buffer.from(submission.upload.data));
+    }
+
+    const events = await prisma.event.findMany({
+      where: { sourceSubmissionId: submission.id },
+      orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }],
+      select: {
+        eventType: true,
+        lapNumber: true,
+        occurredAt: true,
+        payload: true,
+        entry: { select: { driver: { select: { driverNumber: true } } } },
+      },
+    });
+    res.set({
+      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Disposition': `attachment; filename="dataset-${submission.id}-rebuilt.json"`,
+      'X-Dataset-Upload': 'rebuilt',
+    });
+    return res.send(JSON.stringify(buildRebuiltUpload(submission, events), null, 2));
+  } catch (err) {
+    next(err);
+  }
+});

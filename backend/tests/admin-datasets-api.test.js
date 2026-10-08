@@ -180,3 +180,61 @@ describe('GET /api/admin/datasets/:id', () => {
     expect((await get('/api/admin/datasets/nope')).status).toBe(404);
   });
 });
+
+describe('GET /api/admin/datasets/:id/upload', () => {
+  test('sends the original bytes unchanged, as an attachment', async () => {
+    const raw = '{ "session_key": 9999,  "laps": [] }';
+    mockPrisma.submission.findFirst.mockResolvedValue({
+      id: 'sub-1', purpose: 'race_data', submittedAt: new Date(), validationErrors: null,
+      session: { openf1Key: 9999 },
+      upload: { data: new Uint8Array(Buffer.from(raw)), contentType: 'application/json', sha256: 'abc123' },
+    });
+
+    const res = await get('/api/admin/datasets/sub-1/upload').buffer(true).parse((r, cb) => {
+      const chunks = []; r.on('data', (c) => chunks.push(c)); r.on('end', () => cb(null, Buffer.concat(chunks)));
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-disposition']).toBe('attachment; filename="dataset-sub-1.json"');
+    expect(res.headers['x-dataset-upload']).toBe('original');
+    expect(res.headers['x-content-sha256']).toBe('abc123');
+    expect(res.headers['cache-control']).toBe('no-store');
+    expect(res.body.toString('utf8')).toBe(raw);
+    expect(mockPrisma.event.findMany).not.toHaveBeenCalled();
+  });
+
+  test('rebuilds older datasets from their events and rejected records, clearly marked', async () => {
+    mockPrisma.submission.findFirst.mockResolvedValue({
+      id: 'old-1', purpose: 'race_data', submittedAt: new Date('2026-09-01T00:00:00Z'),
+      validationErrors: [{ eventType: 'lap_completed', reason: 'unknown driver_number 77', record: { driver_number: 77 } }],
+      session: { openf1Key: 9999 },
+      upload: null,
+    });
+    mockPrisma.event.findMany.mockResolvedValue([{
+      eventType: 'lap_completed', lapNumber: 1, occurredAt: new Date('2026-09-06T13:03:00Z'),
+      payload: { lap_time_ms: 81200 }, entry: { driver: { driverNumber: 1 } },
+    }]);
+
+    const res = await get('/api/admin/datasets/old-1/upload');
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-disposition']).toBe('attachment; filename="dataset-old-1-rebuilt.json"');
+    expect(res.headers['x-dataset-upload']).toBe('rebuilt');
+    expect(mockPrisma.event.findMany.mock.calls[0][0].where).toEqual({ sourceSubmissionId: 'old-1' });
+    expect(res.body).toMatchObject({
+      rebuilt: true,
+      submission_id: 'old-1',
+      session_key: 9999,
+      accepted_records: [{ event_type: 'lap_completed', driver_number: 1, lap_number: 1, payload: { lap_time_ms: 81200 } }],
+      rejected_records: [{ eventType: 'lap_completed', reason: 'unknown driver_number 77', record: { driver_number: 77 } }],
+    });
+  });
+
+  test('404 for an unknown dataset, and admins only', async () => {
+    mockPrisma.submission.findFirst.mockResolvedValue(null);
+    expect((await get('/api/admin/datasets/nope/upload')).status).toBe(404);
+
+    mockVerifyIdToken.mockResolvedValue({ uid: 'dev-uid', developer: true, email_verified: true });
+    expect((await get('/api/admin/datasets/sub-1/upload')).status).toBe(403);
+  });
+});
