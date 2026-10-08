@@ -238,3 +238,90 @@ describe('GET /api/admin/datasets/:id/upload', () => {
     expect((await get('/api/admin/datasets/sub-1/upload')).status).toBe(403);
   });
 });
+
+describe('DELETE /api/admin/datasets/:id and POST /:id/restore', () => {
+  const del = (id) => request(createApp()).delete(`/api/admin/datasets/${id}`).set('Authorization', 'Bearer t');
+  const restore = (id) => request(createApp()).post(`/api/admin/datasets/${id}/restore`).set('Authorization', 'Bearer t');
+  const state = (extra) => ({ id: 'sub-1', purpose: 'race_data', status: 'accepted', sessionId: 'session-1', deletedAt: null, ...extra });
+
+  test('deleting accepted race data hides it and recomputes that session\'s statistics', async () => {
+    mockPrisma.submission.findFirst.mockResolvedValue(state());
+    mockPrisma.submission.updateMany.mockResolvedValue({ count: 1 });
+
+    const res = await del('sub-1');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ id: 'sub-1', deletedBy: 'admin-uid', statisticsRecalculated: true });
+    const args = mockPrisma.submission.updateMany.mock.calls[0][0];
+    expect(args.where).toEqual({ id: 'sub-1', deletedAt: null });
+    expect(args.data.deletedBy).toBe('admin-uid');
+    expect(args.data.deletedAt).toBeInstanceOf(Date);
+    expect(mockRunDerivationForSession).toHaveBeenCalledWith(mockPrisma, 'session-1');
+  });
+
+  test.each([
+    ['pending race data', { status: 'pending' }],
+    ['rejected race data', { status: 'rejected' }],
+    ['test data', { purpose: 'code_test', status: 'pending' }],
+  ])('deleting %s does not touch statistics', async (_label, extra) => {
+    mockPrisma.submission.findFirst.mockResolvedValue(state(extra));
+    mockPrisma.submission.updateMany.mockResolvedValue({ count: 1 });
+    const res = await del('sub-1');
+    expect(res.status).toBe(200);
+    expect(res.body.statisticsRecalculated).toBe(false);
+    expect(mockRunDerivationForSession).not.toHaveBeenCalled();
+  });
+
+  test('deleting twice answers 409 and recomputes nothing', async () => {
+    mockPrisma.submission.findFirst.mockResolvedValue(state({ deletedAt: new Date() }));
+    mockPrisma.submission.updateMany.mockResolvedValue({ count: 0 });
+    const res = await del('sub-1');
+    expect(res.status).toBe(409);
+    expect(mockRunDerivationForSession).not.toHaveBeenCalled();
+  });
+
+  test('a failed recompute still reports the delete as saved, with a warning', async () => {
+    mockPrisma.submission.findFirst.mockResolvedValue(state());
+    mockPrisma.submission.updateMany.mockResolvedValue({ count: 1 });
+    mockRunDerivationForSession.mockRejectedValueOnce(new Error('db down'));
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    const res = await del('sub-1');
+
+    expect(res.status).toBe(200);
+    expect(res.body.statisticsRecalculated).toBe(false);
+    expect(res.body.warning).toMatch(/recalculating statistics failed/);
+    spy.mockRestore();
+  });
+
+  test('restoring clears the deletion and recomputes accepted race data', async () => {
+    mockPrisma.submission.findFirst.mockResolvedValue(state({ deletedAt: new Date() }));
+    mockPrisma.submission.updateMany.mockResolvedValue({ count: 1 });
+
+    const res = await restore('sub-1');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ id: 'sub-1', deletedAt: null, statisticsRecalculated: true });
+    expect(mockPrisma.submission.updateMany).toHaveBeenCalledWith({
+      where: { id: 'sub-1', deletedAt: { not: null } },
+      data: { deletedAt: null, deletedBy: null },
+    });
+    expect(mockRunDerivationForSession).toHaveBeenCalledWith(mockPrisma, 'session-1');
+  });
+
+  test('restoring a dataset that is not deleted answers 409', async () => {
+    mockPrisma.submission.findFirst.mockResolvedValue(state());
+    mockPrisma.submission.updateMany.mockResolvedValue({ count: 0 });
+    expect((await restore('sub-1')).status).toBe(409);
+  });
+
+  test('404 for unknown datasets; admins only', async () => {
+    mockPrisma.submission.findFirst.mockResolvedValue(null);
+    expect((await del('nope')).status).toBe(404);
+    expect((await restore('nope')).status).toBe(404);
+
+    mockVerifyIdToken.mockResolvedValue({ uid: 'dev-uid', developer: true, email_verified: true });
+    expect((await del('sub-1')).status).toBe(403);
+    expect(mockPrisma.submission.updateMany).not.toHaveBeenCalled();
+  });
+});

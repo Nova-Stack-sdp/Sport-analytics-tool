@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth, requireAdmin, requireVerifiedEmail } from '../middleware/requireAuth.js';
+import { runDerivationForSession } from '../derivation/index.js';
 
 /**
  * Admin view of dataset submissions (/api/admin/datasets).
@@ -206,6 +207,79 @@ adminDatasetsRouter.get('/:id/upload', async (req, res, next) => {
       'X-Dataset-Upload': 'rebuilt',
     });
     return res.send(JSON.stringify(buildRebuiltUpload(submission, events), null, 2));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Accepted race data is the only kind whose events feed the statistics, so
+// it is the only kind whose deletion or restoration needs them recomputed.
+function countsTowardStatistics(submission) {
+  return submission.purpose === 'race_data'
+    && ['accepted', 'partially_accepted'].includes(submission.status);
+}
+
+// The deletion/restoration itself is already saved when this runs. If the
+// recompute fails, say so instead of failing the request: retrying the
+// delete would only get "already deleted", and the stats would stay stale.
+async function recomputeStatistics(submission, logger = console) {
+  if (!countsTowardStatistics(submission)) return { statisticsRecalculated: false };
+  try {
+    await runDerivationForSession(prisma, submission.sessionId);
+    return { statisticsRecalculated: true };
+  } catch (err) {
+    logger.error(`Statistics recompute failed for session ${submission.sessionId}:`, err.message);
+    return {
+      statisticsRecalculated: false,
+      warning: 'The change was saved, but recalculating statistics failed. Restore and delete again, or re-run derivation for this session.',
+    };
+  }
+}
+
+const STATE_SELECT = { id: true, purpose: true, status: true, sessionId: true, deletedAt: true };
+
+// DELETE /api/admin/datasets/:id — soft delete. The submission, its events
+// and its upload are kept, but hidden everywhere (statistics, public API,
+// replay, time travel) until restored.
+adminDatasetsRouter.delete('/:id', async (req, res, next) => {
+  try {
+    const submission = await prisma.submission.findFirst({
+      where: { id: req.params.id, ...MANUAL },
+      select: STATE_SELECT,
+    });
+    if (!submission) return res.status(404).json({ error: 'Dataset not found' });
+
+    const deletedAt = new Date();
+    const { count } = await prisma.submission.updateMany({
+      where: { id: submission.id, deletedAt: null },
+      data: { deletedAt, deletedBy: req.user.uid },
+    });
+    if (count === 0) return res.status(409).json({ error: 'Dataset is already deleted' });
+
+    const recompute = await recomputeStatistics(submission);
+    res.json({ id: submission.id, deletedAt, deletedBy: req.user.uid, ...recompute });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/admin/datasets/:id/restore — undo a soft delete.
+adminDatasetsRouter.post('/:id/restore', async (req, res, next) => {
+  try {
+    const submission = await prisma.submission.findFirst({
+      where: { id: req.params.id, ...MANUAL },
+      select: STATE_SELECT,
+    });
+    if (!submission) return res.status(404).json({ error: 'Dataset not found' });
+
+    const { count } = await prisma.submission.updateMany({
+      where: { id: submission.id, deletedAt: { not: null } },
+      data: { deletedAt: null, deletedBy: null },
+    });
+    if (count === 0) return res.status(409).json({ error: 'Dataset is not deleted' });
+
+    const recompute = await recomputeStatistics(submission);
+    res.json({ id: submission.id, deletedAt: null, ...recompute });
   } catch (err) {
     next(err);
   }
