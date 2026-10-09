@@ -4,6 +4,8 @@ import {
   parseTags,
   validateSubmission,
   normalizeSubmission,
+  usableTestDatasets,
+  describeTestDataset,
 } from './submissionFormat';
 
 function validDraft(overrides = {}) {
@@ -170,5 +172,35 @@ describe('normalizeSubmission', () => {
     const code = '  export const x = 1;\n\n\n';
 
     expect(normalizeSubmission(validDraft({ code })).code).toBe(code);
+  });
+});
+
+describe('test data helpers', () => {
+  test('normalizeSubmission only adds testDatasetId when one was picked', () => {
+    const base = { title: 'Tyre delta', language: 'Python', code: 'x', description: 'Lap-time loss per lap.' };
+    expect(normalizeSubmission(base)).not.toHaveProperty('testDatasetId');
+    expect(normalizeSubmission({ ...base, testDatasetId: '' })).not.toHaveProperty('testDatasetId');
+    expect(normalizeSubmission({ ...base, testDatasetId: ' ds-1 ' }).testDatasetId).toBe('ds-1');
+  });
+
+  test('usableTestDatasets keeps live, valid test data only', () => {
+    const rows = [
+      { id: 'ok', purpose: 'code_test', status: 'pending', deletedAt: null },
+      { id: 'race', purpose: 'race_data', status: 'pending', deletedAt: null },
+      { id: 'deleted', purpose: 'code_test', status: 'pending', deletedAt: '2026-10-09' },
+      { id: 'invalid', purpose: 'code_test', status: 'rejected', deletedAt: null },
+    ];
+    expect(usableTestDatasets(rows).map((r) => r.id)).toEqual(['ok']);
+    expect(usableTestDatasets()).toEqual([]);
+  });
+
+  test('describeTestDataset names the session and the valid record count', () => {
+    const row = {
+      submittedAt: null,
+      summary: { validRecords: 1 },
+      session: { openf1Key: 9999, type: 'Race', meeting: { name: 'Italian Grand Prix', season: 2026 } },
+    };
+    expect(describeTestDataset(row)).toBe('Italian Grand Prix · Race 2026 — 1 valid record');
+    expect(describeTestDataset({ session: { openf1Key: 5 }, summary: null })).toBe('session_key 5');
   });
 });

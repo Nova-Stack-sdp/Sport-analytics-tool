@@ -1,10 +1,12 @@
-import { useState } from 'react';
-import { submitCodeSubmission } from '../api/client';
+import { useEffect, useState } from 'react';
+import { submitCodeSubmission, listSubmissions } from '../api/client';
 import {
   ALLOWED_LANGUAGES,
   LIMITS,
   validateSubmission,
   normalizeSubmission,
+  usableTestDatasets,
+  describeTestDataset,
 } from '../features/code-submission/submissionFormat';
 import '../styles/codeSubmission.css';
 
@@ -23,7 +25,7 @@ function describeError(err) {
 // The draft holds exactly the fields the form collects — no tags: this page
 // doesn't ask for them, and normalizeSubmission() fills in the empty array
 // the POST body contract still expects.
-const EMPTY_DRAFT = { title: '', language: '', code: '', description: '' };
+const EMPTY_DRAFT = { title: '', language: '', code: '', description: '', testDatasetId: '' };
 
 // Worked examples for the empty fields — the same stat the Title placeholder
 // names (a tyre delta), so the form shows what each box expects.
@@ -43,6 +45,17 @@ function CodeSubmissionPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
   const [submitResult, setSubmitResult] = useState(null);
+  // The developer's own test-data uploads that can be attached to the script.
+  const [testDatasets, setTestDatasets] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    listSubmissions()
+      .then((data) => { if (!cancelled) setTestDatasets(usableTestDatasets(data?.submissions)); })
+      // Optional field: if the list can't load, the form still works without it.
+      .catch(() => { if (!cancelled) setTestDatasets([]); });
+    return () => { cancelled = true; };
+  }, []);
 
   // Live readouts for the skin: the counters mirror the rules in
   // submissionFormat.js.
@@ -73,6 +86,11 @@ function CodeSubmissionPage() {
     try {
       const result = await submitCodeSubmission(normalizeSubmission(draft));
       setSubmitResult(result);
+      // That dataset now belongs to this script and can't be attached again.
+      if (draft.testDatasetId) {
+        setTestDatasets((list) => list.filter((d) => d.id !== draft.testDatasetId));
+        setDraft((d) => ({ ...d, testDatasetId: '' }));
+      }
     } catch (err) {
       setSubmitError(describeError(err));
     } finally {
@@ -214,6 +232,30 @@ function CodeSubmissionPage() {
                 {errorFor('description') && (
                   <p className="cs-field-error" id="cs-description-error">{errorFor('description')}</p>
                 )}
+              </div>
+
+              <div className="cs-field">
+                <div className="cs-head">
+                  <label htmlFor="cs-test-dataset">Test data (optional)</label>
+                </div>
+                <select
+                  id="cs-test-dataset"
+                  className="cs-input"
+                  value={draft.testDatasetId}
+                  onChange={(e) => updateField('testDatasetId', e.target.value)}
+                >
+                  <option value="">No test data</option>
+                  {testDatasets.map((d) => (
+                    <option key={d.id} value={d.id}>{describeTestDataset(d)}</option>
+                  ))}
+                </select>
+                <div className="cs-foot">
+                  <span className="cs-hint">
+                    {testDatasets.length === 0
+                      ? 'To give the admin data to try your code on, upload it first under Submit Dataset as "Test data for my submitted code".'
+                      : 'Sample data the admin can run your code on. It is kept while your code is pending or published.'}
+                  </span>
+                </div>
               </div>
             </div>
 
