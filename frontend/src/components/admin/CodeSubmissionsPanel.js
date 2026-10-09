@@ -1,5 +1,12 @@
 import { Fragment, useState, useEffect, useCallback } from 'react';
-import { listCodeSubmissions, getCodeSubmission, reviewCodeSubmission } from '../../api/client';
+import {
+  listCodeSubmissions,
+  getCodeSubmission,
+  reviewCodeSubmission,
+  removePublishedCode,
+  downloadAdminDataset,
+} from '../../api/client';
+import { saveBlob, datasetFilename } from '../../utils/download';
 
 const REVIEW_TABS = ['Pending', 'Approved', 'Rejected'];
 const TAB_TO_STATUS = { Pending: 'pending', Approved: 'approved', Rejected: 'rejected' };
@@ -49,10 +56,40 @@ function CodeSubmissionsPanel() {
     try {
       await reviewCodeSubmission(submission.id, status);
       setDetail(NO_DETAIL);
+      const testDataNote = submission.testDatasetId ? ' Its test data was retired with it.' : '';
       setNotice(status === 'approved'
-        ? `“${submission.title}” approved and moved to the Approved tab.`
-        : `“${submission.title}” rejected. Rejected scripts are deleted automatically after 7 days.`);
+        ? `“${submission.title}” approved and moved to the Approved tab. It is now in the public API.`
+        : `“${submission.title}” rejected. Rejected scripts are deleted automatically after 7 days.${testDataNote}`);
       loadSubmissions(activeTab);
+    } catch (err) {
+      setLoadError(describeError(err));
+    }
+  }
+
+  // Takes an approved script off the public API. Permanent, so it asks first.
+  async function handleRemove(submission) {
+    // eslint-disable-next-line no-alert
+    const confirmed = window.confirm(
+      `Remove “${submission.title}” from the public API? Its address will stop working and this cannot be undone.`
+      + (submission.testDatasetId ? ' Its test data will be retired too.' : ''),
+    );
+    if (!confirmed) return;
+    setNotice(null);
+    try {
+      const result = await removePublishedCode(submission.verifiedCodeId);
+      setDetail(NO_DETAIL);
+      setNotice(`“${submission.title}” removed from the public API.${result.testDataRetired
+        ? ' Its test data was retired (restorable under Dataset Submissions → Deleted).' : ''}`);
+      loadSubmissions(activeTab);
+    } catch (err) {
+      setLoadError(describeError(err));
+    }
+  }
+
+  async function handleDownloadTestData(dataset) {
+    try {
+      const { blob, kind } = await downloadAdminDataset(dataset.id);
+      saveBlob(blob, datasetFilename(dataset.id, kind));
     } catch (err) {
       setLoadError(describeError(err));
     }
@@ -117,7 +154,10 @@ function CodeSubmissionsPanel() {
                 {submissions.map((s) => (
                   <Fragment key={s.id}>
                     <tr>
-                      <td style={{ fontWeight: 600 }}>{s.title}</td>
+                      <td style={{ fontWeight: 600 }}>
+                        {s.title}
+                        {s.testDatasetId && <span className="pill pill-blue" style={{ marginLeft: 6 }}>Test data</span>}
+                      </td>
                       <td className="mono secondary">{s.language}</td>
                       <td className="mono secondary">{s.submitterEmail || s.submitterId || '—'}</td>
                       <td className="secondary mono">
@@ -142,6 +182,11 @@ function CodeSubmissionsPanel() {
                               <button className="btn btn-ghost btn-sm" onClick={() => handleReview(s, 'rejected')}>Reject</button>
                             </>
                           )}
+                          {s.status === 'approved' && s.verifiedCodeId && (
+                            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--status-red)' }} onClick={() => handleRemove(s)}>
+                              Remove
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -154,6 +199,23 @@ function CodeSubmissionsPanel() {
                             <>
                               {detail.data.description && <div className="secondary" style={{ marginBottom: 8 }}>{detail.data.description}</div>}
                               <pre className="mono" style={{ margin: 0, padding: 12, overflowX: 'auto', background: 'var(--border-soft)' }}>{detail.data.code}</pre>
+                              <div className="kv" style={{ marginTop: 10 }}>
+                                <span>Test data</span>
+                                {detail.data.testDataset ? (
+                                  <b style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                    <span>
+                                      {detail.data.testDataset.sessionLabel || `session_key ${detail.data.testDataset.sessionKey}`}
+                                      {detail.data.testDataset.validRecords != null && ` · ${detail.data.testDataset.validRecords} valid record(s)`}
+                                    </span>
+                                    {detail.data.testDataset.deleted && <span className="pill pill-gray">Retired</span>}
+                                    <button className="btn btn-ghost btn-sm" onClick={() => handleDownloadTestData(detail.data.testDataset)}>
+                                      Download test data
+                                    </button>
+                                  </b>
+                                ) : (
+                                  <b className="secondary">None attached</b>
+                                )}
+                              </div>
                             </>
                           )}
                         </td>
