@@ -120,7 +120,7 @@ integration('approved code in the public API (PostgreSQL)', () => {
 
     const res = await request(app).delete(`/api/admin/verified-code/${target.id}`).set('Authorization', 'Bearer admin-a');
 
-    expect(res.body).toEqual({ id: target.id, slug: 'remove-me', removed: true });
+    expect(res.body).toEqual({ id: target.id, slug: 'remove-me', removed: true, testDataRetired: false });
     expect((await request(app).get('/api/v1/code/remove-me')).status).toBe(404);
     expect((await request(app).get('/api/v1/code/keep-me')).status).toBe(200);
     expect((await request(app).delete(`/api/admin/verified-code/${target.id}`).set('Authorization', 'Bearer admin-a')).status).toBe(404);

@@ -9,8 +9,13 @@ jest.unstable_mockModule('firebase-admin', () => ({
   },
 }));
 
+const mockTx = {
+  verifiedCode: { deleteMany: jest.fn() },
+  submission: { updateMany: jest.fn() },
+};
 const mockPrisma = {
-  verifiedCode: { findMany: jest.fn(), findUnique: jest.fn(), deleteMany: jest.fn() },
+  verifiedCode: { findMany: jest.fn(), findUnique: jest.fn(), deleteMany: mockTx.verifiedCode.deleteMany },
+  $transaction: jest.fn((callback) => callback(mockTx)),
 };
 jest.unstable_mockModule('../src/lib/prisma.js', () => ({ prisma: mockPrisma }));
 
@@ -40,6 +45,7 @@ const row = {
   id: 'vc-1', slug: 'average-pit-loss', title: 'Average pit loss', language: 'JavaScript',
   sourceSubmissionId: 'cs-1', submitterId: 'dev-uid', verifiedBy: 'admin-uid',
   verifiedAt: new Date('2026-10-08T12:00:00Z'),
+  testDatasetId: null,
 };
 const authed = (req) => req.set('Authorization', 'Bearer t');
 
@@ -50,7 +56,7 @@ test('admins can list published code with its public address', async () => {
   expect(res.body.code).toEqual([{
     id: 'vc-1', slug: 'average-pit-loss', title: 'Average pit loss', language: 'JavaScript',
     sourceSubmissionId: 'cs-1', submitterId: 'dev-uid', verifiedBy: 'admin-uid',
-    verifiedAt: '2026-10-08T12:00:00.000Z', endpoint: '/api/v1/code/average-pit-loss',
+    verifiedAt: '2026-10-08T12:00:00.000Z', endpoint: '/api/v1/code/average-pit-loss', testDatasetId: null,
   }]);
 });
 
@@ -61,7 +67,7 @@ test('removing deletes the published row and reports what was removed', async ()
   const res = await authed(request(createApp()).delete('/api/admin/verified-code/vc-1'));
 
   expect(res.status).toBe(200);
-  expect(res.body).toEqual({ id: 'vc-1', slug: 'average-pit-loss', removed: true });
+  expect(res.body).toEqual({ id: 'vc-1', slug: 'average-pit-loss', removed: true, testDataRetired: false });
   expect(mockPrisma.verifiedCode.deleteMany).toHaveBeenCalledWith({ where: { id: 'vc-1' } });
   expect(console.info).toHaveBeenCalledWith(expect.stringContaining('admin-uid removed published code vc-1'));
 });
@@ -81,4 +87,20 @@ test('only admins: developers get 403, anonymous callers 401, and nothing is rem
   expect((await authed(request(createApp()).delete('/api/admin/verified-code/vc-1'))).status).toBe(403);
   expect((await authed(request(createApp()).get('/api/admin/verified-code'))).status).toBe(403);
   expect(mockPrisma.verifiedCode.deleteMany).not.toHaveBeenCalled();
+});
+
+test('removing a script also retires its test data, in the same transaction', async () => {
+  mockPrisma.verifiedCode.findUnique.mockResolvedValue({ ...row, testDatasetId: 'ds-1' });
+  mockTx.verifiedCode.deleteMany.mockResolvedValue({ count: 1 });
+  mockTx.submission.updateMany.mockResolvedValue({ count: 1 });
+
+  const res = await authed(request(createApp()).delete('/api/admin/verified-code/vc-1'));
+
+  expect(res.status).toBe(200);
+  expect(res.body.testDataRetired).toBe(true);
+  expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+  expect(mockTx.submission.updateMany).toHaveBeenCalledWith({
+    where: { id: 'ds-1', purpose: 'code_test', deletedAt: null },
+    data: { deletedAt: expect.any(Date), deletedBy: 'admin-uid' },
+  });
 });
