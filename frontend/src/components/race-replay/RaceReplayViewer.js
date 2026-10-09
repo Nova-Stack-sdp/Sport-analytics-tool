@@ -4,6 +4,7 @@ import { usePreferences } from '../../context/PreferencesContext';
 import {
   teamClassFor,
   isSafetyCarActive,
+  driverCode,
   progressForRank,
   buildTrackGeometry,
   computeTrackBoundaries,
@@ -54,6 +55,31 @@ const MAX_SPEED_MULTIPLIER = 1.15;
 // out-then-in direction change is what reads as a distinct feature once
 // rendered; a wide smooth bulge in one direction just looks like a bigger
 // oval, however far it curves out.
+// Where the drawn track outline came from (the backend's track-shape
+// `source`). Car order, tyres and safety-car timing are real either way.
+export function trackSourceNote(usingRealTrack, trackShape, trackShapeError) {
+  if (usingRealTrack) {
+    return trackShape?.source === 'openf1-live'
+      ? 'Track outline traced from this session\'s OpenF1 location data.'
+      : 'Track outline from a FastF1 trace of this circuit.';
+  }
+  return trackShapeError
+    ? 'Illustrative track: no outline is available for this circuit yet. Car order, tyres and safety car timing are still real.'
+    : 'Loading the track outline…';
+}
+
+// Final classification position: retirements and disqualifications say
+// so instead of showing a finishing position or a trophy.
+const RETIRED = { dnf: 'DNF', dsq: 'DSQ' };
+function isClassifiedWinner(driver) {
+  return !RETIRED[driver.status];
+}
+function finishLabel(driver, index) {
+  if (RETIRED[driver.status]) return RETIRED[driver.status];
+  const position = driver.position ?? index + 1;
+  return position === 1 ? '🏆' : position;
+}
+
 const FALLBACK_POINTS = [
   { x: 60, y: 70 }, { x: 180, y: 50 }, { x: 210, y: 20 }, { x: 240, y: 50 },
   { x: 330, y: 60 }, { x: 350, y: 120 }, { x: 320, y: 140 }, { x: 350, y: 160 },
@@ -130,7 +156,13 @@ function RaceReplayViewer({ sessionId }) {
   }, [geometry]);
 
   const leaderboard = snapshot?.leaderboard ?? [];
-  const scActive = showSafetyCar && isSafetyCarActive(snapshot?.recentRaceControl);
+  // 'SC', 'VSC' or null, worked out by the backend from every race-control
+  // message up to this lap; older backends without the field fall back to
+  // the last few messages.
+  const safetyCar = snapshot?.safetyCar !== undefined
+    ? snapshot.safetyCar
+    : (isSafetyCarActive(snapshot?.recentRaceControl) ? 'SC' : null);
+  const scActive = showSafetyCar && safetyCar === 'SC';
 
   // Runs after the Order table's DOM has updated to a new snapshot but
   // before the browser paints — the standard FLIP timing. For every row
@@ -370,7 +402,9 @@ function RaceReplayViewer({ sessionId }) {
             <span className="pill pill-gray">Finished</span>
           </div>
           <div className="replay-winner">
-            {winner ? `🏁 ${winner.driverName} wins` : 'Race finished — no classification data available'}
+            {winner && isClassifiedWinner(winner)
+              ? `🏁 ${winner.driverName} wins`
+              : 'Race finished — no classification data available'}
           </div>
           <button className="btn btn-primary btn-sm" onClick={restart}>⟲ Watch again</button>
         </div>
@@ -387,7 +421,7 @@ function RaceReplayViewer({ sessionId }) {
                 <tr><th>Pos</th><th>Driver</th><th>Tyre</th></tr>
                 {leaderboard.map((driver, i) => (
                   <tr key={driver.driverNumber}>
-                    <td>{i === 0 ? '🏆' : driver.position ?? i + 1}</td>
+                    <td>{finishLabel(driver, i)}</td>
                     <td>{driver.driverName ?? `#${driver.driverNumber}`}</td>
                     <td>{driver.tyreCompound ? <span className="pill pill-gray">{driver.tyreCompound}</span> : '—'}</td>
                   </tr>
@@ -439,11 +473,7 @@ function RaceReplayViewer({ sessionId }) {
           </div>
           <span className="pill pill-gray">Lap {snapshot.session?.currentLap ?? '—'} / {snapshot.session?.totalLaps ?? '—'}</span>
         </div>
-        {!usingRealTrack && (
-          <div className="replay-track-fallback-note">
-            Illustrative track ({trackShapeError ? 'no location telemetry available for this session' : 'checking for real telemetry…'})
-          </div>
-        )}
+        <div className="replay-track-fallback-note">{trackSourceNote(usingRealTrack, trackShape, trackShapeError)}</div>
 
         <svg viewBox={`0 0 ${geometry.svgWidth} ${geometry.svgHeight}`} className="replay-track-svg" role="img" aria-label="Track with driver positions">
           <polygon points={polylinePoints(boundaries.outerPoints)} fill="none" stroke="var(--border)" strokeWidth="2.5" strokeLinejoin="round" />
@@ -467,7 +497,7 @@ function RaceReplayViewer({ sessionId }) {
             >
               <circle r="7" className={`replay-dot replay-dot-${teamClassFor(driver.teamName)}`} />
               <text y="-11" textAnchor="middle" className="replay-dot-label">
-                {driver.driverName ? driver.driverName.slice(0, 3).toUpperCase() : driver.driverNumber}
+                {driverCode(driver.driverName, driver.driverNumber)}
               </text>
             </g>
           ))}
@@ -497,13 +527,14 @@ function RaceReplayViewer({ sessionId }) {
           </label>
         </div>
         {scActive && <div className="pill pill-amber" style={{ marginTop: 10 }}>Safety car deployed</div>}
+        {showSafetyCar && safetyCar === 'VSC' && <div className="pill pill-amber" style={{ marginTop: 10 }}>Virtual safety car</div>}
       </div>
 
       <div className="card replay-leaderboard">
         <div className="card-head">
           <div>
             <div className="card-title leaderboard-title">Order</div>
-            <div className="card-title-sub">Live race order and tyre compounds</div>
+            <div className="card-title-sub">Race order and tyre compounds at this lap</div>
           </div>
           <span className="pill pill-gray">Lap {snapshot.session?.currentLap ?? '—'}</span>
         </div>
