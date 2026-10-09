@@ -34,6 +34,7 @@
  */
 
 import net from 'node:net';
+import { pathToFileURL } from 'node:url';
 import pkg from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import 'dotenv/config';
@@ -57,7 +58,7 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function fetchOpenF1(path, params = {}) {
+export async function fetchOpenF1(path, params = {}) {
   const query = new URLSearchParams(params).toString();
   const url = `${OPENF1_BASE}/${path}${query ? `?${query}` : ''}`;
   const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
@@ -80,7 +81,7 @@ async function fetchOpenF1(path, params = {}) {
   return res.json();
 }
 
-function mapSessionType(sessionName) {
+export function mapSessionType(sessionName) {
   const map = {
     'Practice 1': 'FP1',
     'Practice 2': 'FP2',
@@ -99,7 +100,7 @@ function mapSessionType(sessionName) {
   return mapped;
 }
 
-function mapFlag(flag) {
+export function mapFlag(flag) {
   if (!flag) return null;
   const map = {
     GREEN: 'green',
@@ -122,7 +123,7 @@ function mapFlag(flag) {
  * duplicates dimension data.
  * Returns { sessionId, season, entryByDriverNumber: Map<number, entryId> }
  */
-async function syncDimensions(sessionKey) {
+export async function syncDimensions(sessionKey) {
   const [sessionData] = await fetchOpenF1('sessions', { session_key: sessionKey });
   if (!sessionData) throw new Error(`No session found for session_key=${sessionKey}`);
 
@@ -223,7 +224,7 @@ async function syncDimensions(sessionKey) {
  * we first have to find that meeting's qualifying session and use its key
  * instead. For any other session type, there's no meaningful grid to fetch.
  */
-async function resolveGridSessionKey(meetingKey, sessionName) {
+export async function resolveGridSessionKey(meetingKey, sessionName) {
   if (sessionName !== 'Race' && sessionName !== 'Sprint') return null;
 
   const targetName = sessionName === 'Race' ? 'Qualifying' : 'Sprint Qualifying';
@@ -247,7 +248,7 @@ async function resolveGridSessionKey(meetingKey, sessionName) {
  * a normalized { eventType, entryId, lapNumber, occurredAt, payload } shape,
  * or null if the record fails basic validation (with a reason logged).
  */
-async function collectEvents(sessionKey, entryByDriverNumber, gridSessionKey, timing) {
+export async function collectEvents(sessionKey, entryByDriverNumber, gridSessionKey, timing) {
   // Records with no timestamp of their own (stints, the grid, the result)
   // get a fixed one from the session instead of "now" — using the time of
   // the sync made the same record look different on every run.
@@ -463,7 +464,7 @@ async function collectEvents(sessionKey, entryByDriverNumber, gridSessionKey, ti
   return { events, rejections };
 }
 
-async function syncSession(sessionKeyRaw) {
+export async function syncSession(sessionKeyRaw) {
   const sessionKey = Number(sessionKeyRaw);
   console.log(`Syncing session_key=${sessionKey}...`);
 
@@ -574,15 +575,17 @@ async function syncSession(sessionKeyRaw) {
   return result;
 }
 
-const sessionKeyArg = process.argv[2];
-if (!sessionKeyArg) {
-  console.error('Usage: node src/jobs/openf1-sync.js <session_key>');
-  process.exit(1);
-}
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  const sessionKeyArg = process.argv[2];
+  if (!sessionKeyArg) {
+    console.error('Usage: node src/jobs/openf1-sync.js <session_key>');
+    process.exit(1);
+  }
 
-syncSession(sessionKeyArg)
-  .catch((err) => {
-    console.error('Sync failed:', err);
-    process.exitCode = 1;
-  })
-  .finally(() => prisma.$disconnect());
+  syncSession(sessionKeyArg)
+    .catch((err) => {
+      console.error('Sync failed:', err);
+      process.exitCode = 1;
+    })
+    .finally(() => prisma.$disconnect());
+}
