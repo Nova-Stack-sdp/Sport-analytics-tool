@@ -414,7 +414,12 @@ describe('GET /api/submissions — purpose and deletion', () => {
     ]);
     const res = await authed(request(createApp()).get('/api/submissions'));
     expect(res.status).toBe(200);
-    expect(mockPrisma.submission.findMany.mock.calls[0][0].select).toMatchObject({ purpose: true, deletedAt: true });
+    expect(mockPrisma.submission.findMany.mock.calls[0][0].select).toMatchObject({
+      purpose: true,
+      deletedAt: true,
+      summary: true,
+      session: { select: { openf1Key: true, type: true, meeting: { select: { name: true, season: true } } } },
+    });
     expect(res.body.submissions[0]).toMatchObject({ purpose: 'code_test', deletedAt: null });
   });
 });

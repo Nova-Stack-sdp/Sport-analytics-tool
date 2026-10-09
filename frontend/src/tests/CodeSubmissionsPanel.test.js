@@ -1,11 +1,20 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import CodeSubmissionsPanel from '../components/admin/CodeSubmissionsPanel';
-import { listCodeSubmissions, getCodeSubmission, reviewCodeSubmission } from '../api/client';
+import {
+  listCodeSubmissions, getCodeSubmission, reviewCodeSubmission, removePublishedCode, downloadAdminDataset,
+} from '../api/client';
+import { saveBlob } from '../utils/download';
 
 jest.mock('../api/client', () => ({
   listCodeSubmissions: jest.fn(),
   getCodeSubmission: jest.fn(),
   reviewCodeSubmission: jest.fn(),
+  removePublishedCode: jest.fn(),
+  downloadAdminDataset: jest.fn(),
+}));
+jest.mock('../utils/download', () => ({
+  ...jest.requireActual('../utils/download'),
+  saveBlob: jest.fn(),
 }));
 
 function httpError(status, body) {
@@ -201,5 +210,78 @@ describe('CodeSubmissionsPanel', () => {
     expect(screen.getByText(new Date('2026-10-06T09:30:00.000Z').toLocaleString())).toBeInTheDocument();
     const pendingRow = screen.getByText('Still pending').closest('tr');
     expect(pendingRow).toHaveTextContent('—');
+  });
+
+  describe('test data and removal', () => {
+    const approved = submission({ id: 'cs_9', status: 'approved', title: 'Pit loss model', verifiedCodeId: 'vc_9', testDatasetId: 'ds_1' });
+
+    beforeEach(() => {
+      jest.spyOn(window, 'confirm').mockReturnValue(true);
+    });
+    afterEach(() => window.confirm.mockRestore());
+
+    test('marks scripts that came with test data', async () => {
+      listCodeSubmissions.mockResolvedValue({ submissions: [submission({ testDatasetId: 'ds_1' })] });
+      render(<CodeSubmissionsPanel />);
+      expect(await screen.findByText('Test data', { selector: '.pill' })).toBeInTheDocument();
+    });
+
+    test('View code shows the attached test data and downloads it', async () => {
+      listCodeSubmissions.mockResolvedValue({ submissions: [submission({ testDatasetId: 'ds_1' })] });
+      getCodeSubmission.mockResolvedValue({
+        id: 'cs_1', code: 'x', description: 'Tyre wear per lap',
+        testDataset: { id: 'ds_1', sessionLabel: 'Italian Grand Prix · Race 2026', sessionKey: 9999, validRecords: 12, deleted: false },
+      });
+      const blob = new Blob(['{}']);
+      downloadAdminDataset.mockResolvedValue({ blob, kind: 'original' });
+      render(<CodeSubmissionsPanel />);
+
+      fireEvent.click(await screen.findByRole('button', { name: 'View code' }));
+      expect(await screen.findByText('Italian Grand Prix · Race 2026 · 12 valid record(s)')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Download test data' }));
+
+      await waitFor(() => expect(saveBlob).toHaveBeenCalledWith(blob, 'dataset-ds_1.json'));
+      expect(downloadAdminDataset).toHaveBeenCalledWith('ds_1');
+    });
+
+    test('says when no test data is attached', async () => {
+      listCodeSubmissions.mockResolvedValue({ submissions: [submission()] });
+      getCodeSubmission.mockResolvedValueOnce({ id: 'cs_1', code: 'x', testDataset: null });
+      render(<CodeSubmissionsPanel />);
+      fireEvent.click(await screen.findByRole('button', { name: 'View code' }));
+      expect(await screen.findByText('None attached')).toBeInTheDocument();
+    });
+
+    test('Remove asks first, then takes approved code off the public API', async () => {
+      listCodeSubmissions.mockResolvedValue({ submissions: [approved] });
+      removePublishedCode.mockResolvedValue({ id: 'vc_9', slug: 'pit-loss-model', removed: true, testDataRetired: true });
+      render(<CodeSubmissionsPanel />);
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Remove' }));
+
+      expect(window.confirm).toHaveBeenCalledWith(expect.stringMatching(/cannot be undone.*test data will be retired too/));
+      await waitFor(() => expect(removePublishedCode).toHaveBeenCalledWith('vc_9'));
+      expect(await screen.findByRole('status')).toHaveTextContent('“Pit loss model” removed from the public API. Its test data was retired');
+      await waitFor(() => expect(listCodeSubmissions).toHaveBeenCalledTimes(2));
+    });
+
+    test('cancelling Remove does nothing; pending and rejected scripts have no Remove', async () => {
+      window.confirm.mockReturnValue(false);
+      listCodeSubmissions.mockResolvedValue({ submissions: [approved, submission({ id: 'cs_2' }), submission({ id: 'cs_3', status: 'rejected' })] });
+      render(<CodeSubmissionsPanel />);
+
+      const buttons = await screen.findAllByRole('button', { name: 'Remove' });
+      expect(buttons).toHaveLength(1);
+      fireEvent.click(buttons[0]);
+      expect(removePublishedCode).not.toHaveBeenCalled();
+    });
+
+    test('rejecting a script with test data says its test data was retired', async () => {
+      listCodeSubmissions.mockResolvedValue({ submissions: [submission({ testDatasetId: 'ds_1' })] });
+      reviewCodeSubmission.mockResolvedValue({ id: 'cs_1', status: 'rejected' });
+      render(<CodeSubmissionsPanel />);
+      fireEvent.click(await screen.findByRole('button', { name: 'Reject' }));
+      expect(await screen.findByRole('status')).toHaveTextContent('Its test data was retired with it.');
+    });
   });
 });

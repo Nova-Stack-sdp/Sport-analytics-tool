@@ -64,12 +64,14 @@ integration('code review moves approved code (PostgreSQL)', () => {
     app = createApp();
   });
   beforeEach(async () => {
+    await prisma.notification.deleteMany({ where: { userId: 'dev-uid' } });
     await prisma.verifiedCode.deleteMany();
     await prisma.codeSubmission.deleteMany();
   });
   afterAll(async () => {
     if (!prisma) return;
     try {
+      await prisma.notification.deleteMany({ where: { userId: 'dev-uid' } });
       await prisma.verifiedCode.deleteMany();
       await prisma.codeSubmission.deleteMany();
     } finally { await prisma.$disconnect(); }
@@ -118,6 +120,7 @@ integration('code review moves approved code (PostgreSQL)', () => {
     expect(results.map((r) => r.status).sort()).toEqual([200, 409]);
     expect(await prisma.verifiedCode.count({ where: { sourceSubmissionId: 'race-approve' } })).toBe(1);
     expect(await prisma.codeSubmission.count({ where: { id: 'race-approve' } })).toBe(0);
+    expect(await prisma.notification.count({ where: { userId: 'dev-uid' } })).toBe(1);
   });
 
   test('approve and reject at the same moment: the code ends up in exactly one place', async () => {
@@ -133,6 +136,9 @@ integration('code review moves approved code (PostgreSQL)', () => {
     const remaining = await prisma.codeSubmission.findUnique({ where: { id: 'race-mixed' } });
     if (verified === 1) expect(remaining).toBeNull();
     else expect(remaining.status).toBe('rejected');
+    const notifications = await prisma.notification.findMany({ where: { userId: 'dev-uid' } });
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0].title).toBe(`Code submission ${verified === 1 ? 'approved' : 'rejected'}`);
   });
 
   test('a rejected submission stays in code_submission and cannot be approved afterwards', async () => {

@@ -114,6 +114,7 @@ describe('GET /api/admin/datasets', () => {
       eventCount: 3,
       hasOriginalUpload: true,
       uploadSizeBytes: 512,
+      usedBy: null,
     }]);
   });
 
@@ -139,6 +140,25 @@ describe('GET /api/admin/datasets', () => {
     const res = await get('/api/admin/datasets');
     expect(res.body.datasets[0]).toMatchObject({
       validRecords: null, rejectedRecords: null, hasOriginalUpload: false, uploadSizeBytes: null,
+    });
+  });
+
+  test('test data says which script it was uploaded for, pending or published', async () => {
+    mockPrisma.submission.findMany.mockResolvedValue([
+      datasetRow({ id: 't1', purpose: 'code_test', testDataForCode: [{ id: 'cs-1', title: 'Tyre delta', status: 'pending' }], testDataForVerifiedCode: [] }),
+      datasetRow({ id: 't2', purpose: 'code_test', testDataForCode: [], testDataForVerifiedCode: [{ sourceSubmissionId: 'cs-2', title: 'Pit loss', slug: 'pit-loss' }] }),
+      datasetRow({ id: 't3', purpose: 'code_test', testDataForCode: [], testDataForVerifiedCode: [] }),
+    ]);
+
+    const res = await get('/api/admin/datasets?view=test');
+
+    expect(res.body.datasets.map((d) => d.usedBy)).toEqual([
+      { codeSubmissionId: 'cs-1', title: 'Tyre delta', status: 'pending' },
+      { codeSubmissionId: 'cs-2', title: 'Pit loss', status: 'approved', slug: 'pit-loss' },
+      null,
+    ]);
+    expect(mockPrisma.submission.findMany.mock.calls[0][0].select).toMatchObject({
+      testDataForCode: { take: 1 }, testDataForVerifiedCode: { take: 1 },
     });
   });
 

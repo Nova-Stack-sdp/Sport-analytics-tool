@@ -1,9 +1,10 @@
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import CodeSubmissionPage from '../pages/CodeSubmissionPage';
-import { submitCodeSubmission } from '../api/client';
+import { submitCodeSubmission, listSubmissions } from '../api/client';
 
 jest.mock('../api/client', () => ({
   submitCodeSubmission: jest.fn(),
+  listSubmissions: jest.fn(),
 }));
 
 function httpError(status, body) {
@@ -29,7 +30,7 @@ function fillValidDraft() {
   fill(TITLE_LABEL, '  Tyre delta per stint  ');
   fireEvent.change(screen.getByLabelText('Language'), { target: { value: 'JavaScript' } });
   fill('Code', VALID_CODE);
-  fill('Description (optional)', '  Lap-time delta per stint.  ');
+  fill('Description', '  Lap-time delta per stint.  ');
 }
 
 function submit() {
@@ -39,6 +40,7 @@ function submit() {
 describe('CodeSubmissionPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    listSubmissions.mockResolvedValue({ submissions: [] });
   });
 
   test('renders the form with every field and the allowed languages', () => {
@@ -47,7 +49,7 @@ describe('CodeSubmissionPage', () => {
     expect(screen.getByLabelText(TITLE_LABEL)).toBeInTheDocument();
     expect(screen.getByLabelText('Language')).toBeInTheDocument();
     expect(screen.getByLabelText('Code')).toBeInTheDocument();
-    expect(screen.getByLabelText('Description (optional)')).toBeInTheDocument();
+    expect(screen.getByLabelText('Description')).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Select a language…' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'JavaScript' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Python' })).toBeInTheDocument();
@@ -89,6 +91,7 @@ describe('CodeSubmissionPage', () => {
     expect(screen.getByText('Title is required.')).toBeInTheDocument();
     expect(screen.getByText('Language is required.')).toBeInTheDocument();
     expect(screen.getByText('Code is required.')).toBeInTheDocument();
+    expect(screen.getByText('Description is required: say what the code does.')).toBeInTheDocument();
     expect(submitCodeSubmission).not.toHaveBeenCalled();
   });
 
@@ -176,5 +179,54 @@ describe('CodeSubmissionPage', () => {
     submit();
 
     expect(await screen.findByText(/Developer access required/)).toBeInTheDocument();
+  });
+
+  describe('test data picker', () => {
+    const upload = (extra = {}) => ({
+      id: 'ds-1', purpose: 'code_test', status: 'pending', deletedAt: null,
+      submittedAt: '2026-10-08T10:00:00.000Z',
+      summary: { validRecords: 12, rejectedRecords: 0 },
+      session: { openf1Key: 9999, type: 'Race', meeting: { name: 'Italian Grand Prix', season: 2026 } },
+      ...extra,
+    });
+
+    test('offers only the developer\'s usable test data', async () => {
+      listSubmissions.mockResolvedValue({
+        submissions: [
+          upload(),
+          upload({ id: 'race', purpose: 'race_data' }),
+          upload({ id: 'gone', deletedAt: '2026-10-09T00:00:00Z' }),
+          upload({ id: 'bad', status: 'rejected' }),
+        ],
+      });
+      render(<CodeSubmissionPage />);
+
+      const picker = screen.getByLabelText('Test data (optional)');
+      await waitFor(() => expect(within(picker).getAllByRole('option')).toHaveLength(2));
+      expect(within(picker).getByRole('option', { name: /^Italian Grand Prix · Race 2026 — 12 valid records, uploaded/ })).toHaveValue('ds-1');
+    });
+
+    test('sends the chosen dataset with the script, then removes it from the list', async () => {
+      listSubmissions.mockResolvedValue({ submissions: [upload()] });
+      submitCodeSubmission.mockResolvedValue({ id: 'cs_1', status: 'pending', testDatasetId: 'ds-1' });
+      render(<CodeSubmissionPage />);
+      const picker = screen.getByLabelText('Test data (optional)');
+      await waitFor(() => expect(within(picker).getAllByRole('option')).toHaveLength(2));
+
+      fillValidDraft();
+      fireEvent.change(picker, { target: { value: 'ds-1' } });
+      submit();
+
+      await waitFor(() => expect(submitCodeSubmission).toHaveBeenCalledWith(expect.objectContaining({ testDatasetId: 'ds-1' })));
+      await waitFor(() => expect(within(picker).getAllByRole('option')).toHaveLength(1));
+      expect(picker).toHaveValue('');
+    });
+
+    test('explains how to upload test data when there is none, and still works if the list fails', async () => {
+      listSubmissions.mockRejectedValue(new Error('offline'));
+      render(<CodeSubmissionPage />);
+      expect(await screen.findByText(/upload it first under Submit Dataset/)).toBeInTheDocument();
+      expect(within(screen.getByLabelText('Test data (optional)')).getAllByRole('option')).toHaveLength(1);
+    });
   });
 });

@@ -187,4 +187,20 @@ describe('DatasetSubmissionsPanel', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Accept' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('restore it before reviewing');
   });
+
+  test('test data says which script it is for, or that it is not attached yet', async () => {
+    listAdminDatasets.mockResolvedValue({
+      datasets: [
+        dataset({ id: 't1', purpose: 'code_test', usedBy: { codeSubmissionId: 'cs-1', title: 'Tyre delta', status: 'pending' } }),
+        dataset({ id: 't2', purpose: 'code_test', usedBy: { codeSubmissionId: 'cs-2', title: 'Pit loss', status: 'approved', slug: 'pit-loss' } }),
+        dataset({ id: 't3', purpose: 'code_test', usedBy: null }),
+      ],
+      counts: COUNTS,
+    });
+    render(<DatasetSubmissionsPanel />);
+
+    expect(await screen.findByText('For “Tyre delta” (pending)')).toBeInTheDocument();
+    expect(screen.getByText('For “Pit loss” (published)')).toBeInTheDocument();
+    expect(screen.getByText('Not attached to any script yet')).toBeInTheDocument();
+  });
 });

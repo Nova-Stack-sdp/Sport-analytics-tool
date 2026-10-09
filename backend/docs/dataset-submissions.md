@@ -21,6 +21,32 @@ its status. `PATCH /api/submissions/:id` refuses it with `409`.
 A batch where nothing validates is auto-rejected (`422`) for both purposes.
 Every submission records a summary: `{ validRecords, rejectedRecords, eventsWritten }`.
 
+## Test data and the code it belongs to
+
+A developer attaches test data to a script by picking it on the Submit Code
+form (`testDatasetId` on `POST /api/code-submissions`). The backend only
+accepts the developer's **own** upload, uploaded **as test data**, **not
+deleted**, with **at least one valid record**, and **not already attached** to
+another pending or published script (one dataset tests one script).
+
+The link is stored on `code_submission.test_dataset_id` and copied to
+`verified_code.test_dataset_id` on approval. Reviewers see a summary in the
+script's detail (`testDataset`) and can download it. The admin dataset list
+says which script each test dataset is for (`usedBy`).
+
+Lifecycle: test data lives as long as its code.
+
+| Code | Test data |
+|---|---|
+| pending | kept |
+| approved / published | kept |
+| rejected | **retired** in the same transaction |
+| removed from the public API | **retired** in the same transaction |
+
+"Retired" is the same soft delete an admin can do by hand
+(`lib/testDatasets.js` → `retireTestDataset`). The dataset appears under
+Deleted and can be restored there.
+
 ## Original uploads
 
 Every dataset submitted from this change on is stored exactly as it was
@@ -93,8 +119,8 @@ No backfill is needed: every existing submission is race data and not deleted.
 DATABASE_URL=postgresql://nobody@127.0.0.1:1/none npm test
 ```
 
-The PostgreSQL suite (`tests/dataset-lifecycle.integration.test.js`) is
-opt-in and needs a dedicated local `verified_code_test_*` database with the
+The PostgreSQL suites (`tests/dataset-lifecycle.integration.test.js`,
+`tests/code-test-dataset.integration.test.js`) are opt-in and needs a dedicated local `verified_code_test_*` database with the
 migrations applied:
 
 ```sh

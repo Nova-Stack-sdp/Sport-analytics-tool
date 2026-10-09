@@ -51,7 +51,20 @@ const ROW_SELECT = {
   session: { select: SESSION_SELECT },
   upload: { select: { sizeBytes: true } },
   _count: { select: { events: true } },
+  // Which script a test dataset was uploaded for (at most one by design).
+  testDataForCode: { select: { id: true, title: true, status: true }, take: 1 },
+  testDataForVerifiedCode: { select: { sourceSubmissionId: true, title: true, slug: true }, take: 1 },
 };
+
+function usedBy(row) {
+  const pending = row.testDataForCode?.[0];
+  if (pending) return { codeSubmissionId: pending.id, title: pending.title, status: pending.status };
+  const published = row.testDataForVerifiedCode?.[0];
+  if (published) {
+    return { codeSubmissionId: published.sourceSubmissionId, title: published.title, status: 'approved', slug: published.slug };
+  }
+  return null;
+}
 
 function sessionLabel(session) {
   if (!session) return null;
@@ -83,6 +96,7 @@ export function toListRow(row) {
     eventCount: row._count.events,
     hasOriginalUpload: Boolean(row.upload),
     uploadSizeBytes: row.upload?.sizeBytes ?? null,
+    usedBy: usedBy(row),
   };
 }
 
