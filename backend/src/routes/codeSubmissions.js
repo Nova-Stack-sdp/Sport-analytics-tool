@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { notifyCodeSubmissionReviewed } from '../services/notificationService.js';
 import { requireAuth, requireAdmin, requireVerifiedEmail } from '../middleware/requireAuth.js';
+import { retireTestDataset } from '../lib/testDatasets.js';
 
 export const codeSubmissionsRouter = Router();
 
@@ -372,14 +373,18 @@ async function approveSubmission(id, adminUid) {
   }
 }
 
+// Rejecting is one transaction: the status change, retiring the script's
+// test data, and notifying the developer. If any step fails, none happen.
 async function rejectSubmission(id, adminUid) {
   return prisma.$transaction(async (tx) => {
+    const reviewedAt = new Date();
     const { count } = await tx.codeSubmission.updateMany({
       where: { id, status: 'pending' },
-      data: { status: 'rejected', reviewedBy: adminUid, reviewedAt: new Date() },
+      data: { status: 'rejected', reviewedBy: adminUid, reviewedAt },
     });
     if (count === 1) {
       const submission = await tx.codeSubmission.findUnique({ where: { id } });
+      await retireTestDataset(tx, submission.testDatasetId, adminUid, reviewedAt);
       await notifyCodeSubmissionReviewed(submission, 'rejected', tx);
       return { ok: true };
     }

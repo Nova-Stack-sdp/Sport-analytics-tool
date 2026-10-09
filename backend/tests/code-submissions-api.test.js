@@ -13,6 +13,7 @@ const mockTx = {
   codeSubmission: { findUnique: jest.fn(), deleteMany: jest.fn(), updateMany: jest.fn() },
   notification: { create: jest.fn() },
   verifiedCode: { create: jest.fn(), findUnique: jest.fn() },
+  submission: { updateMany: jest.fn() },
 };
 const mockPrisma = {
   codeSubmission: {
@@ -582,6 +583,12 @@ describe('PATCH /api/code-submissions/:id', () => {
   });
 
   describe('rejecting', () => {
+    beforeEach(() => {
+      mockTx.codeSubmission.updateMany.mockResolvedValue({ count: 1 });
+      mockTx.codeSubmission.findUnique.mockResolvedValue({ testDatasetId: null });
+      mockTx.submission.updateMany.mockResolvedValue({ count: 1 });
+    });
+
     test('sets the status to rejected and records who reviewed it, without touching verified code', async () => {
       asAdmin();
       const res = await patch('cs-1', { status: 'rejected' });
@@ -594,15 +601,32 @@ describe('PATCH /api/code-submissions/:id', () => {
       expect(args.data.reviewedAt).toBeInstanceOf(Date);
       expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
       expect(mockTx.verifiedCode.create).not.toHaveBeenCalled();
+      expect(mockTx.submission.updateMany).not.toHaveBeenCalled();
     });
 
-    test('returns 409 when the submission was already rejected', async () => {
+    test('retires the script\'s test data and notifies the developer in the same transaction', async () => {
+      asAdmin();
+      mockTx.codeSubmission.findUnique.mockResolvedValue({ testDatasetId: 'ds-1' });
+
+      const res = await patch('cs-1', { status: 'rejected' });
+
+      expect(res.status).toBe(200);
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+      const args = mockTx.submission.updateMany.mock.calls[0][0];
+      expect(args.where).toEqual({ id: 'ds-1', purpose: 'code_test', deletedAt: null });
+      expect(args.data.deletedBy).toBe('admin-uid');
+      expect(args.data.deletedAt).toEqual(mockTx.codeSubmission.updateMany.mock.calls[0][0].data.reviewedAt);
+      expect(mockTx.notification.create).toHaveBeenCalledTimes(1);
+    });
+
+    test('returns 409 when the submission was already rejected, retiring nothing', async () => {
       asAdmin();
       mockTx.codeSubmission.updateMany.mockResolvedValue({ count: 0 });
       mockTx.codeSubmission.findUnique.mockResolvedValue({ status: 'rejected' });
       const res = await patch('cs-1', { status: 'rejected' });
       expect(res.status).toBe(409);
       expect(res.body.error).toMatch(/already 'rejected'/);
+      expect(mockTx.submission.updateMany).not.toHaveBeenCalled();
     });
 
     test('returns 409 when the code was already approved and moved', async () => {
