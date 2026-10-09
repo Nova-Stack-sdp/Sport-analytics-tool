@@ -162,6 +162,7 @@ const LIST_SELECT = {
   submittedAt: true,
   reviewedBy: true,
   reviewedAt: true,
+  testDatasetId: true,
 };
 
 function verifiedAsListRow(v) {
@@ -176,6 +177,7 @@ function verifiedAsListRow(v) {
     submittedAt: v.submittedAt,
     reviewedBy: v.verifiedBy,
     reviewedAt: v.verifiedAt,
+    testDatasetId: v.testDatasetId ?? null,
   };
 }
 
@@ -193,6 +195,7 @@ function findVerifiedForList(take) {
       submittedAt: true,
       verifiedBy: true,
       verifiedAt: true,
+      testDatasetId: true,
     },
   });
 }
@@ -246,17 +249,58 @@ function verifiedAsDetail(v) {
   };
 }
 
+// What a reviewer needs to know about the test data attached to a script.
+const TEST_DATASET_INCLUDE = {
+  testDataset: {
+    select: {
+      id: true,
+      status: true,
+      deletedAt: true,
+      summary: true,
+      submittedAt: true,
+      session: { select: { openf1Key: true, type: true, meeting: { select: { name: true, season: true } } } },
+      upload: { select: { sizeBytes: true } },
+    },
+  },
+};
+
+export function testDatasetSummary(dataset) {
+  if (!dataset) return null;
+  const meeting = dataset.session?.meeting;
+  return {
+    id: dataset.id,
+    sessionKey: dataset.session?.openf1Key ?? null,
+    sessionLabel: meeting ? `${meeting.name} · ${dataset.session.type} ${meeting.season}` : null,
+    validRecords: dataset.summary?.validRecords ?? null,
+    rejectedRecords: dataset.summary?.rejectedRecords ?? null,
+    submittedAt: dataset.submittedAt,
+    deleted: Boolean(dataset.deletedAt),
+    hasOriginalUpload: Boolean(dataset.upload),
+  };
+}
+
+function withTestDataset(row, shape) {
+  const { testDataset, ...rest } = row;
+  return { ...shape(rest), testDataset: testDatasetSummary(testDataset) };
+}
+
 // Looks in code_submission first (pending, rejected, and rows approved
 // before approval moved code), then in verified_code by the original
 // submission ID, since that is the ID the admin list hands out for
 // approved rows.
 codeSubmissionsRouter.get('/:id', requireAuth, requireVerifiedEmail, requireAdmin, async (req, res, next) => {
   try {
-    const submission = await prisma.codeSubmission.findUnique({ where: { id: req.params.id } });
-    if (submission) return res.json(submission);
+    const submission = await prisma.codeSubmission.findUnique({
+      where: { id: req.params.id },
+      include: TEST_DATASET_INCLUDE,
+    });
+    if (submission) return res.json(withTestDataset(submission, (row) => row));
 
-    const verified = await prisma.verifiedCode.findUnique({ where: { sourceSubmissionId: req.params.id } });
-    if (verified) return res.json(verifiedAsDetail(verified));
+    const verified = await prisma.verifiedCode.findUnique({
+      where: { sourceSubmissionId: req.params.id },
+      include: TEST_DATASET_INCLUDE,
+    });
+    if (verified) return res.json(withTestDataset(verified, verifiedAsDetail));
 
     res.status(404).json({ error: 'Code submission not found' });
   } catch (err) {
@@ -303,6 +347,7 @@ async function approveSubmission(id, adminUid) {
           submitterId: submission.submitterId,
           submitterEmail: submission.submitterEmail,
           submittedAt: submission.submittedAt,
+          testDatasetId: submission.testDatasetId ?? null,
           verifiedBy: adminUid,
         },
       }).catch((err) => {

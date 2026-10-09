@@ -292,6 +292,7 @@ describe('GET /api/code-submissions', () => {
       submittedAt: '2026-10-06T08:00:00.000Z',
       reviewedBy: 'admin-uid',
       reviewedAt: '2026-10-07T08:00:00.000Z',
+      testDatasetId: null,
     }]);
   });
 
@@ -356,7 +357,7 @@ describe('GET /api/code-submissions/:id', () => {
     const res = await authed(request(createApp()).get('/api/code-submissions/cs-7'));
 
     expect(res.status).toBe(200);
-    expect(mockPrisma.verifiedCode.findUnique).toHaveBeenCalledWith({ where: { sourceSubmissionId: 'cs-7' } });
+    expect(mockPrisma.verifiedCode.findUnique.mock.calls[0][0].where).toEqual({ sourceSubmissionId: 'cs-7' });
     expect(res.body).toMatchObject({
       id: 'cs-7',
       verifiedCodeId: 'vc-1',
@@ -366,6 +367,58 @@ describe('GET /api/code-submissions/:id', () => {
       tags: ['pits'],
       reviewedBy: 'admin-uid',
     });
+  });
+});
+
+describe('test data shown to reviewers', () => {
+  const testDataset = {
+    id: 'ds-1', status: 'pending', deletedAt: null,
+    summary: { validRecords: 12, rejectedRecords: 2, eventsWritten: 0 },
+    submittedAt: new Date('2026-10-06T07:00:00Z'),
+    session: { openf1Key: 9999, type: 'Race', meeting: { name: 'Italian Grand Prix', season: 2026 } },
+    upload: { sizeBytes: 2048 },
+  };
+  const SUMMARY = {
+    id: 'ds-1', sessionKey: 9999, sessionLabel: 'Italian Grand Prix · Race 2026',
+    validRecords: 12, rejectedRecords: 2, submittedAt: '2026-10-06T07:00:00.000Z',
+    deleted: false, hasOriginalUpload: true,
+  };
+
+  test('a pending script\'s detail includes a summary of its test data', async () => {
+    asAdmin();
+    mockPrisma.codeSubmission.findUnique.mockResolvedValue({ id: 'cs-1', code: 'x', status: 'pending', testDatasetId: 'ds-1', testDataset });
+    const res = await authed(request(createApp()).get('/api/code-submissions/cs-1'));
+    expect(res.status).toBe(200);
+    expect(res.body.testDataset).toEqual(SUMMARY);
+    expect(res.body.testDatasetId).toBe('ds-1');
+    expect(mockPrisma.codeSubmission.findUnique.mock.calls[0][0].include.testDataset.select).toMatchObject({ summary: true, deletedAt: true });
+  });
+
+  test('an approved script keeps showing its test data, and a script without any shows null', async () => {
+    asAdmin();
+    mockPrisma.codeSubmission.findUnique.mockResolvedValue(null);
+    mockPrisma.verifiedCode.findUnique.mockResolvedValue({
+      id: 'vc-1', sourceSubmissionId: 'cs-7', title: 't', language: 'Python', code: 'x', description: 'd', tags: [],
+      submitterId: 'dev-uid', submitterEmail: null, submittedAt: new Date(), verifiedBy: 'admin-uid', verifiedAt: new Date(),
+      testDatasetId: 'ds-1', testDataset: { ...testDataset, deletedAt: new Date() },
+    });
+    const approved = await authed(request(createApp()).get('/api/code-submissions/cs-7'));
+    expect(approved.body.testDataset).toEqual({ ...SUMMARY, deleted: true });
+
+    mockPrisma.codeSubmission.findUnique.mockResolvedValue({ id: 'cs-2', code: 'x', status: 'pending', testDatasetId: null, testDataset: null });
+    const none = await authed(request(createApp()).get('/api/code-submissions/cs-2'));
+    expect(none.body.testDataset).toBeNull();
+  });
+
+  test('approval carries the test data link into verified code', async () => {
+    asAdmin();
+    mockTx.codeSubmission.findUnique.mockResolvedValue({
+      id: 'cs-1', title: 't', language: 'Python', code: 'x', description: 'd', tags: [], status: 'pending',
+      submitterId: 'dev-uid', submitterEmail: null, submittedAt: new Date('2026-10-07T09:00:00Z'), testDatasetId: 'ds-1',
+    });
+    const res = await authed(request(createApp()).patch('/api/code-submissions/cs-1')).send({ status: 'approved' });
+    expect(res.status).toBe(200);
+    expect(mockTx.verifiedCode.create.mock.calls[0][0].data.testDatasetId).toBe('ds-1');
   });
 });
 
@@ -453,6 +506,7 @@ describe('PATCH /api/code-submissions/:id', () => {
           submitterId: 'dev-uid',
           submitterEmail: 'dev@example.test',
           submittedAt: new Date('2026-10-07T09:00:00Z'),
+          testDatasetId: null,
           verifiedBy: 'admin-uid',
         },
       });
