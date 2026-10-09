@@ -17,11 +17,12 @@ const RaceSyncSimContext = createContext(null);
 export function RaceSyncSimProvider({ sessionId, children }) {
   const { series, error } = useRaceSyncLapSeries(sessionId);
   const [mode, setMode] = useState('replay'); // 'replay' | 'sim'
-  const [tweaks, setTweaks] = useState({}); // entryId -> { pitShift, stopShifts, paceDelta }
-  // The driver the console's levers act on. Shared, so picking a car on the
-  // stage's roster and picking it in the console are the same act; null means
-  // "nobody picked yet" and the console falls back to a sensible default.
-  const [simTarget, setSimTarget] = useState(null);
+  const [tweaks, setTweaks] = useState({}); // entryId -> { pitShift, stopShifts, stintCompounds, paceDelta }
+  // The driver the reader picked — from the console's chips or the stage's
+  // roster, the same act either way. Driver Analysis reads them in depth and
+  // the console's levers act on them; null means nobody is picked, and both
+  // fall back to the race leader.
+  const [pickedDriver, setPickedDriver] = useState(null);
 
   const sim = useMemo(
     () => (series ? simulateRace(series, tweaks) : null),
@@ -62,8 +63,8 @@ export function RaceSyncSimProvider({ sessionId, children }) {
       updateTweak,
       resetTweak,
       resetAllTweaks,
-      simTarget,
-      setSimTarget,
+      pickedDriver,
+      setPickedDriver,
       series,
       seriesError: error,
       sim,
@@ -72,7 +73,7 @@ export function RaceSyncSimProvider({ sessionId, children }) {
       // or solidifies keys off this one flag.
       simLive: mode === 'sim' && !!sim && anyTweakActive(tweaks),
     }),
-    [mode, tweaks, updateTweak, resetTweak, resetAllTweaks, simTarget, series, error, sim]
+    [mode, tweaks, updateTweak, resetTweak, resetAllTweaks, pickedDriver, series, error, sim]
   );
 
   return <RaceSyncSimContext.Provider value={value}>{children}</RaceSyncSimContext.Provider>;

@@ -4,7 +4,14 @@ import { useMemo, useState } from 'react';
 import { teamClassFor } from '../race-replay/raceReplayHelpers';
 import { useRaceSyncSelection } from './RaceSyncSelection';
 import { useRaceSyncSim } from './RaceSyncSimContext';
-import { DEFAULT_TWEAK, pitCallAtLap, simSummaryAtLap, stopLapBounds } from './raceSyncSim';
+import {
+  breaksCompoundRule,
+  compoundChoices,
+  DEFAULT_TWEAK,
+  pitCallAtLap,
+  simSummaryAtLap,
+  stopLapBounds,
+} from './raceSyncSim';
 import { driverPhotoUrl, useRaceSyncPeople } from './useRaceSyncPeople';
 import { entryInScope, isScopeActive, scopeLabel } from './raceSyncViewScope';
 import { displayName, driverCode } from './raceSyncDriverNames';
@@ -372,8 +379,8 @@ function SimConsole({ drivers, defaultEntryId, lap, driversById }) {
     updateTweak,
     resetTweak,
     resetAllTweaks,
-    simTarget,
-    setSimTarget,
+    pickedDriver,
+    setPickedDriver,
   } = useRaceSyncSim();
 
   // Running order at the playhead, so the chips read like the timing tower.
@@ -382,13 +389,14 @@ function SimConsole({ drivers, defaultEntryId, lap, driversById }) {
     return [...drivers].sort((a, b) => at(a) - at(b));
   }, [drivers, lap]);
 
-  // Who the levers act on: the picked car while it is in view, else the
-  // first tweaked car in view, else the card's own focus driver.
+  // Who the levers act on: the same driver Driver Analysis reads — the
+  // picked car while it is in view, else the card's own default (the leader).
   const inView = (entryId) => ordered.some((driver) => driver.entryId === entryId);
-  const targetId = inView(simTarget)
-    ? simTarget
-    : ordered.find((driver) => tweaks[driver.entryId])?.entryId ??
-      (inView(defaultEntryId) ? defaultEntryId : ordered[0]?.entryId ?? null);
+  const targetId = inView(pickedDriver)
+    ? pickedDriver
+    : inView(defaultEntryId)
+      ? defaultEntryId
+      : ordered[0]?.entryId ?? null;
   const target = ordered.find((driver) => driver.entryId === targetId) ?? null;
   const targetSim = target && sim ? sim.drivers.get(target.entryId) ?? null : null;
   const tweak = tweaks[targetId] ?? DEFAULT_TWEAK;
@@ -408,6 +416,17 @@ function SimConsole({ drivers, defaultEntryId, lap, driversById }) {
     updateTweak(target.entryId, { pitShift: 0, stopShifts });
   };
 
+  // Swap one stint's tyre. Picking the compound the stint really ran clears
+  // the swap, so "back to as raced" is the same click as any other choice.
+  const choices = compoundChoices(sim?.model);
+  const swapCompound = (index, key) => {
+    const real = String(targetSim.compounds[index] ?? '').toLowerCase();
+    const stintCompounds = targetSim.compounds.map((_, i) =>
+      i === index ? (key === real ? null : key) : tweak.stintCompounds?.[i] ?? null
+    );
+    updateTweak(target.entryId, { stintCompounds });
+  };
+
   return (
     <section
       id={SECTION_ANCHORS.simConsole}
@@ -419,7 +438,7 @@ function SimConsole({ drivers, defaultEntryId, lap, driversById }) {
         <span className="racesync-console-hint">
           {simLive
             ? 'The map, charts and timing now show the re-run race.'
-            : 'Pick a car, then move its pit stop or pace — the race re-runs instantly.'}
+            : 'Pick a car, then move its stops, swap its tyres or change its pace — the race re-runs instantly.'}
         </span>
         {anyTweaked && (
           <button type="button" className="racesync-sim-reset" onClick={resetAllTweaks}>
@@ -446,7 +465,11 @@ function SimConsole({ drivers, defaultEntryId, lap, driversById }) {
                     tweaked ? ' is-tweaked' : ''
                   }`}
                   title={`${displayName(driver.driverName)}${tweaked ? ' — tweaked' : ''}`}
-                  onClick={() => setSimTarget(driver.entryId)}
+                  // Clicking the picked car again lets go of it, and the
+                  // console and Driver Analysis fall back to the leader.
+                  onClick={() =>
+                    setPickedDriver(pickedDriver === driver.entryId ? null : driver.entryId)
+                  }
                 >
                   <span
                     className={`racesync-stage-legend-dot racesync-car-${teamClassFor(
@@ -524,6 +547,66 @@ function SimConsole({ drivers, defaultEntryId, lap, driversById }) {
                 )}
               </div>
 
+              {/* One row per stint: the laps it covers and a chip for every
+                  compound the field ran this race — the one the stint runs
+                  on is lit, and the real one carries a dot. */}
+              {targetSim.compounds.length > 0 && choices.length > 0 && (
+                <div className="racesync-console-lever">
+                  <span className="racesync-sim-label">
+                    {driverCode(target.driverName)} tyres
+                  </span>
+                  <ol className="racesync-console-stints">
+                    {targetSim.newCompounds.map((compound, index) => {
+                      const from = index === 0 ? 1 : targetSim.newStopLaps[index - 1];
+                      const to =
+                        index < targetSim.newStopLaps.length
+                          ? targetSim.newStopLaps[index] - 1
+                          : sim.totalLaps;
+                      const current = String(compound ?? '').toLowerCase();
+                      const real = String(targetSim.compounds[index] ?? '').toLowerCase();
+                      return (
+                        <li key={index} className="racesync-console-stint">
+                          <span className="racesync-console-stint-laps">
+                            L{from}–{to}
+                          </span>
+                          <span
+                            className="racesync-console-tyres"
+                            role="radiogroup"
+                            aria-label={`Stint ${index + 1} tyre`}
+                          >
+                            {choices.map((key) => {
+                              const chip = compoundChip(key);
+                              return (
+                                <button
+                                  key={key}
+                                  type="button"
+                                  role="radio"
+                                  aria-checked={key === current}
+                                  className={`racesync-console-tyre racesync-tyre racesync-tyre-${
+                                    chip.key
+                                  }${key === current ? ' is-on' : ''}${
+                                    key === real ? ' is-real' : ''
+                                  }`}
+                                  title={`${chip.label}${key === real ? ' (as raced)' : ''}`}
+                                  onClick={() => swapCompound(index, key)}
+                                >
+                                  {chip.letter}
+                                </button>
+                              );
+                            })}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                  {breaksCompoundRule(targetSim.compounds, targetSim.newCompounds) && (
+                    <span className="racesync-sim-note is-warn">
+                      Only one dry compound — breaks the two-compound rule
+                    </span>
+                  )}
+                </div>
+              )}
+
               <div className="racesync-console-lever is-pace">
                 <span className="racesync-sim-label">{driverCode(target.driverName)} pace</span>
                 <div className="racesync-sim-pace">
@@ -579,7 +662,7 @@ function SimBroadcast({ sim, driversById, lap }) {
     .filter(Boolean);
   if (rows.length === 0) return null;
   return (
-    <div className="racesync-broadcast" aria-live="polite">
+    <div className="racesync-broadcast" role="status" aria-label="Simulation broadcast">
       {rows.map((row) => (
         <p key={row.entryId} className="racesync-broadcast-line">
           <span
@@ -647,6 +730,10 @@ function SimCause({ row }) {
         : `stopped ${laps} ${delta < 0 ? 'early' : 'late'}`
     );
   });
+  (row.compoundSwaps ?? []).forEach((swap) => {
+    const label = compoundChip(swap.to)?.label?.toLowerCase() ?? String(swap.to).toLowerCase();
+    parts.push(`ran ${label}s in stint ${swap.stint}`);
+  });
   if (row.paceDelta !== 0) {
     parts.push(
       row.paceDelta < 0
@@ -668,6 +755,8 @@ function RaceSyncGraphs({ sessionId, snapshot, race, workflow, children }) {
     seriesError: error,
     sim,
     simLive,
+    pickedDriver,
+    setPickedDriver,
   } = useRaceSyncSim();
   const people = useRaceSyncPeople();
 
@@ -711,11 +800,11 @@ function RaceSyncGraphs({ sessionId, snapshot, race, workflow, children }) {
   }, [drivers, pace]);
   const twin = useMemo(() => lapTraces(twinDrivers, lap), [twinDrivers, lap]);
 
-  // The driver the Driver Analysis card reads in depth: the scope's driver
-  // when exactly one is in view, otherwise whoever leads at the playhead —
-  // the position column's own last-played entry, falling back to the
-  // leaderboard's order while the field is still on the grid.
-  const focusEntry = useMemo(() => {
+  // The card's default driver: the scope's driver when exactly one is in
+  // view, otherwise whoever leads at the playhead — the position column's own
+  // last-played entry, falling back to the leaderboard's order while the
+  // field is still on the grid.
+  const leaderEntry = useMemo(() => {
     if (drivers.length === 0) return null;
     if (drivers.length === 1) return drivers[0];
     const leaderAtLap = drivers.find((driver) => driver.position?.[lap - 1] === 1);
@@ -723,6 +812,14 @@ function RaceSyncGraphs({ sessionId, snapshot, race, workflow, children }) {
     const first = raceState[0];
     return drivers.find((driver) => driver.entryId === first?.entryId) ?? drivers[0];
   }, [drivers, lap, raceState]);
+  // The driver the Driver Analysis card reads in depth: the one picked from
+  // the console's chips or the map's roster while they are in view, else the
+  // default above. Letting go of the pick (clicking it again) falls back.
+  const pickedEntry = useMemo(
+    () => drivers.find((driver) => driver.entryId === pickedDriver) ?? null,
+    [drivers, pickedDriver]
+  );
+  const focusEntry = pickedEntry ?? leaderEntry;
   const summary = useMemo(() => driverSummary(focusEntry, drivers, lap), [focusEntry, drivers, lap]);
   const photoUrl = driverPhotoUrl(people.driverByName(focusEntry?.driverName));
   const teamLogo = people.teamByName(focusEntry?.teamName)?.logoUrl ?? null;
@@ -1109,7 +1206,25 @@ function RaceSyncGraphs({ sessionId, snapshot, race, workflow, children }) {
             supports, closing on a link down to the sim console. */}
         <Panel
           title="Driver Analysis"
-          caption={drivers.length === 1 ? 'in scope' : lap > 0 ? 'race leader' : 'starting grid'}
+          caption={
+            pickedEntry && drivers.length > 1 ? (
+              // A picked driver says so, and offers the way back to the leader.
+              <button
+                type="button"
+                className="racesync-driver-unpick"
+                title="Show the race leader again"
+                onClick={() => setPickedDriver(null)}
+              >
+                picked · show leader
+              </button>
+            ) : drivers.length === 1 ? (
+              'in scope'
+            ) : lap > 0 ? (
+              'race leader'
+            ) : (
+              'starting grid'
+            )
+          }
           rail
           anchor={SECTION_ANCHORS.driverAnalysis}
         >
@@ -1237,7 +1352,7 @@ function RaceSyncGraphs({ sessionId, snapshot, race, workflow, children }) {
           {workflow && (
             <SimConsole
               drivers={drivers}
-              defaultEntryId={focusEntry?.entryId ?? null}
+              defaultEntryId={leaderEntry?.entryId ?? null}
               lap={lap}
               driversById={driversById}
             />

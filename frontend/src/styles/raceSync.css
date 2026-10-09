@@ -3618,6 +3618,7 @@
   flex-direction: column;
   gap: 10px;
   min-width: 0;
+  container-type: inline-size;
   padding: 12px 14px;
   border: 1px solid var(--border-soft);
   border-left: 3px solid var(--border-soft);
@@ -3704,17 +3705,51 @@
   background: var(--racesync-red);
 }
 
+/* The levers share the console's full width as equal columns, each with
+   room to breathe and a hairline between them, so stops, tyres and pace read
+   as three separate decisions. The reset keeps its own narrow column. */
 #page-sync-f1-broadcast .racesync-console-levers {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 12px 28px;
+  align-items: stretch;
+  padding: 4px 0;
 }
 
 #page-sync-f1-broadcast .racesync-console-lever {
   display: flex;
+  flex: 1 1 0;
   flex-direction: column;
-  gap: 5px;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 28px;
+}
+
+#page-sync-f1-broadcast .racesync-console-lever:first-child {
+  padding-left: 4px;
+}
+
+#page-sync-f1-broadcast .racesync-console-lever + .racesync-console-lever {
+  border-left: 1px solid var(--border-soft);
+}
+
+/* A narrow console stacks the levers, the hairlines turning to rules. */
+@container (max-width: 760px) {
+  #page-sync-f1-broadcast .racesync-console-levers {
+    flex-direction: column;
+  }
+
+  #page-sync-f1-broadcast .racesync-console-lever {
+    padding: 12px 4px;
+  }
+
+  #page-sync-f1-broadcast .racesync-console-lever + .racesync-console-lever {
+    border-top: 1px solid var(--border-soft);
+    border-left: 0;
+  }
+
+  #page-sync-f1-broadcast .racesync-console-levers > .racesync-sim-reset {
+    align-self: flex-start;
+    margin: 8px 4px 0;
+  }
 }
 
 /* One row per real stop: its number, the stepper, and what moved. */
@@ -3751,13 +3786,84 @@
   text-align: center;
 }
 
-#page-sync-f1-broadcast .racesync-console-lever.is-pace {
-  flex: 1 1 240px;
-  max-width: 420px;
+/* One row per stint: its laps, then a tyre chip per compound the field ran.
+   Unpicked chips step back; the stint's tyre is lit with a ring, and the
+   tyre it really ran carries a small dot underneath. */
+#page-sync-f1-broadcast .racesync-console-stints {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#page-sync-f1-broadcast .racesync-console-stint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#page-sync-f1-broadcast .racesync-console-stint-laps {
+  min-width: 64px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+#page-sync-f1-broadcast .racesync-console-tyres {
+  display: inline-flex;
+  gap: 6px;
+}
+
+#page-sync-f1-broadcast .racesync-console-tyre {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  opacity: 0.35;
+  transition: opacity 0.16s ease, box-shadow 0.16s ease;
+}
+
+#page-sync-f1-broadcast .racesync-console-tyre:hover {
+  opacity: 0.75;
+}
+
+#page-sync-f1-broadcast .racesync-console-tyre.is-on {
+  opacity: 1;
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--text-primary);
+}
+
+#page-sync-f1-broadcast .racesync-console-tyre.is-real::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+}
+
+#page-sync-f1-broadcast .racesync-console-tyre:focus-visible {
+  outline: 2px solid var(--racesync-red);
+  outline-offset: 2px;
+}
+
+#page-sync-f1-broadcast .racesync-sim-note.is-warn {
+  color: var(--status-red);
 }
 
 #page-sync-f1-broadcast .racesync-console-levers > .racesync-sim-reset {
-  align-self: center;
+  flex: 0 0 auto;
+  align-self: flex-start;
+  margin: 6px 0 0 12px;
 }
 
 #page-sync-f1-broadcast .racesync-sim-stepper-btn:disabled {
@@ -3786,7 +3892,23 @@
   text-decoration: underline;
 }
 
-/* In sim mode a roster row is a button that picks the car for the console. */
+/* Driver Analysis' caption when a driver is picked: the way back to the
+   leader, worded as the caption it replaces. */
+#page-sync-f1-broadcast .racesync-driver-unpick {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--racesync-red);
+  font: inherit;
+  cursor: pointer;
+}
+
+#page-sync-f1-broadcast .racesync-driver-unpick:hover {
+  text-decoration: underline;
+}
+
+/* A roster row is a button that picks the driver for Driver Analysis and the
+   sim console. */
 #page-sync-f1-broadcast .racesync-stage-legend-pick {
   display: flex;
   flex: 1 1 auto;
