@@ -12,6 +12,7 @@ import { teamsRouter } from './routes/teams.js';
 import { driversRouter } from './routes/drivers.js';
 import { openF1Router } from './routes/openf1.js';
 import { raceReplayRouter } from './routes/raceReplay.js';
+import { raceRequestsRouter } from './routes/raceRequests.js';
 import { imagesRouter } from './routes/images.js';
 import { newsRouter } from './routes/news.js';
 import { submissionsRouter } from './routes/submissions.js';
@@ -124,6 +125,10 @@ export function createApp(options = {}) {
   app.use('/api/drivers', driversRouter);
   app.use('/api/openf1', openF1Router);
   app.use('/api/race-replay', raceReplayRouter);
+  // Adding a race RaceSync doesn't have yet. Deliberately outside the
+  // response cache: a request's status changes from second to second.
+  // Tests hand in a router with OpenF1 and the sync job faked.
+  app.use('/api/race-requests', options.raceRequestsRouter ?? raceRequestsRouter);
   app.use('/api/images', imagesRouter);
   app.use('/api/news', newsRouter);
   app.use('/api/submissions', submissionsRouter);
