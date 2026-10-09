@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useRaceSyncSelection } from './RaceSyncSelection';
+import RaceSyncAddRace from './RaceSyncAddRace';
 import RaceSyncBell from './RaceSyncBell';
 import RaceSyncViewMenu from './RaceSyncViewMenu';
 
@@ -8,12 +9,14 @@ import RaceSyncViewMenu from './RaceSyncViewMenu';
 // opens underneath: the same races Race Replay offers (see RaceSyncSelection).
 // Picking a row loads that race into the centre stage. The input stays a
 // query field afterwards, so the picked race is announced by the map header
-// rather than echoed back into the box.
+// rather than echoed back into the box. A race that isn't in the list can be
+// added from OpenF1 without leaving the search (see RaceSyncAddRace).
 function RaceSearch() {
   const { fixtures, loading, error, selectedId, selectRace } = useRaceSyncSelection();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [adding, setAdding] = useState(false);
   const boxRef = useRef(null);
 
   const needle = query.trim().toLowerCase();
@@ -101,7 +104,21 @@ function RaceSearch() {
         />
       </div>
 
-      {open && (
+      {open && adding && (
+        <div className="racesync-search-panel">
+          <RaceSyncAddRace
+            query={query}
+            onBack={() => setAdding(false)}
+            onDone={() => {
+              setAdding(false);
+              setOpen(false);
+              setQuery('');
+            }}
+          />
+        </div>
+      )}
+
+      {open && !adding && (
         <div className="racesync-search-panel">
           <ul
             className="racesync-search-list"
@@ -145,6 +162,19 @@ function RaceSearch() {
           )}
           {!loading && !error && fixtures.length > 0 && matches.length === 0 && (
             <p className="racesync-search-note">No race matches “{query.trim()}”.</p>
+          )}
+
+          {/* The way in for a race that isn't here yet — lit up when the
+              search has come back empty, quiet at the foot of the list
+              otherwise. */}
+          {!loading && (
+            <button
+              type="button"
+              className={`racesync-search-add${matches.length === 0 ? ' is-prominent' : ''}`}
+              onClick={() => setAdding(true)}
+            >
+              Can’t find a race? Add it from OpenF1
+            </button>
           )}
 
           {selectedId && (

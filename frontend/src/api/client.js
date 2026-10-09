@@ -198,6 +198,28 @@ export function getFixtures() {
   return request('/api/fixtures');
 }
 
+// Adding a race RaceSync doesn't have yet (see backend routes/raceRequests.js):
+// one season's OpenF1 races, each marked with where it stands here…
+export function getAvailableRaces(year) {
+  return request(`/api/race-requests/available?year=${encodeURIComponent(year)}`, {
+    timeoutMs: 20000,
+  });
+}
+
+// …a sync request for one of them (signed-in users only)…
+export function requestRaceSync(sessionKey) {
+  return request('/api/race-requests', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionKey }),
+  });
+}
+
+// …and where that request stands: queued, syncing, ready or failed.
+export function getRaceSyncStatus(sessionKey) {
+  return request(`/api/race-requests/${encodeURIComponent(sessionKey)}`);
+}
+
 export function getFixtureEvents(sessionId) {
   return request(`/api/fixtures/${sessionId}/events`);
 }

@@ -345,6 +345,166 @@
   color: var(--racesync-red);
 }
 
+/* "Can't find a race?" at the foot of the search: quiet beside a list,
+   red and leading when the search came back empty. */
+.racesync-search-add {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 9px 8px;
+  border: 0;
+  border-top: 1px solid var(--border-soft);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.racesync-search-add:hover,
+.racesync-search-add.is-prominent {
+  color: var(--racesync-red);
+}
+
+.racesync-search-add.is-prominent {
+  border-top: 0;
+  border-radius: 8px;
+  background: rgba(225, 6, 0, 0.1);
+}
+
+/* The add-a-race view inside the search panel: a season's races, each with
+   its standing and the one action that applies. */
+.racesync-addrace-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px 2px;
+}
+
+.racesync-addrace-back {
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.racesync-addrace-back:hover {
+  background: var(--border-soft);
+  color: var(--text-primary);
+}
+
+.racesync-addrace-title {
+  flex: 1 1 auto;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.racesync-addrace-season {
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.racesync-addrace-notice {
+  margin: 6px;
+  padding: 7px 9px;
+  border-radius: 6px;
+  background: rgba(225, 6, 0, 0.12);
+  color: var(--text-primary);
+  font-size: 12.5px;
+}
+
+.racesync-addrace-list {
+  max-height: 320px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.racesync-addrace-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 8px;
+}
+
+.racesync-addrace-row:hover {
+  background: var(--border-soft);
+}
+
+.racesync-addrace-name {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.racesync-addrace-meta {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.racesync-addrace-status {
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.racesync-addrace-status.is-ready {
+  color: var(--status-green);
+}
+
+.racesync-addrace-status.is-syncing,
+.racesync-addrace-status.is-queued {
+  color: var(--racesync-red);
+}
+
+.racesync-addrace-status.is-failed {
+  color: var(--status-red);
+}
+
+.racesync-addrace-action {
+  flex: 0 0 56px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.racesync-addrace-action.is-primary {
+  border-color: var(--racesync-red);
+  background: var(--racesync-red);
+  color: #fff;
+}
+
+.racesync-addrace-action.is-idle {
+  border-color: transparent;
+  cursor: default;
+}
+
 .racesync-account {
   display: flex;
   align-items: center;
