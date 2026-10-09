@@ -9,6 +9,7 @@ import {
   simPositionAtLap,
   simulateRace,
   simSummaryAtLap,
+  stopLapBounds,
   tweakIsNoop,
 } from '../components/race-sync/raceSyncSim';
 
@@ -349,5 +350,52 @@ describe('the pit calls', () => {
     expect(pitCallAtLap(sim, 'e1', 0)).toBeNull();
     expect(pitCallsAtLap(sim, 4)).toEqual([expect.objectContaining({ entryId: 'e1', kind: 'box' })]);
     expect(pitCallsAtLap(null, 4)).toEqual([]);
+  });
+});
+
+describe('moving one stop on its own', () => {
+  // A two-stopper: new sets on laps 5 and 9.
+  const twoStopper = () =>
+    piastri({
+      lapTimeSeconds: [
+        ...linearStint(80.0, 0.1, 4, { pitLoss: 22 }),
+        ...linearStint(81.0, 0.02, 4, { pitLoss: 22 }),
+        ...linearStint(80.0, 0.1, 4),
+      ],
+      compound: [...Array(4).fill('SOFT'), ...Array(4).fill('MEDIUM'), ...Array(4).fill('SOFT')],
+      stintNumber: [1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3],
+    });
+  const race = (tweak) =>
+    simulateRace(series([leclerc(), twoStopper(), verstappen()]), { e2: tweak });
+
+  test('the second stop moves while the first holds', () => {
+    const sim = race({ stopShifts: [0, 2] });
+    const driver = sim.drivers.get('e2');
+    expect(driver.baseStopLaps).toEqual([5, 9]);
+    expect(driver.newStopLaps).toEqual([5, 11]);
+    // Nothing before the second stint's old in-lap is re-priced.
+    expect(driver.simLapTimes.slice(0, 7)).toEqual(twoStopper().lapTimeSeconds.slice(0, 7));
+    expect(simSummaryAtLap(sim, 'e2', driversById(sim), 12).stopDeltas).toEqual([0, 2]);
+  });
+
+  test('per-stop shifts ride on top of the shared shift', () => {
+    expect(race({ pitShift: -1, stopShifts: [0, 2] }).drivers.get('e2').newStopLaps).toEqual([4, 10]);
+  });
+
+  test('a stop never passes its neighbours or the flag', () => {
+    expect(race({ stopShifts: [0, 99] }).drivers.get('e2').newStopLaps).toEqual([5, 12]);
+    expect(race({ stopShifts: [0, -99] }).drivers.get('e2').newStopLaps).toEqual([5, 6]);
+  });
+
+  test('the bounds a lever stops at: after the stop before, before the stop after', () => {
+    expect(stopLapBounds([5, 9], 0, 12)).toEqual({ min: 2, max: 8 });
+    expect(stopLapBounds([5, 9], 1, 12)).toEqual({ min: 6, max: 12 });
+    expect(stopLapBounds([7], 0, 12)).toEqual({ min: 2, max: 12 });
+  });
+
+  test('shifts that are all zero are no tweak at all', () => {
+    expect(tweakIsNoop({ pitShift: 0, paceDelta: 0, stopShifts: [0, 0] })).toBe(true);
+    expect(tweakIsNoop({ stopShifts: [0, 1] })).toBe(false);
+    expect(race({ stopShifts: [0, 0] }).tweaked).toEqual([]);
   });
 });

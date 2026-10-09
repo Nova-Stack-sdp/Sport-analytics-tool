@@ -3717,6 +3717,40 @@
   gap: 5px;
 }
 
+/* One row per real stop: its number, the stepper, and what moved. */
+#page-sync-f1-broadcast .racesync-console-stops {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#page-sync-f1-broadcast .racesync-console-stop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#page-sync-f1-broadcast .racesync-console-stop-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--border-soft);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+#page-sync-f1-broadcast .racesync-console-stop .racesync-sim-pit-laps {
+  min-width: 30px;
+  text-align: center;
+}
+
 #page-sync-f1-broadcast .racesync-console-lever.is-pace {
   flex: 1 1 240px;
   max-width: 420px;

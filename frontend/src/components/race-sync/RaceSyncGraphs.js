@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { teamClassFor } from '../race-replay/raceReplayHelpers';
 import { useRaceSyncSelection } from './RaceSyncSelection';
 import { useRaceSyncSim } from './RaceSyncSimContext';
-import { DEFAULT_TWEAK, pitCallAtLap, simSummaryAtLap } from './raceSyncSim';
+import { DEFAULT_TWEAK, pitCallAtLap, simSummaryAtLap, stopLapBounds } from './raceSyncSim';
 import { driverPhotoUrl, useRaceSyncPeople } from './useRaceSyncPeople';
 import { entryInScope, isScopeActive, scopeLabel } from './raceSyncViewScope';
 import { displayName, driverCode } from './raceSyncDriverNames';
@@ -392,10 +392,21 @@ function SimConsole({ drivers, defaultEntryId, lap, driversById }) {
   const target = ordered.find((driver) => driver.entryId === targetId) ?? null;
   const targetSim = target && sim ? sim.drivers.get(target.entryId) ?? null : null;
   const tweak = tweaks[targetId] ?? DEFAULT_TWEAK;
-  const pitShift = tweak.pitShift ?? 0;
   const paceDelta = tweak.paceDelta ?? 0;
   const anyTweaked = Object.keys(tweaks).length > 0;
-  const stopList = (laps) => laps.map((stopLap) => `L${stopLap}`).join(' · ');
+
+  // Move one stop a lap, the others holding. The new shift is written from
+  // the lap the stop ACTUALLY lands on, so pressing past an edge never piles
+  // up a shift the race can't honour — and the buttons stop at the edge too.
+  const moveStop = (index, step) => {
+    const base = targetSim.baseStopLaps[index];
+    const { min, max } = stopLapBounds(targetSim.newStopLaps, index, sim.totalLaps);
+    const lap = Math.min(Math.max(targetSim.newStopLaps[index] + step, min), max);
+    const stopShifts = targetSim.baseStopLaps.map(
+      (_, i) => (i === index ? lap - base : targetSim.newStopLaps[i] - targetSim.baseStopLaps[i])
+    );
+    updateTweak(target.entryId, { pitShift: 0, stopShifts });
+  };
 
   return (
     <section
@@ -451,46 +462,66 @@ function SimConsole({ drivers, defaultEntryId, lap, driversById }) {
 
           {targetSim ? (
             <div className="racesync-console-levers">
+              {/* One stepper per real stop, so a two-stopper's first stop
+                  can come early while the second holds. */}
               <div className="racesync-console-lever">
                 <span className="racesync-sim-label">
-                  {driverCode(target.driverName)} pit stop
+                  {driverCode(target.driverName)}{' '}
+                  {targetSim.baseStopLaps.length > 1 ? 'pit stops' : 'pit stop'}
                 </span>
-                <div className="racesync-sim-stepper">
-                  <button
-                    type="button"
-                    className="racesync-sim-stepper-btn"
-                    title="Stop one lap earlier"
-                    aria-label="Stop earlier"
-                    onClick={() => updateTweak(target.entryId, { pitShift: pitShift - 1 })}
-                    disabled={targetSim.baseStopLaps.length === 0}
-                  >
-                    −
-                  </button>
-                  <span className="racesync-sim-pit-laps">
-                    {targetSim.newStopLaps.length > 0
-                      ? stopList(targetSim.newStopLaps)
-                      : 'No stops'}
-                  </span>
-                  <button
-                    type="button"
-                    className="racesync-sim-stepper-btn"
-                    title="Stop one lap later"
-                    aria-label="Stop later"
-                    onClick={() => updateTweak(target.entryId, { pitShift: pitShift + 1 })}
-                    disabled={targetSim.baseStopLaps.length === 0}
-                  >
-                    +
-                  </button>
-                </div>
-                <span className="racesync-sim-note">
-                  {targetSim.baseStopLaps.length === 0
-                    ? 'No stops in the real race to move'
-                    : pitShift !== 0
-                    ? `${Math.abs(pitShift)} ${Math.abs(pitShift) === 1 ? 'lap' : 'laps'} ${
-                        pitShift < 0 ? 'earlier' : 'later'
-                      } · real ${stopList(targetSim.baseStopLaps)}`
-                    : 'As raced'}
-                </span>
+                {targetSim.baseStopLaps.length === 0 ? (
+                  <span className="racesync-sim-note">No stops in the real race to move</span>
+                ) : (
+                  <ol className="racesync-console-stops">
+                    {targetSim.newStopLaps.map((stopLap, index) => {
+                      const base = targetSim.baseStopLaps[index];
+                      const shift = stopLap - base;
+                      const { min, max } = stopLapBounds(
+                        targetSim.newStopLaps,
+                        index,
+                        sim.totalLaps
+                      );
+                      const name = targetSim.baseStopLaps.length > 1 ? `stop ${index + 1}` : 'the stop';
+                      return (
+                        <li key={index} className="racesync-console-stop">
+                          {targetSim.baseStopLaps.length > 1 && (
+                            <span className="racesync-console-stop-num">{index + 1}</span>
+                          )}
+                          <div className="racesync-sim-stepper">
+                            <button
+                              type="button"
+                              className="racesync-sim-stepper-btn"
+                              title={`Move ${name} one lap earlier`}
+                              aria-label={`Move ${name} earlier`}
+                              onClick={() => moveStop(index, -1)}
+                              disabled={stopLap <= min}
+                            >
+                              −
+                            </button>
+                            <span className="racesync-sim-pit-laps">L{stopLap}</span>
+                            <button
+                              type="button"
+                              className="racesync-sim-stepper-btn"
+                              title={`Move ${name} one lap later`}
+                              aria-label={`Move ${name} later`}
+                              onClick={() => moveStop(index, 1)}
+                              disabled={stopLap >= max}
+                            >
+                              +
+                            </button>
+                          </div>
+                          <span className="racesync-sim-note">
+                            {shift === 0
+                              ? 'as raced'
+                              : `${Math.abs(shift)} ${Math.abs(shift) === 1 ? 'lap' : 'laps'} ${
+                                  shift < 0 ? 'earlier' : 'later'
+                                } · real L${base}`}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                )}
               </div>
 
               <div className="racesync-console-lever is-pace">
@@ -601,17 +632,21 @@ function SimBroadcast({ sim, driversById, lap }) {
 }
 
 // The cause clause of the broadcast sentence, from what the sim actually
-// applied: the first stop's real movement (clamped by the race — the
+// applied: each stop's real movement (clamped by the race — the
 // sentence reports what happened, not what was asked for) and the pace dial.
 function SimCause({ row }) {
   const parts = [];
-  if (row.firstStopDelta != null && row.firstStopDelta !== 0) {
+  const deltas = row.stopDeltas ?? [];
+  deltas.forEach((delta, index) => {
+    if (!delta) return;
+    const laps = `${Math.abs(delta)} ${Math.abs(delta) === 1 ? 'lap' : 'laps'}`;
+    // A one-stopper "stopped 2 laps early"; a multi-stopper names the stop.
     parts.push(
-      `stopped ${Math.abs(row.firstStopDelta)} ${
-        Math.abs(row.firstStopDelta) === 1 ? 'lap' : 'laps'
-      } ${row.firstStopDelta < 0 ? 'early' : 'late'}`
+      deltas.length > 1
+        ? `took stop ${index + 1} ${laps} ${delta < 0 ? 'early' : 'late'}`
+        : `stopped ${laps} ${delta < 0 ? 'early' : 'late'}`
     );
-  }
+  });
   if (row.paceDelta !== 0) {
     parts.push(
       row.paceDelta < 0

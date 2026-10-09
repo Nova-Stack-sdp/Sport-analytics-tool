@@ -30,12 +30,18 @@ const isTimed = (seconds) =>
 
 // The tweak one driver carries. Pit timing and pace are the first pillar
 // (speed & pit-stop tweaks); compound choice and engine mode join later, so
-// the shape stays open. pitShift is laps (negative = stop earlier); paceDelta
-// is seconds added to every timed lap (positive = eased off).
-export const DEFAULT_TWEAK = { pitShift: 0, paceDelta: 0 };
+// the shape stays open. pitShift moves EVERY stop by the same laps (negative =
+// earlier); stopShifts moves each stop on its own, index for index with the
+// real stops, on top of pitShift — so a two-stopper's first stop can come
+// earlier while the second holds. paceDelta is seconds added to every timed
+// lap (positive = eased off).
+export const DEFAULT_TWEAK = { pitShift: 0, paceDelta: 0, stopShifts: [] };
 
 export const tweakIsNoop = (tweak) =>
-  !tweak || ((tweak.pitShift ?? 0) === 0 && (tweak.paceDelta ?? 0) === 0);
+  !tweak ||
+  ((tweak.pitShift ?? 0) === 0 &&
+    (tweak.paceDelta ?? 0) === 0 &&
+    (tweak.stopShifts ?? []).every((shift) => !shift));
 
 export const anyTweakActive = (tweaks) =>
   Object.values(tweaks ?? {}).some((tweak) => !tweakIsNoop(tweak));
@@ -159,22 +165,42 @@ export function fitRaceModel(drivers, totalLaps) {
 // Re-timing one driver
 // ---------------------------------------------------------------------------
 
-// Where a driver's stops land under a shift. Stops keep their order and every
-// stint keeps at least one lap: the first stop can't come before lap 2 and no
-// stop can move to or past the final lap. When the clamp binds, a later stop
-// simply moves less than asked — the ACTUAL laps are returned so the UI shows
-// what really happened, never the requested fantasy.
-function shiftedStopLaps(baseStopLaps, pitShift, totalLaps) {
+// Where a driver's stops land under a tweak: each real stop moves by the
+// shared pitShift plus its own stopShifts entry. Stops keep their order and
+// every stint keeps at least one lap: the first stop can't come before lap 2,
+// each stop follows the one before it, and the last can't pass the final lap.
+// When the clamp binds, a stop simply moves less than asked — the ACTUAL laps
+// are returned so the UI shows what really happened, never the requested
+// fantasy. (A stop is the first lap on the new set, as in the readings.)
+function shiftedStopLaps(baseStopLaps, tweak, totalLaps) {
+  const pitShift = tweak?.pitShift ?? 0;
+  const stopShifts = tweak?.stopShifts ?? [];
+  // Forward: each stop after the one before it (and never before lap 2).
   const result = [];
   let previous = 1;
-  for (const base of baseStopLaps) {
-    const lo = Math.max(previous + 1, 2);
-    const hi = Math.max(lo, totalLaps);
-    const shifted = Math.min(Math.max(base + pitShift, lo), hi);
-    result.push(shifted);
-    previous = shifted;
+  baseStopLaps.forEach((base, index) => {
+    const wanted = base + pitShift + (stopShifts[index] ?? 0);
+    const lap = Math.max(wanted, previous + 1, 2);
+    result.push(lap);
+    previous = lap;
+  });
+  // Backward: nothing past the final lap, and each stop still before the next.
+  let next = totalLaps + 1;
+  for (let index = result.length - 1; index >= 0; index -= 1) {
+    result[index] = Math.max(Math.min(result[index], next - 1), 2);
+    next = result[index];
   }
   return result;
+}
+
+// The laps one stop can move between while the others hold where they are:
+// one lap after the stop before it (lap 2 for the first) up to one lap before
+// the stop after it (the final lap for the last). The console uses it to stop
+// a lever at the edge instead of letting a shift pile up past what moved.
+export function stopLapBounds(stopLaps, index, totalLaps) {
+  const before = index > 0 ? stopLaps[index - 1] : 1;
+  const after = index < stopLaps.length - 1 ? stopLaps[index + 1] : totalLaps + 1;
+  return { min: Math.max(before + 1, 2), max: after - 1 };
 }
 
 // Stint map for a lap schedule: lap -> { stintIndex, age, compound }. The
@@ -271,7 +297,7 @@ function simulateDriver(driver, model, tweak, totalLaps) {
 
   const stopLaps = tweakIsNoop(tweak)
     ? baseStopLaps
-    : shiftedStopLaps(baseStopLaps, tweak.pitShift ?? 0, totalLaps);
+    : shiftedStopLaps(baseStopLaps, tweak, totalLaps);
   const newMap = stintMapFor(compounds, stopLaps, totalLaps);
   markInLaps(newMap, stopLaps);
 
@@ -539,6 +565,9 @@ export function simSummaryAtLap(sim, entryId, driversById, uptoLap) {
       driver.newStopLaps.length > 0 && driver.baseStopLaps.length > 0
         ? driver.newStopLaps[0] - driver.baseStopLaps[0]
         : null,
+    // Every stop's actual movement, index for index — a two-stopper may have
+    // moved only its second stop.
+    stopDeltas: driver.newStopLaps.map((lap, i) => lap - (driver.baseStopLaps[i] ?? lap)),
     paceDelta: driver.paceDeltaApplied ?? 0,
     compoundKeys: [...new Set([...compoundNames(driver)])],
   };

@@ -17,7 +17,7 @@ const RaceSyncSimContext = createContext(null);
 export function RaceSyncSimProvider({ sessionId, children }) {
   const { series, error } = useRaceSyncLapSeries(sessionId);
   const [mode, setMode] = useState('replay'); // 'replay' | 'sim'
-  const [tweaks, setTweaks] = useState({}); // entryId -> { pitShift, paceDelta }
+  const [tweaks, setTweaks] = useState({}); // entryId -> { pitShift, stopShifts, paceDelta }
   // The driver the console's levers act on. Shared, so picking a car on the
   // stage's roster and picking it in the console are the same act; null means
   // "nobody picked yet" and the console falls back to a sensible default.
