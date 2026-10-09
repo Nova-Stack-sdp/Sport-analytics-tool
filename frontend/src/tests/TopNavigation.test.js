@@ -1,8 +1,8 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import TopNav from '../components/TopNavigation';
 import { signOut } from 'firebase/auth';
-import { clearSession } from '../api/client';
+import { clearSession, getNotifications } from '../api/client';
 
 let mockUser = null;
 let mockIsDeveloperMode = false;
@@ -21,7 +21,7 @@ jest.mock('../firebase', () => ({ auth: {} }));
 jest.mock('firebase/auth', () => ({ signOut: jest.fn() }));
 // The real client goes over the network via fetch — mock it so these tests
 // exercise the component's sign-out behavior rather than a live backend.
-jest.mock('../api/client', () => ({ clearSession: jest.fn() }));
+jest.mock('../api/client', () => ({ clearSession: jest.fn(), getNotifications: jest.fn() }));
 
 function LocationDisplay() {
   const location = useLocation();
@@ -45,6 +45,9 @@ describe('TopNavigation', () => {
     window.localStorage.clear();
     signOut.mockResolvedValue();
     clearSession.mockResolvedValue({ status: 'ok' });
+    // Unrelated navigation tests leave notification requests in flight.
+    // Notification tests below explicitly control their responses.
+    getNotifications.mockImplementation(() => new Promise(() => {}));
   });
 
   afterEach(() => {
@@ -70,6 +73,45 @@ describe('TopNavigation', () => {
     fireEvent.click(screen.getByTitle('Toggle dark mode'));
 
     expect(onToggleTheme).toHaveBeenCalledTimes(1);
+    expect(getNotifications).not.toHaveBeenCalled();
+  });
+
+  test('loads notifications through the authenticated client and refreshes on bell click', async () => {
+    getNotifications.mockResolvedValue([
+      { id: 'n1', title: 'Code approved', message: 'Approved', isRead: false },
+      { id: 'n2', title: 'Old update', message: 'Read', isRead: true },
+    ]);
+    renderNav({ user: { uid: 'dev-uid', email: 'dev@example.test' } });
+    await waitFor(() => expect(screen.getByTitle('Notifications')).toHaveTextContent('1'));
+    expect(getNotifications).toHaveBeenCalledTimes(1);
+    await act(async () => { fireEvent.click(screen.getByTitle('Notifications')); });
+    expect(screen.getByText('Code approved')).toBeInTheDocument();
+    expect(getNotifications).toHaveBeenCalledTimes(2);
+  });
+
+  test('clears notifications on sign-out and ignores a late response from the previous user', async () => {
+    const oldNotification = { id: 'n1', title: 'Private update', message: 'Private', isRead: false };
+    getNotifications.mockResolvedValueOnce([oldNotification]);
+    mockUser = { uid: 'dev-uid', email: 'dev@example.test' };
+    const nav = () => <MemoryRouter><TopNav theme="dark" onToggleTheme={jest.fn()} /></MemoryRouter>;
+    const { rerender } = render(nav());
+    await waitFor(() => expect(screen.getByTitle('Notifications')).toHaveTextContent('1'));
+
+    let resolveOldRequest;
+    getNotifications.mockImplementationOnce(() => new Promise(resolve => { resolveOldRequest = resolve; }));
+    fireEvent.click(screen.getByTitle('Notifications'));
+    mockUser = null;
+    rerender(nav());
+    expect(getNotifications).toHaveBeenCalledTimes(2);
+    await act(async () => { resolveOldRequest([oldNotification]); });
+
+    mockUser = { uid: 'new-uid', email: 'new@example.test' };
+    rerender(nav());
+    await act(async () => {});
+    expect(screen.getByTitle('Notifications')).not.toHaveTextContent('1');
+    fireEvent.click(screen.getByTitle('Notifications'));
+    expect(screen.queryByText('Private update')).not.toBeInTheDocument();
+    expect(screen.getByText('No new updates')).toBeInTheDocument();
   });
 
   test('shows logged-in links but hides developer-only links until developer mode is on', () => {

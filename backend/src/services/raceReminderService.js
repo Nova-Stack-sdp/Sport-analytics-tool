@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma.js';
+import { createNotificationsOnce } from './notificationService.js';
 
 export const processRaceReminders = async () => {
   try {
@@ -38,76 +39,43 @@ export const processRaceReminders = async () => {
     // 2. Process each race
     for (const race of upcomingRaces) {
       const raceName = race.meeting?.name || 'Grand Prix';
-      const timeString = new Intl.DateTimeFormat('en-ZA', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(race.startTime));
-      
-      // We will group notifications by userId to prevent sending multiple per race
+      const timeString = new Intl.DateTimeFormat('en-GB', {
+        day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+        hour12: false, timeZone: 'UTC',
+      }).format(new Date(race.startTime));
+      const follows = await prisma.follow.findMany({
+        where: { OR: [
+          { driverId: { in: race.entries.map(entry => entry.driver.id) } },
+          { teamId: { in: [...new Set(race.entries.map(entry => entry.team.id))] } },
+        ] },
+        select: { userId: true, driverId: true, teamId: true },
+      });
       const userNotifications = new Map();
-
-      for (const entry of race.entries) {
-        // Find users following this driver
-        const driverFans = await prisma.follow.findMany({
-          where: { driverId: entry.driver.id },
-          select: { userId: true }
-        });
-
-        const gridPos = entry.events[0]?.payload?.position || 'TBD';
-
-        for (const fan of driverFans) {
-          const userId = fan.userId;
-          if (!userNotifications.has(userId)) {
-            userNotifications.set(userId, { drivers: [], teams: [] });
-          }
-          userNotifications.get(userId).drivers.push(`${entry.driver.name} (P${gridPos})`);
-        }
-
-        // Find users following this team
-        const teamFans = await prisma.follow.findMany({
-          where: { teamId: entry.team.id },
-          select: { userId: true }
-        });
-
-        for (const fan of teamFans) {
-          const userId = fan.userId;
-          if (!userNotifications.has(userId)) {
-            userNotifications.set(userId, { drivers: [], teams: [] });
-          }
-          // We can just add the driver info to the team's list
-          userNotifications.get(userId).teams.push(`${entry.driver.name} (P${gridPos}) for ${entry.team.name}`);
+      for (const follow of follows) {
+        if (!userNotifications.has(follow.userId)) userNotifications.set(follow.userId, new Map());
+        const entries = userNotifications.get(follow.userId);
+        for (const entry of race.entries) {
+          if (follow.driverId !== entry.driver.id && follow.teamId !== entry.team.id) continue;
+          const position = entry.events[0]?.payload?.position;
+          const grid = Number.isInteger(position) && position > 0 ? `P${position}` : 'grid TBC';
+          entries.set(entry.driver.id, `${entry.driver.name} (${grid}, ${entry.team.name})`);
         }
       }
 
       // 3. Create notifications
       const notificationsToInsert = [];
-      const messageId = `race_reminder_${race.id}`; // Used for deduplication in unique constraint
-
-      for (const [userId, prefs] of userNotifications.entries()) {
-        let message = `The ${raceName} starts at ${timeString}. `;
-        
-        if (prefs.drivers.length > 0) {
-          message += `Your drivers: ${prefs.drivers.join(', ')}. `;
-        }
-        if (prefs.teams.length > 0) {
-          // Deduplicate team messages
-          const uniqueTeams = [...new Set(prefs.teams)];
-          message += `Team updates: ${uniqueTeams.join(', ')}.`;
-        }
-
+      for (const [userId, entries] of userNotifications) {
         notificationsToInsert.push({
           userId,
-          title: `Upcoming Race: ${raceName}`,
-          message: message.trim().slice(0, 500), // Ensure it fits in the DB and is deduplicated
+          title: `Upcoming race: ${raceName}`,
+          message: `The ${raceName} starts on ${timeString} UTC. Following: ${[...entries.values()].sort().join('; ')}.`,
+          eventKey: `race_reminder:${race.id}`,
           type: 'race_reminder',
-          isRead: false
+          isRead: false,
         });
       }
-
-      if (notificationsToInsert.length > 0) {
-        const result = await prisma.notification.createMany({
-          data: notificationsToInsert,
-          skipDuplicates: true
-        });
-        notificationsCreated += result.count;
-      }
+      const result = await createNotificationsOnce(notificationsToInsert);
+      notificationsCreated += result.count;
     }
 
     return notificationsCreated;

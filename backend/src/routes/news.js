@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { f1NewsService } from '../lib/f1NewsFeed.js';
 import { prisma } from '../lib/prisma.js';
+import { canonicalNotificationUrl, createNotificationsOnce, newsEventKey } from '../services/notificationService.js';
 
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 100;
@@ -47,15 +48,17 @@ function extractTagsFromDB(article, dbDrivers, dbTeams) {
   // Match drivers by name, surname, or code -> returns UUID
   for (const driver of dbDrivers) {
     const terms = [];
-    if (driver.name) terms.push(...driver.name.toLowerCase().split(/\s+/));
-    if (driver.givenName) terms.push(driver.givenName.toLowerCase());
+    if (driver.name) {
+      const name = driver.name.toLowerCase().trim();
+      terms.push(name, name.split(/\s+/).at(-1));
+    }
     if (driver.familyName) terms.push(driver.familyName.toLowerCase());
     if (driver.code) terms.push(driver.code.toLowerCase());
 
     const validTerms = terms.filter(t => t.length > 2);
 
     for (const term of validTerms) {
-      if (new RegExp(`\\b${term}\\b`, 'i').test(text)) {
+      if (new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(text)) {
         matchedDrivers.add(driver.id);
         break;
       }
@@ -72,7 +75,7 @@ function extractTagsFromDB(article, dbDrivers, dbTeams) {
       matchedTeams.add(team.id);
     } else {
       for (const term of terms) {
-        if (new RegExp(`\\b${term}\\b`, 'i').test(text)) {
+        if (new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(text)) {
           matchedTeams.add(team.id);
           break;
         }
@@ -86,9 +89,8 @@ function extractTagsFromDB(article, dbDrivers, dbTeams) {
   };
 }
 
-// Background worker to check for followers and send notifications
-// Background worker to check for followers and send notifications
-async function processNewsNotifications(articles) {
+// One notification per article and follower, even when several follows match.
+export async function processNewsNotifications(articles) {
   if (!articles || articles.length === 0) return;
 
   // 1. Fetch reference drivers and teams from database
@@ -115,47 +117,32 @@ async function processNewsNotifications(articles) {
 
     const follows = await prisma.follow.findMany({
       where: { OR: orConditions },
-      select: { userId: true }
+      select: { userId: true, driverId: true, teamId: true }
     });
 
     if (follows.length === 0) continue;
 
-    // Deduplicate target user IDs matching this article
-    const uniqueUserIds = [...new Set(follows.map(f => f.userId))];
-
-    // =========================================================================
-    // DEDUPLICATION FIX: Find users who ALREADY got a notification for this article
-    // =========================================================================
-    const existingNotifications = await prisma.notification.findMany({
-      where: {
-        userId: { in: uniqueUserIds },
-        message: article.title // Matches the message field set below
-      },
-      select: { userId: true }
-    });
-
-    const alreadyNotifiedUserIds = new Set(existingNotifications.map(n => n.userId));
-
-    // Filter out users who already received this notification
-    const usersToNotify = uniqueUserIds.filter(userId => !alreadyNotifiedUserIds.has(userId));
-
-    if (usersToNotify.length === 0) continue; // Skip if everyone was already notified
-    // =========================================================================
-
-    // Build notification objects for new users only
-    const notificationData = usersToNotify.map(userId => ({
+    const recipients = new Map();
+    for (const follow of follows) {
+      const driverMatch = taggedDriverIds.includes(follow.driverId);
+      const teamMatch = taggedTeamIds.includes(follow.teamId);
+      const match = recipients.get(follow.userId) || { driver: false, team: false };
+      match.driver ||= driverMatch;
+      match.team ||= teamMatch;
+      recipients.set(follow.userId, match);
+    }
+    const eventKey = newsEventKey(article.title, article.url);
+    await createNotificationsOnce([...recipients].map(([userId, match]) => ({
       userId,
-      title: 'New update on your followed drivers/teams!',
+      title: match.driver && match.team ? 'Driver & team news'
+        : match.driver ? 'Driver news' : 'Team news',
       message: article.title,
-      type: 'driver_news',
-      linkUrl: article.url || '',
-      isRead: false
-    }));
+      type: match.driver ? 'driver_news' : 'team_update',
+      linkUrl: canonicalNotificationUrl(article.url),
+      eventKey,
+      isRead: false,
+    })));
 
-    await prisma.notification.createMany({
-      data: notificationData,
-      skipDuplicates: true
-    });
   }
 }
 

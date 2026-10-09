@@ -4,7 +4,7 @@ import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useDeveloperMode } from '../context/DeveloperModeContext';
-import { clearSession } from '../api/client';
+import { clearSession, getNotifications } from '../api/client';
 import { resetFollowCache } from '../services/followService';
 import { readLocalProfile, subscribeToLocalProfile } from '../services/userProfile';
 
@@ -52,32 +52,38 @@ function TopNav({ theme, onToggleTheme }) {
   // Notifications state
   const [notifications, setNotifications] = useState([]);
   const [selectedNotification, setSelectedNotification] = useState(null);
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const unreadCount = user ? notifications.filter(n => !n.isRead).length : 0;
+  const notificationRequest = useRef(0);
 
   // Helper function to fetch notifications safely
   const fetchNavNotifications = useCallback(async () => {
-    if (!user) return; // Don't fetch if unauthenticated
+    const requestId = ++notificationRequest.current;
+    if (!user) {
+      setNotifications([]);
+      return;
+    }
 
     try {
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
-      const response = await fetch(`${API_URL}/api/notifications`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // CRITICAL: Send HTTP-only session cookie
-      });
-
-      if (response.ok) {
-        const data = await response.json();
+      // The shared client adds the current Firebase ID token as a Bearer header.
+      const data = await getNotifications();
+      if (requestId === notificationRequest.current) {
         setNotifications(data);
       }
     } catch (err) {
+      if (requestId !== notificationRequest.current) return;
+      setNotifications([]);
       console.error('Failed to fetch notifications for nav', err);
     }
   }, [user]);
 
   // 1. Fetch on mount / user auth state change
   useEffect(() => {
+    setNotifications([]);
+    setNotificationsOpen(false);
+    setSelectedNotification(null);
     fetchNavNotifications();
+    // Ignore responses from a previous user or an unmounted navigation bar.
+    return () => { notificationRequest.current += 1; };
   }, [fetchNavNotifications]);
 
   // 2. Handle Bell Click: Toggle dropdown AND fetch fresh notifications
@@ -87,7 +93,7 @@ function TopNav({ theme, onToggleTheme }) {
     const nextState = !notificationsOpen;
     setNotificationsOpen(nextState);
 
-    // Re-fetch when opening the dropdown so data is always fresh and session timing issues are bypassed
+    // Re-fetch when opening the dropdown so data is fresh.
     if (nextState) {
       fetchNavNotifications();
     }
