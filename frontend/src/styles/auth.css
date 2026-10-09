@@ -16,6 +16,7 @@
   --red-bright:  #FF2033;
   --red-dark:    #8A0A0F;
   --red-glow:    rgba(255, 32, 51, 0.45);
+  --link-blue:   #58A6FF;
   --grey-border: var(--border);
   --grey-text:   var(--text-secondary);
   --grey-faint:  var(--text-tertiary);
@@ -325,6 +326,49 @@
 
 .auth-field input:disabled { opacity: 0.5; }
 
+/* Show/hide eye inside password fields (PasswordInput.js). The wrapper takes
+   the input's place in the field's flex column; the extra right padding keeps
+   typed text clear of the control sitting on the input's edge. */
+.auth-input-wrap {
+  position: relative;
+  display: block;
+}
+
+.auth-input-wrap input { padding-right: 42px; }
+
+.auth-password-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 40px;
+  display: grid;
+  place-items: center;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--grey-faint);
+  cursor: pointer;
+}
+
+.auth-password-toggle svg {
+  width: 18px;
+  height: 18px;
+}
+
+.auth-password-toggle:hover:not(:disabled) { color: var(--link-blue); }
+
+.auth-password-toggle:focus-visible {
+  outline: 2px solid var(--link-blue);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+
+.auth-password-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .auth-field-error {
   font-size: 12.5px;
   color: var(--red-bright);
@@ -454,6 +498,58 @@
   outline: 2px solid var(--red-bright);
   outline-offset: 2px;
   border-radius: 2px;
+}
+
+/* ─── 6-digit verification code ──────────────────────────────────────────── */
+.auth-code-input {
+  /* Six digits are read as one code, not as a word being typed, and the mono
+     face keeps them on a steady grid. The indent balances the trailing space
+     letter-spacing adds, so the group stays centred. */
+  font-family: var(--font-mono);
+  font-size: 20px;
+  letter-spacing: 0.4em;
+  text-indent: 0.4em;
+  text-align: center;
+}
+
+.auth-resend {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  font-size: 12.5px;
+  color: var(--grey-faint);
+}
+
+.auth-resend button {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 500;
+  color: var(--link-blue);
+  cursor: pointer;
+}
+
+.auth-resend button:disabled {
+  color: var(--grey-faint);
+  cursor: not-allowed;
+}
+
+.auth-resend button:focus-visible {
+  outline: 2px solid var(--link-blue);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.auth-devcode {
+  margin-top: 14px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--grey-faint);
 }
 
 /* ─── Responsive ─────────────────────────────────────────────────────────── */

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { submitData, listSubmissions, reviewSubmission } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 
 const REVIEW_TABS = ['Pending', 'Approved', 'Rejected'];
 const TAB_TO_STATUS = { Pending: 'pending', Approved: 'accepted', Rejected: 'rejected' };
@@ -13,13 +14,21 @@ function describeError(err) {
 // Submissions tab of the Developer page. Wired to POST/GET/PATCH
 // /api/submissions. Batch submission is a session_key + JSON textarea for
 // now, not drag-and-drop file upload — that's a follow-up.
+//
+// Admins see every submission and can approve/reject from here. Developers
+// see only their own submissions (the backend scopes the list) and no review
+// buttons, since the backend would refuse the action anyway.
 function SubmissionsPanel() {
+  const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState('Pending');
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(null);
 
   const [sessionKey, setSessionKey] = useState('');
+  // race_data counts toward the platform once accepted; code_test is sample
+  // data for an admin to test submitted code with, never added to the stats.
+  const [purpose, setPurpose] = useState('race_data');
   const [payloadText, setPayloadText] = useState('{\n  "laps": []\n}');
   const [submitResult, setSubmitResult] = useState(null);
   const [submitError, setSubmitError] = useState(null);
@@ -65,6 +74,8 @@ function SubmissionsPanel() {
       return;
     }
     body.session_key = Number(sessionKey);
+    // Race data is the backend's default, so only test data needs saying.
+    if (purpose !== 'race_data') body.purpose = purpose;
     try {
       const result = await submitData(body);
       setSubmitResult(result);
@@ -107,6 +118,17 @@ function SubmissionsPanel() {
               />
             </label>
             <label style={{ display: 'block', marginBottom: 8 }}>
+              What is this data for?
+              <select
+                value={purpose}
+                onChange={(e) => setPurpose(e.target.value)}
+                style={{ display: 'block', width: '100%', marginTop: 4 }}
+              >
+                <option value="race_data">Race data for the platform (counts once an admin accepts it)</option>
+                <option value="code_test">Test data for my submitted code (never added to statistics)</option>
+              </select>
+            </label>
+            <label style={{ display: 'block', marginBottom: 8 }}>
               Event data (JSON — e.g. {"{"}"laps": [...]{"}"})
               <textarea
                 value={payloadText}
@@ -130,7 +152,10 @@ function SubmissionsPanel() {
             <div className="error-box" style={{ marginTop: 12 }}>
               <div className="eh">
                 {submitResult.status === 'rejected' ? '⚠ Rejected' : `✓ ${submitResult.status}`}
-                {' — '}{submitResult.eventsWritten ?? 0} event(s) written
+                {' — '}
+                {submitResult.purpose === 'code_test'
+                  ? `${submitResult.validRecords ?? 0} valid record(s) checked; test data is kept for review but not added to the event log`
+                  : `${submitResult.eventsWritten ?? 0} event(s) written`}
               </div>
               {submitResult.rejections?.length > 0 && (
                 <table>
@@ -150,7 +175,9 @@ function SubmissionsPanel() {
         </div>
 
         <div className="card">
-          <div className="card-head"><div className="card-title">Review &amp; approval queue</div></div>
+          <div className="card-head">
+            <div className="card-title">{isAdmin ? 'Review & approval queue' : 'My submissions'}</div>
+          </div>
           <div className="tabs">
             {REVIEW_TABS.map((tab) => (
               <div
@@ -179,9 +206,11 @@ function SubmissionsPanel() {
                       {s.status === 'pending' && <span className="pill pill-amber">Pending</span>}
                       {s.status === 'accepted' && <span className="pill pill-green">Approved</span>}
                       {s.status === 'rejected' && <span className="pill status-rejected">Rejected</span>}
+                      {s.purpose === 'code_test' && <span className="pill pill-blue" style={{ marginLeft: 4 }}>Test data</span>}
+                      {s.deletedAt && <span className="pill pill-gray" style={{ marginLeft: 4 }}>Deleted by admin</span>}
                     </td>
                     <td>
-                      {s.status === 'pending' && (
+                      {isAdmin && s.status === 'pending' && (
                         <div style={{ display: 'flex', gap: 6 }}>
                           <button className="btn btn-primary btn-sm" onClick={() => handleReview(s.id, 'accepted')}>Approve</button>
                           <button className="btn btn-ghost btn-sm" onClick={() => handleReview(s.id, 'rejected')}>Reject</button>
@@ -193,7 +222,11 @@ function SubmissionsPanel() {
               </tbody>
             </table>
           )}
-          <div className="card-note" style={{ marginTop: 14 }}>Approve/reject require admin access.</div>
+          <div className="card-note" style={{ marginTop: 14 }}>
+            {isAdmin
+              ? 'You are an admin, so this lists every submitter\'s batches.'
+              : 'Only you can see your submissions here. An admin reviews each pending batch.'}
+          </div>
         </div>
       </div>
     </div>

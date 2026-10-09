@@ -176,6 +176,15 @@ enum SubmissionStatus {
   partially_accepted
 }
 
+// Why a dataset was submitted. race_data is race data meant for the platform:
+// its events go into the event log and count once an admin accepts it.
+// code_test is sample data a developer sends so an admin can test their code:
+// it is validated and stored as uploaded, but never written to the event log.
+enum SubmissionPurpose {
+  race_data
+  code_test
+}
+
 model Submission {
   id               String           @id @default(uuid()) @map("submission_id")
   source           SubmissionSource
@@ -194,12 +203,38 @@ model Submission {
   // References an auth-system user ID (admin who reviewed), not a local FK.
   reviewedBy       String?          @map("reviewed_by")
   reviewedAt       DateTime?        @map("reviewed_at")
+  purpose          SubmissionPurpose @default(race_data)
+  // Soft delete: an admin can delete a dataset, which hides it and its events
+  // everywhere (statistics, public API, replay) but keeps the rows so it can
+  // be restored. Both are null while the dataset is live.
+  deletedAt        DateTime?        @map("deleted_at")
+  // References an auth-system user ID (the admin who deleted it).
+  deletedBy        String?          @map("deleted_by")
 
   events Event[]
+  upload SubmissionUpload?
 
   @@index([sessionId])
   @@index([status])
+  @@index([purpose, deletedAt, submittedAt])
   @@map("submission")
+}
+
+// The dataset exactly as it was uploaded, byte for byte, so an admin can
+// download what the developer sent. Kept in its own table (like driver_image)
+// so queries that list submissions never pull megabytes of upload along.
+// Submissions made before this table existed have no row here.
+model SubmissionUpload {
+  submissionId String     @id @map("submission_id")
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  data         Bytes
+  contentType  String     @map("content_type")
+  sizeBytes    Int        @map("size_bytes")
+  // Hex SHA-256 of data, so a download can be checked against what arrived.
+  sha256       String
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  @@map("submission_upload")
 }
 
 enum EventType {
@@ -396,6 +431,91 @@ model CodeSubmission {
   reviewedAt     DateTime?            @map("reviewed_at")
 
   @@index([status, submittedAt])
+  @@index([status, reviewedAt])
   @@index([submitterId])
   @@map("code_submission")
+}
+
+// Approved code lives here. sourceSubmissionId is the ID the submission had
+// in code_submission; it is a plain column, not a foreign key, so the
+// original row can be removed once its code has been approved.
+model VerifiedCode {
+  id                 String   @id @default(uuid()) @map("verified_code_id")
+  sourceSubmissionId String   @unique @map("source_submission_id")
+  title              String
+  // Public address of the script: /api/v1/code/<slug>. Filled in by the
+  // database on insert (trigger verified_code_assign_slug, see migration
+  // 20261009120000_add_verified_code_slug) from the title, e.g.
+  // "Average pit loss" -> average-pit-loss, with -2, -3... on clashes.
+  // Never changes afterwards, so links keep working.
+  slug               String   @unique @default("")
+  language           String
+  code               String
+  description        String?
+  tags               String[] @default([])
+  submitterId        String   @map("submitter_id")
+  // Carried over from the submission so its history survives once the
+  // code_submission row is gone.
+  submitterEmail     String?  @map("submitter_email")
+  submittedAt        DateTime @default(now()) @map("submitted_at")
+  verifiedBy         String   @map("verified_by")
+  verifiedAt         DateTime @default(now()) @map("verified_at")
+
+  @@index([submitterId, verifiedAt])
+  @@map("verified_code")
+}
+
+// ------------------------------------------------------------
+// 7. Email verification codes
+// ------------------------------------------------------------
+// A 6-digit code mailed to the account, proving the address is real and
+// reachable. One row per send; the newest unconsumed row is the live code.
+//
+// codeHash is an HMAC-SHA256 of the code, never the code itself. A 6-digit
+// space has only a million possibilities, so hashing cannot make it
+// unguessable — that is what the 10-minute expiry and the attempt cap do.
+// The hash exists so a database dump alone does not hand over live codes.
+
+model EmailVerificationCode {
+  id         String    @id @default(uuid()) @map("code_id")
+  // References an auth-system user ID (e.g., Firebase UID), not a local FK.
+  userId     String    @map("user_id")
+  codeHash   String    @map("code_hash")
+  expiresAt  DateTime  @map("expires_at")
+  // Set when the code is used, replaced by a newer one, or burned after
+  // too many wrong guesses. Only unconsumed rows can still verify.
+  consumedAt DateTime? @map("consumed_at")
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  // Every read is "the newest live code for this user" and the cooldown /
+  // daily-cap checks count rows created since a timestamp.
+  @@index([userId, createdAt])
+  @@map("email_verification_code")
+}
+
+// ------------------------------------------------------------
+// 8. Pending sign-ups
+// ------------------------------------------------------------
+// A sign-up request awaiting its emailed code. Deliberately NOT a user:
+// the Firebase account is created by the backend only when the code is
+// confirmed (see src/routes/signup.js), so no account — and no profile —
+// exists for an address that has not proved itself. Keyed by email alone
+// (there is no uid yet); same code mechanics as EmailVerificationCode.
+
+model PendingSignup {
+  id         String    @id @default(uuid()) @map("signup_id")
+  email      String
+  codeHash   String    @map("code_hash")
+  expiresAt  DateTime  @map("expires_at")
+  // Set when the code is used, replaced by a newer one, or burned after
+  // too many wrong guesses. Only unconsumed rows can still confirm.
+  consumedAt DateTime? @map("consumed_at")
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  // Every read is "the newest live code for this email" and the cooldown /
+  // daily-cap checks count rows created since a timestamp.
+  @@index([email, createdAt])
+  @@map("pending_signup")
 }

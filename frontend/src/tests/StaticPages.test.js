@@ -1,13 +1,15 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import AdminPage from '../pages/AdminPage';
 import DatasetsPanel from '../components/developer/DatasetsPanel';
 import SubmissionsPanel from '../components/developer/SubmissionsPanel';
 import TelemetryTVPage from '../pages/TelemetryTVPage';
-import { getTelemetryTVRaces, listCodeSubmissions } from '../api/client';
+import { getTelemetryTVRaces, listCodeSubmissions, listAdminDatasets } from '../api/client';
 
 jest.mock('../api/client', () => ({
   getTelemetryTVRaces: jest.fn(),
   listCodeSubmissions: jest.fn(),
+  listAdminDatasets: jest.fn(),
   listSubmissions: jest.fn(() => Promise.resolve({ submissions: [] })),
 }));
 
@@ -23,7 +25,7 @@ describe('static platform pages', () => {
   test('renders the submissions pipeline and switches review tabs', () => {
     render(<SubmissionsPanel />);
     expect(screen.getByText('Submit a batch')).toBeInTheDocument();
-    expect(screen.getByText('Review & approval queue')).toBeInTheDocument();
+    expect(screen.getByText('My submissions')).toBeInTheDocument();
 
     const approved = screen.getByText('Approved', { selector: '.tab' });
     fireEvent.click(approved);
@@ -38,6 +40,11 @@ describe('static platform pages', () => {
     expect(await screen.findByText('No code submissions')).toBeInTheDocument();
     expect(screen.getByText('Code submissions')).toBeInTheDocument();
     expect(screen.queryByText('Submitter accounts')).not.toBeInTheDocument();
+
+    listAdminDatasets.mockResolvedValue({ datasets: [], counts: { pending: 0, accepted: 0, rejected: 0, test: 0, deleted: 0 } });
+    fireEvent.click(screen.getByText('Dataset Submissions', { selector: '.tab' }));
+    expect(await screen.findByText('No datasets')).toBeInTheDocument();
+    expect(listAdminDatasets).toHaveBeenCalledWith('pending');
 
     fireEvent.click(screen.getByText('API Keys', { selector: '.tab' }));
     expect(screen.getByText('API keys & quotas')).toBeInTheDocument();
@@ -66,8 +73,17 @@ describe('static platform pages', () => {
 
   test('does not embed a video when no race catalogue can be loaded', async () => {
     getTelemetryTVRaces.mockRejectedValue(new Error('catalogue unavailable'));
-    render(<TelemetryTVPage />);
-    expect(await screen.findByText('No video source configured')).toBeInTheDocument();
+    // The picker bar carries the page's link across to RaceSync, so the page
+    // needs a router around it even when the video itself never loads.
+    render(
+      <MemoryRouter>
+        <TelemetryTVPage />
+      </MemoryRouter>
+    );
+    // A failed catalogue leaves the page on its guide — nothing is picked, so
+    // the video panel never mounts to say "No video source configured". The
+    // guide is what reports the failure instead.
+    expect(await screen.findByText('catalogue unavailable')).toBeInTheDocument();
     expect(screen.queryByTitle('YouTube video player')).not.toBeInTheDocument();
   });
 });

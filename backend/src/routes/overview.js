@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
+import { FROM_UNDELETED_DATASET } from '../lib/eventVisibility.js';
 
 export const overviewRouter = Router();
 
 // Same "live" filter convention used in src/derivation/db.js: an event with
 // supersededBy set has been corrected, so downstream reads should skip it.
-const LIVE = { supersededBy: null };
+const LIVE = { supersededBy: null, ...FROM_UNDELETED_DATASET };
 
 overviewRouter.get('/', async (req, res, next) => {
   try {
@@ -24,9 +25,11 @@ overviewRouter.get('/', async (req, res, next) => {
     ] = await Promise.all([
       prisma.session.count(),
       prisma.session.count({ where: { status: 'finished' } }),
-      prisma.submission.count({ where: { status: 'pending' } }),
+      // The review queue: race data waiting for an admin. Test data is never
+      // reviewed on its own, and deleted datasets are out of the queue.
+      prisma.submission.count({ where: { status: 'pending', purpose: 'race_data', deletedAt: null } }),
       prisma.event.count({
-        where: { occurredAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+        where: { occurredAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }, ...FROM_UNDELETED_DATASET },
       }),
       // "Current season" = the most recent season we have a meeting for.
       // Leaderboard/team comparison are scoped to it so Overview doesn't mix
@@ -37,6 +40,7 @@ overviewRouter.get('/', async (req, res, next) => {
         include: { meeting: { include: { circuit: true } } },
       }),
       prisma.submission.findMany({
+        where: { deletedAt: null },
         orderBy: { submittedAt: 'desc' },
         take: 5,
         select: { id: true, source: true, status: true, submittedAt: true, sessionId: true },

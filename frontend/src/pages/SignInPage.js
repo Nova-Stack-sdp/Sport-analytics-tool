@@ -4,6 +4,7 @@ import { signInWithPopup, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth, googleProvider, githubProvider } from '../firebase';
 import { establishSession } from '../api/client';
 import { usePreferences } from '../context/PreferencesContext';
+import PasswordInput from '../components/PasswordInput';
 import '../styles/auth.css';
 
 function friendlyAuthError(error) {
@@ -56,6 +57,16 @@ function SignInPage() {
   const [status, setStatus] = useState('idle'); // idle | submitting | error
   const [message, setMessage] = useState('');
 
+  // Where a completed sign-in lands: the start page they picked in Profile →
+  // Settings, unless the account's address hasn't been proved yet — the
+  // backend gates every protected route behind that, so /verify-email is the
+  // only useful destination until the code is in. Google and GitHub hand back
+  // an already-verified address; email/password sign-ups don't.
+  const goToStart = async () => {
+    const { claims } = await auth.currentUser.getIdTokenResult();
+    navigate(claims.email_verified === true ? startPage : '/verify-email', { replace: true });
+  };
+
   const handleGoogleSignIn = async () => {
     setStatus('submitting');
     setMessage('');
@@ -65,7 +76,7 @@ function SignInPage() {
       await signInWithPopup(auth, googleProvider);
       const idToken = await auth.currentUser.getIdToken();
       await establishSession(idToken);
-      navigate(startPage, { replace: true });
+      await goToStart();
     } catch (error) {
       const friendly = friendlyAuthError(error);
       if (friendly) {
@@ -85,7 +96,7 @@ function SignInPage() {
       await signInWithPopup(auth, githubProvider);
       const idToken = await auth.currentUser.getIdToken();
       await establishSession(idToken);
-      navigate(startPage, { replace: true });
+      await goToStart();
     } catch (error) {
       const friendly = friendlyAuthError(error);
       if (friendly) {
@@ -116,7 +127,7 @@ function SignInPage() {
       await signInWithEmailAndPassword(auth, email, password);
       const idToken = await auth.currentUser.getIdToken();
       await establishSession(idToken);
-      navigate(startPage, { replace: true });
+      await goToStart();
     } catch (error) {
       setStatus('error');
       setMessage(friendlyAuthError(error) ?? 'Something went wrong signing in. Try again.');
@@ -185,25 +196,17 @@ function SignInPage() {
               )}
             </label>
 
-            <label className="auth-field">
-              <span className="auth-label">Password</span>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                disabled={isSubmitting}
-                onChange={(event) => setPassword(event.target.value)}
-                aria-invalid={Boolean(fieldErrors.password)}
-                aria-describedby={fieldErrors.password ? 'signin-password-error' : undefined}
-              />
-              {fieldErrors.password && (
-                <span className="auth-field-error" id="signin-password-error">
-                  {fieldErrors.password}
-                </span>
-              )}
-            </label>
+            <PasswordInput
+              label="Password"
+              id="password"
+              name="password"
+              autoComplete="current-password"
+              value={password}
+              disabled={isSubmitting}
+              onChange={(event) => setPassword(event.target.value)}
+              error={fieldErrors.password}
+              errorId="signin-password-error"
+            />
 
             <Link className="auth-forgot" to="/forgot-password">
               Forgot password?

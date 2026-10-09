@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
-import { requireAuth, requireAdmin } from '../middleware/requireAuth.js';
+import { requireAuth, requireAdmin, requireVerifiedEmail } from '../middleware/requireAuth.js';
 
 export const codeSubmissionsRouter = Router();
 
@@ -71,7 +71,7 @@ function validateBody(body = {}) {
   return { errors, value: { title, language, code, description: description || null, tags } };
 }
 
-codeSubmissionsRouter.post('/', requireAuth, requireDeveloperOrAdmin, async (req, res, next) => {
+codeSubmissionsRouter.post('/', requireAuth, requireVerifiedEmail, requireDeveloperOrAdmin, async (req, res, next) => {
   try {
     const { errors, value } = validateBody(req.body);
     if (errors.length > 0) {
@@ -94,35 +94,87 @@ codeSubmissionsRouter.post('/', requireAuth, requireDeveloperOrAdmin, async (req
   }
 });
 
-codeSubmissionsRouter.get('/', requireAuth, requireAdmin, async (req, res, next) => {
+// Approved code lives in verified_code, not code_submission. These map a
+// verified row onto the same shape the admin list/detail already use, with
+// `id` set to the original submission ID so links and keys stay stable.
+const LIST_SELECT = {
+  id: true,
+  title: true,
+  language: true,
+  status: true,
+  submitterId: true,
+  submitterEmail: true,
+  submittedAt: true,
+  reviewedBy: true,
+  reviewedAt: true,
+};
+
+function verifiedAsListRow(v) {
+  return {
+    id: v.sourceSubmissionId,
+    verifiedCodeId: v.id,
+    title: v.title,
+    language: v.language,
+    status: 'approved',
+    submitterId: v.submitterId,
+    submitterEmail: v.submitterEmail,
+    submittedAt: v.submittedAt,
+    reviewedBy: v.verifiedBy,
+    reviewedAt: v.verifiedAt,
+  };
+}
+
+function findVerifiedForList(take) {
+  return prisma.verifiedCode.findMany({
+    orderBy: { submittedAt: 'desc' },
+    take,
+    select: {
+      id: true,
+      sourceSubmissionId: true,
+      title: true,
+      language: true,
+      submitterId: true,
+      submitterEmail: true,
+      submittedAt: true,
+      verifiedBy: true,
+      verifiedAt: true,
+    },
+  });
+}
+
+codeSubmissionsRouter.get('/', requireAuth, requireVerifiedEmail, requireAdmin, async (req, res, next) => {
   try {
     const { status } = req.query;
     if (status !== undefined && !STATUSES.includes(status)) {
       return res.status(400).json({ error: `status must be one of: ${STATUSES.join(', ')}` });
     }
 
-    const [submissions, grouped] = await Promise.all([
-      prisma.codeSubmission.findMany({
-        where: status ? { status } : {},
-        orderBy: { submittedAt: 'desc' },
-        take: LIST_LIMIT,
-        select: {
-          id: true,
-          title: true,
-          language: true,
-          status: true,
-          submitterId: true,
-          submitterEmail: true,
-          submittedAt: true,
-          reviewedBy: true,
-          reviewedAt: true,
-        },
-      }),
+    // Pending and rejected rows come from code_submission; approved rows
+    // come from verified_code. code_submission rows still marked 'approved'
+    // (from before approval moved code) are never listed, so nothing shows
+    // twice.
+    const [unreviewed, verified, grouped, approvedCount] = await Promise.all([
+      status === 'approved'
+        ? []
+        : prisma.codeSubmission.findMany({
+          where: status ? { status } : { status: { in: ['pending', 'rejected'] } },
+          orderBy: { submittedAt: 'desc' },
+          take: LIST_LIMIT,
+          select: LIST_SELECT,
+        }),
+      status === undefined || status === 'approved' ? findVerifiedForList(LIST_LIMIT) : [],
       prisma.codeSubmission.groupBy({ by: ['status'], _count: { _all: true } }),
+      prisma.verifiedCode.count(),
     ]);
 
-    const counts = { pending: 0, approved: 0, rejected: 0 };
-    for (const row of grouped) counts[row.status] = row._count._all;
+    const submissions = [...unreviewed, ...verified.map(verifiedAsListRow)]
+      .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))
+      .slice(0, LIST_LIMIT);
+
+    const counts = { pending: 0, approved: approvedCount, rejected: 0 };
+    for (const row of grouped) {
+      if (row.status !== 'approved') counts[row.status] = row._count._all;
+    }
 
     res.json({ submissions, counts });
   } catch (err) {
@@ -130,35 +182,121 @@ codeSubmissionsRouter.get('/', requireAuth, requireAdmin, async (req, res, next)
   }
 });
 
-codeSubmissionsRouter.get('/:id', requireAuth, requireAdmin, async (req, res, next) => {
+function verifiedAsDetail(v) {
+  return {
+    ...verifiedAsListRow(v),
+    code: v.code,
+    description: v.description,
+    tags: v.tags,
+  };
+}
+
+// Looks in code_submission first (pending, rejected, and rows approved
+// before approval moved code), then in verified_code by the original
+// submission ID, since that is the ID the admin list hands out for
+// approved rows.
+codeSubmissionsRouter.get('/:id', requireAuth, requireVerifiedEmail, requireAdmin, async (req, res, next) => {
   try {
     const submission = await prisma.codeSubmission.findUnique({ where: { id: req.params.id } });
-    if (!submission) return res.status(404).json({ error: 'Code submission not found' });
-    res.json(submission);
+    if (submission) return res.json(submission);
+
+    const verified = await prisma.verifiedCode.findUnique({ where: { sourceSubmissionId: req.params.id } });
+    if (verified) return res.json(verifiedAsDetail(verified));
+
+    res.status(404).json({ error: 'Code submission not found' });
   } catch (err) {
     next(err);
   }
 });
 
-codeSubmissionsRouter.patch('/:id', requireAuth, requireAdmin, async (req, res, next) => {
+// Thrown inside the approval transaction to roll it back when the
+// submission stopped being pending between the read and the delete.
+class ReviewConflict extends Error {
+  constructor(currentStatus) {
+    super('review conflict');
+    this.currentStatus = currentStatus;
+  }
+}
+
+// Approving MOVES the code: the verified_code row is created and the
+// code_submission row is deleted in one transaction, so the code is never
+// stored twice and never lost. Rejecting only changes the status; rejected
+// rows are deleted later by jobs/rejected-code-cleanup.js.
+async function approveSubmission(id, adminUid) {
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const submission = await tx.codeSubmission.findUnique({ where: { id } });
+      if (!submission) {
+        const verified = await tx.verifiedCode.findUnique({
+          where: { sourceSubmissionId: id },
+          select: { id: true },
+        });
+        return verified
+          ? { ok: false, currentStatus: 'approved' }
+          : { ok: false, notFound: true };
+      }
+      if (submission.status !== 'pending') return { ok: false, currentStatus: submission.status };
+
+      await tx.verifiedCode.create({
+        data: {
+          sourceSubmissionId: submission.id,
+          title: submission.title,
+          language: submission.language,
+          code: submission.code,
+          description: submission.description,
+          tags: submission.tags,
+          submitterId: submission.submitterId,
+          submitterEmail: submission.submitterEmail,
+          submittedAt: submission.submittedAt,
+          verifiedBy: adminUid,
+        },
+      });
+
+      // Only delete if it is still pending. If a concurrent reject got there
+      // first, nothing is deleted and throwing undoes the insert above.
+      const { count } = await tx.codeSubmission.deleteMany({ where: { id, status: 'pending' } });
+      if (count !== 1) {
+        const current = await tx.codeSubmission.findUnique({ where: { id }, select: { status: true } });
+        throw new ReviewConflict(current?.status ?? 'approved');
+      }
+      return { ok: true };
+    }, { maxWait: 15000, timeout: 30000 });
+  } catch (err) {
+    if (err instanceof ReviewConflict) return { ok: false, currentStatus: err.currentStatus };
+    // Two admins approving at once: the second insert hits the unique index
+    // on source_submission_id and its transaction rolls back.
+    if (err?.code === 'P2002') return { ok: false, currentStatus: 'approved' };
+    throw err;
+  }
+}
+
+async function rejectSubmission(id, adminUid) {
+  const { count } = await prisma.codeSubmission.updateMany({
+    where: { id, status: 'pending' },
+    data: { status: 'rejected', reviewedBy: adminUid, reviewedAt: new Date() },
+  });
+  if (count === 1) return { ok: true };
+
+  const existing = await prisma.codeSubmission.findUnique({ where: { id }, select: { status: true } });
+  if (existing) return { ok: false, currentStatus: existing.status };
+  const verified = await prisma.verifiedCode.findUnique({ where: { sourceSubmissionId: id }, select: { id: true } });
+  return verified ? { ok: false, currentStatus: 'approved' } : { ok: false, notFound: true };
+}
+
+codeSubmissionsRouter.patch('/:id', requireAuth, requireVerifiedEmail, requireAdmin, async (req, res, next) => {
   try {
     const { status } = req.body ?? {};
     if (!REVIEW_STATUSES.includes(status)) {
       return res.status(400).json({ error: "status must be 'approved' or 'rejected'" });
     }
 
-    const { count } = await prisma.codeSubmission.updateMany({
-      where: { id: req.params.id, status: 'pending' },
-      data: { status, reviewedBy: req.user.uid, reviewedAt: new Date() },
-    });
+    const result = status === 'approved'
+      ? await approveSubmission(req.params.id, req.user.uid)
+      : await rejectSubmission(req.params.id, req.user.uid);
 
-    if (count === 0) {
-      const existing = await prisma.codeSubmission.findUnique({
-        where: { id: req.params.id },
-        select: { status: true },
-      });
-      if (!existing) return res.status(404).json({ error: 'Code submission not found' });
-      return res.status(409).json({ error: `Code submission is already '${existing.status}', not pending` });
+    if (!result.ok) {
+      if (result.notFound) return res.status(404).json({ error: 'Code submission not found' });
+      return res.status(409).json({ error: `Code submission is already '${result.currentStatus}', not pending` });
     }
 
     res.json({ id: req.params.id, status });
