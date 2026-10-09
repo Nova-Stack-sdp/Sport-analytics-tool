@@ -682,7 +682,6 @@
 
 #page-telemetry-tv .video-panel,
 #page-telemetry-tv .masterboard-card,
-#page-telemetry-tv .track-notes-card,
 #page-telemetry-tv .battle-radar-section {
   background: transparent;
   border: 1px solid var(--border);
@@ -744,81 +743,6 @@
   font-size: 11px;
   text-align: center;
   line-height: 1.5;
-}
-
-/* TrackNotesCard styles */
-#page-telemetry-tv .track-notes-card {
-  padding: 0;
-}
-
-#page-telemetry-tv .track-notes-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--border-soft);
-}
-
-#page-telemetry-tv .track-notes-title {
-  flex: 1;
-}
-
-#page-telemetry-tv .track-notes-toggle {
-  background: none;
-  border: none;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  font-size: 12px;
-  padding: 4px 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-#page-telemetry-tv .track-notes-content {
-  padding: 12px 14px;
-}
-
-#page-telemetry-tv .track-notes-empty {
-  padding: 16px 12px;
-  color: var(--text-secondary);
-  font-size: 11px;
-  text-align: center;
-  line-height: 1.5;
-}
-
-#page-telemetry-tv .track-notes-data {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-#page-telemetry-tv .track-notes-text {
-  font-size: 11px;
-  color: var(--text-primary);
-  line-height: 1.5;
-  margin: 0;
-}
-
-#page-telemetry-tv .track-notes-item {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 10px;
-  padding: 6px 0;
-  border-top: 1px solid var(--border-soft);
-}
-
-#page-telemetry-tv .track-notes-label {
-  color: var(--text-tertiary);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.2px;
-}
-
-#page-telemetry-tv .track-notes-value {
-  color: var(--text-primary);
-  font-weight: 600;
 }
 
 #page-telemetry-tv .masterboard-scroll {
@@ -929,10 +853,6 @@
   font-weight: 700;
 }
 
-#page-telemetry-tv .radar-panel {
-  padding: 12px 14px 14px;
-}
-
 #page-telemetry-tv .battle-radar-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -940,18 +860,10 @@
   margin-top: 8px;
 }
 
-#page-telemetry-tv .radar-empty-state,
 #page-telemetry-tv .telemetry-tv-empty-cell {
   color: var(--text-secondary);
   font-size: 11px;
   text-align: center;
-}
-
-#page-telemetry-tv .radar-empty-state {
-  grid-column: 1 / -1;
-  padding: 24px 12px;
-  border: 1px dashed var(--border);
-  border-radius: 8px;
 }
 
 #page-telemetry-tv .telemetry-tv-empty-cell {

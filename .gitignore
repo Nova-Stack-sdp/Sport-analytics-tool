@@ -4,3 +4,7 @@
 # Local frontend and backend configuration
 .env.local
 backend/scripts/.fastf1-cache/
+
+# Playwright output — regenerated on every e2e run, never committed
+frontend/playwright-report/
+frontend/test-results/
