@@ -13,6 +13,7 @@ import { driversRouter } from './routes/drivers.js';
 import { openF1Router } from './routes/openf1.js';
 import { raceReplayRouter } from './routes/raceReplay.js';
 import { raceRequestsRouter } from './routes/raceRequests.js';
+import { videoRequestsRouter } from './routes/videoRequests.js';
 import { imagesRouter } from './routes/images.js';
 import { newsRouter } from './routes/news.js';
 import { submissionsRouter } from './routes/submissions.js';
@@ -129,6 +130,9 @@ export function createApp(options = {}) {
   // response cache: a request's status changes from second to second.
   // Tests hand in a router with OpenF1 and the sync job faked.
   app.use('/api/race-requests', options.raceRequestsRouter ?? raceRequestsRouter);
+  // Race videos users ask to have added — reviewed for copyright before
+  // anything goes live. Per-user, so outside the response cache.
+  app.use('/api/video-requests', videoRequestsRouter);
   app.use('/api/images', imagesRouter);
   app.use('/api/news', newsRouter);
   app.use('/api/submissions', submissionsRouter);
