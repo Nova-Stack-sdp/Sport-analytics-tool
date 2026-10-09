@@ -4,6 +4,18 @@ export const torontorace = {
   raceSlug: 'toronto-2025',
   eventName: 'Ontario Honda Dealers Indy Toronto',
   venue: 'Exhibition Place, Toronto',
+  // Where and when to read race-day weather (see lib/raceWeather.js). The
+  // date is the fallback when the report's own session date can't be read;
+  // the hours are the race-day afternoon, local time — the reports carry no
+  // wall-clock race times, so the header names the window it read.
+  weatherLookup: {
+    latitude: 43.6333,
+    longitude: -79.4186,
+    timezone: 'America/Toronto',
+    date: '2025-07-20',
+    fromHour: 12,
+    toHour: 17,
+  },
   // Curated video->lap anchors (green flag, stated laps, "N to go" calls) so
   // the player clock maps to the right lap instead of the rough shipped clock.
   lapCalibration: torontoAnchors.lapCalibration,
