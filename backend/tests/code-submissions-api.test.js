@@ -21,12 +21,14 @@ const mockPrisma = {
     findUnique: jest.fn(),
     updateMany: jest.fn(),
     groupBy: jest.fn(),
+    count: jest.fn(),
   },
   verifiedCode: {
     findMany: jest.fn(),
     findUnique: jest.fn(),
     count: jest.fn(),
   },
+  submission: { findUnique: jest.fn() },
   $transaction: jest.fn((callback) => callback(mockTx)),
 };
 jest.unstable_mockModule('../src/lib/prisma.js', () => ({ prisma: mockPrisma }));
@@ -134,9 +136,65 @@ describe('POST /api/code-submissions', () => {
       code: VALID_BODY.code,
       description: 'Lap-time loss per lap.',
       tags: [],
+      testDatasetId: null,
       submitterId: 'dev-uid',
       submitterEmail: 'dev@example.test',
       status: 'pending',
+    });
+    expect(mockPrisma.submission.findUnique).not.toHaveBeenCalled();
+  });
+
+  describe('with test data attached', () => {
+    const dataset = (extra = {}) => ({
+      id: 'ds-1', submitterId: 'dev-uid', purpose: 'code_test', status: 'pending', deletedAt: null, ...extra,
+    });
+    beforeEach(() => {
+      mockPrisma.submission.findUnique.mockResolvedValue(dataset());
+      mockPrisma.codeSubmission.count.mockResolvedValue(0);
+      mockPrisma.verifiedCode.count.mockResolvedValue(0);
+      mockPrisma.codeSubmission.create.mockResolvedValue({
+        id: 'cs-1', status: 'pending', submittedAt: new Date('2026-10-07T09:00:00Z'), testDatasetId: 'ds-1',
+      });
+    });
+    const post = (testDatasetId) => authed(request(createApp()).post('/api/code-submissions')).send({ ...VALID_BODY, testDatasetId });
+
+    test('links the developer\'s own test data to the code', async () => {
+      const res = await post('ds-1');
+      expect(res.status).toBe(201);
+      expect(res.body.testDatasetId).toBe('ds-1');
+      expect(mockPrisma.codeSubmission.create.mock.calls[0][0].data.testDatasetId).toBe('ds-1');
+      expect(mockPrisma.codeSubmission.count).toHaveBeenCalledWith({ where: { testDatasetId: 'ds-1', status: 'pending' } });
+    });
+
+    test.each([
+      ['someone else\'s upload', dataset({ submitterId: 'other-dev' }), 400, /not found among your uploads/],
+      ['an unknown dataset', null, 400, /not found among your uploads/],
+      ['race data', dataset({ purpose: 'race_data' }), 400, /uploaded as race data/],
+      ['a deleted dataset', dataset({ deletedAt: new Date() }), 400, /deleted by an admin/],
+      ['a dataset with no valid records', dataset({ status: 'rejected' }), 400, /None of the records/],
+    ])('refuses %s, storing nothing', async (_label, found, status, message) => {
+      mockPrisma.submission.findUnique.mockResolvedValue(found);
+      const res = await post('ds-1');
+      expect(res.status).toBe(status);
+      expect(res.body.error).toMatch(message);
+      expect(mockPrisma.codeSubmission.create).not.toHaveBeenCalled();
+    });
+
+    test.each([
+      ['pending code', 1, 0],
+      ['published code', 0, 1],
+    ])('refuses test data already attached to %s (409)', async (_label, pending, published) => {
+      mockPrisma.codeSubmission.count.mockResolvedValue(pending);
+      mockPrisma.verifiedCode.count.mockResolvedValue(published);
+      const res = await post('ds-1');
+      expect(res.status).toBe(409);
+      expect(mockPrisma.codeSubmission.create).not.toHaveBeenCalled();
+    });
+
+    test.each([[''], [42]])('refuses a malformed testDatasetId %p', async (value) => {
+      const res = await post(value);
+      expect(res.status).toBe(400);
+      expect(mockPrisma.codeSubmission.create).not.toHaveBeenCalled();
     });
   });
 

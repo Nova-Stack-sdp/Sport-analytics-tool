@@ -78,6 +78,42 @@ function validateBody(body = {}) {
   return { errors, value: { title, language, code, description, tags } };
 }
 
+/**
+ * Checks the optional test dataset a developer attaches to their code.
+ * Returns null when it is usable, otherwise { status, error }.
+ *
+ * It must be the developer's own upload, uploaded as test data, not
+ * deleted, with at least one valid record, and not already attached to
+ * another script (one dataset tests one script).
+ */
+async function checkTestDataset(testDatasetId, uid) {
+  if (typeof testDatasetId !== 'string' || !testDatasetId.trim()) {
+    return { status: 400, error: 'testDatasetId must be the ID of one of your test-data uploads.' };
+  }
+  const dataset = await prisma.submission.findUnique({
+    where: { id: testDatasetId },
+    select: { id: true, submitterId: true, purpose: true, status: true, deletedAt: true },
+  });
+  if (!dataset || dataset.submitterId !== uid) {
+    return { status: 400, error: 'That test dataset was not found among your uploads.' };
+  }
+  if (dataset.purpose !== 'code_test') {
+    return { status: 400, error: 'That dataset was uploaded as race data. Upload it again as "Test data for my submitted code".' };
+  }
+  if (dataset.deletedAt) return { status: 400, error: 'That test dataset was deleted by an admin.' };
+  if (dataset.status === 'rejected') {
+    return { status: 400, error: 'None of the records in that test dataset were valid, so it cannot be used to test code.' };
+  }
+  const [pendingUses, publishedUses] = await Promise.all([
+    prisma.codeSubmission.count({ where: { testDatasetId, status: 'pending' } }),
+    prisma.verifiedCode.count({ where: { testDatasetId } }),
+  ]);
+  if (pendingUses + publishedUses > 0) {
+    return { status: 409, error: 'That test dataset is already attached to another script.' };
+  }
+  return null;
+}
+
 codeSubmissionsRouter.post('/', requireAuth, requireVerifiedEmail, requireDeveloperOrAdmin, async (req, res, next) => {
   try {
     const { errors, value } = validateBody(req.body);
@@ -85,17 +121,29 @@ codeSubmissionsRouter.post('/', requireAuth, requireVerifiedEmail, requireDevelo
       return res.status(400).json({ error: errors.join(' '), errors });
     }
 
+    const testDatasetId = req.body?.testDatasetId ?? null;
+    if (testDatasetId !== null) {
+      const problem = await checkTestDataset(testDatasetId, req.user.uid);
+      if (problem) return res.status(problem.status).json({ error: problem.error });
+    }
+
     const created = await prisma.codeSubmission.create({
       data: {
         ...value,
+        testDatasetId,
         submitterId: req.user.uid,
         submitterEmail: req.user.email,
         status: 'pending',
       },
-      select: { id: true, status: true, submittedAt: true },
+      select: { id: true, status: true, submittedAt: true, testDatasetId: true },
     });
 
-    res.status(201).json({ id: created.id, status: created.status, submittedAt: created.submittedAt });
+    res.status(201).json({
+      id: created.id,
+      status: created.status,
+      submittedAt: created.submittedAt,
+      testDatasetId: created.testDatasetId,
+    });
   } catch (err) {
     next(err);
   }
