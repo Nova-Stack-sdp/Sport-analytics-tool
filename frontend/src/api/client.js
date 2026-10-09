@@ -453,10 +453,11 @@ export function getRaceReplayState(sessionId, { lap } = {}) {
   return request(`/api/race-replay/${sessionId}/state?${params.toString()}`);
 }
 
-// Real track outline for this session's circuit — live OpenF1 telemetry
-// when available, else a static FastF1-generated shape for the circuit,
-// else a 404 (the caller falls back to the illustrative track, same as
-// Watch Live already does for getTrackShape above).
+// Track outline for this session's circuit: a static FastF1 trace of the
+// circuit when one has been generated (checked first, it's instant), else
+// one traced from the session's OpenF1 location data, else a 404 and the
+// caller draws an illustrative track. The response's `source` says which
+// ('fastf1-static-fallback' or 'openf1-live').
 export function getRaceReplayTrackShape(sessionId) {
   return request(`/api/race-replay/${sessionId}/track-shape`);
 }
