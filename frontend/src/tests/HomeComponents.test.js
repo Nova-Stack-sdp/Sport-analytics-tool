@@ -123,4 +123,18 @@ describe('home-page components', () => {
     await act(async () => resolve({ videos }));
     expect(getPopularVideos).toHaveBeenCalledTimes(2);
   });
+
+  test('says when the videos are the saved selection rather than the latest uploads', async () => {
+    getPopularVideos.mockResolvedValueOnce({ source: 'fallback', videos });
+    renderVideos();
+    expect(await screen.findByText(/saved selection of race highlights/i)).toBeInTheDocument();
+    expect(screen.queryByText(/trending/i)).not.toBeInTheDocument();
+  });
+
+  test('describes YouTube results as the latest uploads, newest first', async () => {
+    getPopularVideos.mockResolvedValueOnce({ source: 'youtube', videos });
+    renderVideos();
+    expect(await screen.findByText(/newest uploads on the official FORMULA 1 YouTube channel/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Latest from Formula 1' })).toBeInTheDocument();
+  });
 });
