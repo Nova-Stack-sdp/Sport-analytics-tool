@@ -215,7 +215,17 @@ function DatasetSubmissionsPanel() {
                         </td>
                         <td className="mono secondary">{d.submitterId}</td>
                         <td className="secondary mono">{formatDate(d.submittedAt)}</td>
-                        <td className="secondary">{recordsText(d)}</td>
+                        <td className="secondary">
+                          {recordsText(d)}
+                          {d.usedBy && (
+                            <div style={{ fontSize: 11 }}>
+                              For “{d.usedBy.title}” ({d.usedBy.status === 'approved' ? 'published' : d.usedBy.status})
+                            </div>
+                          )}
+                          {!d.usedBy && d.purpose === 'code_test' && (
+                            <div style={{ fontSize: 11 }}>Not attached to any script yet</div>
+                          )}
+                        </td>
                         <td><StatusPill dataset={d} /></td>
                         <td>
                           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
