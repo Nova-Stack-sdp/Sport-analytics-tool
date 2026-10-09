@@ -319,8 +319,16 @@ export function getFixtures() {
   return request('/api/fixtures');
 }
 
-export function getFixtureEvents(sessionId) {
-  return request(`/api/fixtures/${sessionId}/events`);
+// options: { type, includeSuperseded, cursor, limit } — see
+// backend/src/routes/fixtures.js. Pass page.nextCursor to get the next page.
+export function getFixtureEvents(sessionId, options = {}) {
+  const params = new URLSearchParams();
+  if (options.type) params.set('type', options.type);
+  if (options.includeSuperseded) params.set('includeSuperseded', 'true');
+  if (options.cursor) params.set('cursor', options.cursor);
+  if (options.limit) params.set('limit', String(options.limit));
+  const query = params.toString();
+  return request(`/api/fixtures/${encodeURIComponent(sessionId)}/events${query ? `?${query}` : ''}`);
 }
 
 export function getTimeTravelContext(sessionId) {

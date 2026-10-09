@@ -1,34 +1,49 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { getFixtures, getFixtureEvents } from '../api/client';
 import { useDateTimeFormat } from '../context/PreferencesContext';
+import { eventTypeLabel } from '../utils/eventLabels';
+import { eventDetail } from '../utils/eventDetails';
 
-function fixtureStatusPill(fixture) {
-  if (fixture.hasCorrections) return { className: 'pill pill-blue', label: 'Corrected' };
-  if (fixture.status === 'live') return { className: 'pill pill-red live-blink', label: 'Live' };
-  if (fixture.status === 'finished') return { className: 'pill pill-green', label: 'Completed' };
-  return { className: 'pill pill-gray', label: 'Scheduled' };
-}
+// Every session is synced after it finishes, so "finished" is the normal
+// state. The other statuses exist in the schema and are shown plainly.
+const STATUS_PILLS = {
+  finished: { className: 'pill pill-green', label: 'Finished' },
+  live: { className: 'pill pill-red', label: 'Live' },
+  scheduled: { className: 'pill pill-gray', label: 'Scheduled' },
+};
+
+// Filter options for the event log, in the order a race unfolds.
+const EVENT_TYPE_FILTERS = [
+  'lap_completed', 'pit_stop', 'tyre_stint', 'position_change', 'classification',
+  'grid_position', 'flag_event', 'race_control_message', 'weather_snapshot',
+];
+
+const ALL_SEASONS = 'all';
 
 function FixturesEventsPage() {
   // Follows the clock / time zone choices in Profile → Settings.
   const { formatDate, formatTime } = useDateTimeFormat();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedSession = searchParams.get('session');
+
   const [fixtures, setFixtures] = useState([]);
   const [fixturesLoading, setFixturesLoading] = useState(true);
   const [fixturesError, setFixturesError] = useState(null);
+  const [season, setSeason] = useState(null);
 
-  const [selectedFixtureId, setSelectedFixtureId] = useState(null);
+  const [eventType, setEventType] = useState('');
+  const [includeSuperseded, setIncludeSuperseded] = useState(false);
   const [eventsData, setEventsData] = useState(null);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [eventsError, setEventsError] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     getFixtures()
       .then((result) => {
-        if (cancelled) return;
-        setFixtures(result.fixtures);
-        if (result.fixtures.length > 0) setSelectedFixtureId(result.fixtures[0].id);
+        if (!cancelled) setFixtures(result.fixtures);
       })
       .catch((err) => {
         if (!cancelled) setFixturesError(err.message);
@@ -41,13 +56,36 @@ function FixturesEventsPage() {
     };
   }, []);
 
+  // The fixture in the URL (?session=<id>) when it exists, otherwise the
+  // newest one. Links from the welcome and overview pages open a fixture
+  // this way, and the address can be shared.
+  const selectedFixture = useMemo(
+    () => fixtures.find((f) => f.id === requestedSession) ?? fixtures[0] ?? null,
+    [fixtures, requestedSession]
+  );
+  const selectedFixtureId = selectedFixture?.id ?? null;
+
+  const seasons = useMemo(
+    () => [...new Set(fixtures.map((f) => f.season).filter((s) => s != null))].sort((a, b) => b - a),
+    [fixtures]
+  );
+  // The season list starts on the selected fixture's season.
+  const shownSeason = season ?? selectedFixture?.season ?? ALL_SEASONS;
+  const shownFixtures = shownSeason === ALL_SEASONS
+    ? fixtures
+    : fixtures.filter((f) => f.season === shownSeason);
+
+  function selectFixture(id) {
+    setSearchParams({ session: id }, { replace: true });
+  }
+
   useEffect(() => {
-    if (!selectedFixtureId) return;
+    if (!selectedFixtureId) return undefined;
     let cancelled = false;
     setEventsLoading(true);
     setEventsError(null);
 
-    getFixtureEvents(selectedFixtureId)
+    getFixtureEvents(selectedFixtureId, { type: eventType || undefined, includeSuperseded })
       .then((result) => {
         if (!cancelled) setEventsData(result);
       })
@@ -61,31 +99,64 @@ function FixturesEventsPage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedFixtureId]);
+  }, [selectedFixtureId, eventType, includeSuperseded]);
+
+  async function loadMore() {
+    const cursor = eventsData?.page?.nextCursor;
+    if (!cursor) return;
+    setLoadingMore(true);
+    try {
+      const next = await getFixtureEvents(selectedFixtureId, {
+        type: eventType || undefined,
+        includeSuperseded,
+        cursor,
+      });
+      setEventsData((current) => ({
+        ...next,
+        events: [...(current?.events ?? []), ...next.events],
+      }));
+    } catch (err) {
+      setEventsError(err.message);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  const events = eventsData?.events ?? [];
+  const total = eventsData?.page?.total ?? events.length;
+  const session = eventsData?.session;
 
   return (
     <div className="page" id="page-fixtures">
       <div className="pagehead">
-        <div className="section-eyebrow">Core data model</div>
+        <div className="section-eyebrow">Event data</div>
         <div className="section-title">Fixtures &amp; Events</div>
         <div className="section-desc">
-          Every statistic the platform publishes is derived from a record of individual events in the order they occurred — this page is where that record lives.
+          Every synced session and its event log: the laps, pit stops, position changes and results that every statistic on the site is calculated from.
         </div>
       </div>
       <div className="content">
-        <div className="rationale">
-          <span className="ic">◆</span>
-          <div>
-            <b>Why this page:</b> the brief's basic tier is explicit that the platform is "built on event data" and statistics must be "derived from a record of the individual events that occurred during a single fixture... rather than stored as a total that somebody typed in." Nothing else in the app can be trusted unless this layer is visible and inspectable, so it gets its own page rather than being buried inside a dashboard widget.
-          </div>
-        </div>
-
         <div className="grid grid-2">
           <div className="card">
             <div className="card-head">
               <div className="card-title">Fixtures</div>
+              {seasons.length > 1 && (
+                <label className="secondary">
+                  Season{' '}
+                  <select
+                    aria-label="Season"
+                    value={shownSeason}
+                    onChange={(e) => setSeason(e.target.value === ALL_SEASONS ? ALL_SEASONS : Number(e.target.value))}
+                  >
+                    {seasons.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                    <option value={ALL_SEASONS}>All seasons</option>
+                  </select>
+                </label>
+              )}
             </div>
-            {fixturesError && <p className="secondary">Couldn't reach the backend: {fixturesError}.</p>}
+            {fixturesError && <p className="secondary">Couldn't load the fixtures: {fixturesError}.</p>}
             {fixturesLoading && !fixturesError && <p className="secondary">Loading fixtures…</p>}
             {!fixturesLoading && !fixturesError && fixtures.length === 0 && (
               <p className="secondary">No fixtures synced yet.</p>
@@ -95,23 +166,33 @@ function FixturesEventsPage() {
                 <tbody>
                   <tr>
                     <th>Fixture</th>
+                    <th>Session</th>
                     <th>Date</th>
+                    <th>Events</th>
                     <th>Status</th>
                   </tr>
-                  {fixtures.map((f) => {
-                    const pill = fixtureStatusPill(f);
+                  {shownFixtures.map((f) => {
+                    const pill = STATUS_PILLS[f.status] ?? { className: 'pill pill-gray', label: f.status };
                     const selected = f.id === selectedFixtureId;
                     return (
                       <tr
                         key={f.id}
                         className="clickable"
+                        aria-selected={selected}
                         style={selected ? { background: 'var(--border-soft)' } : undefined}
-                        onClick={() => setSelectedFixtureId(f.id)}
+                        onClick={() => selectFixture(f.id)}
                       >
                         <td>{f.meetingName}</td>
+                        <td className="secondary">{f.type}</td>
                         <td className="secondary mono">{formatDate(f.startTime)}</td>
+                        <td className="secondary mono">{(f.eventCount ?? 0).toLocaleString()}</td>
                         <td>
                           <span className={pill.className}>{pill.label}</span>
+                          {f.hasCorrections && (
+                            <span className="pill pill-blue" style={{ marginLeft: 4 }} title="Some events in this fixture were corrected after they were first recorded">
+                              Corrected
+                            </span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -126,51 +207,100 @@ function FixturesEventsPage() {
               <div>
                 <div className="card-title">Event log</div>
                 <div className="card-title-sub">
-                  {eventsData ? `${eventsData.session.meetingName} · ${eventsData.session.type}` : '—'}
+                  {session
+                    ? `${session.meetingName} · ${session.type} · ${formatDate(session.startTime)}`
+                    : '—'}
                 </div>
               </div>
             </div>
 
-            {eventsError && <p className="secondary">Couldn't reach the backend: {eventsError}.</p>}
+            {selectedFixtureId && (
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
+                <label className="secondary">
+                  Show{' '}
+                  <select aria-label="Event type" value={eventType} onChange={(e) => setEventType(e.target.value)}>
+                    <option value="">All events</option>
+                    {EVENT_TYPE_FILTERS.map((t) => (
+                      <option key={t} value={t}>{eventTypeLabel(t)}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="secondary">
+                  <input
+                    type="checkbox"
+                    checked={includeSuperseded}
+                    onChange={(e) => setIncludeSuperseded(e.target.checked)}
+                  />{' '}
+                  Include versions later corrected
+                </label>
+              </div>
+            )}
+
+            {eventsError && <p className="secondary">Couldn't load the event log: {eventsError}.</p>}
             {eventsLoading && !eventsError && <p className="secondary">Loading events…</p>}
             {!eventsLoading && !eventsError && !selectedFixtureId && (
               <p className="secondary">Select a fixture to see its event log.</p>
             )}
-            {!eventsLoading && !eventsError && eventsData && eventsData.events.length === 0 && (
+            {!eventsLoading && !eventsError && eventsData && events.length === 0 && (
               <p className="secondary">No events recorded for this fixture.</p>
             )}
 
-            {!eventsLoading && !eventsError && eventsData && eventsData.events.length > 0 && (
-              <div className="log-ticker">
-                {eventsData.events.map((event) => (
-                  <div className="log-row" key={event.id}>
-                    <span className="log-time">{formatTime(event.occurredAt)}</span>
-                    <span
-                      className={event.corrected ? 'pill pill-blue' : 'pill pill-green'}
-                      style={{ justifySelf: 'start' }}
-                    >
-                      {event.corrected ? 'Corrected' : 'Ingested'}
-                    </span>
-                    <span className="log-event">{event.driverName ?? '—'}</span>
-                    <span className="mono secondary">
-                      {event.eventType.toUpperCase()}
-                      {event.lapNumber != null ? ` · Lap ${event.lapNumber}` : ''}
-                    </span>
-                  </div>
-                ))}
-              </div>
+            {!eventsLoading && !eventsError && events.length > 0 && (
+              <>
+                <div className="log-ticker">
+                  {events.map((event) => {
+                    const detail = eventDetail(event);
+                    return (
+                      <div className="log-row" key={event.id}>
+                        <span className="log-time">{formatTime(event.occurredAt)}</span>
+                        <span>
+                          {eventTypeLabel(event.eventType)}
+                          {event.isCorrection && (
+                            <span className="pill pill-blue" style={{ marginLeft: 6 }} title="This event replaced an earlier version">Correction</span>
+                          )}
+                          {event.superseded && (
+                            <span className="pill pill-gray" style={{ marginLeft: 6 }} title="A later correction replaced this version">Replaced</span>
+                          )}
+                        </span>
+                        <span className="log-event">{event.driverName ?? '—'}</span>
+                        <span className="mono secondary">
+                          {[detail, event.lapNumber != null ? `Lap ${event.lapNumber}` : null].filter(Boolean).join(' · ')}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="card-note">
+                  Showing {events.length.toLocaleString()} of {total.toLocaleString()} events.
+                  {eventsData?.page?.nextCursor && (
+                    <>
+                      {' '}
+                      <button type="button" className="btn btn-ghost" onClick={loadMore} disabled={loadingMore}>
+                        {loadingMore ? 'Loading…' : 'Load more'}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </>
             )}
 
-            {eventsData && (
+            {eventsData && selectedFixtureId && (
               <div className="derived-note">
-                <span className="dot"></span> {eventsData.derivedStatsCount} stat
-                {eventsData.derivedStatsCount === 1 ? '' : 's'} recomputed from this fixture's event log ·{' '}
-                <Link to="/statistics" style={{ color: 'var(--info)', textDecoration: 'none' }}>
-                  view derived statistics
+                <span className="dot"></span>{' '}
+                {eventsData.derivedStatsCount > 0
+                  ? `Session statistics for ${eventsData.derivedStatsCount} driver${eventsData.derivedStatsCount === 1 ? '' : 's'} are derived from this event log · `
+                  : 'No statistics have been derived from this event log yet · '}
+                <Link
+                  to={`/statistics?view=fixture&session=${encodeURIComponent(selectedFixtureId)}`}
+                  style={{ color: 'var(--info)', textDecoration: 'none' }}
+                >
+                  view this fixture's statistics
                 </Link>
               </div>
             )}
-            <div className="card-note">Correcting an event automatically recomputes every statistic derived from it — nothing needs re-entry.</div>
+            <div className="card-note">
+              Only published data is shown: OpenF1 syncs and developer uploads an admin has accepted. When an event is corrected, the statistics derived from it are recalculated.
+            </div>
           </div>
         </div>
       </div>
