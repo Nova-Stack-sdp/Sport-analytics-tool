@@ -1,16 +1,17 @@
 import { memo } from 'react';
 
-// Leader identity colours: the page's four broadcast tones at full strength,
-// each paired with the ink that keeps the car number legible on it, plus two
-// deeper variants so a race with many leaders never runs out of distinct
-// stripes. Identity, not meaning — the legend names whose run each stripe is.
+// Leader identity colours: the page's four broadcast tones at full strength
+// (RaceSync's F1 red, pit-call green and blue, the medium tyre's yellow), each
+// paired with the ink that keeps the car number legible on it, plus two deeper
+// variants so a race with many leaders never runs out of distinct stripes.
+// Identity, not meaning — the legend names whose run each stripe is.
 const LEADER_COLORS = [
-  { fill: '#CE0D14', ink: '#FFFFFF' },
-  { fill: '#00D26A', ink: '#0B2E18' },
-  { fill: '#FFCF3F', ink: '#1F1602' },
-  { fill: '#B13BFF', ink: '#FFFFFF' },
-  { fill: '#00843D', ink: '#FFFFFF' },
-  { fill: '#9D0D0D', ink: '#FFFFFF' },
+  { fill: '#E10600', ink: '#FFFFFF' },
+  { fill: '#00A650', ink: '#FFFFFF' },
+  { fill: '#FFD12E', ink: '#1F1602' },
+  { fill: '#0A84FF', ink: '#FFFFFF' },
+  { fill: '#00843F', ink: '#FFFFFF' },
+  { fill: '#A80400', ink: '#FFFFFF' },
 ];
 
 const RaceTimeline = memo(function RaceTimeline({ race, lapState }) {

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { getTelemetryTVRace, getTelemetryTVRaces } from '../api/client';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getTelemetryTVRace, getTelemetryTVRaces, getTelemetryTVWeather } from '../api/client';
 import BattleRadar from '../components/telemetry-tv/BattleRadar';
 import DriverStatsPanel from '../components/telemetry-tv/DriverStatsPanel';
 import LeadBattle from '../components/telemetry-tv/LeadBattle';
@@ -14,6 +14,7 @@ import RaceOverview from '../components/telemetry-tv/RaceOverview';
 import RacePickerBar from '../components/telemetry-tv/RacePickerBar';
 import RaceStartWaitCard from '../components/telemetry-tv/RaceStartWaitCard';
 import RaceTimeline from '../components/telemetry-tv/RaceTimeline';
+import PhaseSection from '../components/telemetry-tv/PhaseSection';
 import SectionDivider from '../components/telemetry-tv/SectionDivider';
 import StrategyCard from '../components/telemetry-tv/StrategyCard';
 import TelemetryTVFooter from '../components/telemetry-tv/TelemetryTVFooter';
@@ -35,8 +36,8 @@ import { buildLeadBattle, buildRaceOverview } from '../features/telemetry-tv/rac
 import { buildStrategyModel } from '../features/telemetry-tv/strategyModel';
 import { buildPaceGauge } from '../features/telemetry-tv/paceGauge';
 import { buildMomentumModel } from '../features/telemetry-tv/momentumModel';
-import { buildMasterboardCommentary } from '../features/telemetry-tv/buildMasterboardCommentary';
-import { pickVideoTickerEvent } from '../features/telemetry-tv/videoTicker';
+import { lapNarrationCandidates, raceStateContext } from '../features/telemetry-tv/lapNarration';
+import { surname, videoCandidates } from '../features/telemetry-tv/narrator';
 import { buildTorontoraceIntelligence } from '../features/telemetry-tv/Torontorace';
 
 function TelemetryTVPage() {
@@ -95,11 +96,35 @@ function TelemetryTVPage() {
   // player is scrubbed back into the build-up — they answer to the video
   // clock, not to time passing.
   const dashboardsLive = raceData != null && (raceStartSeconds == null || raceStarted);
-  const commentaryEvents = buildMasterboardCommentary(raceData, lapState);
-  // While the player clock is live the ticker narrates the curated broadcast
-  // timeline; before that it cycles the lap-based commentary.
-  const videoTickerEvent = pickVideoTickerEvent(raceData?.events, videoSeconds);
-  const tickerEvents = videoTickerEvent ? [videoTickerEvent] : commentaryEvents;
+  // The narrator's material (see features/telemetry-tv/narrator.js). While
+  // the player clock runs and the race carries video-stamped broadcast
+  // events, it narrates those on the video clock; otherwise it narrates what
+  // the lap chart shows, on the lap clock. Either way it weighs every moment
+  // and says the most important unsaid one next.
+  // Broadcast events already say what happened; each gains where the race
+  // stood on its lap (lap of the race, leader, caution) as its context.
+  const videoNarration = useMemo(
+    () =>
+      videoCandidates(raceData?.events).map((candidate) => ({
+        ...candidate,
+        context: raceStateContext(raceData, candidate.lap),
+      })),
+    [raceData]
+  );
+  const lapNarration = useMemo(
+    () => lapNarrationCandidates(raceData, { lap: lapState.lap, isFinished: lapState.isFinished }),
+    [raceData, lapState.lap, lapState.isFinished]
+  );
+  const onVideoClock = videoNarration.length > 0 && videoSeconds != null;
+  const frontRunnerKey = (lapState.leaderboard ?? [])
+    .filter((entry) => Number(entry.position) <= 3)
+    .map((entry) => surname(entry.driverName))
+    .sort()
+    .join('|');
+  const frontRunners = useMemo(
+    () => new Set(frontRunnerKey ? frontRunnerKey.split('|') : []),
+    [frontRunnerKey]
+  );
   const lapTrend = buildLapTrend(raceData);
   const driverStats = buildDriverStats(raceData);
   const margin = marginDelta(raceData, lap);
@@ -178,6 +203,25 @@ function TelemetryTVPage() {
     suppressVideoFollowUntilRef.current = 0;
   }
 
+  // Race-day weather loads with the pick itself, not with playback: it
+  // describes the day, so the header can show it before the green flag.
+  const [weather, setWeather] = useState(null);
+  useEffect(() => {
+    setWeather(null);
+    if (!selectedSlug) return undefined;
+    let cancelled = false;
+    getTelemetryTVWeather(selectedSlug)
+      .then((data) => {
+        if (!cancelled) setWeather(data?.weather ?? null);
+      })
+      .catch(() => {
+        // No reading, no conditions — the header simply leaves them out.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSlug]);
+
   useEffect(() => {
     if (!selectedSlug || !playbackStarted) {
       setRaceData(null);
@@ -223,100 +267,110 @@ function TelemetryTVPage() {
               lapLabel={headerLapLabel}
               flag={lapState.leaderLap?.flag ?? null}
               fieldSize={selectedRace.fieldSize}
+              weather={weather}
             />
 
-            <SectionDivider step="01" label="Live observation" />
+            {/* The three race phases fold away from their own chapter marks
+                (see PhaseSection), so a viewer keeps the layer they came for. */}
+            <PhaseSection step="01" label="Live observation">
+              {/* Observation layer: the broadcast beside the live order. */}
+              <div className="telemetry-tv-grid">
+                <div className="telemetry-tv-primary">
+                  <div className="ttv-band-label">Live Broadcast</div>
+                  <PlaybackVideo
+                    ref={videoRef}
+                    race={selectedRace}
+                    onPlay={() => setPlaybackStarted(true)}
+                    onVideoTime={handleVideoTime}
+                    playbackStarted={playbackStarted}
+                    loading={loading}
+                    error={error}
+                  />
+                  {dashboardsLive ? (
+                    <>
+                      <PlaybackStatusBar
+                        race={raceData}
+                        lap={lap}
+                        videoSeconds={videoSeconds}
+                        margin={margin}
+                        leaderLap={lapState.leaderLap}
+                        lapTrend={lapTrend}
+                        onLapChange={handleLapChange}
+                      />
+                      {/* The narrator's crawl, right under the broadcast it
+                          narrates (see LiveTicker and narrator.js). */}
+                      <LiveTicker
+                        candidates={onVideoClock ? videoNarration : lapNarration}
+                        now={onVideoClock ? videoSeconds : lapState.lap}
+                        scale={onVideoClock ? 1 : 1 / 40}
+                        frontRunners={frontRunners}
+                        label={lapState.lap ? `LAP ${lapState.lap}` : null}
+                      />
+                    </>
+                  ) : (
+                    /* The broadcast has not reached the green flag: no stats are
+                       loaded into view — every dashboard waits for the race. */
+                    <RaceStartWaitCard
+                      loading={raceLoading}
+                      error={raceError}
+                      videoSeconds={videoSeconds}
+                      raceStartSeconds={raceStartSeconds}
+                    />
+                  )}
+                </div>
 
-            {/* Observation layer: the broadcast beside the live order. */}
-            <div className="telemetry-tv-grid">
-              <div className="telemetry-tv-primary">
-                <div className="ttv-band-label">Live Broadcast</div>
-                <PlaybackVideo
-                  ref={videoRef}
-                  race={selectedRace}
-                  onPlay={() => setPlaybackStarted(true)}
-                  onVideoTime={handleVideoTime}
-                  playbackStarted={playbackStarted}
-                  loading={loading}
-                  error={error}
-                />
-                {dashboardsLive ? (
-                  <>
-                    <PlaybackStatusBar
+                {dashboardsLive && (
+                  <div className="telemetry-tv-sidebar">
+                    <div className="ttv-band-label">Live Order</div>
+                    {/* The running order is live commentary; the official final
+                        classification below it is an after-the-flag answer, so
+                        it waits for the checkered flag. */}
+                    <Masterboard
                       race={raceData}
                       lap={lap}
-                      videoSeconds={videoSeconds}
-                      margin={margin}
-                      leaderLap={lapState.leaderLap}
-                      lapTrend={lapTrend}
-                      onLapChange={handleLapChange}
+                      isFinished={lapState.isFinished}
+                      leaderboard={lapState.leaderboard}
+                      loading={raceLoading}
+                      error={raceError}
                     />
-                    <LiveTicker events={tickerEvents} />
-                  </>
-                ) : (
-                  /* The broadcast has not reached the green flag: no stats are
-                     loaded into view — every dashboard waits for the race. */
-                  <RaceStartWaitCard
-                    loading={raceLoading}
-                    error={raceError}
-                    videoSeconds={videoSeconds}
-                    raceStartSeconds={raceStartSeconds}
-                  />
+                    {lapState.isFinished && <DriverStatsPanel driverStats={driverStats} />}
+                  </div>
                 )}
               </div>
-
-              {dashboardsLive && (
-                <div className="telemetry-tv-sidebar">
-                  <div className="ttv-band-label">Live Order</div>
-                  {/* The running order is live commentary; the official final
-                      classification below it is an after-the-flag answer, so
-                      it waits for the checkered flag. */}
-                  <Masterboard
-                    race={raceData}
-                    lap={lap}
-                    isFinished={lapState.isFinished}
-                    leaderboard={lapState.leaderboard}
-                    loading={raceLoading}
-                    error={raceError}
-                  />
-                  {lapState.isFinished && <DriverStatsPanel driverStats={driverStats} />}
-                </div>
-              )}
-            </div>
+            </PhaseSection>
 
             {dashboardsLive && (
               <>
-                <SectionDivider step="02" label="Now we move from observation to analysis" />
+                <PhaseSection step="02" label="Now we move from observation to analysis">
+                  {/* Analysis layer: the radar frames the fight first, the
+                      instrument dials answer "how fast and which way" second, and
+                      strategy then reads the same laps at full width. All three
+                      fold away from their own heads too. */}
+                  <BattleRadar
+                    model={battleRadar}
+                    context={selectedSlug === 'toronto-2025' ? torontorace.context : null}
+                  />
+                  <RaceInstruments
+                    pace={paceGauge}
+                    momentum={momentum}
+                  />
+                  <StrategyCard
+                    strategy={strategyModel}
+                    raceIntelligence={raceIntelligence}
+                  />
+                </PhaseSection>
 
-                {/* Analysis layer: the radar frames the fight first, the
-                    instrument dials answer "how fast and which way" second, and
-                    strategy then reads the same laps at full width. All three
-                    fold away from their own heads, so a viewer keeps the layer
-                    they came for. */}
-                <BattleRadar
-                  model={battleRadar}
-                  context={selectedSlug === 'toronto-2025' ? torontorace.context : null}
-                />
-                <RaceInstruments
-                  pace={paceGauge}
-                  momentum={momentum}
-                />
-                <StrategyCard
-                  strategy={strategyModel}
-                  raceIntelligence={raceIntelligence}
-                />
-
-                <SectionDivider step="03" label="Deeper investigation" />
-
-                {/* Deeper layer: how the race unfolded — the lead stretches,
-                    the caution windows and the pit-stop rhythm — then the
-                    after-the-flag answers once the checkered lap is run. */}
-                <LeadBattle
-                  leadBattle={leadBattle}
-                  lap={lap}
-                  isFinished={lapState.isFinished}
-                />
-                <RaceTimeline race={raceData} lapState={lapState} />
+                <PhaseSection step="03" label="Deeper investigation">
+                  {/* Deeper layer: how the race unfolded — the lead stretches,
+                      the caution windows and the pit-stop rhythm. The
+                      after-the-flag answers follow, outside the fold. */}
+                  <LeadBattle
+                    leadBattle={leadBattle}
+                    lap={lap}
+                    isFinished={lapState.isFinished}
+                  />
+                  <RaceTimeline race={raceData} lapState={lapState} />
+                </PhaseSection>
 
                 {lapState.isFinished && (
                   <>

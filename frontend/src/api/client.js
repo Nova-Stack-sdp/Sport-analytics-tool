@@ -446,3 +446,11 @@ export function getTelemetryTVRaces() {
 export function getTelemetryTVRace(slug) {
   return request(`/api/telemetry-tv/races/${encodeURIComponent(slug)}`);
 }
+
+// Race-day weather for one broadcast: measured conditions over the race
+// window (Open-Meteo archive), or { weather: null } when none can be read.
+export function getTelemetryTVWeather(slug) {
+  return request(`/api/telemetry-tv/races/${encodeURIComponent(slug)}/weather`, {
+    timeoutMs: 15000,
+  });
+}
