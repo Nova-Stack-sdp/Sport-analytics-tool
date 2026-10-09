@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
+import { notifyCodeSubmissionReviewed } from '../services/notificationService.js';
 import { requireAuth, requireAdmin, requireVerifiedEmail } from '../middleware/requireAuth.js';
 
 export const codeSubmissionsRouter = Router();
@@ -250,6 +251,10 @@ async function approveSubmission(id, adminUid) {
           submittedAt: submission.submittedAt,
           verifiedBy: adminUid,
         },
+      }).catch((err) => {
+        // Only a duplicate verified row represents a concurrent approval.
+        if (err?.code === 'P2002') throw new ReviewConflict('approved');
+        throw err;
       });
 
       // Only delete if it is still pending. If a concurrent reject got there
@@ -259,28 +264,32 @@ async function approveSubmission(id, adminUid) {
         const current = await tx.codeSubmission.findUnique({ where: { id }, select: { status: true } });
         throw new ReviewConflict(current?.status ?? 'approved');
       }
+      await notifyCodeSubmissionReviewed(submission, 'approved', tx);
       return { ok: true };
     }, { maxWait: 15000, timeout: 30000 });
   } catch (err) {
     if (err instanceof ReviewConflict) return { ok: false, currentStatus: err.currentStatus };
-    // Two admins approving at once: the second insert hits the unique index
-    // on source_submission_id and its transaction rolls back.
-    if (err?.code === 'P2002') return { ok: false, currentStatus: 'approved' };
     throw err;
   }
 }
 
 async function rejectSubmission(id, adminUid) {
-  const { count } = await prisma.codeSubmission.updateMany({
-    where: { id, status: 'pending' },
-    data: { status: 'rejected', reviewedBy: adminUid, reviewedAt: new Date() },
-  });
-  if (count === 1) return { ok: true };
+  return prisma.$transaction(async (tx) => {
+    const { count } = await tx.codeSubmission.updateMany({
+      where: { id, status: 'pending' },
+      data: { status: 'rejected', reviewedBy: adminUid, reviewedAt: new Date() },
+    });
+    if (count === 1) {
+      const submission = await tx.codeSubmission.findUnique({ where: { id } });
+      await notifyCodeSubmissionReviewed(submission, 'rejected', tx);
+      return { ok: true };
+    }
 
-  const existing = await prisma.codeSubmission.findUnique({ where: { id }, select: { status: true } });
-  if (existing) return { ok: false, currentStatus: existing.status };
-  const verified = await prisma.verifiedCode.findUnique({ where: { sourceSubmissionId: id }, select: { id: true } });
-  return verified ? { ok: false, currentStatus: 'approved' } : { ok: false, notFound: true };
+    const existing = await tx.codeSubmission.findUnique({ where: { id }, select: { status: true } });
+    if (existing) return { ok: false, currentStatus: existing.status };
+    const verified = await tx.verifiedCode.findUnique({ where: { sourceSubmissionId: id }, select: { id: true } });
+    return verified ? { ok: false, currentStatus: 'approved' } : { ok: false, notFound: true };
+  }, { maxWait: 15000, timeout: 30000 });
 }
 
 codeSubmissionsRouter.patch('/:id', requireAuth, requireVerifiedEmail, requireAdmin, async (req, res, next) => {
