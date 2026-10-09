@@ -12,6 +12,9 @@ export const LIMITS = {
   titleMin: 3,
   titleMax: 80,
   codeMax: 50000,
+  // Same rule as the backend: the description is what the public API and
+  // the stats page show as "what this code does".
+  descriptionMin: 10,
   descriptionMax: 1000,
   maxTags: 5,
   tagMax: 24,
@@ -65,8 +68,11 @@ export function validateSubmission(draft = {}) {
     errors.push({ field: 'code', message: `Code must be at most ${LIMITS.codeMax} characters.` });
   }
 
-  // Description is optional — but when given, it still has to fit.
-  if (description.length > LIMITS.descriptionMax) {
+  if (!description) {
+    errors.push({ field: 'description', message: 'Description is required: say what the code does.' });
+  } else if (description.length < LIMITS.descriptionMin) {
+    errors.push({ field: 'description', message: `Description must be at least ${LIMITS.descriptionMin} characters.` });
+  } else if (description.length > LIMITS.descriptionMax) {
     errors.push({ field: 'description', message: `Description must be at most ${LIMITS.descriptionMax} characters.` });
   }
 

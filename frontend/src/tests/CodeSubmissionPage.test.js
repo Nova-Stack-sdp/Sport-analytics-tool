@@ -29,7 +29,7 @@ function fillValidDraft() {
   fill(TITLE_LABEL, '  Tyre delta per stint  ');
   fireEvent.change(screen.getByLabelText('Language'), { target: { value: 'JavaScript' } });
   fill('Code', VALID_CODE);
-  fill('Description (optional)', '  Lap-time delta per stint.  ');
+  fill('Description', '  Lap-time delta per stint.  ');
 }
 
 function submit() {
@@ -47,7 +47,7 @@ describe('CodeSubmissionPage', () => {
     expect(screen.getByLabelText(TITLE_LABEL)).toBeInTheDocument();
     expect(screen.getByLabelText('Language')).toBeInTheDocument();
     expect(screen.getByLabelText('Code')).toBeInTheDocument();
-    expect(screen.getByLabelText('Description (optional)')).toBeInTheDocument();
+    expect(screen.getByLabelText('Description')).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Select a language…' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'JavaScript' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Python' })).toBeInTheDocument();
@@ -89,6 +89,7 @@ describe('CodeSubmissionPage', () => {
     expect(screen.getByText('Title is required.')).toBeInTheDocument();
     expect(screen.getByText('Language is required.')).toBeInTheDocument();
     expect(screen.getByText('Code is required.')).toBeInTheDocument();
+    expect(screen.getByText('Description is required: say what the code does.')).toBeInTheDocument();
     expect(submitCodeSubmission).not.toHaveBeenCalled();
   });
 

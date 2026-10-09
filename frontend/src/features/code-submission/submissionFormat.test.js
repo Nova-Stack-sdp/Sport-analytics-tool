@@ -24,9 +24,15 @@ describe('validateSubmission', () => {
     expect(result).toEqual({ valid: true, errors: [] });
   });
 
-  test('accepts a draft without a description (it is optional)', () => {
-    expect(validateSubmission(validDraft({ description: '' })).valid).toBe(true);
-    expect(validateSubmission(validDraft({ description: undefined })).valid).toBe(true);
+  test('requires a description of at least 10 characters (matching the backend)', () => {
+    const required = { field: 'description', message: 'Description is required: say what the code does.' };
+    expect(validateSubmission(validDraft({ description: '' })).errors).toEqual([required]);
+    expect(validateSubmission(validDraft({ description: undefined })).errors).toEqual([required]);
+    expect(validateSubmission(validDraft({ description: '   ' })).errors).toEqual([required]);
+    expect(validateSubmission(validDraft({ description: 'too short' })).errors).toEqual([
+      { field: 'description', message: 'Description must be at least 10 characters.' },
+    ]);
+    expect(validateSubmission(validDraft({ description: 'd'.repeat(LIMITS.descriptionMin) })).valid).toBe(true);
   });
 
   test('accepts every boundary value exactly at the limits', () => {
@@ -41,8 +47,8 @@ describe('validateSubmission', () => {
   });
 
   test('does not throw on an empty or missing draft', () => {
-    expect(validateSubmission({}).errors.map((e) => e.field)).toEqual(['title', 'language', 'code']);
-    expect(validateSubmission().errors.map((e) => e.field)).toEqual(['title', 'language', 'code']);
+    expect(validateSubmission({}).errors.map((e) => e.field)).toEqual(['title', 'language', 'code', 'description']);
+    expect(validateSubmission().errors.map((e) => e.field)).toEqual(['title', 'language', 'code', 'description']);
   });
 
   test('reports every violation at once, in field order', () => {

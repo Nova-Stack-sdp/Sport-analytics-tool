@@ -192,7 +192,8 @@ function CodeSubmissionPage() {
             <div className="cs-band cs-band-meta">
               <div className="cs-field">
                 <div className="cs-head">
-                  <label htmlFor="cs-description">Description (optional)</label>
+                  <label htmlFor="cs-description">Description</label>
+                  <span className="cs-req">Required</span>
                 </div>
                 <textarea
                   id="cs-description"
@@ -205,7 +206,7 @@ function CodeSubmissionPage() {
                   onChange={(e) => updateField('description', e.target.value)}
                 />
                 <div className="cs-foot">
-                  <span className="cs-hint">What the statistic means.</span>
+                  <span className="cs-hint">What the code does. This is shown publicly once it's approved.</span>
                   <span className={countClass(descriptionLength, LIMITS.descriptionMax)}>
                     {descriptionLength}/{LIMITS.descriptionMax}
                   </span>
