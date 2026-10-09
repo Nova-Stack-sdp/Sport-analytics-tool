@@ -38,18 +38,18 @@ beforeEach(() => {
   mockPrisma.entry.findMany.mockResolvedValue([]);
 });
 
-test('fixture list: correction flags and replay readiness ignore deleted datasets', async () => {
+test('fixture list: correction flags, event counts and replay readiness use only published data', async () => {
   await request(createApp()).get('/api/fixtures');
   for (const [args] of mockPrisma.event.groupBy.mock.calls) {
-    expect(args.where).toMatchObject(HIDE_DELETED);
+    expect(args.where).toMatchObject(PUBLISHED_ONLY);
   }
-  expect(mockPrisma.event.groupBy).toHaveBeenCalledTimes(2);
+  expect(mockPrisma.event.groupBy).toHaveBeenCalledTimes(3);
 });
 
-test('fixture event log leaves out deleted datasets', async () => {
+test('fixture event log leaves out deleted, pending and rejected datasets', async () => {
   mockPrisma.session.findUnique.mockResolvedValue(null);
   await request(createApp()).get('/api/fixtures/s1/events');
-  expect(mockPrisma.event.findMany.mock.calls[0][0].where).toEqual({ sessionId: 's1', ...HIDE_DELETED });
+  expect(mockPrisma.event.findMany.mock.calls[0][0].where).toEqual({ sessionId: 's1', supersededById: null, ...PUBLISHED_ONLY });
 });
 
 test('race replay is built only from events of undeleted datasets', async () => {
