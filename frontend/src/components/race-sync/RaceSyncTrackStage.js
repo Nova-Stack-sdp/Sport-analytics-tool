@@ -22,6 +22,7 @@ import {
 // same way in the roster and in a table.
 import { displayName, driverCode } from './raceSyncDriverNames';
 import RaceSyncFlag from './RaceSyncFlag';
+import RaceSyncPitCall from './RaceSyncPitCall';
 import RaceSyncSpine from './RaceSyncSpine';
 // The rail's Race Overview row lands on this section: the same id map the
 // panels use, so the rail and the page cannot point at different things.
@@ -257,16 +258,39 @@ function buildWeatherChips(weather) {
 // One roster row: the legend's entry as it has always been, plus — only while
 // a scope is set — the single icon that moves it on or off the map. The rows
 // under the legend reuse it, so adding a car reads as the mirror of removing
-// one and both are recognisably the same thing.
-function RosterRow({ row, onMap, control, simmed }) {
-  return (
-    <li className={`racesync-stage-legend-item${onMap ? '' : ' is-off'}`}>
+// one and both are recognisably the same thing. In sim mode a row is also
+// the quickest way to the levers: clicking it picks that car in the sim
+// console under the spine.
+function RosterRow({ row, onMap, control, simmed, onPick, picked }) {
+  const label = (
+    <>
       <span
         className={`racesync-stage-legend-dot racesync-car-${row.teamKey}`}
         aria-hidden="true"
       />
       <span className="racesync-stage-legend-code">{row.code}</span>
       <span className="racesync-stage-legend-name">{row.name}</span>
+    </>
+  );
+  return (
+    <li
+      className={`racesync-stage-legend-item${onMap ? '' : ' is-off'}${
+        picked ? ' is-sim-picked' : ''
+      }`}
+    >
+      {onPick ? (
+        <button
+          type="button"
+          className="racesync-stage-legend-pick"
+          title={`Simulate ${row.name}`}
+          aria-pressed={picked}
+          onClick={onPick}
+        >
+          {label}
+        </button>
+      ) : (
+        label
+      )}
       {/* While the sim is live, the rows carrying a tweak say so — the same
           red the mode switch uses, so "this car is the counterfactual" reads
           identically everywhere. */}
@@ -302,7 +326,7 @@ function RaceSyncTrackStage({ sessionId, race }) {
   // ones) and the roster's SIM chips both read it, and everything sim
   // no-ops until simLive — sim mode chosen AND a tweak carried — so the
   // untouched map is never repainted.
-  const { sim, simLive, tweaks } = useRaceSyncSim();
+  const { mode, sim, simLive, tweaks, simTarget, setSimTarget } = useRaceSyncSim();
   // The replay itself. The engine is Race Replay's own: it fetches the track
   // outline, holds the lap clock (one lap every BASE_TICK_MS / speed) and
   // caches each lap's snapshot, and hands back the state for the lap it is on.
@@ -669,6 +693,9 @@ function RaceSyncTrackStage({ sessionId, race }) {
       >
         <div className="racesync-stage-body">
           <div className="racesync-stage-map-wrap">
+            {/* The pit wall's calls flash over the map — where the eye is
+                during a replay — the moment they happen (sim mode only). */}
+            <RaceSyncPitCall lap={lap ?? 0} />
             <div
               ref={attachMapNode}
               className="racesync-stage-map"
@@ -837,6 +864,8 @@ function RaceSyncTrackStage({ sessionId, race }) {
                       row={driver}
                       onMap
                       simmed={simLive && Boolean(tweaks[driver.entryId])}
+                      onPick={mode === 'sim' ? () => setSimTarget(driver.entryId) : undefined}
+                      picked={mode === 'sim' && simTarget === driver.entryId}
                       control={
                         scopeActive
                           ? {

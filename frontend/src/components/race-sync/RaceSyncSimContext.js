@@ -18,6 +18,10 @@ export function RaceSyncSimProvider({ sessionId, children }) {
   const { series, error } = useRaceSyncLapSeries(sessionId);
   const [mode, setMode] = useState('replay'); // 'replay' | 'sim'
   const [tweaks, setTweaks] = useState({}); // entryId -> { pitShift, paceDelta }
+  // The driver the console's levers act on. Shared, so picking a car on the
+  // stage's roster and picking it in the console are the same act; null means
+  // "nobody picked yet" and the console falls back to a sensible default.
+  const [simTarget, setSimTarget] = useState(null);
 
   const sim = useMemo(
     () => (series ? simulateRace(series, tweaks) : null),
@@ -48,6 +52,8 @@ export function RaceSyncSimProvider({ sessionId, children }) {
     });
   }, []);
 
+  const resetAllTweaks = useCallback(() => setTweaks({}), []);
+
   const value = useMemo(
     () => ({
       mode,
@@ -55,6 +61,9 @@ export function RaceSyncSimProvider({ sessionId, children }) {
       tweaks,
       updateTweak,
       resetTweak,
+      resetAllTweaks,
+      simTarget,
+      setSimTarget,
       series,
       seriesError: error,
       sim,
@@ -63,7 +72,7 @@ export function RaceSyncSimProvider({ sessionId, children }) {
       // or solidifies keys off this one flag.
       simLive: mode === 'sim' && !!sim && anyTweakActive(tweaks),
     }),
-    [mode, tweaks, updateTweak, resetTweak, series, error, sim]
+    [mode, tweaks, updateTweak, resetTweak, resetAllTweaks, simTarget, series, error, sim]
   );
 
   return <RaceSyncSimContext.Provider value={value}>{children}</RaceSyncSimContext.Provider>;

@@ -7,9 +7,9 @@ import { useRaceSyncSim } from './RaceSyncSimContext';
 // The three-phase workflow spine the page's tagline promises: Observe the
 // race, Diagnose why it happened, Simulate a change. Observe and Diagnose
 // are honest jumps to the sections that already carry those readings;
-// Simulate jumps to the Driver Analysis panel — where the sim console lives —
-// and flips the page into sim mode on the way, because the cause must be
-// visible the moment the step is taken. The spine takes a full row of the
+// Simulate jumps to the sim console directly under this spine and flips the
+// page into sim mode on the way, because the cause must be visible the moment
+// the step is taken. The spine takes a full row of the
 // readings grid under the map — the place the design gives the banner — and
 // it gathers the replay's whole transport beside its red mark: the chevrons,
 // pause and speed used to live in the race band, but every control that
@@ -36,7 +36,7 @@ const STEPS = [
     number: 3,
     title: 'Simulate',
     question: 'What if we changed it?',
-    anchor: SECTION_ANCHORS.driverAnalysis,
+    anchor: SECTION_ANCHORS.simConsole,
     // Clicking Simulate enters sim mode as well as scrolling — the mode is
     // the promise the step makes, so taking the step keeps it.
     enterSim: true,

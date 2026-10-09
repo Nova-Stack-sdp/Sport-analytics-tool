@@ -2,6 +2,8 @@ import {
   anyTweakActive,
   DEFAULT_TWEAK,
   fitRaceModel,
+  pitCallAtLap,
+  pitCallsAtLap,
   simDriverAtLap,
   simGapAtLap,
   simPositionAtLap,
@@ -306,5 +308,46 @@ describe('the summary facts', () => {
     expect(simSummaryAtLap(sim, 'e2', driversById(sim), 12)).toBeNull();
     expect(simSummaryAtLap(sim, 'e9', driversById(sim), 12)).toBeNull();
     expect(simSummaryAtLap(sim, 'e1', driversById(sim), 0)).toBeNull();
+  });
+});
+
+describe('the pit calls', () => {
+  // Leclerc really fitted his new set on lap 7 (in-lap 6). Two laps earlier
+  // puts the new set on lap 5, so the in-lap is lap 4.
+  const early = () => simulateRace(series(), { e1: { pitShift: -2, paceDelta: 0 } });
+
+  test('the window opens three laps out and counts down without changing moment', () => {
+    const sim = early();
+    expect(pitCallAtLap(sim, 'e1', 1)).toMatchObject({ kind: 'window', tone: 'blue', lapsToGo: 3, stopLap: 5 });
+    expect(pitCallAtLap(sim, 'e1', 3)).toMatchObject({ kind: 'window', tone: 'blue', lapsToGo: 1 });
+  });
+
+  test('the in-lap is the box call', () => {
+    expect(pitCallAtLap(early(), 'e1', 4)).toMatchObject({ kind: 'box', tone: 'blue', stopLap: 5 });
+  });
+
+  test('an over-eager stop is called red once the car is back out, then the call clears', () => {
+    const sim = early();
+    const verdict = pitCallAtLap(sim, 'e1', 5);
+    expect(verdict).toMatchObject({ kind: 'loss', tone: 'red', stopLap: 5 });
+    expect(verdict.seconds).toBeGreaterThan(0);
+    expect(pitCallAtLap(sim, 'e1', 6)).toMatchObject({ kind: 'loss' });
+    expect(pitCallAtLap(sim, 'e1', 7)).toBeNull();
+  });
+
+  test('a stop that leaves the car ahead of its real race is called green', () => {
+    // Piastri finds half a second a lap and keeps his real stop (new set on lap 7).
+    const sim = simulateRace(series(), { e2: { pitShift: 0, paceDelta: -0.5 } });
+    const verdict = pitCallAtLap(sim, 'e2', 7);
+    expect(verdict).toMatchObject({ kind: 'gain', tone: 'green', stopLap: 7 });
+    expect(verdict.places > 0 || verdict.seconds < 0).toBe(true);
+  });
+
+  test('an untouched driver and a race not yet started are never called', () => {
+    const sim = early();
+    expect(pitCallAtLap(sim, 'e2', 3)).toBeNull();
+    expect(pitCallAtLap(sim, 'e1', 0)).toBeNull();
+    expect(pitCallsAtLap(sim, 4)).toEqual([expect.objectContaining({ entryId: 'e1', kind: 'box' })]);
+    expect(pitCallsAtLap(null, 4)).toEqual([]);
   });
 });

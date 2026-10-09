@@ -2217,6 +2217,18 @@
   grid-column: span 2;
 }
 
+/* The Lap Time Delta and Twin Line charts: one full-width row of the grid,
+   split in two so the pair sits side by side. A half narrower than a lap
+   chart can be read at drops under the other instead of squeezing. */
+#page-sync-f1-broadcast .racesync-chart-pair {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 14px;
+  align-items: stretch;
+  min-width: 0;
+}
+
 /* The Driver Analysis card stands down the grid's right-hand column beside
    the map. The four-column arrangement has no fifth column yet, so there the
    card takes a full row of its own between the flanking band and the spine;
@@ -2229,7 +2241,7 @@
 /* The workflow spine is a row of the grid, in the full-width place the
    Driver Analysis card used to take: the three phases lead on the left, and
    the replay transport and the red mark sit on the right. */
-#page-sync-f1-broadcast .racesync-analysis-grid > .racesync-spine {
+#page-sync-f1-broadcast .racesync-analysis-grid > .racesync-spine-block {
   grid-area: 5 / 1 / 6 / 3;
 }
 
@@ -3049,7 +3061,7 @@
     grid-area: 3 / 1 / 4 / 5;
   }
 
-  #page-sync-f1-broadcast .racesync-analysis-grid > .racesync-spine {
+  #page-sync-f1-broadcast .racesync-analysis-grid > .racesync-spine-block {
     grid-area: 4 / 1 / 5 / 5;
   }
 
@@ -3090,7 +3102,7 @@
     overflow-y: auto;
   }
 
-  #page-sync-f1-broadcast .racesync-analysis-grid > .racesync-spine {
+  #page-sync-f1-broadcast .racesync-analysis-grid > .racesync-spine-block {
     grid-area: 3 / 1 / 4 / 6;
   }
 
@@ -3124,7 +3136,7 @@
     grid-area: auto;
   }
 
-  #page-sync-f1-broadcast .racesync-analysis-grid > .racesync-spine {
+  #page-sync-f1-broadcast .racesync-analysis-grid > .racesync-spine-block {
     grid-area: auto;
   }
 
@@ -3240,7 +3252,8 @@
   color: var(--racesync-car);
 }
 
-/* The sim console in Driver Analysis: the two levers, stacked and quiet. */
+/* The sim console's shared lever parts: labels, the pit stepper, the pace
+   slider and the reset buttons. */
 #page-sync-f1-broadcast .racesync-sim-controls {
   display: flex;
   flex-direction: column;
@@ -3426,6 +3439,343 @@
 
 #page-sync-f1-broadcast .racesync-briefing-delta.is-loss {
   color: var(--status-red);
+}
+
+/* --- Pit calls ---------------------------------------------------------------
+   The pit wall's moments, flashed the way a broadcast cuts to them: a dark
+   timing-graphic banner over the map with a coloured tag. Blue is the call
+   (window open, box box), green the stop paying off, red the stop costing.
+   The banner blinks hard as the moment begins, then holds so it can be read;
+   "box, box" keeps pulsing for its whole lap. The tones are fixed rather
+   than themed: a broadcast graphic reads the same in light and dark. */
+.app-frame-racesync {
+  --racesync-call-blue: #0a84ff;
+  --racesync-call-green: #00a650;
+  --racesync-call-red: #e10600;
+}
+
+#page-sync-f1-broadcast .racesync-stage-map-wrap {
+  position: relative;
+}
+
+#page-sync-f1-broadcast .racesync-pitcall-stack {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: calc(100% - 20px);
+  pointer-events: none;
+}
+
+#page-sync-f1-broadcast .racesync-pitcall {
+  --racesync-call: var(--racesync-call-blue);
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  border-radius: 4px;
+  background: #15151e;
+  color: #fff;
+  box-shadow: 0 0 0 1px var(--racesync-call), 0 6px 18px rgba(0, 0, 0, 0.45);
+  font-size: 12px;
+  line-height: 1;
+  animation: racesync-pitcall-in 0.22s ease-out, racesync-pitcall-blink 0.32s steps(1) 0.22s 4;
+}
+
+#page-sync-f1-broadcast .racesync-pitcall.is-green {
+  --racesync-call: var(--racesync-call-green);
+}
+
+#page-sync-f1-broadcast .racesync-pitcall.is-red {
+  --racesync-call: var(--racesync-call-red);
+}
+
+/* Box, box: the call that cannot be missed keeps pulsing for its lap. */
+#page-sync-f1-broadcast .racesync-pitcall.is-box {
+  animation: racesync-pitcall-in 0.22s ease-out, racesync-pitcall-blink 0.5s steps(1) 0.22s infinite;
+}
+
+#page-sync-f1-broadcast .racesync-pitcall-tag {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  background: var(--racesync-call);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+#page-sync-f1-broadcast .racesync-pitcall-body {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 12px 8px 8px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#page-sync-f1-broadcast .racesync-pitcall-driver {
+  padding: 3px 6px;
+  border-radius: 3px;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+/* The briefing row in the console lights in the same colour while the call
+   is live, so the card agrees with the banner. */
+#page-sync-f1-broadcast .racesync-briefing-row.is-call {
+  --racesync-call: var(--racesync-call-blue);
+  margin: 0 -6px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  box-shadow: inset 3px 0 0 var(--racesync-call);
+  background: color-mix(in srgb, var(--racesync-call) 14%, transparent);
+  animation: racesync-pitcall-row 0.32s steps(1) 4;
+}
+
+#page-sync-f1-broadcast .racesync-briefing-row.is-call.is-green {
+  --racesync-call: var(--racesync-call-green);
+}
+
+#page-sync-f1-broadcast .racesync-briefing-row.is-call.is-red {
+  --racesync-call: var(--racesync-call-red);
+}
+
+@keyframes racesync-pitcall-in {
+  from {
+    transform: translateX(-16px);
+    opacity: 0;
+  }
+
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* A hard on/off blink, the timing screen's own: the whole banner floods in
+   the call colour, then drops back to the dark graphic. */
+@keyframes racesync-pitcall-blink {
+  0% {
+    background: var(--racesync-call);
+    box-shadow: 0 0 0 2px var(--racesync-call), 0 0 22px 4px var(--racesync-call);
+  }
+
+  50% {
+    background: #15151e;
+    box-shadow: 0 0 0 1px var(--racesync-call), 0 6px 18px rgba(0, 0, 0, 0.45);
+  }
+}
+
+@keyframes racesync-pitcall-row {
+  0% {
+    background: color-mix(in srgb, var(--racesync-call) 45%, transparent);
+  }
+
+  50% {
+    background: color-mix(in srgb, var(--racesync-call) 14%, transparent);
+  }
+}
+
+/* Reduced motion: the colour still lands the moment it happens, without the
+   flashing. */
+@media (prefers-reduced-motion: reduce) {
+  #page-sync-f1-broadcast .racesync-pitcall,
+  #page-sync-f1-broadcast .racesync-pitcall.is-box,
+  #page-sync-f1-broadcast .racesync-briefing-row.is-call {
+    animation: none;
+  }
+}
+
+/* The spine, the sim console and the broadcast line stand as one grid row,
+   so the levers always sit right beside the Replay/Sim switch. */
+#page-sync-f1-broadcast .racesync-spine-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+#page-sync-f1-broadcast .racesync-spine-block > .racesync-broadcast {
+  margin-top: 0;
+}
+
+/* The sim console: WHO (car chips) then WHAT (the levers). In replay it is
+   quiet; in sim mode it carries the red edge the broadcast line uses, so the
+   cause and its effect read as one thing. */
+#page-sync-f1-broadcast .racesync-console {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface);
+  transition: border-color 0.16s ease;
+}
+
+#page-sync-f1-broadcast .racesync-console.is-sim {
+  border-left-color: var(--racesync-red);
+}
+
+#page-sync-f1-broadcast .racesync-console-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+
+#page-sync-f1-broadcast .racesync-console-title {
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+#page-sync-f1-broadcast .racesync-console-hint {
+  flex: 1 1 220px;
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+}
+
+#page-sync-f1-broadcast .racesync-console-cars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+#page-sync-f1-broadcast .racesync-console-car {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+}
+
+#page-sync-f1-broadcast .racesync-console-car:hover {
+  background: var(--border-soft);
+  color: var(--text-primary);
+}
+
+#page-sync-f1-broadcast .racesync-console-car:focus-visible {
+  outline: 2px solid var(--racesync-red);
+  outline-offset: 1px;
+}
+
+#page-sync-f1-broadcast .racesync-console-car.is-picked {
+  border-color: var(--text-primary);
+  background: var(--border-soft);
+  color: var(--text-primary);
+}
+
+/* A tweaked car carries a red dot in the SIM chip's colour, so the cars
+   already changed are findable at a glance. */
+#page-sync-f1-broadcast .racesync-console-car.is-tweaked::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--racesync-red);
+}
+
+#page-sync-f1-broadcast .racesync-console-levers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px 28px;
+}
+
+#page-sync-f1-broadcast .racesync-console-lever {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+#page-sync-f1-broadcast .racesync-console-lever.is-pace {
+  flex: 1 1 240px;
+  max-width: 420px;
+}
+
+#page-sync-f1-broadcast .racesync-console-levers > .racesync-sim-reset {
+  align-self: center;
+}
+
+#page-sync-f1-broadcast .racesync-sim-stepper-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+#page-sync-f1-broadcast .racesync-sim-pace-end {
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Driver Analysis' pointer down to the console. */
+#page-sync-f1-broadcast .racesync-driver-sim-link {
+  align-self: flex-start;
+  color: var(--racesync-red);
+  font-size: 11.5px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+#page-sync-f1-broadcast .racesync-driver-sim-link:hover {
+  text-decoration: underline;
+}
+
+/* In sim mode a roster row is a button that picks the car for the console. */
+#page-sync-f1-broadcast .racesync-stage-legend-pick {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+#page-sync-f1-broadcast .racesync-stage-legend-pick:focus-visible {
+  outline: 2px solid var(--racesync-red);
+  outline-offset: 2px;
+}
+
+#page-sync-f1-broadcast .racesync-stage-legend-item.is-sim-picked {
+  background: var(--border-soft);
+  box-shadow: inset 2px 0 0 var(--racesync-red);
 }
 
 /* The broadcast line under the spine: a timing-screen sentence, not a

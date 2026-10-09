@@ -549,3 +549,65 @@ function compoundNames(driver) {
     .map((name) => String(name ?? '').toLowerCase())
     .filter(Boolean);
 }
+
+// ---------------------------------------------------------------------------
+// Pit calls — the moments the broadcast flashes, as the pit wall would call them
+// ---------------------------------------------------------------------------
+
+// How many laps before the in-lap the window counts as open.
+export const PIT_WINDOW_LAPS = 3;
+// How many laps from the out-lap the stop's verdict stays on screen.
+const VERDICT_LAPS = 2;
+
+// The pit-wall moment one tweaked driver is in at the playhead, or null when
+// nothing is being called. A stop lap is the first lap on the new set (the
+// readings' convention), so the in-lap — where the car dives into the pit
+// lane — is the lap before it. In order:
+//   window  (blue)  the in-lap is 1..PIT_WINDOW_LAPS laps away
+//   box     (blue)  this is the in-lap: "box, box"
+//   gain    (green) out-lap and after: the sim car is ahead of the real one
+//   loss    (red)   out-lap and after: the sim car is behind the real one
+// The verdict compares the sim with the real race at the playhead — places
+// first, and when the order is unchanged, the time against the real race.
+// A verdict that moved nothing calls nothing: no colour without a reason.
+export function pitCallAtLap(sim, entryId, uptoLap) {
+  const driver = sim?.drivers?.get(entryId);
+  if (!driver || !driver.tweaked) return null;
+  const cut = Math.max(0, Math.min(Math.floor(uptoLap) || 0, sim.totalLaps));
+  if (cut < 1) return null;
+
+  for (const stopLap of driver.newStopLaps) {
+    const inLap = stopLap - 1;
+    const lapsToGo = inLap - cut;
+    if (lapsToGo === 0) return { entryId, kind: 'box', tone: 'blue', stopLap };
+    if (lapsToGo > 0 && lapsToGo <= PIT_WINDOW_LAPS) {
+      return { entryId, kind: 'window', tone: 'blue', stopLap, lapsToGo };
+    }
+    if (cut >= stopLap && cut < stopLap + VERDICT_LAPS) {
+      const simPos = sim.simPositions.get(entryId)?.[cut - 1] ?? null;
+      const basePos = sim.basePositions.get(entryId)?.[cut - 1] ?? null;
+      const places = simPos != null && basePos != null ? basePos - simPos : 0;
+      const seconds = driver.deltaVsBaseline[cut - 1];
+      const gained = places > 0 || (places === 0 && Number.isFinite(seconds) && seconds < 0);
+      const lost = places < 0 || (places === 0 && Number.isFinite(seconds) && seconds > 0);
+      if (!gained && !lost) return null;
+      return {
+        entryId,
+        kind: gained ? 'gain' : 'loss',
+        tone: gained ? 'green' : 'red',
+        stopLap,
+        position: simPos,
+        places,
+        seconds: Number.isFinite(seconds) ? seconds : null,
+      };
+    }
+  }
+  return null;
+}
+
+// Every live pit call at the playhead, one per tweaked driver at most.
+export function pitCallsAtLap(sim, uptoLap) {
+  return (sim?.tweaked ?? [])
+    .map((entryId) => pitCallAtLap(sim, entryId, uptoLap))
+    .filter(Boolean);
+}
