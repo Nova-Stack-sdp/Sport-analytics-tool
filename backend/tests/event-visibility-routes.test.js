@@ -1,15 +1,17 @@
 import { jest } from '@jest/globals';
 
 // Every site route that reads the event log must leave out events whose
-// dataset an admin deleted. These tests pin the filter each route sends.
+// dataset an admin deleted. Public pages also leave out data no admin has
+// accepted. These tests pin the filter each route sends.
 const HIDE_DELETED = { sourceSubmission: { deletedAt: null } };
+const PUBLISHED_ONLY = { sourceSubmission: { deletedAt: null, status: { in: ['accepted', 'partially_accepted'] } } };
 
 const mockPrisma = {
   session: { findMany: jest.fn(), findUnique: jest.fn(), findFirst: jest.fn(), count: jest.fn() },
   entry: { findMany: jest.fn(), findUnique: jest.fn() },
   event: { groupBy: jest.fn(), findMany: jest.fn(), count: jest.fn() },
   submission: { count: jest.fn(), findMany: jest.fn() },
-  meeting: { findFirst: jest.fn() },
+  meeting: { findFirst: jest.fn(), findMany: jest.fn() },
   driverSessionStats: { count: jest.fn() },
   driverCareerStats: { findMany: jest.fn() },
   teamSeasonStats: { findMany: jest.fn() },
@@ -67,11 +69,12 @@ test('time travel (changelog and as-of) leaves out deleted datasets', async () =
   ]);
 });
 
-test('overview: event counts and the review queue skip deleted datasets and test data', async () => {
+test('overview: only published data, and the review queue skips deleted datasets and test data', async () => {
   mockPrisma.session.count.mockResolvedValue(0);
   mockPrisma.submission.count.mockResolvedValue(0);
   mockPrisma.submission.findMany.mockResolvedValue([]);
   mockPrisma.meeting.findFirst.mockResolvedValue(null);
+  mockPrisma.meeting.findMany.mockResolvedValue([]);
   mockPrisma.session.findFirst.mockResolvedValue({ id: 's1', meeting: { circuit: {} } });
 
   await request(createApp()).get('/api/overview');
@@ -79,7 +82,8 @@ test('overview: event counts and the review queue skip deleted datasets and test
   expect(mockPrisma.submission.count).toHaveBeenCalledWith({
     where: { status: 'pending', purpose: 'race_data', deletedAt: null },
   });
-  expect(mockPrisma.submission.findMany.mock.calls[0][0].where).toEqual({ deletedAt: null });
-  expect(mockPrisma.event.count.mock.calls[0][0].where).toMatchObject(HIDE_DELETED);
-  expect(mockPrisma.event.findMany.mock.calls[0][0].where).toMatchObject({ sessionId: 's1', ...HIDE_DELETED });
+  for (const [args] of mockPrisma.submission.findMany.mock.calls) {
+    expect(args.where).toMatchObject({ ...PUBLISHED_ONLY.sourceSubmission, purpose: 'race_data' });
+  }
+  expect(mockPrisma.event.findMany.mock.calls[0][0].where).toEqual({ sessionId: 's1', supersededBy: null, ...PUBLISHED_ONLY });
 });
