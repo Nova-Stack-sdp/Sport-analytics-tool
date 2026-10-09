@@ -1,4 +1,4 @@
-import { indexReplayContext, computeStateAtLap, buildLapSeries } from '../src/routes/raceReplay.js';
+import { indexReplayContext, computeStateAtLap, buildLapSeries, safetyCarStateAt } from '../src/routes/raceReplay.js';
 
 // A tiny, fully synthetic two-driver, three-lap session — enough to exercise
 // every branch of computeStateAtLap without touching Prisma or the DB.
@@ -84,6 +84,8 @@ describe('computeStateAtLap', () => {
     const after = computeStateAtLap(context, 2);
     expect(after.recentRaceControl).toHaveLength(1);
     expect(after.recentRaceControl[0].flag).toBe('safety_car');
+    expect(before.safetyCar).toBeNull();
+    expect(after.safetyCar).toBe('SC');
   });
 
   test('uses real classification for the final positions once the last lap is reached', () => {
@@ -212,3 +214,31 @@ describe('buildLapSeries', () => {
     }
   });
 });
+
+describe('safetyCarStateAt', () => {
+  const msg = (lapNumber, text) => ({ eventType: 'race_control_message', lapNumber, payload: { category: 'SafetyCar', message_text: text } });
+  const flag = (lapNumber, f) => ({ eventType: 'flag_event', lapNumber, payload: { flag: f } });
+  const raceControl = [
+    msg(10, 'SAFETY CAR DEPLOYED'),
+    flag(11, 'green'), // a sector clear is stored as green and must not end the period
+    msg(13, 'SAFETY CAR IN THIS LAP'),
+    msg(30, 'VIRTUAL SAFETY CAR DEPLOYED'),
+    msg(31, 'VIRTUAL SAFETY CAR ENDING'),
+    flag(40, 'safety_car'),
+    flag(44, 'red'),
+  ];
+
+  test.each([
+    [9, null],
+    [10, 'SC'],
+    [12, 'SC'],
+    [13, null], // not still shown because the deploy message is among the last five
+    [30, 'VSC'],
+    [31, null],
+    [42, 'SC'],
+    [44, null],
+  ])('at lap %i the state is %p', (lap, expected) => {
+    expect(safetyCarStateAt(raceControl, lap)).toBe(expected);
+  });
+});
+

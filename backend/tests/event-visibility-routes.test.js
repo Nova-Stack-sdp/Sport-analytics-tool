@@ -52,10 +52,10 @@ test('fixture event log leaves out deleted, pending and rejected datasets', asyn
   expect(mockPrisma.event.findMany.mock.calls[0][0].where).toEqual({ sessionId: 's1', supersededById: null, ...PUBLISHED_ONLY });
 });
 
-test('race replay is built only from events of undeleted datasets', async () => {
+test('race replay is built only from current, published events', async () => {
   mockPrisma.session.findUnique.mockResolvedValue({ id: 's1', meeting: { circuit: {} } });
   await buildReplayContext('s1').catch(() => {});
-  expect(mockPrisma.event.findMany.mock.calls[0][0].where).toEqual({ sessionId: 's1', ...HIDE_DELETED });
+  expect(mockPrisma.event.findMany.mock.calls[0][0].where).toEqual({ sessionId: 's1', supersededById: null, ...PUBLISHED_ONLY });
 });
 
 test('time travel (changelog and as-of) leaves out deleted datasets', async () => {
