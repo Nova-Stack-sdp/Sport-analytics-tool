@@ -1,5 +1,7 @@
 import {
   anyTweakActive,
+  breaksCompoundRule,
+  compoundChoices,
   DEFAULT_TWEAK,
   fitRaceModel,
   pitCallAtLap,
@@ -90,19 +92,22 @@ describe('the simulation model', () => {
     expect(model.degradation.medium).toBeCloseTo(0.02, 5);
     expect(model.degradation.hard).toBeCloseTo(0.03, 5);
     // Soft pools three drivers of different pace whose stints also have
-    // different lengths, and pooled least squares answers that mix honestly:
-    // the quicker cars' soft stints run one lap longer, which tilts the
-    // fitted slope off the per-line 0.10 by leverage, not by error.
-    expect(model.degradation.soft).toBeCloseTo(0.1116667, 5);
-    // Fourteen soft laps vote — five, five and four; twelve medium; seven
-    // hard. The three in-laps are pit loss, not wear, and stay out of the fit.
-    expect(model.fitSamples).toEqual({ soft: 14, medium: 12, hard: 7 });
+    // different lengths. The within-stint fit reads each stint against its own
+    // mean, so the per-line 0.10 comes back exactly — a single line through
+    // the pooled laps would tilt to 0.112 on the quicker cars' longer stints.
+    expect(model.degradation.soft).toBeCloseTo(0.1, 9);
+    // Lap 1 (a standing start), every in-lap and every out-lap stay out of the
+    // fit: soft keeps laps 2-5, 2-5 and 2-4; medium laps 8-12 twice; hard 7-12.
+    expect(model.fitSamples).toEqual({ soft: 11, medium: 10, hard: 6 });
   });
 
-  test('the pit loss is the median in-lap residual, about the 22s the fixture bakes in', () => {
+  test('the pit loss is the 22s the fixture bakes into each in-lap, and nothing on the out-lap', () => {
     const model = fitRaceModel(series().drivers, 12);
-    expect(model.stopSamples).toBe(2);
-    expect(model.pitLoss).toBeCloseTo(22, 0);
+    // Three cars, one stop each, and every in-lap timed.
+    expect(model.stopSamples).toBe(3);
+    expect(model.pitInLoss).toBeCloseTo(22, 9);
+    expect(model.pitOutLoss).toBeCloseTo(0, 9);
+    expect(model.pitLoss).toBeCloseTo(22, 9);
   });
 
   test('a tweak with nothing in it is a no-op; one active tweak is easy to spot', () => {
@@ -160,33 +165,32 @@ describe('moving a stop', () => {
 
   test('the pit loss relocates to the new in-lap and leaves the old one', () => {
     const sim = moved();
-    const { pitLoss } = sim.model;
     const driver = sim.drivers.get('e1');
+    // The fixture is exact — soft laps are 79.9 + 0.1 x age for Leclerc,
+    // mediums 80.98 + 0.02 x age — so every re-priced lap has a true value.
     // Lap 4 is the new in-lap: same soft tyre, same age — only the loss moves in.
-    expect(driver.simLapTimes[3] - 80.3).toBeCloseTo(pitLoss, 5);
-    // Lap 5 is now a medium lap: the driver's own soft→medium price (+0.75)
-    // less the wear of running a lap younger on it.
-    expect(driver.simLapTimes[4]).toBeCloseTo(80.42 + 0.75 - 0.08, 5);
-    // Lap 6 keeps its logged lap, sheds the loss, and pays the same compound price.
-    expect(driver.simLapTimes[5]).toBeCloseTo(102.5 + 0.67 - pitLoss, 5);
-    // From lap 7 on the compound is real; the medium stint simply runs two
-    // laps older than it did: +0.04 a lap.
-    expect(driver.simLapTimes[6]).toBeCloseTo(81.04, 5);
-    // Across the race the loss cancels — only compound and wear remain:
-    // two soft laps re-priced onto mediums (+0.75 each, less the wear of
-    // running a lap younger on them) and six medium laps run two laps older.
+    expect(driver.simLapTimes[3]).toBeCloseTo(80.3 + 22, 9);
+    // Lap 5 is the new out-lap, on a fresh medium: 80.98 + 0.02.
+    expect(driver.simLapTimes[4]).toBeCloseTo(81.0, 9);
+    // Lap 6 sheds the old in-lap's loss and runs the medium at age 2.
+    expect(driver.simLapTimes[5]).toBeCloseTo(81.02, 9);
+    // From lap 7 the medium stint simply runs two laps older: +0.04 a lap.
+    expect(driver.simLapTimes[6]).toBeCloseTo(81.04, 9);
+    expect(driver.simLapTimes[11]).toBeCloseTo(81.14, 9);
+    // Across the race the loss cancels; what remains is eight medium laps at
+    // ages 1-8 and four softs, against six and six: +1.36s.
     const total = driver.simLapTimes.reduce(
       (sum, value, i) => sum + (value - leclerc().lapTimeSeconds[i]),
       0
     );
-    expect(total).toBeCloseTo(1.58, 5);
-    expect(driver.deltaVsBaseline[11]).toBeCloseTo(1.58, 5);
+    expect(total).toBeCloseTo(1.36, 9);
+    expect(driver.deltaVsBaseline[11]).toBeCloseTo(1.36, 9);
   });
 
   test('an over-eager stop costs real time and the position with it', () => {
     const sim = moved();
     const summary = simSummaryAtLap(sim, 'e1', driversById(sim), 12);
-    expect(summary.raceDelta).toBeCloseTo(1.58, 5);
+    expect(summary.raceDelta).toBeCloseTo(1.36, 9);
     expect(summary.currentSimPos).toBe(3);
     expect(summary.currentBasePos).toBe(1);
     // The divergence surfaces the moment the pit loss relocates: lap 4, when
@@ -248,9 +252,12 @@ describe('the pace dial', () => {
     const summary = simSummaryAtLap(sim, 'e2', driversById(sim), 12);
     expect(summary.raceDelta).toBeCloseTo(-0.6, 5);
     expect(summary.currentSimPos).toBe(1);
+    // The swing is the FIRST lap the orders part: on lap 1 Piastri's 79.97
+    // already beats Leclerc's 80.00, P3 to P2 (Verstappen leads them both).
     expect(summary.swing).toMatchObject({
-      from: 2,
-      to: 1,
+      lap: 1,
+      from: 3,
+      to: 2,
       places: 1,
       tradedWith: 'e1',
       tradedName: 'Charles LECLERC',
@@ -397,5 +404,279 @@ describe('moving one stop on its own', () => {
     expect(tweakIsNoop({ pitShift: 0, paceDelta: 0, stopShifts: [0, 0] })).toBe(true);
     expect(tweakIsNoop({ stopShifts: [0, 1] })).toBe(false);
     expect(race({ stopShifts: [0, 0] }).tweaked).toEqual([]);
+  });
+});
+
+describe("swapping a stint's tyre", () => {
+  // Leclerc ran soft (laps 1-6) then medium (laps 7-12).
+  const swapped = (stintCompounds) => simulateRace(series(), { e1: { stintCompounds } });
+
+  test('only compounds the field ran, with enough laps to fit, are on offer', () => {
+    const { model } = simulateRace(series());
+    expect(compoundChoices(model)).toEqual(['soft', 'medium', 'hard']);
+    expect(compoundChoices(null)).toEqual([]);
+  });
+
+  test("a stint swapped onto hards trades Leclerc's own medium curve for his predicted hard one", () => {
+    const sim = swapped([null, 'hard']);
+    const { driverPace, driverBase, compoundOffset, degradation } = sim.model;
+    const driver = sim.drivers.get('e1');
+    const logged = leclerc().lapTimeSeconds;
+    expect(driver.newCompounds).toEqual(['SOFT', 'HARD']);
+    // The soft stint is untouched.
+    expect(driver.simLapTimes.slice(0, 6)).toEqual(logged.slice(0, 6));
+    // Leclerc never ran the hard: his pace on it is his driver speed plus
+    // the hard's compound speed, linked through Verstappen's soft and hard.
+    const hard = driverBase.e1 + compoundOffset.hard;
+    expect(hard).toBeCloseTo(81.37, 1);
+    for (let age = 1; age <= 6; age += 1) {
+      const expected =
+        logged[5 + age] +
+        (hard + degradation.hard * age) -
+        (driverPace.e1.medium + degradation.medium * age);
+      expect(driver.simLapTimes[5 + age]).toBeCloseTo(expected, 9);
+    }
+  });
+
+  test('a swap onto the tyre really run, or onto one nobody ran, changes nothing', () => {
+    const logged = leclerc().lapTimeSeconds;
+    for (const choice of ['medium', 'wet']) {
+      const driver = swapped([null, choice]).drivers.get('e1');
+      expect(driver.newCompounds).toEqual(['SOFT', 'MEDIUM']);
+      expect(driver.simLapTimes).toEqual(logged);
+    }
+  });
+
+  test('swaps and stop moves combine: the swapped tyre runs from the moved stop', () => {
+    const driver = simulateRace(series(), {
+      e1: { stopShifts: [-2], stintCompounds: [null, 'hard'] },
+    }).drivers.get('e1');
+    expect(driver.newStopLaps).toEqual([5]);
+    expect(driver.newCompounds).toEqual(['SOFT', 'HARD']);
+  });
+
+  test('the summary names the swap, and flags a dry race left on one compound', () => {
+    const sim = swapped([null, 'soft']);
+    const summary = simSummaryAtLap(sim, 'e1', driversById(sim), 12);
+    expect(summary.compoundSwaps).toEqual([{ stint: 2, from: 'MEDIUM', to: 'SOFT' }]);
+    expect(summary.breaksCompoundRule).toBe(true);
+    expect(breaksCompoundRule(['SOFT', 'MEDIUM'], ['SOFT', 'HARD'])).toBe(false);
+    // A race really run on one compound (or in the wet) isn't held to the rule.
+    expect(breaksCompoundRule(['INTERMEDIATE', 'WET'], ['INTERMEDIATE', 'INTERMEDIATE'])).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Ground truth: races generated from known parameters
+// ---------------------------------------------------------------------------
+//
+// Every lap below is pace(driver) + offset(compound) + wear(compound) x age,
+// plus the pit loss on an in-lap and an out-lap. A strategy changed in the sim
+// can then be checked against the race that strategy would really have made:
+// generate it from the same parameters and compare lap for lap. The model is
+// optimal for this data exactly when it recovers that race.
+const TRUTH = {
+  compounds: {
+    soft: { offset: 0, wear: 0.1 },
+    medium: { offset: 0.6, wear: 0.05 },
+    hard: { offset: 1.0, wear: 0.02 },
+  },
+  pitIn: 4,
+  pitOut: 18,
+};
+const PACE = { A: 80.0, B: 80.3, C: 80.6, D: 79.9 };
+
+function truthDriver(id, stints, { extra = {} } = {}) {
+  const lapTimeSeconds = [];
+  const compound = [];
+  const stintNumber = [];
+  stints.forEach(([name, laps], index) => {
+    const { offset, wear } = TRUTH.compounds[name];
+    for (let age = 1; age <= laps; age += 1) {
+      let seconds = PACE[id] + offset + wear * age;
+      if (index < stints.length - 1 && age === laps) seconds += TRUTH.pitIn;
+      if (index > 0 && age === 1) seconds += TRUTH.pitOut;
+      seconds += extra[lapTimeSeconds.length + 1] ?? 0;
+      lapTimeSeconds.push(seconds);
+      compound.push(name.toUpperCase());
+      stintNumber.push(index + 1);
+    }
+  });
+  return {
+    entryId: id,
+    driverName: `Driver ${id}`,
+    teamName: `Team ${id}`,
+    lapTimeSeconds,
+    compound,
+    stintNumber,
+  };
+}
+
+// Running order by race time — what the positions of a generated race are.
+function truthPositions(drivers) {
+  const positions = new Map(drivers.map((d) => [d.entryId, []]));
+  const totals = new Map(drivers.map((d) => [d.entryId, 0]));
+  for (let lap = 1; lap <= drivers[0].lapTimeSeconds.length; lap += 1) {
+    for (const d of drivers) totals.set(d.entryId, totals.get(d.entryId) + d.lapTimeSeconds[lap - 1]);
+    [...totals.entries()]
+      .sort((a, b) => a[1] - b[1])
+      .forEach(([id], index) => positions.get(id).push(index + 1));
+  }
+  return positions;
+}
+
+function truthRace(stintsById, options = {}) {
+  const drivers = Object.entries(stintsById).map(([id, stints]) =>
+    truthDriver(id, stints, { extra: options.extra?.[id] })
+  );
+  const positions = truthPositions(drivers);
+  return {
+    totalLaps: drivers[0].lapTimeSeconds.length,
+    drivers: drivers.map((d) => ({ ...d, position: positions.get(d.entryId) })),
+  };
+}
+
+// The real race: four strategies over twenty laps. C is a two-stopper, D
+// never runs the hard and B never runs the soft — the field is still linked
+// through the cars that share compounds.
+const REAL = {
+  A: [['soft', 8], ['hard', 12]],
+  B: [['medium', 10], ['hard', 10]],
+  C: [['soft', 6], ['medium', 7], ['soft', 7]],
+  D: [['medium', 12], ['soft', 8]],
+};
+
+function expectSameRace(sim, truth) {
+  for (const driver of truth.drivers) {
+    const simulated = sim.drivers.get(driver.entryId).simLapTimes;
+    driver.lapTimeSeconds.forEach((seconds, i) => expect(simulated[i]).toBeCloseTo(seconds, 6));
+    expect(sim.simPositions.get(driver.entryId)).toEqual(driver.position);
+  }
+}
+
+describe('the fit recovers the parameters a race was generated from', () => {
+  const { model } = simulateRace(truthRace(REAL));
+
+  test("wear per compound, exactly, whatever each car's pace and stint length", () => {
+    for (const [name, { wear }] of Object.entries(TRUTH.compounds)) {
+      expect(model.degradation[name]).toBeCloseTo(wear, 9);
+    }
+  });
+
+  test('the pit loss, split exactly between the in-lap and the out-lap', () => {
+    expect(model.pitInLoss).toBeCloseTo(TRUTH.pitIn, 9);
+    expect(model.pitOutLoss).toBeCloseTo(TRUTH.pitOut, 9);
+    expect(model.pitLoss).toBeCloseTo(TRUTH.pitIn + TRUTH.pitOut, 9);
+    expect(model.stopSamples).toBe(5);
+  });
+
+  test("a driver's pace on a tyre they never ran, through the cars that link them", () => {
+    // D never ran the hard, B never ran the soft: driver + compound speed
+    // predicts both exactly.
+    expect(model.driverBase.D + model.compoundOffset.hard).toBeCloseTo(
+      PACE.D + TRUTH.compounds.hard.offset,
+      6
+    );
+    expect(model.driverBase.B + model.compoundOffset.soft).toBeCloseTo(
+      PACE.B + TRUTH.compounds.soft.offset,
+      6
+    );
+  });
+
+  test('a standing start and a safety-car lap teach the model nothing', () => {
+    // Lap 1 six seconds slow for everyone, and a 30% safety-car lap mid-stint.
+    const extra = { A: { 1: 6, 15: 25 }, B: { 1: 6 }, C: { 1: 6 }, D: { 1: 6 } };
+    const noisy = simulateRace(truthRace(REAL, { extra })).model;
+    for (const [name, { wear }] of Object.entries(TRUTH.compounds)) {
+      expect(noisy.degradation[name]).toBeCloseTo(wear, 9);
+    }
+    expect(noisy.pitInLoss).toBeCloseTo(TRUTH.pitIn, 9);
+    expect(noisy.pitOutLoss).toBeCloseTo(TRUTH.pitOut, 9);
+  });
+});
+
+describe('a changed strategy re-runs to the race it would really have been', () => {
+  test('an earlier stop', () => {
+    const sim = simulateRace(truthRace(REAL), { A: { stopShifts: [-3] } });
+    expectSameRace(sim, truthRace({ ...REAL, A: [['soft', 5], ['hard', 15]] }));
+  });
+
+  test('a later stop', () => {
+    const sim = simulateRace(truthRace(REAL), { B: { stopShifts: [4] } });
+    expectSameRace(sim, truthRace({ ...REAL, B: [['medium', 14], ['hard', 6]] }));
+  });
+
+  test('one stop of a two-stopper moved while the other holds', () => {
+    const sim = simulateRace(truthRace(REAL), { C: { stopShifts: [0, 2] } });
+    expectSameRace(sim, truthRace({ ...REAL, C: [['soft', 6], ['medium', 9], ['soft', 5]] }));
+  });
+
+  test('a stint swapped onto a tyre the driver ran elsewhere in the race', () => {
+    const sim = simulateRace(truthRace(REAL), { C: { stintCompounds: [null, 'soft'] } });
+    expectSameRace(sim, truthRace({ ...REAL, C: [['soft', 6], ['soft', 7], ['soft', 7]] }));
+  });
+
+  test('a stint swapped onto a tyre the driver never ran', () => {
+    const sim = simulateRace(truthRace(REAL), { D: { stintCompounds: ['hard', null] } });
+    expectSameRace(sim, truthRace({ ...REAL, D: [['hard', 12], ['soft', 8]] }));
+  });
+
+  test('a moved stop and a swapped tyre together, on two cars at once', () => {
+    const sim = simulateRace(truthRace(REAL), {
+      B: { stopShifts: [3], stintCompounds: [null, 'soft'] },
+      A: { stopShifts: [-2] },
+    });
+    expectSameRace(
+      sim,
+      truthRace({ ...REAL, A: [['soft', 6], ['hard', 14]], B: [['medium', 13], ['soft', 7]] })
+    );
+  });
+
+  test('the pace dial moves every lap by exactly what it says', () => {
+    const real = truthRace(REAL);
+    const sim = simulateRace(real, { D: { paceDelta: -0.2 } });
+    real.drivers
+      .find((d) => d.entryId === 'D')
+      .lapTimeSeconds.forEach((seconds, i) =>
+        expect(sim.drivers.get('D').simLapTimes[i]).toBeCloseTo(seconds - 0.2, 9)
+      );
+  });
+});
+
+describe('the running order', () => {
+  test('a retired car leaves the order after its last lap', () => {
+    const real = truthRace(REAL);
+    const retired = real.drivers.map((d) =>
+      d.entryId === 'D'
+        ? { ...d, lapTimeSeconds: d.lapTimeSeconds.map((s, i) => (i < 10 ? s : null)) }
+        : d
+    );
+    const sim = simulateRace({ ...real, drivers: retired });
+    expect(simPositionAtLap(sim, 'D', 10)).not.toBeNull();
+    expect(simPositionAtLap(sim, 'D', 11)).toBeNull();
+    const at11 = ['A', 'B', 'C'].map((id) => simPositionAtLap(sim, id, 11)).sort();
+    expect(at11).toEqual([1, 2, 3]);
+  });
+
+  test('a red flag for the whole field freezes every clock alike', () => {
+    const real = truthRace(REAL);
+    const flagged = real.drivers.map((d) => ({
+      ...d,
+      lapTimeSeconds: d.lapTimeSeconds.map((s, i) => (i === 9 ? 2400 : s)),
+    }));
+    const sim = simulateRace({ ...real, drivers: flagged });
+    // Nobody is timed on lap 10, so nobody holds a place on it, and every
+    // clock stands still alike: lap 11's order is the race without lap 10.
+    const without10 = real.drivers
+      .map((d) => ({
+        id: d.entryId,
+        time: d.lapTimeSeconds.slice(0, 11).reduce((sum, s, i) => (i === 9 ? sum : sum + s), 0),
+      }))
+      .sort((a, b) => a.time - b.time)
+      .map((entry) => entry.id);
+    for (const d of real.drivers) {
+      expect(simPositionAtLap(sim, d.entryId, 10)).toBeNull();
+      expect(simPositionAtLap(sim, d.entryId, 11)).toBe(without10.indexOf(d.entryId) + 1);
+    }
   });
 });

@@ -4,8 +4,8 @@
 // simulated race can be checked without rendering it.
 //
 // The model is a DELTA model, deliberately: the real lap times are the pace of
-// record, and a tweak only changes the two things a strategy decision actually
-// changes — how old the tyres are on each lap, and which lap carries the pit
+// record, and a tweak only changes what a strategy decision actually changes —
+// which tyre each lap runs on and how old it is, and which laps carry the pit
 // loss. Everything a driver really did (traffic, an overtake, a lock-up) is
 // left in their log; the sim re-prices the decisions around it. That keeps the
 // math honest and small: no invented telemetry, just wear and pit loss fitted
@@ -33,132 +33,269 @@ const isTimed = (seconds) =>
 // the shape stays open. pitShift moves EVERY stop by the same laps (negative =
 // earlier); stopShifts moves each stop on its own, index for index with the
 // real stops, on top of pitShift — so a two-stopper's first stop can come
-// earlier while the second holds. paceDelta is seconds added to every timed
-// lap (positive = eased off).
-export const DEFAULT_TWEAK = { pitShift: 0, paceDelta: 0, stopShifts: [] };
+// earlier while the second holds. stintCompounds swaps the tyre a stint runs
+// on, index for index with the real stints (null = as raced). paceDelta is
+// seconds added to every timed lap (positive = eased off).
+export const DEFAULT_TWEAK = { pitShift: 0, paceDelta: 0, stopShifts: [], stintCompounds: [] };
 
 export const tweakIsNoop = (tweak) =>
   !tweak ||
   ((tweak.pitShift ?? 0) === 0 &&
     (tweak.paceDelta ?? 0) === 0 &&
-    (tweak.stopShifts ?? []).every((shift) => !shift));
+    (tweak.stopShifts ?? []).every((shift) => !shift) &&
+    (tweak.stintCompounds ?? []).every((compound) => !compound));
+
+// The compounds a stint can be swapped onto: every compound the field ran
+// this race that the wear fit could price (a fresh pace and enough laps).
+// A compound nobody ran has no numbers behind it, so it is never offered —
+// the sim prices what the race measured, never what it imagines.
+const MIN_COMPOUND_SAMPLES = 5;
+const COMPOUND_ORDER = ['soft', 'medium', 'hard', 'intermediate', 'wet'];
+const DRY_COMPOUNDS = new Set(['soft', 'medium', 'hard']);
+
+// The dry-race rule: a car that finishes a dry race must have run at least
+// two different dry compounds. True when the real race kept the rule and the
+// swapped schedule breaks it — the sim still runs it, but says so.
+export function breaksCompoundRule(baseCompounds, newCompounds) {
+  const dry = (list) =>
+    new Set((list ?? []).map((c) => String(c ?? '').toLowerCase()).filter((c) => DRY_COMPOUNDS.has(c)));
+  return dry(baseCompounds).size >= 2 && dry(newCompounds).size < 2;
+}
+
+export function compoundChoices(model) {
+  return Object.keys(model?.freshPace ?? {})
+    .filter(
+      (key) =>
+        key &&
+        Number.isFinite(model.freshPace[key]) &&
+        (model.fitSamples?.[key] ?? 0) >= MIN_COMPOUND_SAMPLES
+    )
+    .sort((a, b) => COMPOUND_ORDER.indexOf(a) - COMPOUND_ORDER.indexOf(b));
+}
+
+// The compound sequence after a swap. A swap
+// onto the compound the stint really ran is no swap, and a compound the model
+// can't price is ignored rather than guessed at.
+function swappedCompounds(compounds, tweak, model) {
+  const priced = new Set(compoundChoices(model));
+  return compounds.map((compound, index) => {
+    const wanted = String(tweak?.stintCompounds?.[index] ?? '').toLowerCase();
+    if (!wanted || wanted === String(compound ?? '').toLowerCase() || !priced.has(wanted)) {
+      return compound;
+    }
+    return wanted.toUpperCase();
+  });
+}
 
 export const anyTweakActive = (tweaks) =>
   Object.values(tweaks ?? {}).some((tweak) => !tweakIsNoop(tweak));
 
 // ---------------------------------------------------------------------------
-// Fitting — wear per compound and the pit-lane loss, from the field's own laps
+// Fitting — wear per compound, each driver's pace, and the pit loss
 // ---------------------------------------------------------------------------
 
-// Least squares: slope and intercept of y on x. Nothing fancier is warranted —
-// the relationship being fitted is "a lap of tyre age costs roughly a constant
-// tenth or two", which over a stint is genuinely close to linear.
-function leastSquares(points) {
-  const n = points.length;
-  if (n < 2) return null;
-  const meanX = points.reduce((sum, p) => sum + p.x, 0) / n;
-  const meanY = points.reduce((sum, p) => sum + p.y, 0) / n;
-  let sxx = 0;
-  let sxy = 0;
-  let distinctX = new Set();
-  for (const p of points) {
-    sxx += (p.x - meanX) * (p.x - meanX);
-    sxy += (p.x - meanX) * (p.y - meanY);
-    distinctX.add(p.x);
-  }
-  if (sxx === 0 || distinctX.size < 2) return null; // no slope without spread
-  const slope = sxy / sxx;
-  return { slope, intercept: meanY - slope * meanX };
+// A lap only teaches the model about tyres if it is a lap of racing on them.
+// Left out: the race's first lap (a standing start, seconds off any tyre
+// curve), a stint's in-lap and out-lap (they carry the pit lane), and any lap
+// slower than 107% of its stint's median — the regulations' own yardstick,
+// here catching safety-car, VSC and traffic-wrecked laps that would otherwise
+// drag a straight line through them.
+const CLEAN_LAP_LIMIT = 1.07;
+
+function median(values) {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
-// Tyre age of one lap inside its stint: the first lap a set is on is age 1.
-// Calendar laps, so a stoppage interval still ages the tyre (the stint ran on)
-// even though it never re-prices it. Same shape as stintMapFor's entries, so
-// the baseline and re-scheduled maps can be differenced lap by lap.
-function stintAges(segments) {
-  const ageByLap = new Map();
-  segments.forEach((segment, stintIndex) => {
-    const compound = segment.compound ?? null;
-    for (let lap = segment.fromLap; lap <= segment.toLap; lap += 1) {
-      ageByLap.set(lap, { stintIndex, age: lap - segment.fromLap + 1, compound });
-    }
-  });
-  return ageByLap;
-}
-
-// Fit the field-wide model: per-compound wear (s per lap of age) and the
-// pit-lane loss (s). Every timed lap of every driver on a compound votes on
-// that compound's (slope, intercept); the sim uses only the SLOPE, applied as
-// a delta on each driver's own logged pace, so field-average wear never
-// overwrites a driver's real speed. The intercept is field-average fresh pace,
-// used once: to predict a stop's in-lap and cut the pit loss out of it as the
-// residual the tyres can't explain.
-//
-// A stint's last lap is its in-lap when a stop follows, and an in-lap is not
-// a tyre-wear data point — its time carries the pit loss itself. Including it
-// would let the fit explain pit time as wear and understate the loss, so the
-// wear fit stops one lap short of every stint that ends in a stop (the loss
-// is gathered from those same laps below, once, as the median residual).
-export function fitRaceModel(drivers, totalLaps) {
-  const pointsByCompound = new Map(); // compound -> [{x: age, y: time}]
-  const stops = []; // { inLapTime, predicted } for the pit-loss median
-
+// Every stint of every driver, as the clean (age, time) points it contributes.
+function cleanStints(drivers, totalLaps) {
+  const stints = [];
   for (const driver of drivers ?? []) {
     const times = driver?.lapTimeSeconds ?? [];
     const segments = stintSegments(driver, totalLaps);
-
     segments.forEach((segment, index) => {
-      const key = String(segment.compound ?? '').toLowerCase();
-      if (!pointsByCompound.has(key)) pointsByCompound.set(key, []);
-      const endsInStop = index < segments.length - 1;
-      const lastWearLap = endsInStop ? segment.toLap - 1 : segment.toLap;
-      for (let lap = segment.fromLap; lap <= lastWearLap; lap += 1) {
+      const firstLap = index > 0 ? segment.fromLap + 1 : Math.max(segment.fromLap, 2);
+      const lastLap = index < segments.length - 1 ? segment.toLap - 1 : segment.toLap;
+      const candidates = [];
+      for (let lap = firstLap; lap <= lastLap; lap += 1) {
         const seconds = times[lap - 1];
-        if (isTimed(seconds)) {
-          pointsByCompound.get(key).push({ x: lap - segment.fromLap + 1, y: seconds });
-        }
+        if (isTimed(seconds)) candidates.push({ x: lap - segment.fromLap + 1, y: seconds });
       }
-    });
-
-    // Pit loss: the in-lap is the last lap of the stint being left. Its logged
-    // time minus the model's prediction at that age on that compound is the
-    // time spent beyond driving the lap — the pit lane. (The out-lap is the
-    // first lap of the NEW stint and reads as a normal cold lap, so it is not
-    // double-counted here.)
-    segments.slice(1).forEach((segment, index) => {
-      const inLap = segment.fromLap - 1;
-      const seconds = times[inLap - 1];
-      const oldCompound = String(segments[index].compound ?? '').toLowerCase();
-      if (!isTimed(seconds)) return;
-      stops.push({ inLapTime: seconds, compound: oldCompound, age: inLap - segments[index].fromLap + 1 });
+      const typical = median(candidates.map((point) => point.y));
+      stints.push({
+        entryId: driver.entryId,
+        compound: String(segment.compound ?? '').toLowerCase(),
+        points: candidates.filter((point) => point.y <= typical * CLEAN_LAP_LIMIT),
+      });
     });
   }
+  return stints;
+}
+
+// Wear per compound by the WITHIN-STINT estimator: each stint is centred on
+// its own mean age and time before the slope is taken, so only how a car
+// slowed as ITS tyres aged votes — never how quick one car is against
+// another. A plain line through the pooled laps can't tell those apart: a
+// quicker car running a longer stint tilts it (the test fixture's three soft
+// stints, each exactly 0.100 s/lap, pool to 0.112). This is the fixed-effects
+// slope of panel regression; with a single stint it is ordinary least squares.
+function withinStintSlope(stints) {
+  let sxx = 0;
+  let sxy = 0;
+  for (const { points } of stints) {
+    if (points.length < 2) continue;
+    const meanX = points.reduce((sum, p) => sum + p.x, 0) / points.length;
+    const meanY = points.reduce((sum, p) => sum + p.y, 0) / points.length;
+    for (const p of points) {
+      sxx += (p.x - meanX) * (p.x - meanX);
+      sxy += (p.x - meanX) * (p.y - meanY);
+    }
+  }
+  return sxx > 0 ? sxy / sxx : 0; // no spread in age, no slope to claim
+}
+
+// Fit the race model from the field's own laps:
+//   degradation[c]      wear on compound c, s per lap of age (within-stint);
+//   freshPace[c]        the field's mean lap at age 0 on c, wear taken out;
+//   driverPace[id][c]   the same for one driver — the base every re-priced
+//                       lap is built on, so a driver keeps their own speed;
+//   pitInLoss/pitOutLoss  the pit lane's cost on the in-lap and the out-lap:
+//                       the median of each lap's time beyond the driver's
+//                       own tyre curve. Where the pit box sits against the
+//                       timing line decides how the loss splits between the
+//                       two laps, so both are measured and both relocate.
+export function fitRaceModel(drivers, totalLaps) {
+  const stints = cleanStints(drivers, totalLaps);
+  const compounds = [...new Set(stints.map((stint) => stint.compound))];
 
   const degradation = {};
   const freshPace = {};
   const fitSamples = {};
-  for (const [compound, points] of pointsByCompound) {
-    const fit = leastSquares(points);
-    degradation[compound] = fit ? fit.slope : 0;
-    freshPace[compound] = fit ? fit.intercept : null;
+  for (const compound of compounds) {
+    const onCompound = stints.filter((stint) => stint.compound === compound);
+    const points = onCompound.flatMap((stint) => stint.points);
+    const slope = withinStintSlope(onCompound);
+    degradation[compound] = slope;
+    freshPace[compound] =
+      points.length > 0
+        ? points.reduce((sum, p) => sum + (p.y - slope * p.x), 0) / points.length
+        : null;
     fitSamples[compound] = points.length;
   }
 
-  const residuals = stops
-    .filter((stop) => freshPace[stop.compound] != null)
-    .map((stop) => stop.inLapTime - (freshPace[stop.compound] + degradation[stop.compound] * stop.age))
-    .filter((value) => Number.isFinite(value))
-    .sort((a, b) => a - b);
+  const tallies = new Map(); // `${entryId}|${compound}` -> { sum, n }
+  for (const stint of stints) {
+    for (const p of stint.points) {
+      const key = `${stint.entryId}|${stint.compound}`;
+      const tally = tallies.get(key) ?? { entryId: stint.entryId, compound: stint.compound, sum: 0, n: 0 };
+      tally.sum += p.y - degradation[stint.compound] * p.x;
+      tally.n += 1;
+      tallies.set(key, tally);
+    }
+  }
+  const cells = [...tallies.values()].map(({ entryId, compound, sum, n }) => ({
+    entryId,
+    compound,
+    pace: sum / n,
+    n,
+  }));
+  const driverPace = {};
+  for (const { entryId, compound, pace } of cells) {
+    driverPace[entryId] = { ...driverPace[entryId], [compound]: pace };
+  }
 
-  const middle = Math.floor(residuals.length / 2);
-  const pitLoss =
-    residuals.length === 0
-      ? 0
-      : residuals.length % 2 === 1
-        ? residuals[middle]
-        : (residuals[middle - 1] + residuals[middle]) / 2;
+  const model = { degradation, freshPace, driverPace, fitSamples, ...additivePace(cells) };
 
-  return { degradation, freshPace, pitLoss, fitSamples, stopSamples: residuals.length };
+  // The pit lane: each stop's in-lap and out-lap against the driver's own
+  // curve — the old tyre at its age, the new one at age 1 (so a cold out-lap
+  // counts as part of what a stop costs).
+  const inResiduals = [];
+  const outResiduals = [];
+  for (const driver of drivers ?? []) {
+    const times = driver?.lapTimeSeconds ?? [];
+    const curve = tyreCurveFor(model, driver.entryId);
+    const segments = stintSegments(driver, totalLaps);
+    segments.slice(1).forEach((segment, index) => {
+      const previous = segments[index];
+      const inLap = segment.fromLap - 1;
+      const inExpected = curve(
+        String(previous.compound ?? '').toLowerCase(),
+        inLap - previous.fromLap + 1
+      );
+      if (isTimed(times[inLap - 1]) && inExpected != null) {
+        inResiduals.push(times[inLap - 1] - inExpected);
+      }
+      const outExpected = curve(String(segment.compound ?? '').toLowerCase(), 1);
+      if (isTimed(times[segment.fromLap - 1]) && outExpected != null) {
+        outResiduals.push(times[segment.fromLap - 1] - outExpected);
+      }
+    });
+  }
+  model.pitInLoss = median(inResiduals) ?? 0;
+  model.pitOutLoss = median(outResiduals) ?? 0;
+  model.pitLoss = model.pitInLoss + model.pitOutLoss;
+  model.stopSamples = inResiduals.length;
+  return model;
+}
+
+// The pace a driver WOULD have on a compound they never ran. Every measured
+// (driver, compound) pace is read as driver speed + compound speed, and the
+// two are fitted together by weighted least squares over the whole field
+// (backfitting: alternately re-solve each side holding the other — the
+// two-way fixed-effects fit, which converges for any connected field). A
+// driver who ran softs and mediums, compared with drivers who ran mediums and
+// hards, is then priced on hards through the cars that link them; when lap
+// times really are additive this recovers the unseen pace exactly, where a
+// simple field average would carry in whoever happened to run that tyre.
+function additivePace(cells) {
+  const driverBase = {};
+  const compoundOffset = {};
+  for (const cell of cells) {
+    driverBase[cell.entryId] = 0;
+    compoundOffset[cell.compound] = 0;
+  }
+  const solve = (side, other, keyOf, otherKeyOf) => {
+    const sums = {};
+    for (const cell of cells) {
+      const key = keyOf(cell);
+      const entry = (sums[key] ??= { sum: 0, n: 0 });
+      entry.sum += cell.n * (cell.pace - other[otherKeyOf(cell)]);
+      entry.n += cell.n;
+    }
+    let change = 0;
+    for (const [key, { sum, n }] of Object.entries(sums)) {
+      const value = sum / n;
+      change = Math.max(change, Math.abs(value - side[key]));
+      side[key] = value;
+    }
+    return change;
+  };
+  for (let round = 0; round < 500; round += 1) {
+    const moved = Math.max(
+      solve(driverBase, compoundOffset, (c) => c.entryId, (c) => c.compound),
+      solve(compoundOffset, driverBase, (c) => c.compound, (c) => c.entryId)
+    );
+    if (moved < 1e-10) break;
+  }
+  return { driverBase, compoundOffset };
+}
+
+// One driver's tyre curve: their expected lap on compound `key` at tyre age
+// `age`, or null when nothing measured can say. Their own measured pace on
+// that compound when they ran it; otherwise the additive fit's driver speed
+// plus compound speed.
+function tyreCurveFor(model, entryId) {
+  const own = model.driverPace?.[entryId] ?? {};
+  return (key, age) => {
+    const base = Number.isFinite(own[key])
+      ? own[key]
+      : Number.isFinite(model.driverBase?.[entryId]) && Number.isFinite(model.compoundOffset?.[key])
+        ? model.driverBase[entryId] + model.compoundOffset[key]
+        : null;
+    return base == null ? null : base + (model.degradation[key] ?? 0) * age;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -203,9 +340,10 @@ export function stopLapBounds(stopLaps, index, totalLaps) {
   return { min: Math.max(before + 1, 2), max: after - 1 };
 }
 
-// Stint map for a lap schedule: lap -> { stintIndex, age, compound }. The
-// compound SEQUENCE is preserved — moving a stop changes stint lengths, not
-// what tyres the team fitted.
+// Stint map for a lap schedule: lap -> { stintIndex, age, compound, isInLap,
+// isOutLap }. A stop is the first lap on the new set, so that lap is the
+// out-lap and the lap before it the in-lap. Built the same way for the real
+// schedule and the simulated one, so the two can be differenced lap by lap.
 function stintMapFor(compounds, stopLaps, totalLaps) {
   const map = new Map();
   const boundaries = [...stopLaps, totalLaps + 1];
@@ -214,29 +352,34 @@ function stintMapFor(compounds, stopLaps, totalLaps) {
     const to = boundaries[stintIndex] - 1;
     const compound = compounds[Math.min(stintIndex, compounds.length - 1)] ?? null;
     for (let lap = from; lap <= Math.min(to, totalLaps); lap += 1) {
-      map.set(lap, { stintIndex, age: lap - from + 1, compound });
+      map.set(lap, {
+        stintIndex,
+        age: lap - from + 1,
+        compound,
+        isOutLap: stintIndex > 0 && lap === from,
+        isInLap: stintIndex < boundaries.length - 1 && lap === to,
+      });
     }
     from = to + 1;
   }
   return map;
 }
 
-// The per-lap price of moving a stop. Untimed laps (stoppages) pass through
-// untouched — a red-flag interval is the clock's number, not the car's, and is
-// never re-priced. Timed laps take:
-//   compound — when a stop moves, the laps between the old and new in-lap
-//           change compound in the sim (a logged soft lap is now run on the
-//           mediums the team fitted). The price is the driver's OWN clean-lap
-//           average difference between the two compounds — never the field's,
-//           which would overwrite the driver's real pace. Laps whose compound
-//           is unchanged (including every in-lap: you pit on the old compound)
-//           pay nothing here;
-//   wear  — wearRate(compound) x (new age - old age): fresh tyres where the
-//           stop came early, older rubber where a longer stint now runs;
-//   pit   — the pit loss relocates to the new in-lap and leaves the old one;
-//   pace  — the flat per-lap dial, the driver's speed pillar.
-// A compound with no clean laps logged prices at wear only.
-function reTimedLap(driver, baseMap, newMap, model, offsets, tweak, lap) {
+// The price of one lap under the new schedule. Untimed laps (stoppages) pass
+// through untouched — a red-flag interval is the clock's number, not the
+// car's, and is never re-priced. A timed lap keeps everything the log says
+// and swaps only what the strategy decided:
+//   tyre — the driver's own curve on the tyre the lap now runs, at the age it
+//          now has, less their curve on the tyre it really ran at its real
+//          age. One formula for every case: a stop moved (same compound,
+//          other age), a lap that changes stint (other compound AND other
+//          age — both wear curves and the compounds' pace gap), a swapped
+//          stint. When no curve can price a compound, a lap that keeps its
+//          compound still pays the age difference; anything else pays nothing.
+//   pit  — the in-lap and out-lap losses leave the real stop's laps and
+//          arrive on the new ones;
+//   pace — the flat per-lap dial, the driver's speed pillar.
+function reTimedLap(driver, baseMap, newMap, model, curve, tweak, lap) {
   const logged = driver.lapTimeSeconds?.[lap - 1];
   if (!isTimed(logged)) return logged;
 
@@ -244,43 +387,21 @@ function reTimedLap(driver, baseMap, newMap, model, offsets, tweak, lap) {
   const next = newMap.get(lap);
   const baseKey = String(base?.compound ?? '').toLowerCase();
   const nextKey = String(next?.compound ?? '').toLowerCase();
-  const compound =
-    baseKey && nextKey && baseKey !== nextKey
-      ? (offsets.get(nextKey) ?? 0) - (offsets.get(baseKey) ?? 0)
-      : 0;
-  const wear =
-    (model.degradation[nextKey] ?? 0) *
-    ((next?.age ?? 0) - (base?.age ?? 0));
+  const was = curve(baseKey, base?.age ?? 0);
+  const now = curve(nextKey, next?.age ?? 0);
+  const tyre =
+    was != null && now != null
+      ? now - was
+      : baseKey === nextKey
+        ? (model.degradation[nextKey] ?? 0) * ((next?.age ?? 0) - (base?.age ?? 0))
+        : 0;
 
-  const wasInLap = base && base.isInLap;
-  const isInLap = next && next.isInLap;
-  const pit = model.pitLoss * ((isInLap ? 1 : 0) - (wasInLap ? 1 : 0));
+  const flag = (entry, key) => (entry?.[key] ? 1 : 0);
+  const pit =
+    model.pitInLoss * (flag(next, 'isInLap') - flag(base, 'isInLap')) +
+    model.pitOutLoss * (flag(next, 'isOutLap') - flag(base, 'isOutLap'));
 
-  return logged + compound + wear + pit + (tweak.paceDelta ?? 0);
-}
-
-// The driver's own pace on each compound: the mean of their clean laps on it
-// (in-laps out — they carry the pit loss, not pace). Mirrors the wear fit's
-// in-lap rule; a stint too short to have a clean lap simply doesn't vote.
-function compoundOffsets(driver, segments) {
-  const times = driver?.lapTimeSeconds ?? [];
-  const sums = new Map();
-  const counts = new Map();
-  segments.forEach((segment, index) => {
-    const endsInStop = index < segments.length - 1;
-    const lastLap = endsInStop ? segment.toLap - 1 : segment.toLap;
-    const key = String(segment.compound ?? '').toLowerCase();
-    for (let lap = segment.fromLap; lap <= lastLap; lap += 1) {
-      const seconds = times[lap - 1];
-      if (isTimed(seconds)) {
-        sums.set(key, (sums.get(key) ?? 0) + seconds);
-        counts.set(key, (counts.get(key) ?? 0) + 1);
-      }
-    }
-  });
-  const offsets = new Map();
-  for (const key of sums.keys()) offsets.set(key, sums.get(key) / counts.get(key));
-  return offsets;
+  return logged + tyre + pit + (tweak.paceDelta ?? 0);
 }
 
 // One driver's simulated race. Returns per-lap arrays (index lap-1) plus the
@@ -292,14 +413,14 @@ function simulateDriver(driver, model, tweak, totalLaps) {
   const times = driver.lapTimeSeconds ?? [];
   const compounds = segments.map((segment) => segment.compound);
   const baseStopLaps = pitStops(driver, totalLaps).map((stop) => stop.lap);
-  const baseMap = stintAgesWithInLaps(segments, totalLaps);
-  const offsets = compoundOffsets(driver, segments);
+  const baseMap = stintMapFor(compounds, baseStopLaps, totalLaps);
+  const curve = tyreCurveFor(model, driver.entryId);
 
   const stopLaps = tweakIsNoop(tweak)
     ? baseStopLaps
     : shiftedStopLaps(baseStopLaps, tweak, totalLaps);
-  const newMap = stintMapFor(compounds, stopLaps, totalLaps);
-  markInLaps(newMap, stopLaps);
+  const newCompounds = swappedCompounds(compounds, tweak, model);
+  const newMap = stintMapFor(newCompounds, stopLaps, totalLaps);
 
   const simLapTimes = [];
   const simCumulative = [];
@@ -307,7 +428,7 @@ function simulateDriver(driver, model, tweak, totalLaps) {
   let simTotal = 0;
   let baseTotal = 0;
   for (let lap = 1; lap <= totalLaps; lap += 1) {
-    const sim = reTimedLap(driver, baseMap, newMap, model, offsets, tweak, lap);
+    const sim = reTimedLap(driver, baseMap, newMap, model, curve, tweak, lap);
     const logged = times[lap - 1];
     simLapTimes.push(sim);
     // Only laps a car could have driven enter race time — a stoppage interval
@@ -333,6 +454,7 @@ function simulateDriver(driver, model, tweak, totalLaps) {
     teamName: driver.teamName,
     tweaked: !tweakIsNoop(tweak),
     compounds,
+    newCompounds,
     paceDeltaApplied: tweak.paceDelta ?? 0,
     simLapTimes,
     simCumulative,
@@ -343,60 +465,82 @@ function simulateDriver(driver, model, tweak, totalLaps) {
   };
 }
 
-// The in-lap is the last lap of the stint being left — where the pit loss
-// lives. stintAges gives age per lap; this tags each lap that is an in-lap.
-function stintAgesWithInLaps(segments, totalLaps) {
-  const map = stintAges(segments);
-  for (const segment of segments.slice(1)) {
-    const inLap = segment.fromLap - 1;
-    if (map.has(inLap)) map.set(inLap, { ...map.get(inLap), isInLap: true });
-  }
-  return map;
-}
-
-function markInLaps(map, stopLaps) {
-  for (const stop of stopLaps) {
-    const inLap = stop - 1;
-    if (map.has(inLap)) map.set(inLap, { ...map.get(inLap), isInLap: true });
-  }
-}
-
 // ---------------------------------------------------------------------------
-// The field — re-ranking everyone on cumulative race time
+// The field — re-ranking everyone on race time
 // ---------------------------------------------------------------------------
 
-// Positions from cumulative time: at each lap, the drivers who have run it,
-// ordered by their race time. This is the honest running order — a car that
-// stops earlier is genuinely ahead on the road — and it is how the sim field
-// is rebuilt. Only laps a driver has actually run earn a position.
-function rankByCumulative(cumulatives, totalLaps) {
+// Each driver's race clock per lap, for ranking and gaps. A car's clock runs
+// on its own timed laps. A lap it ran but the log can't time (a stoppage
+// interval, a hole in the feed) advances its clock by the field's median
+// timed lap that lap — neutral, so the car neither gains nor loses there,
+// where simply skipping the lap would hand it a lap's worth of time over
+// everyone who was timed. On that lap itself it holds no position (the clock
+// entry is left empty); from the next timed lap it rejoins where it was.
+// When nobody was timed on a lap (a red flag for the whole field), every
+// clock stands still alike. After a car's last timed lap its clock stops: a
+// retired car leaves the order.
+function raceClocks(lapsById, totalLaps) {
+  const fieldMedian = [];
+  for (let lap = 1; lap <= totalLaps; lap += 1) {
+    const timed = [];
+    for (const laps of lapsById.values()) {
+      if (isTimed(laps[lap - 1])) timed.push(laps[lap - 1]);
+    }
+    fieldMedian.push(median(timed) ?? 0);
+  }
+
+  const clocks = new Map();
+  for (const [id, laps] of lapsById) {
+    const clock = new Array(totalLaps).fill(undefined);
+    let lastTimed = 0;
+    for (let lap = 1; lap <= totalLaps; lap += 1) if (isTimed(laps[lap - 1])) lastTimed = lap;
+    let total = 0;
+    for (let lap = 1; lap <= lastTimed; lap += 1) {
+      if (isTimed(laps[lap - 1])) {
+        total += laps[lap - 1];
+        clock[lap - 1] = total;
+      } else {
+        total += fieldMedian[lap - 1];
+      }
+    }
+    clocks.set(id, clock);
+  }
+  return clocks;
+}
+
+// Positions from race clocks: at each lap, the drivers with a clock entry,
+// ordered by it. This is the honest running order — a car that stops earlier
+// is genuinely ahead on the road — and it is how the sim field is rebuilt.
+function rankByClock(clocks, totalLaps) {
   const positions = new Map(); // entryId -> [position per lap]
   const order = []; // entryId per lap, leader first
-  for (const id of cumulatives.keys()) positions.set(id, new Array(totalLaps).fill(undefined));
+  for (const id of clocks.keys()) positions.set(id, new Array(totalLaps).fill(undefined));
 
   for (let lap = 1; lap <= totalLaps; lap += 1) {
     const running = [];
-    for (const [id, cumulative] of cumulatives) {
-      const value = cumulative[lap - 1];
+    for (const [id, clock] of clocks) {
+      const value = clock[lap - 1];
       if (Number.isFinite(value)) running.push({ id, value });
     }
     running.sort((a, b) => a.value - b.value);
     order.push(running.map((entry) => entry.id));
-    running.forEach((entry, index) => positions.get(entry.id)[lap - 1] = index + 1);
+    running.forEach((entry, index) => {
+      positions.get(entry.id)[lap - 1] = index + 1;
+    });
   }
   return { positions, order };
 }
 
-// Gap to the leader's cumulative time, per lap — the trace a gap chart draws.
-function gapToLeader(cumulatives, order, totalLaps) {
+// Gap to the leader's clock, per lap — the trace a gap chart draws.
+function gapToLeader(clocks, order, totalLaps) {
   const gaps = new Map();
-  for (const id of cumulatives.keys()) gaps.set(id, new Array(totalLaps).fill(undefined));
+  for (const id of clocks.keys()) gaps.set(id, new Array(totalLaps).fill(undefined));
   for (let lap = 1; lap <= totalLaps; lap += 1) {
     const leaders = order[lap - 1];
     if (!leaders || leaders.length === 0) continue;
-    const leaderCumulative = cumulatives.get(leaders[0])[lap - 1];
+    const leaderClock = clocks.get(leaders[0])[lap - 1];
     for (const id of leaders) {
-      gaps.get(id)[lap - 1] = cumulatives.get(id)[lap - 1] - leaderCumulative;
+      gaps.get(id)[lap - 1] = clocks.get(id)[lap - 1] - leaderClock;
     }
   }
   return gaps;
@@ -407,7 +551,7 @@ function gapToLeader(cumulatives, order, totalLaps) {
 // ---------------------------------------------------------------------------
 
 // Run the sim for a session. `series` is the race-replay lap series (the same
-// payload the readings use), `tweaks` is { entryId -> { pitShift, paceDelta } }.
+// payload the readings use), `tweaks` is { entryId -> tweak } (see DEFAULT_TWEAK).
 // `seed` is reserved for the reliability pillar — the pit/pace math is fully
 // deterministic, and the signature stays a pure function of (series, tweaks,
 // seed) so chance plugs in without a rewrite.
@@ -426,19 +570,20 @@ export function simulateRace(series, tweaks = {}, seed = 1) {
     if (result) byId.set(driver.entryId, result);
   }
 
-  // Baseline cumulative comes straight from the logs for everyone; the sim
-  // cumulative differs only where a tweak re-priced a lap.
-  const baseCumulatives = new Map();
-  const simCumulatives = new Map();
+  // The real race's clocks come straight from the logs; the sim's differ
+  // only where a tweak re-priced a lap.
+  const baseLaps = new Map();
+  const simLaps = new Map();
   for (const driver of drivers) {
     const result = byId.get(driver.entryId);
     if (!result) continue;
-    baseCumulatives.set(driver.entryId, result.baseCumulative);
-    simCumulatives.set(driver.entryId, result.simCumulative);
+    baseLaps.set(driver.entryId, driver.lapTimeSeconds ?? []);
+    simLaps.set(driver.entryId, result.simLapTimes);
   }
-
-  const baseRank = rankByCumulative(baseCumulatives, totalLaps);
-  const simRank = rankByCumulative(simCumulatives, totalLaps);
+  const baseClocks = raceClocks(baseLaps, totalLaps);
+  const simClocks = raceClocks(simLaps, totalLaps);
+  const baseRank = rankByClock(baseClocks, totalLaps);
+  const simRank = rankByClock(simClocks, totalLaps);
 
   return {
     totalLaps,
@@ -447,8 +592,8 @@ export function simulateRace(series, tweaks = {}, seed = 1) {
     drivers: byId,
     basePositions: baseRank.positions,
     simPositions: simRank.positions,
-    baseGapToLeader: gapToLeader(baseCumulatives, baseRank.order, totalLaps),
-    simGapToLeader: gapToLeader(simCumulatives, simRank.order, totalLaps),
+    baseGapToLeader: gapToLeader(baseClocks, baseRank.order, totalLaps),
+    simGapToLeader: gapToLeader(simClocks, simRank.order, totalLaps),
   };
 }
 
@@ -568,6 +713,11 @@ export function simSummaryAtLap(sim, entryId, driversById, uptoLap) {
     // Every stop's actual movement, index for index — a two-stopper may have
     // moved only its second stop.
     stopDeltas: driver.newStopLaps.map((lap, i) => lap - (driver.baseStopLaps[i] ?? lap)),
+    // The stints whose tyre was swapped: { stint (1-based), from, to }.
+    compoundSwaps: (driver.newCompounds ?? [])
+      .map((to, i) => ({ stint: i + 1, from: driver.compounds[i], to }))
+      .filter((swap) => String(swap.from ?? '').toLowerCase() !== String(swap.to ?? '').toLowerCase()),
+    breaksCompoundRule: breaksCompoundRule(driver.compounds, driver.newCompounds),
     paceDelta: driver.paceDeltaApplied ?? 0,
     compoundKeys: [...new Set([...compoundNames(driver)])],
   };
