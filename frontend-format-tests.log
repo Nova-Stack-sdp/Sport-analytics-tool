@@ -1,0 +1,2161 @@
+
+> frontend@0.1.0 test
+> react-scripts test --watchAll=false --runInBand
+
+PASS src/App.test.js (29.343 s)
+  ● Console
+
+    console.error
+      An update to RaceSyncSelectionProvider inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      32 |       .then((result) => {
+      33 |         if (cancelled) return;
+    > 34 |         setFixtures((result.fixtures ?? []).filter((f) => f.replayReady));
+         |         ^
+      35 |       })
+      36 |       .catch((err) => {
+      37 |         if (!cancelled) setError(err.message);
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at setFixtures (node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at src/components/race-sync/RaceSyncSelection.js:34:9
+
+    console.error
+      An update to RaceSyncSelectionProvider inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      38 |       })
+      39 |       .finally(() => {
+    > 40 |         if (!cancelled) setLoading(false);
+         |                         ^
+      41 |       });
+      42 |     return () => {
+      43 |       cancelled = true;
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at setLoading (node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at src/components/race-sync/RaceSyncSelection.js:40:25
+
+    console.error
+      An update to RaceSyncSelectionProvider inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      32 |       .then((result) => {
+      33 |         if (cancelled) return;
+    > 34 |         setFixtures((result.fixtures ?? []).filter((f) => f.replayReady));
+         |         ^
+      35 |       })
+      36 |       .catch((err) => {
+      37 |         if (!cancelled) setError(err.message);
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at setFixtures (node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at src/components/race-sync/RaceSyncSelection.js:34:9
+
+    console.error
+      An update to RaceSyncSelectionProvider inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      38 |       })
+      39 |       .finally(() => {
+    > 40 |         if (!cancelled) setLoading(false);
+         |                         ^
+      41 |       });
+      42 |     return () => {
+      43 |       cancelled = true;
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at setLoading (node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at src/components/race-sync/RaceSyncSelection.js:40:25
+
+    console.error
+      Error: Cross origin http://localhost forbidden
+          at dispatchError (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\xhr-utils.js:63:19)
+          at Object.validCORSHeaders (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\xhr-utils.js:75:5)
+          at receiveResponse (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\XMLHttpRequest-impl.js:794:19)
+          at Request.<anonymous> (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\XMLHttpRequest-impl.js:658:43)
+          at Request.emit (node:events:508:20)
+          at Request._processResponse (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\helpers\http-request.js:228:12)
+          at ClientRequest.<anonymous> (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\helpers\http-request.js:101:12)
+          at Object.onceWrapper (node:events:623:12)
+          at ClientRequest.emit (node:events:508:20)
+          at HTTPParser.parserOnIncomingClient [as onIncoming] (node:_http_client:798:27)
+          at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)
+          at TLSSocket.socketOnData (node:_http_client:633:22)
+          at TLSSocket.emit (node:events:508:20)
+          at addChunk (node:internal/streams/readable:564:12)
+          at readableAddChunkPushByteMode (node:internal/streams/readable:515:3)
+          at TLSSocket.Readable.push (node:internal/streams/readable:395:5)
+          at TLSWrap.onStreamRead (node:internal/stream_base_commons:189:23) undefined
+
+      at VirtualConsole.<anonymous> (node_modules/jsdom/lib/jsdom/virtual-console.js:29:45)
+      at dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:66:53)
+      at Object.validCORSHeaders (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:75:5)
+      at receiveResponse (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:794:19)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:658:43)
+      at Request._processResponse (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:228:12)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:101:12)
+
+    console.error
+      Error: Cross origin http://localhost forbidden
+          at dispatchError (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\xhr-utils.js:63:19)
+          at Object.validCORSHeaders (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\xhr-utils.js:75:5)
+          at receiveResponse (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\XMLHttpRequest-impl.js:794:19)
+          at Request.<anonymous> (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\XMLHttpRequest-impl.js:658:43)
+          at Request.emit (node:events:508:20)
+          at Request._processResponse (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\helpers\http-request.js:228:12)
+          at ClientRequest.<anonymous> (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\helpers\http-request.js:101:12)
+          at Object.onceWrapper (node:events:623:12)
+          at ClientRequest.emit (node:events:508:20)
+          at HTTPParser.parserOnIncomingClient [as onIncoming] (node:_http_client:798:27)
+          at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)
+          at TLSSocket.socketOnData (node:_http_client:633:22)
+          at TLSSocket.emit (node:events:508:20)
+          at addChunk (node:internal/streams/readable:564:12)
+          at readableAddChunkPushByteMode (node:internal/streams/readable:515:3)
+          at TLSSocket.Readable.push (node:internal/streams/readable:395:5)
+          at TLSWrap.onStreamRead (node:internal/stream_base_commons:189:23) undefined
+
+      at VirtualConsole.<anonymous> (node_modules/jsdom/lib/jsdom/virtual-console.js:29:45)
+      at dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:66:53)
+      at Object.validCORSHeaders (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:75:5)
+      at receiveResponse (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:794:19)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:658:43)
+      at Request._processResponse (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:228:12)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:101:12)
+
+    console.error
+      Error: Cross origin http://localhost forbidden
+          at dispatchError (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\xhr-utils.js:63:19)
+          at Object.validCORSHeaders (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\xhr-utils.js:75:5)
+          at receiveResponse (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\XMLHttpRequest-impl.js:794:19)
+          at Request.<anonymous> (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\XMLHttpRequest-impl.js:658:43)
+          at Request.emit (node:events:508:20)
+          at Request._processResponse (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\helpers\http-request.js:228:12)
+          at ClientRequest.<anonymous> (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\helpers\http-request.js:101:12)
+          at Object.onceWrapper (node:events:623:12)
+          at ClientRequest.emit (node:events:508:20)
+          at HTTPParser.parserOnIncomingClient [as onIncoming] (node:_http_client:798:27)
+          at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)
+          at TLSSocket.socketOnData (node:_http_client:633:22)
+          at TLSSocket.emit (node:events:508:20)
+          at addChunk (node:internal/streams/readable:564:12)
+          at readableAddChunkPushByteMode (node:internal/streams/readable:515:3)
+          at TLSSocket.Readable.push (node:internal/streams/readable:395:5)
+          at TLSWrap.onStreamRead (node:internal/stream_base_commons:189:23) undefined
+
+      at VirtualConsole.<anonymous> (node_modules/jsdom/lib/jsdom/virtual-console.js:29:45)
+      at dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:66:53)
+      at Object.validCORSHeaders (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:75:5)
+      at receiveResponse (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:794:19)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:658:43)
+      at Request._processResponse (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:228:12)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:101:12)
+
+    console.error
+      Error: Cross origin http://localhost forbidden
+          at dispatchError (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\xhr-utils.js:63:19)
+          at Object.validCORSHeaders (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\xhr-utils.js:75:5)
+          at receiveResponse (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\XMLHttpRequest-impl.js:794:19)
+          at Request.<anonymous> (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\XMLHttpRequest-impl.js:658:43)
+          at Request.emit (node:events:508:20)
+          at Request._processResponse (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\helpers\http-request.js:228:12)
+          at ClientRequest.<anonymous> (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\helpers\http-request.js:101:12)
+          at Object.onceWrapper (node:events:623:12)
+          at ClientRequest.emit (node:events:508:20)
+          at HTTPParser.parserOnIncomingClient [as onIncoming] (node:_http_client:798:27)
+          at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)
+          at TLSSocket.socketOnData (node:_http_client:633:22)
+          at TLSSocket.emit (node:events:508:20)
+          at addChunk (node:internal/streams/readable:564:12)
+          at readableAddChunkPushByteMode (node:internal/streams/readable:515:3)
+          at TLSSocket.Readable.push (node:internal/streams/readable:395:5)
+          at TLSWrap.onStreamRead (node:internal/stream_base_commons:189:23) undefined
+
+      at VirtualConsole.<anonymous> (node_modules/jsdom/lib/jsdom/virtual-console.js:29:45)
+      at dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:66:53)
+      at Object.validCORSHeaders (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:75:5)
+      at receiveResponse (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:794:19)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:658:43)
+      at Request._processResponse (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:228:12)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:101:12)
+
+    console.error
+      Error: Cross origin http://localhost forbidden
+          at dispatchError (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\xhr-utils.js:63:19)
+          at Object.validCORSHeaders (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\xhr-utils.js:75:5)
+          at receiveResponse (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\XMLHttpRequest-impl.js:794:19)
+          at Request.<anonymous> (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\XMLHttpRequest-impl.js:658:43)
+          at Request.emit (node:events:508:20)
+          at Request._processResponse (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\helpers\http-request.js:228:12)
+          at ClientRequest.<anonymous> (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\helpers\http-request.js:101:12)
+          at Object.onceWrapper (node:events:623:12)
+          at ClientRequest.emit (node:events:508:20)
+          at HTTPParser.parserOnIncomingClient [as onIncoming] (node:_http_client:798:27)
+          at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)
+          at TLSSocket.socketOnData (node:_http_client:633:22)
+          at TLSSocket.emit (node:events:508:20)
+          at addChunk (node:internal/streams/readable:564:12)
+          at readableAddChunkPushByteMode (node:internal/streams/readable:515:3)
+          at TLSSocket.Readable.push (node:internal/streams/readable:395:5)
+          at TLSWrap.onStreamRead (node:internal/stream_base_commons:189:23) undefined
+
+      at VirtualConsole.<anonymous> (node_modules/jsdom/lib/jsdom/virtual-console.js:29:45)
+      at dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:66:53)
+      at Object.validCORSHeaders (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:75:5)
+      at receiveResponse (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:794:19)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:658:43)
+      at Request._processResponse (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:228:12)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:101:12)
+
+    console.error
+      Error: Cross origin http://localhost forbidden
+          at dispatchError (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\xhr-utils.js:63:19)
+          at Object.validCORSHeaders (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\xhr-utils.js:75:5)
+          at receiveResponse (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\XMLHttpRequest-impl.js:794:19)
+          at Request.<anonymous> (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\XMLHttpRequest-impl.js:658:43)
+          at Request.emit (node:events:508:20)
+          at Request._processResponse (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\helpers\http-request.js:228:12)
+          at ClientRequest.<anonymous> (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\helpers\http-request.js:101:12)
+          at Object.onceWrapper (node:events:623:12)
+          at ClientRequest.emit (node:events:508:20)
+          at HTTPParser.parserOnIncomingClient [as onIncoming] (node:_http_client:798:27)
+          at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)
+          at TLSSocket.socketOnData (node:_http_client:633:22)
+          at TLSSocket.emit (node:events:508:20)
+          at addChunk (node:internal/streams/readable:564:12)
+          at readableAddChunkPushByteMode (node:internal/streams/readable:515:3)
+          at TLSSocket.Readable.push (node:internal/streams/readable:395:5)
+          at TLSWrap.onStreamRead (node:internal/stream_base_commons:189:23) undefined
+
+      at VirtualConsole.<anonymous> (node_modules/jsdom/lib/jsdom/virtual-console.js:29:45)
+      at dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:66:53)
+      at Object.validCORSHeaders (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:75:5)
+      at receiveResponse (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:794:19)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:658:43)
+      at Request._processResponse (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:228:12)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:101:12)
+
+    console.error
+      Failed to fetch notifications for nav TypeError: Network request failed
+          at C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\whatwg-fetch\dist\fetch.umd.js:567:18
+          at Timeout.task [as _onTimeout] (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\browser\Window.js:516:19)
+          at listOnTimeout (node:internal/timers:605:17)
+          at processTimers (node:internal/timers:541:7)
+
+      72 |       }
+      73 |     } catch (err) {
+    > 74 |       console.error('Failed to fetch notifications for nav', err);
+         |               ^
+      75 |     }
+      76 |   }, [user]);
+      77 |
+
+      at src/components/TopNavigation.js:74:15
+
+    console.error
+      Error: Cross origin http://localhost forbidden
+          at dispatchError (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\xhr-utils.js:63:19)
+          at Object.validCORSHeaders (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\xhr-utils.js:75:5)
+          at receiveResponse (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\XMLHttpRequest-impl.js:794:19)
+          at Request.<anonymous> (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\XMLHttpRequest-impl.js:658:43)
+          at Request.emit (node:events:508:20)
+          at Request._processResponse (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\helpers\http-request.js:228:12)
+          at ClientRequest.<anonymous> (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\helpers\http-request.js:101:12)
+          at Object.onceWrapper (node:events:623:12)
+          at ClientRequest.emit (node:events:508:20)
+          at HTTPParser.parserOnIncomingClient [as onIncoming] (node:_http_client:798:27)
+          at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)
+          at TLSSocket.socketOnData (node:_http_client:633:22)
+          at TLSSocket.emit (node:events:508:20)
+          at addChunk (node:internal/streams/readable:564:12)
+          at readableAddChunkPushByteMode (node:internal/streams/readable:515:3)
+          at TLSSocket.Readable.push (node:internal/streams/readable:395:5)
+          at TLSWrap.onStreamRead (node:internal/stream_base_commons:189:23) undefined
+
+      at VirtualConsole.<anonymous> (node_modules/jsdom/lib/jsdom/virtual-console.js:29:45)
+      at dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:66:53)
+      at Object.validCORSHeaders (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:75:5)
+      at receiveResponse (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:794:19)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:658:43)
+      at Request._processResponse (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:228:12)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:101:12)
+
+    console.error
+      Error: Cross origin http://localhost forbidden
+          at dispatchError (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\xhr-utils.js:63:19)
+          at Object.validCORSHeaders (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\xhr-utils.js:75:5)
+          at receiveResponse (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\XMLHttpRequest-impl.js:794:19)
+          at Request.<anonymous> (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\XMLHttpRequest-impl.js:658:43)
+          at Request.emit (node:events:508:20)
+          at Request._processResponse (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\helpers\http-request.js:228:12)
+          at ClientRequest.<anonymous> (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\helpers\http-request.js:101:12)
+          at Object.onceWrapper (node:events:623:12)
+          at ClientRequest.emit (node:events:508:20)
+          at HTTPParser.parserOnIncomingClient [as onIncoming] (node:_http_client:798:27)
+          at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)
+          at TLSSocket.socketOnData (node:_http_client:633:22)
+          at TLSSocket.emit (node:events:508:20)
+          at addChunk (node:internal/streams/readable:564:12)
+          at readableAddChunkPushByteMode (node:internal/streams/readable:515:3)
+          at TLSSocket.Readable.push (node:internal/streams/readable:395:5)
+          at TLSWrap.onStreamRead (node:internal/stream_base_commons:189:23) undefined
+
+      at VirtualConsole.<anonymous> (node_modules/jsdom/lib/jsdom/virtual-console.js:29:45)
+      at dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:66:53)
+      at Object.validCORSHeaders (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:75:5)
+      at receiveResponse (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:794:19)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:658:43)
+      at Request._processResponse (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:228:12)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:101:12)
+
+    console.error
+      Error: Cross origin http://localhost forbidden
+          at dispatchError (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\xhr-utils.js:63:19)
+          at Object.validCORSHeaders (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\xhr-utils.js:75:5)
+          at receiveResponse (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\XMLHttpRequest-impl.js:794:19)
+          at Request.<anonymous> (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\XMLHttpRequest-impl.js:658:43)
+          at Request.emit (node:events:508:20)
+          at Request._processResponse (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\helpers\http-request.js:228:12)
+          at ClientRequest.<anonymous> (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\helpers\http-request.js:101:12)
+          at Object.onceWrapper (node:events:623:12)
+          at ClientRequest.emit (node:events:508:20)
+          at HTTPParser.parserOnIncomingClient [as onIncoming] (node:_http_client:798:27)
+          at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)
+          at TLSSocket.socketOnData (node:_http_client:633:22)
+          at TLSSocket.emit (node:events:508:20)
+          at addChunk (node:internal/streams/readable:564:12)
+          at readableAddChunkPushByteMode (node:internal/streams/readable:515:3)
+          at TLSSocket.Readable.push (node:internal/streams/readable:395:5)
+          at TLSWrap.onStreamRead (node:internal/stream_base_commons:189:23) undefined
+
+      at VirtualConsole.<anonymous> (node_modules/jsdom/lib/jsdom/virtual-console.js:29:45)
+      at dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:66:53)
+      at Object.validCORSHeaders (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:75:5)
+      at receiveResponse (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:794:19)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:658:43)
+      at Request._processResponse (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:228:12)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:101:12)
+
+    console.error
+      Error: Cross origin http://localhost forbidden
+          at dispatchError (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\xhr-utils.js:63:19)
+          at Object.validCORSHeaders (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\xhr-utils.js:75:5)
+          at receiveResponse (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\XMLHttpRequest-impl.js:794:19)
+          at Request.<anonymous> (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\XMLHttpRequest-impl.js:658:43)
+          at Request.emit (node:events:508:20)
+          at Request._processResponse (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\helpers\http-request.js:228:12)
+          at ClientRequest.<anonymous> (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\helpers\http-request.js:101:12)
+          at Object.onceWrapper (node:events:623:12)
+          at ClientRequest.emit (node:events:508:20)
+          at HTTPParser.parserOnIncomingClient [as onIncoming] (node:_http_client:798:27)
+          at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)
+          at TLSSocket.socketOnData (node:_http_client:633:22)
+          at TLSSocket.emit (node:events:508:20)
+          at addChunk (node:internal/streams/readable:564:12)
+          at readableAddChunkPushByteMode (node:internal/streams/readable:515:3)
+          at TLSSocket.Readable.push (node:internal/streams/readable:395:5)
+          at TLSWrap.onStreamRead (node:internal/stream_base_commons:189:23) undefined
+
+      at VirtualConsole.<anonymous> (node_modules/jsdom/lib/jsdom/virtual-console.js:29:45)
+      at dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:66:53)
+      at Object.validCORSHeaders (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:75:5)
+      at receiveResponse (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:794:19)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:658:43)
+      at Request._processResponse (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:228:12)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:101:12)
+
+    console.error
+      Failed to fetch notifications for nav TypeError: Network request failed
+          at C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\whatwg-fetch\dist\fetch.umd.js:567:18
+          at Timeout.task [as _onTimeout] (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\browser\Window.js:516:19)
+          at listOnTimeout (node:internal/timers:605:17)
+          at processTimers (node:internal/timers:541:7)
+
+      72 |       }
+      73 |     } catch (err) {
+    > 74 |       console.error('Failed to fetch notifications for nav', err);
+         |               ^
+      75 |     }
+      76 |   }, [user]);
+      77 |
+
+      at src/components/TopNavigation.js:74:15
+
+    console.error
+      Error: Cross origin http://localhost forbidden
+          at dispatchError (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\xhr-utils.js:63:19)
+          at Object.validCORSHeaders (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\xhr-utils.js:75:5)
+          at receiveResponse (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\XMLHttpRequest-impl.js:794:19)
+          at Request.<anonymous> (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\XMLHttpRequest-impl.js:658:43)
+          at Request.emit (node:events:508:20)
+          at Request._processResponse (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\helpers\http-request.js:228:12)
+          at ClientRequest.<anonymous> (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\helpers\http-request.js:101:12)
+          at Object.onceWrapper (node:events:623:12)
+          at ClientRequest.emit (node:events:508:20)
+          at HTTPParser.parserOnIncomingClient [as onIncoming] (node:_http_client:798:27)
+          at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)
+          at TLSSocket.socketOnData (node:_http_client:633:22)
+          at TLSSocket.emit (node:events:508:20)
+          at addChunk (node:internal/streams/readable:564:12)
+          at readableAddChunkPushByteMode (node:internal/streams/readable:515:3)
+          at TLSSocket.Readable.push (node:internal/streams/readable:395:5)
+          at TLSWrap.onStreamRead (node:internal/stream_base_commons:189:23) undefined
+
+      at VirtualConsole.<anonymous> (node_modules/jsdom/lib/jsdom/virtual-console.js:29:45)
+      at dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:66:53)
+      at Object.validCORSHeaders (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:75:5)
+      at receiveResponse (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:794:19)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:658:43)
+      at Request._processResponse (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:228:12)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:101:12)
+
+    console.error
+      Error: Cross origin http://localhost forbidden
+          at dispatchError (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\xhr-utils.js:63:19)
+          at Object.validCORSHeaders (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\xhr-utils.js:75:5)
+          at receiveResponse (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\XMLHttpRequest-impl.js:794:19)
+          at Request.<anonymous> (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\XMLHttpRequest-impl.js:658:43)
+          at Request.emit (node:events:508:20)
+          at Request._processResponse (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\helpers\http-request.js:228:12)
+          at ClientRequest.<anonymous> (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\helpers\http-request.js:101:12)
+          at Object.onceWrapper (node:events:623:12)
+          at ClientRequest.emit (node:events:508:20)
+          at HTTPParser.parserOnIncomingClient [as onIncoming] (node:_http_client:798:27)
+          at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)
+          at TLSSocket.socketOnData (node:_http_client:633:22)
+          at TLSSocket.emit (node:events:508:20)
+          at addChunk (node:internal/streams/readable:564:12)
+          at readableAddChunkPushByteMode (node:internal/streams/readable:515:3)
+          at TLSSocket.Readable.push (node:internal/streams/readable:395:5)
+          at TLSWrap.onStreamRead (node:internal/stream_base_commons:189:23) undefined
+
+      at VirtualConsole.<anonymous> (node_modules/jsdom/lib/jsdom/virtual-console.js:29:45)
+      at dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:66:53)
+      at Object.validCORSHeaders (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:75:5)
+      at receiveResponse (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:794:19)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:658:43)
+      at Request._processResponse (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:228:12)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:101:12)
+
+    console.error
+      Failed to fetch notifications for nav TypeError: Network request failed
+          at C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\whatwg-fetch\dist\fetch.umd.js:567:18
+          at Timeout.task [as _onTimeout] (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\browser\Window.js:516:19)
+          at listOnTimeout (node:internal/timers:605:17)
+          at processTimers (node:internal/timers:541:7)
+
+      72 |       }
+      73 |     } catch (err) {
+    > 74 |       console.error('Failed to fetch notifications for nav', err);
+         |               ^
+      75 |     }
+      76 |   }, [user]);
+      77 |
+
+      at src/components/TopNavigation.js:74:15
+
+    console.error
+      Error: Cross origin http://localhost forbidden
+          at dispatchError (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\xhr-utils.js:63:19)
+          at Object.validCORSHeaders (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\xhr-utils.js:75:5)
+          at receiveResponse (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\XMLHttpRequest-impl.js:794:19)
+          at Request.<anonymous> (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\XMLHttpRequest-impl.js:658:43)
+          at Request.emit (node:events:508:20)
+          at Request._processResponse (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\helpers\http-request.js:228:12)
+          at ClientRequest.<anonymous> (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\helpers\http-request.js:101:12)
+          at Object.onceWrapper (node:events:623:12)
+          at ClientRequest.emit (node:events:508:20)
+          at HTTPParser.parserOnIncomingClient [as onIncoming] (node:_http_client:798:27)
+          at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)
+          at TLSSocket.socketOnData (node:_http_client:633:22)
+          at TLSSocket.emit (node:events:508:20)
+          at addChunk (node:internal/streams/readable:564:12)
+          at readableAddChunkPushByteMode (node:internal/streams/readable:515:3)
+          at TLSSocket.Readable.push (node:internal/streams/readable:395:5)
+          at TLSWrap.onStreamRead (node:internal/stream_base_commons:189:23) undefined
+
+      at VirtualConsole.<anonymous> (node_modules/jsdom/lib/jsdom/virtual-console.js:29:45)
+      at dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:66:53)
+      at Object.validCORSHeaders (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:75:5)
+      at receiveResponse (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:794:19)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:658:43)
+      at Request._processResponse (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:228:12)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:101:12)
+
+    console.error
+      Error: Cross origin http://localhost forbidden
+          at dispatchError (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\xhr-utils.js:63:19)
+          at Object.validCORSHeaders (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\xhr-utils.js:75:5)
+          at receiveResponse (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\XMLHttpRequest-impl.js:794:19)
+          at Request.<anonymous> (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\xhr\XMLHttpRequest-impl.js:658:43)
+          at Request.emit (node:events:508:20)
+          at Request._processResponse (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\helpers\http-request.js:228:12)
+          at ClientRequest.<anonymous> (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\living\helpers\http-request.js:101:12)
+          at Object.onceWrapper (node:events:623:12)
+          at ClientRequest.emit (node:events:508:20)
+          at HTTPParser.parserOnIncomingClient [as onIncoming] (node:_http_client:798:27)
+          at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)
+          at TLSSocket.socketOnData (node:_http_client:633:22)
+          at TLSSocket.emit (node:events:508:20)
+          at addChunk (node:internal/streams/readable:564:12)
+          at readableAddChunkPushByteMode (node:internal/streams/readable:515:3)
+          at TLSSocket.Readable.push (node:internal/streams/readable:395:5)
+          at TLSWrap.onStreamRead (node:internal/stream_base_commons:189:23) undefined
+
+      at VirtualConsole.<anonymous> (node_modules/jsdom/lib/jsdom/virtual-console.js:29:45)
+      at dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:66:53)
+      at Object.validCORSHeaders (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:75:5)
+      at receiveResponse (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:794:19)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:658:43)
+      at Request._processResponse (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:228:12)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:101:12)
+
+    console.error
+      Failed to fetch notifications for nav TypeError: Network request failed
+          at C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\whatwg-fetch\dist\fetch.umd.js:567:18
+          at Timeout.task [as _onTimeout] (C:\Users\thabi\coms\software design project\project\sport-analytics-tool\frontend\node_modules\jsdom\lib\jsdom\browser\Window.js:516:19)
+          at listOnTimeout (node:internal/timers:605:17)
+          at processTimers (node:internal/timers:541:7)
+
+      72 |       }
+      73 |     } catch (err) {
+    > 74 |       console.error('Failed to fetch notifications for nav', err);
+         |               ^
+      75 |     }
+      76 |   }, [user]);
+      77 |
+
+      at src/components/TopNavigation.js:74:15
+
+PASS src/tests/TelemetryTVPage.test.js
+PASS src/tests/SignUpPage.additional.test.js
+PASS src/tests/TopNavigation.test.js
+PASS src/tests/CodeSubmissionsPanel.test.js
+PASS src/tests/DatasetSubmissionsPanel.test.js
+PASS src/tests/ProfilePage.test.js
+  ● Console
+
+    console.error
+      An update to ProfilePage inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      167 |     loadUserPreferences(user).then((loaded) => {
+      168 |       if (cancelled) return;
+    > 169 |       setPreferences(loaded);
+          |       ^
+      170 |       if (loaded.displayName) setDisplayName(loaded.displayName);
+      171 |     });
+      172 |
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at setPreferences (node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at src/pages/ProfilePage.js:169:7
+
+    console.error
+      An update to ProfilePage inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      168 |       if (cancelled) return;
+      169 |       setPreferences(loaded);
+    > 170 |       if (loaded.displayName) setDisplayName(loaded.displayName);
+          |                               ^
+      171 |     });
+      172 |
+      173 |     return () => {
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at setDisplayName (node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at src/pages/ProfilePage.js:170:31
+
+    console.error
+      An update to ProfilePage inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      189 |       const drivers = preferenceCatalog(liveDrivers, OFFICIAL_2026_DRIVERS, 'driver');
+      190 |       const teams = preferenceCatalog(liveTeams, OFFICIAL_2026_TEAMS, 'team');
+    > 191 |       setCatalog({ drivers, teams });
+          |       ^
+      192 |     });
+      193 |
+      194 |     return () => { cancelled = true; };
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at setCatalog (node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at src/pages/ProfilePage.js:191:7
+
+    console.error
+      An update to ProfilePage inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      167 |     loadUserPreferences(user).then((loaded) => {
+      168 |       if (cancelled) return;
+    > 169 |       setPreferences(loaded);
+          |       ^
+      170 |       if (loaded.displayName) setDisplayName(loaded.displayName);
+      171 |     });
+      172 |
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at setPreferences (node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at src/pages/ProfilePage.js:169:7
+
+    console.error
+      An update to ProfilePage inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      168 |       if (cancelled) return;
+      169 |       setPreferences(loaded);
+    > 170 |       if (loaded.displayName) setDisplayName(loaded.displayName);
+          |                               ^
+      171 |     });
+      172 |
+      173 |     return () => {
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at setDisplayName (node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at src/pages/ProfilePage.js:170:31
+
+    console.error
+      An update to ProfilePage inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      189 |       const drivers = preferenceCatalog(liveDrivers, OFFICIAL_2026_DRIVERS, 'driver');
+      190 |       const teams = preferenceCatalog(liveTeams, OFFICIAL_2026_TEAMS, 'team');
+    > 191 |       setCatalog({ drivers, teams });
+          |       ^
+      192 |     });
+      193 |
+      194 |     return () => { cancelled = true; };
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at setCatalog (node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at src/pages/ProfilePage.js:191:7
+
+    console.error
+      An update to ProfilePage inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      167 |     loadUserPreferences(user).then((loaded) => {
+      168 |       if (cancelled) return;
+    > 169 |       setPreferences(loaded);
+          |       ^
+      170 |       if (loaded.displayName) setDisplayName(loaded.displayName);
+      171 |     });
+      172 |
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at setPreferences (node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at src/pages/ProfilePage.js:169:7
+
+    console.error
+      An update to ProfilePage inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      168 |       if (cancelled) return;
+      169 |       setPreferences(loaded);
+    > 170 |       if (loaded.displayName) setDisplayName(loaded.displayName);
+          |                               ^
+      171 |     });
+      172 |
+      173 |     return () => {
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at setDisplayName (node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at src/pages/ProfilePage.js:170:31
+
+    console.error
+      An update to ProfilePage inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      189 |       const drivers = preferenceCatalog(liveDrivers, OFFICIAL_2026_DRIVERS, 'driver');
+      190 |       const teams = preferenceCatalog(liveTeams, OFFICIAL_2026_TEAMS, 'team');
+    > 191 |       setCatalog({ drivers, teams });
+          |       ^
+      192 |     });
+      193 |
+      194 |     return () => { cancelled = true; };
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at setCatalog (node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at src/pages/ProfilePage.js:191:7
+
+    console.error
+      An update to ProfilePage inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      139 |     const unsubscribe = subscribeToFollows(user.uid, () => active && setFollows(readFollows(user.uid)));
+      140 |     loadFollows(user.uid)
+    > 141 |       .then((loaded) => active && setFollows(loaded))
+          |                                   ^
+      142 |       .catch(() => {});
+      143 |     return () => {
+      144 |       active = false;
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at setFollows (node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at src/pages/ProfilePage.js:141:35
+
+    console.error
+      An update to ProfilePage inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      167 |     loadUserPreferences(user).then((loaded) => {
+      168 |       if (cancelled) return;
+    > 169 |       setPreferences(loaded);
+          |       ^
+      170 |       if (loaded.displayName) setDisplayName(loaded.displayName);
+      171 |     });
+      172 |
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at setPreferences (node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at src/pages/ProfilePage.js:169:7
+
+    console.error
+      An update to ProfilePage inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      168 |       if (cancelled) return;
+      169 |       setPreferences(loaded);
+    > 170 |       if (loaded.displayName) setDisplayName(loaded.displayName);
+          |                               ^
+      171 |     });
+      172 |
+      173 |     return () => {
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at setDisplayName (node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at src/pages/ProfilePage.js:170:31
+
+    console.error
+      An update to ProfilePage inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      189 |       const drivers = preferenceCatalog(liveDrivers, OFFICIAL_2026_DRIVERS, 'driver');
+      190 |       const teams = preferenceCatalog(liveTeams, OFFICIAL_2026_TEAMS, 'team');
+    > 191 |       setCatalog({ drivers, teams });
+          |       ^
+      192 |     });
+      193 |
+      194 |     return () => { cancelled = true; };
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at setCatalog (node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at src/pages/ProfilePage.js:191:7
+
+PASS src/tests/VerifyEmailPage.test.js
+PASS src/tests/SignInPage.additional.test.js
+PASS src/tests/RaceReplayPage.test.js
+PASS src/tests/SignUpPage.test.js
+PASS src/tests/DriversPage.test.js
+PASS src/tests/CodeSubmissionPage.test.js
+PASS src/tests/DriverDetailPage.test.js
+PASS src/tests/TeamDetailPage.test.js
+PASS src/tests/SettingsPanel.test.js
+PASS src/tests/SignInPage.test.js
+PASS src/tests/TimeTravelPage.additional.test.js
+PASS src/tests/SubmissionsPanel.test.js
+PASS src/tests/HomeComponents.test.js
+PASS src/tests/StaticPages.test.js
+  ● Console
+
+    console.error
+      An update to SubmissionsPanel inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      42 |       setSubmissions(data.submissions || []);
+      43 |     } catch (err) {
+    > 44 |       setLoadError(describeError(err));
+         |       ^
+      45 |     } finally {
+      46 |       setLoading(false);
+      47 |     }
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at setLoadError (node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at src/components/developer/SubmissionsPanel.js:44:7
+
+    console.error
+      An update to SubmissionsPanel inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      44 |       setLoadError(describeError(err));
+      45 |     } finally {
+    > 46 |       setLoading(false);
+         |       ^
+      47 |     }
+      48 |   }, []);
+      49 |
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at setLoading (node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at src/components/developer/SubmissionsPanel.js:46:7
+
+    console.error
+      An update to SubmissionsPanel inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      42 |       setSubmissions(data.submissions || []);
+      43 |     } catch (err) {
+    > 44 |       setLoadError(describeError(err));
+         |       ^
+      45 |     } finally {
+      46 |       setLoading(false);
+      47 |     }
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at setLoadError (node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at src/components/developer/SubmissionsPanel.js:44:7
+
+    console.error
+      An update to SubmissionsPanel inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      44 |       setLoadError(describeError(err));
+      45 |     } finally {
+    > 46 |       setLoading(false);
+         |       ^
+      47 |     }
+      48 |   }, []);
+      49 |
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at setLoading (node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at src/components/developer/SubmissionsPanel.js:46:7
+
+    console.error
+      An update to SubmissionsPanel inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      42 |       setSubmissions(data.submissions || []);
+      43 |     } catch (err) {
+    > 44 |       setLoadError(describeError(err));
+         |       ^
+      45 |     } finally {
+      46 |       setLoading(false);
+      47 |     }
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at setLoadError (node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at src/components/developer/SubmissionsPanel.js:44:7
+
+    console.error
+      An update to SubmissionsPanel inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      44 |       setLoadError(describeError(err));
+      45 |     } finally {
+    > 46 |       setLoading(false);
+         |       ^
+      47 |     }
+      48 |   }, []);
+      49 |
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at setLoading (node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at src/components/developer/SubmissionsPanel.js:46:7
+
+PASS src/tests/DeveloperPage.test.js
+PASS src/tests/FixturesEventsPage.additional.test.js
+PASS src/tests/TeamsPage.test.js
+PASS src/hooks/useF1NewsFeed.test.js
+PASS src/tests/ApiDocsPage.test.js
+PASS src/tests/NewsFeedPanel.test.js
+PASS src/tests/ForgotPasswordPage.test.js
+PASS src/tests/OverviewPage.test.js
+FAIL src/tests/OverviewPage.additional.test.js
+  ● OverviewPage additional states › renders all dashboard data, status pills, and empty nested event state
+
+    TestingLibraryElementError: Unable to find an element with the text: 12,345. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+    Ignored nodes: comments, script, style
+    <body>
+      <div>
+        <div
+          class="page"
+          id="page-overview"
+        >
+          <div
+            class="pagehead"
+          >
+            <div
+              class="section-eyebrow"
+            >
+              Home
+            </div>
+            <div
+              class="section-title"
+            >
+              Overview
+            </div>
+            <div
+              class="section-desc"
+            >
+              A single glance at what the platform is doing right now: the latest fixture, current standings, and anything in the queue that needs attention.
+            </div>
+          </div>
+          <div
+            class="content"
+          >
+            <div
+              class="grid grid-4"
+              style="margin-bottom: 16px;"
+            >
+              <div
+                class="stat-mini"
+              >
+                <div
+                  class="l"
+                >
+                  Fixtures tracked
+                </div>
+                <div
+                  class="v"
+                >
+                  1
+                </div>
+              </div>
+              <div
+                class="stat-mini"
+              >
+                <div
+                  class="l"
+                >
+                  Events ingested (24h)
+                </div>
+                <div
+                  class="v"
+                >
+                  12 345
+                </div>
+              </div>
+              <div
+                class="stat-mini"
+              >
+                <div
+                  class="l"
+                >
+                  Pending submissions
+                </div>
+                <div
+                  class="v "
+                >
+                  0
+                </div>
+              </div>
+              <div
+                class="stat-mini"
+              >
+                <div
+                  class="l"
+                >
+                  Sessions finished
+                </div>
+                <div
+                  class="v accent"
+                >
+                  2
+                </div>
+              </div>
+            </div>
+            <div
+              class="grid grid-2"
+            >
+              <div
+                class="card"
+              >
+                <div
+                  class="card-head"
+                >
+                  <div>
+                    <div
+                      class="card-title"
+                    >
+                      Live GP
+                    </div>
+                    <div
+                      class="card-title-sub"
+                    >
+                      Test Circuit, Testland · Race · 2026/01/01, 12:00:00
+                    </div>
+                  </div>
+                  <span
+                    class="pill pill-red live-blink"
+                  >
+                    live
+                  </span>
+                </div>
+                <div
+                  class="log-ticker"
+                >
+                  <div
+                    class="log-row"
+                  >
+                    <span
+                      class="log-time"
+                    >
+                      2026/01/01, 12:01:00
+                    </span>
+                    <span
+                      class="mono secondary"
+                    >
+                      lap_completed
+                    </span>
+                    <span
+                      class="secondary"
+                    >
+                      Lap 3
+                    </span>
+                  </div>
+                  <div
+                    class="log-row"
+                  >
+                    <span
+                      class="log-time"
+                    >
+                      —
+                    </span>
+                    <span
+                      class="mono secondary"
+                    >
+                      flag
+                    </span>
+                    <span
+                      class="secondary"
+                    />
+                  </div>
+                </div>
+                <a
+                  class="btn btn-ghost btn-full"
+                  data-discover="true"
+                  href="/fixtures"
+                  style="margin-top: 14px;"
+                >
+                  Open fixture
+                </a>
+              </div>
+              <div
+                class="card"
+              >
+                <div
+                  class="card-head"
+                >
+                  <div
+                    class="card-title leaderboard-title"
+                  >
+                    Driver leaderboard
+                     — 2026
+                  </div>
+                </div>
+                <table>
+                  <tbody>
+                    <tr>
+                      <th>
+                        Pos
+                      </th>
+                      <th>
+                        Driver
+                      </th>
+                      <th>
+                        Wins
+                      </th>
+                      <th>
+                        Pts
+                      </th>
+                    </tr>
+                    <tr>
+                      <td>
+                        1
+                      </td>
+                      <td>
+                        Leader
+                      </td>
+                      <td
+                        class="secondary"
+                      >
+                        1
+                      </td>
+                      <td
+                        class="mono"
+                      >
+                        25
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        2
+                      </td>
+                      <td>
+                        Second
+                      </td>
+                      <td
+                        class="secondary"
+                      >
+                        0
+                      </td>
+                      <td
+                        class="mono secondary"
+                      >
+                        18
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <a
+                  class="btn btn-ghost btn-full"
+                  data-discover="true"
+                  href="/statistics"
+                  style="margin-top: 14px;"
+                >
+                  View full leaderboard
+                </a>
+              </div>
+            </div>
+            <div
+              class="grid grid-2"
+              style="margin-top: 16px;"
+            >
+              <div
+                class="card overview-team-performance"
+              >
+                <div
+                  class="card-head"
+                >
+                  <div
+                    class="card-title"
+                  >
+                    Team performance
+                  </div>
+                  <span
+                    class="card-title-sub"
+                  >
+                    Season 2026
+                  </span>
+                </div>
+                <div
+                  class="split-labels"
+                >
+                  <span>
+                    A
+                     · 
+                    60
+                    %
+                  </span>
+                  <span>
+                    B
+                     · 
+                    40
+                    %
+                  </span>
+                </div>
+                <div
+                  class="split-bar"
+                >
+                  <div
+                    style="width: 60%;"
+                  />
+                  <div
+                    style="width: 40%;"
+                  />
+                </div>
+                <div
+                  class="metric-row"
+                >
+                  <span
+                    class="metric-label"
+                  >
+                    Points scored
+                  </span>
+                  <div
+                    class="metric-vals"
+                  >
+                    <span>
+                      60
+                    </span>
+                    <span>
+                      40
+                    </span>
+                  </div>
+                </div>
+                <div
+                  class="metric-row"
+                >
+                  <span
+                    class="metric-label"
+                  >
+                    Wins
+                  </span>
+                  <div
+                    class="metric-vals"
+                  >
+                    <span>
+                      2
+                    </span>
+                    <span>
+                      1
+                    </span>
+                  </div>
+                </div>
+                <div
+                  class="metric-row"
+                >
+                  <span
+                    class="metric-label"
+                  >
+                    Reliability rate
+                  </span>
+                  <div
+                    class="metric-vals"
+                  >
+                    <span>
+                      95.0%
+                    </span>
+                    <span>
+                      —
+                    </span>
+                  </div>
+                </div>
+                <a
+                  class="btn btn-ghost btn-full"
+                  data-discover="true"
+                  href="/statistics"
+                  style="margin-top: 14px;"
+                >
+                  View full comparison
+                </a>
+              </div>
+              <div
+                class="card"
+              >
+                <div
+                  class="card-head"
+                >
+                  <div
+                    class="card-title"
+                  >
+                    Submission queue
+                  </div>
+                </div>
+                <table>
+                  <tbody>
+                    <tr>
+                      <th>
+                        Source
+                      </th>
+                      <th>
+                        Submitted
+                      </th>
+                      <th>
+                        Status
+                      </th>
+                    </tr>
+                    <tr>
+                      <td
+                        class="secondary"
+                      >
+                        one
+                      </td>
+                      <td
+                        class="secondary"
+                      >
+                        2026/01/01, 13:00:00
+                      </td>
+                      <td>
+                        <span
+                          class="pill pill-green"
+                        >
+                          accepted
+                        </span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td
+                        class="secondary"
+                      >
+                        two
+                      </td>
+                      <td
+                        class="secondary"
+                      >
+                        —
+                      </td>
+                      <td>
+                        <span
+                          class="pill pill-red"
+                        >
+                          rejected
+                        </span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td
+                        class="secondary"
+                      >
+                        three
+                      </td>
+                      <td
+                        class="secondary"
+                      >
+                        2026/01/01, 14:00:00
+                      </td>
+                      <td>
+                        <span
+                          class="pill pill-amber"
+                        >
+                          partially_accepted
+                        </span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td
+                        class="secondary"
+                      >
+                        four
+                      </td>
+                      <td
+                        class="secondary"
+                      >
+                        2026/01/01, 15:00:00
+                      </td>
+                      <td>
+                        <span
+                          class="pill pill-amber"
+                        >
+                          unexpected
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <a
+                  class="btn btn-ghost btn-full"
+                  data-discover="true"
+                  href="/submissions"
+                  style="margin-top: 14px;"
+                >
+                  Open submissions
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </body>
+
+      33 |     await screen.findByText('Live GP');
+      34 |
+    > 35 |     expect(screen.getByText('12,345')).toBeInTheDocument();
+         |                   ^
+      36 |     expect(screen.getByText('live')).toHaveClass('live-blink');
+      37 |     expect(screen.getByText('Lap 3')).toBeInTheDocument();
+      38 |     expect(screen.getByText('A · 60%')).toBeInTheDocument();
+
+      at Object.getElementError (node_modules/@testing-library/dom/dist/config.js:37:19)
+      at node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+      at node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+      at getByText (node_modules/@testing-library/dom/dist/query-helpers.js:95:19)
+      at Object.<anonymous> (src/tests/OverviewPage.additional.test.js:35:19)
+
+PASS src/components/race-replay/raceReplayHelpers.test.js
+PASS src/tests/StatisticsPage.additional.test.js
+PASS src/tests/SubmissionsPanel.purpose.test.js
+PASS src/tests/RequireAuth.test.js
+PASS src/tests/FixturesEventsPage.test.js
+PASS src/tests/TimeTravelPage.test.js
+PASS src/tests/StatisticsPage.test.js
+PASS src/tests/AppRoutes.test.js
+PASS src/tests/raceSyncReadings.test.js
+PASS src/tests/followService.test.js
+PASS src/api/client.test.js
+PASS src/tests/AuthContext.test.js
+PASS src/features/telemetry-tv/raceAnalytics.test.js
+PASS src/tests/LiveTicker.test.js
+PASS src/tests/Torontorace.test.js
+PASS src/features/code-submission/submissionFormat.test.js
+PASS src/features/telemetry-tv/videoToLap.test.js
+PASS src/api/publicCode.test.js
+PASS src/features/telemetry-tv/videoTicker.test.js
+PASS src/features/telemetry-tv/deriveAnalytics.test.js
+PASS src/services/userPreferences.test.js
+PASS src/features/telemetry-tv/raceStats.test.js
+PASS src/tests/preferences.test.js
+PASS src/services/newsFiltering.test.js
+
+Summary of all failing tests
+FAIL src/tests/OverviewPage.additional.test.js
+  ● OverviewPage additional states › renders all dashboard data, status pills, and empty nested event state
+
+    TestingLibraryElementError: Unable to find an element with the text: 12,345. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+    Ignored nodes: comments, script, style
+    <body>
+      <div>
+        <div
+          class="page"
+          id="page-overview"
+        >
+          <div
+            class="pagehead"
+          >
+            <div
+              class="section-eyebrow"
+            >
+              Home
+            </div>
+            <div
+              class="section-title"
+            >
+              Overview
+            </div>
+            <div
+              class="section-desc"
+            >
+              A single glance at what the platform is doing right now: the latest fixture, current standings, and anything in the queue that needs attention.
+            </div>
+          </div>
+          <div
+            class="content"
+          >
+            <div
+              class="grid grid-4"
+              style="margin-bottom: 16px;"
+            >
+              <div
+                class="stat-mini"
+              >
+                <div
+                  class="l"
+                >
+                  Fixtures tracked
+                </div>
+                <div
+                  class="v"
+                >
+                  1
+                </div>
+              </div>
+              <div
+                class="stat-mini"
+              >
+                <div
+                  class="l"
+                >
+                  Events ingested (24h)
+                </div>
+                <div
+                  class="v"
+                >
+                  12 345
+                </div>
+              </div>
+              <div
+                class="stat-mini"
+              >
+                <div
+                  class="l"
+                >
+                  Pending submissions
+                </div>
+                <div
+                  class="v "
+                >
+                  0
+                </div>
+              </div>
+              <div
+                class="stat-mini"
+              >
+                <div
+                  class="l"
+                >
+                  Sessions finished
+                </div>
+                <div
+                  class="v accent"
+                >
+                  2
+                </div>
+              </div>
+            </div>
+            <div
+              class="grid grid-2"
+            >
+              <div
+                class="card"
+              >
+                <div
+                  class="card-head"
+                >
+                  <div>
+                    <div
+                      class="card-title"
+                    >
+                      Live GP
+                    </div>
+                    <div
+                      class="card-title-sub"
+                    >
+                      Test Circuit, Testland · Race · 2026/01/01, 12:00:00
+                    </div>
+                  </div>
+                  <span
+                    class="pill pill-red live-blink"
+                  >
+                    live
+                  </span>
+                </div>
+                <div
+                  class="log-ticker"
+                >
+                  <div
+                    class="log-row"
+                  >
+                    <span
+                      class="log-time"
+                    >
+                      2026/01/01, 12:01:00
+                    </span>
+                    <span
+                      class="mono secondary"
+                    >
+                      lap_completed
+                    </span>
+                    <span
+                      class="secondary"
+                    >
+                      Lap 3
+                    </span>
+                  </div>
+                  <div
+                    class="log-row"
+                  >
+                    <span
+                      class="log-time"
+                    >
+                      —
+                    </span>
+                    <span
+                      class="mono secondary"
+                    >
+                      flag
+                    </span>
+                    <span
+                      class="secondary"
+                    />
+                  </div>
+                </div>
+                <a
+                  class="btn btn-ghost btn-full"
+                  data-discover="true"
+                  href="/fixtures"
+                  style="margin-top: 14px;"
+                >
+                  Open fixture
+                </a>
+              </div>
+              <div
+                class="card"
+              >
+                <div
+                  class="card-head"
+                >
+                  <div
+                    class="card-title leaderboard-title"
+                  >
+                    Driver leaderboard
+                     — 2026
+                  </div>
+                </div>
+                <table>
+                  <tbody>
+                    <tr>
+                      <th>
+                        Pos
+                      </th>
+                      <th>
+                        Driver
+                      </th>
+                      <th>
+                        Wins
+                      </th>
+                      <th>
+                        Pts
+                      </th>
+                    </tr>
+                    <tr>
+                      <td>
+                        1
+                      </td>
+                      <td>
+                        Leader
+                      </td>
+                      <td
+                        class="secondary"
+                      >
+                        1
+                      </td>
+                      <td
+                        class="mono"
+                      >
+                        25
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        2
+                      </td>
+                      <td>
+                        Second
+                      </td>
+                      <td
+                        class="secondary"
+                      >
+                        0
+                      </td>
+                      <td
+                        class="mono secondary"
+                      >
+                        18
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <a
+                  class="btn btn-ghost btn-full"
+                  data-discover="true"
+                  href="/statistics"
+                  style="margin-top: 14px;"
+                >
+                  View full leaderboard
+                </a>
+              </div>
+            </div>
+            <div
+              class="grid grid-2"
+              style="margin-top: 16px;"
+            >
+              <div
+                class="card overview-team-performance"
+              >
+                <div
+                  class="card-head"
+                >
+                  <div
+                    class="card-title"
+                  >
+                    Team performance
+                  </div>
+                  <span
+                    class="card-title-sub"
+                  >
+                    Season 2026
+                  </span>
+                </div>
+                <div
+                  class="split-labels"
+                >
+                  <span>
+                    A
+                     · 
+                    60
+                    %
+                  </span>
+                  <span>
+                    B
+                     · 
+                    40
+                    %
+                  </span>
+                </div>
+                <div
+                  class="split-bar"
+                >
+                  <div
+                    style="width: 60%;"
+                  />
+                  <div
+                    style="width: 40%;"
+                  />
+                </div>
+                <div
+                  class="metric-row"
+                >
+                  <span
+                    class="metric-label"
+                  >
+                    Points scored
+                  </span>
+                  <div
+                    class="metric-vals"
+                  >
+                    <span>
+                      60
+                    </span>
+                    <span>
+                      40
+                    </span>
+                  </div>
+                </div>
+                <div
+                  class="metric-row"
+                >
+                  <span
+                    class="metric-label"
+                  >
+                    Wins
+                  </span>
+                  <div
+                    class="metric-vals"
+                  >
+                    <span>
+                      2
+                    </span>
+                    <span>
+                      1
+                    </span>
+                  </div>
+                </div>
+                <div
+                  class="metric-row"
+                >
+                  <span
+                    class="metric-label"
+                  >
+                    Reliability rate
+                  </span>
+                  <div
+                    class="metric-vals"
+                  >
+                    <span>
+                      95.0%
+                    </span>
+                    <span>
+                      —
+                    </span>
+                  </div>
+                </div>
+                <a
+                  class="btn btn-ghost btn-full"
+                  data-discover="true"
+                  href="/statistics"
+                  style="margin-top: 14px;"
+                >
+                  View full comparison
+                </a>
+              </div>
+              <div
+                class="card"
+              >
+                <div
+                  class="card-head"
+                >
+                  <div
+                    class="card-title"
+                  >
+                    Submission queue
+                  </div>
+                </div>
+                <table>
+                  <tbody>
+                    <tr>
+                      <th>
+                        Source
+                      </th>
+                      <th>
+                        Submitted
+                      </th>
+                      <th>
+                        Status
+                      </th>
+                    </tr>
+                    <tr>
+                      <td
+                        class="secondary"
+                      >
+                        one
+                      </td>
+                      <td
+                        class="secondary"
+                      >
+                        2026/01/01, 13:00:00
+                      </td>
+                      <td>
+                        <span
+                          class="pill pill-green"
+                        >
+                          accepted
+                        </span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td
+                        class="secondary"
+                      >
+                        two
+                      </td>
+                      <td
+                        class="secondary"
+                      >
+                        —
+                      </td>
+                      <td>
+                        <span
+                          class="pill pill-red"
+                        >
+                          rejected
+                        </span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td
+                        class="secondary"
+                      >
+                        three
+                      </td>
+                      <td
+                        class="secondary"
+                      >
+                        2026/01/01, 14:00:00
+                      </td>
+                      <td>
+                        <span
+                          class="pill pill-amber"
+                        >
+                          partially_accepted
+                        </span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td
+                        class="secondary"
+                      >
+                        four
+                      </td>
+                      <td
+                        class="secondary"
+                      >
+                        2026/01/01, 15:00:00
+                      </td>
+                      <td>
+                        <span
+                          class="pill pill-amber"
+                        >
+                          unexpected
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <a
+                  class="btn btn-ghost btn-full"
+                  data-discover="true"
+                  href="/submissions"
+                  style="margin-top: 14px;"
+                >
+                  Open submissions
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </body>
+
+      33 |     await screen.findByText('Live GP');
+      34 |
+    > 35 |     expect(screen.getByText('12,345')).toBeInTheDocument();
+         |                   ^
+      36 |     expect(screen.getByText('live')).toHaveClass('live-blink');
+      37 |     expect(screen.getByText('Lap 3')).toBeInTheDocument();
+      38 |     expect(screen.getByText('A · 60%')).toBeInTheDocument();
+
+      at Object.getElementError (node_modules/@testing-library/dom/dist/config.js:37:19)
+      at node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+      at node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+      at getByText (node_modules/@testing-library/dom/dist/query-helpers.js:95:19)
+      at Object.<anonymous> (src/tests/OverviewPage.additional.test.js:35:19)
+
+
+Test Suites: 1 failed, 53 passed, 54 total
+Tests:       1 failed, 484 passed, 485 total
+Snapshots:   0 total
+Time:        79.681 s
+Ran all test suites.

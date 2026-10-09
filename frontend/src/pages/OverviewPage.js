@@ -23,6 +23,10 @@ function sessionStatusPillClass(status) {
   return 'pill pill-blue';
 }
 
+function formatReliability(rate) {
+  return Number.isFinite(rate) ? `${(rate * 100).toFixed(1)}%` : '—';
+}
+
 function OverviewPage() {
   // Follows the clock / time zone choices in Profile → Settings.
   const { formatDateTime } = useDateTimeFormat();
@@ -130,9 +134,7 @@ function OverviewPage() {
                 {latestSession && (
                   <div className="log-ticker">
                     {recentEvents.length === 0 && (
-                      <div className="log-row">
-                        <span className="secondary">No events recorded for this session yet.</span>
-                      </div>
+                      <p className="overview-events-empty secondary">No events recorded for this session yet.</p>
                     )}
                     {recentEvents.map((event) => (
                       <div className="log-row" key={event.id}>
@@ -185,7 +187,7 @@ function OverviewPage() {
             </div>
 
             <div className="grid grid-2" style={{ marginTop: 16 }}>
-              <div className="card">
+              <div className="card overview-team-performance">
                 <div className="card-head">
                   <div className="card-title">Team performance</div>
                   <span className="card-title-sub">
@@ -225,8 +227,8 @@ function OverviewPage() {
                     <div className="metric-row">
                       <span className="metric-label">Reliability rate</span>
                       <div className="metric-vals">
-                        <span>{teamA.reliabilityRate ?? '—'}</span>
-                        <span>{teamB.reliabilityRate ?? '—'}</span>
+                        <span>{formatReliability(teamA.reliabilityRate)}</span>
+                        <span>{formatReliability(teamB.reliabilityRate)}</span>
                       </div>
                     </div>
                   </>
