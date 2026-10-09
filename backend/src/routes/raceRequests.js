@@ -1,9 +1,10 @@
 import { Router } from 'express';
-import { spawn } from 'node:child_process';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth } from '../middleware/requireAuth.js';
+import { runDerivationForSession } from '../derivation/index.js';
+import { createOpenF1Client } from '../ingestion/openf1/client.js';
+import { syncOpenF1Session } from '../ingestion/openf1/syncSession.js';
+import { warmReplayContext } from './raceReplay.js';
 
 /**
  * Race requests — adding a race RaceSync's search doesn't have yet.
@@ -23,14 +24,16 @@ import { requireAuth } from '../middleware/requireAuth.js';
  *        only. Already-ready races answer at once with their sessionId.
  *   GET  /api/race-requests/:sessionKey
  *        Where that request stands: queued, syncing, ready (with sessionId),
- *        failed (with the reason).
+ *        failed (with the reason) — and, while it runs, each stage of the
+ *        sync with its time, so the page can show the race arriving.
  *
- * Syncs run ONE AT A TIME through the existing job, as a child process —
- * the same way scripts/sync-missing-sessions.js drives it — so the job keeps
- * its own database connection and OpenF1's rate limits (30 requests a minute)
- * are never hit by two syncs at once. When a sync lands, the response cache
- * is cleared so the fixtures list (and so the search) shows the race at once
- * instead of after the cache's TTL.
+ * Syncs run IN-PROCESS through the ingestion module (ingestion/openf1/),
+ * one at a time and through one shared, rate-limited OpenF1 client, so two
+ * syncs can never trip OpenF1's limit between them. A race is READY the
+ * moment its events are written and its replay is warmed — a replay needs
+ * nothing more — while the derived statistics finish in the background.
+ * When a sync lands, the response cache is cleared so the fixtures list (and
+ * so the search) shows the race at once instead of after the cache's TTL.
  *
  * Mounted OUTSIDE the response cache: job status changes from second to
  * second and must never be served stale.
@@ -46,7 +49,6 @@ const OPENF1_BASE = 'https://api.openf1.org/v1';
 const FIRST_SEASON = 2023;
 const REPLAY_REQUIRED_EVENT_TYPES = ['lap_completed', 'position_change', 'classification'];
 
-const backendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 async function fetchRaceSessions(year) {
   const url = new URL(`${OPENF1_BASE}/sessions`);
@@ -73,22 +75,27 @@ async function fetchRaceSession(sessionKey) {
   return Array.isArray(sessions) ? sessions[0] ?? null : null;
 }
 
-function runSyncJob(sessionKey) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, ['src/jobs/openf1-sync.js', String(sessionKey)], {
-      cwd: backendRoot,
-      stdio: ['ignore', 'ignore', 'pipe'],
-    });
-    let stderr = '';
-    child.stderr.on('data', (chunk) => {
-      stderr = (stderr + chunk).slice(-2000);
-    });
-    child.on('error', reject);
-    child.on('exit', (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(stderr.trim().split('\n').at(-1) || `sync exited with code ${code}`));
-    });
+// One client for every sync this server runs, so its rate limiter covers them
+// all.
+const openF1 = createOpenF1Client();
+
+// The default sync: the ingestion module, in-process, reporting each stage.
+// The race is ready once its events are written and its replay warmed; the
+// derived statistics carry on in the background (a failure there is logged,
+// it never un-readies a race that can already be replayed).
+async function runSyncInProcess(sessionKey, { onProgress } = {}) {
+  const result = await syncOpenF1Session(sessionKey, {
+    prisma,
+    client: openF1,
+    runDerivation: runDerivationForSession,
+    deferDerivation: true,
+    prepareReplay: warmReplayContext,
+    onProgress,
   });
+  result.derivation?.catch((err) => {
+    console.error(`Derivation failed for session_key=${sessionKey}:`, err);
+  });
+  return result;
 }
 
 // Which of these OpenF1 session keys are stored, and which are replayable.
@@ -130,7 +137,7 @@ const parseKey = (value) => {
 export function createRaceRequestsRouter({
   fetchSessions = fetchRaceSessions,
   fetchSession = fetchRaceSession,
-  runSync = runSyncJob,
+  runSync = runSyncInProcess,
   now = () => new Date(),
 } = {}) {
   const router = Router();
@@ -147,8 +154,17 @@ export function createRaceRequestsRouter({
         const sessionKey = queue.shift();
         const job = jobs.get(sessionKey);
         job.status = 'syncing';
+        job.startedAt = Date.now();
+        job.stages = [];
+        // Each stage as it starts and finishes, for the page to show live.
+        const onProgress = ({ stage, state, ms, detail }) => {
+          const entry = job.stages.find((s) => s.stage === stage);
+          if (entry) Object.assign(entry, { state, ms: ms ?? entry.ms, detail: detail ?? entry.detail });
+          else job.stages.push({ stage, state, ms: ms ?? null, detail: detail ?? null });
+        };
         try {
-          await runSync(sessionKey);
+          await runSync(sessionKey, { onProgress });
+          job.readyMs = Date.now() - job.startedAt;
           const stored = (await storedSessions([sessionKey])).get(sessionKey);
           if (stored?.replayReady) {
             Object.assign(job, { status: 'ready', sessionId: stored.sessionId });
@@ -268,6 +284,9 @@ export function createRaceRequestsRouter({
           sessionId: job.sessionId ?? null,
           error: job.error ?? null,
           position: job.status === 'queued' ? queue.indexOf(sessionKey) + 1 : null,
+          stages: job.stages ?? [],
+          elapsedMs: job.startedAt ? (job.readyMs ?? Date.now() - job.startedAt) : null,
+          readyMs: job.readyMs ?? null,
         });
       }
       const stored = (await storedSessions([sessionKey])).get(sessionKey);

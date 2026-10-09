@@ -324,6 +324,21 @@ async function getCachedReplayContext(sessionId) {
   return context;
 }
 
+/**
+ * Build (or rebuild) a session's replay context and cache it, and hand back
+ * the whole-race lap series RaceSync reads — called the moment a race has
+ * been synced (see ingestion/openf1/syncSession.js), so the first person to
+ * open it doesn't wait on the database. A rebuild replaces whatever was
+ * cached before the sync.
+ */
+export async function warmReplayContext(sessionId) {
+  contextCache.delete(sessionId);
+  const context = await getCachedReplayContext(sessionId);
+  if (!context || context.totalLaps === 0) return null;
+  const series = buildLapSeries(context);
+  return { totalLaps: context.totalLaps, drivers: series.drivers.length };
+}
+
 raceReplayRouter.get('/:sessionId/state', async (req, res, next) => {
   try {
     const { sessionId } = req.params;

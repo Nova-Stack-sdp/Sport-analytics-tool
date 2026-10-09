@@ -435,10 +435,80 @@
 
 .racesync-addrace-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   padding: 7px 8px;
   border-radius: 8px;
+}
+
+/* The race arriving: the running clock, then each stage ticked off with
+   what it did and how long it took. */
+.racesync-addrace-progress {
+  flex: 1 0 100%;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--racesync-red);
+  border-radius: 6px;
+  background: var(--border-soft);
+}
+
+.racesync-addrace-progress-head {
+  margin-bottom: 4px;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.racesync-addrace-progress-head strong {
+  color: var(--status-green);
+}
+
+.racesync-addrace-stages {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.racesync-addrace-stages li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+}
+
+.racesync-addrace-stages li.is-done {
+  color: var(--text-secondary);
+}
+
+.racesync-addrace-stage-mark {
+  width: 12px;
+  color: var(--racesync-red);
+  text-align: center;
+}
+
+.racesync-addrace-stages li.is-done .racesync-addrace-stage-mark {
+  color: var(--status-green);
+}
+
+.racesync-addrace-stage-name {
+  color: var(--text-primary);
+}
+
+.racesync-addrace-stage-detail {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.racesync-addrace-stage-ms {
+  margin-left: auto;
+  font-size: 11px;
 }
 
 .racesync-addrace-row:hover {

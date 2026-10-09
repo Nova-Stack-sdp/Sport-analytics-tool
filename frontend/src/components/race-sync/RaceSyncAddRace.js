@@ -13,7 +13,56 @@ import { useRaceSyncSelection } from './RaceSyncSelection';
 // What was typed in the search narrows the season's list, so "Monaco" with no
 // match lands on Monaco here. A year typed into the search picks the season.
 const FIRST_SEASON = 2023;
-const POLL_MS = 4000;
+// The sync takes seconds now (backend ingestion/openf1/), so the panel
+// checks every second and shows each stage as it lands.
+const POLL_MS = 1000;
+// How long "Ready in …" stays on screen before the race opens.
+const READY_PAUSE_MS = 1200;
+
+// The sync's stages, as the panel names them (see syncSession.js's STAGES).
+const STAGE_LABEL = {
+  session: 'Finding the race',
+  fetch: 'Downloading from OpenF1',
+  dimensions: 'Drivers and teams',
+  map: 'Checking the data',
+  write: 'Saving the events',
+  replay: 'Building the replay',
+  derive: 'Statistics (finishing in the background)',
+};
+
+const seconds = (ms) => `${(ms / 1000).toFixed(1)} s`;
+
+// The race arriving: each stage with a tick once done, its detail and time,
+// and the clock running at the top — or the total once it's ready.
+function SyncProgress({ race }) {
+  const stages = race.stages ?? [];
+  // Only a race added here, now, has stages to show.
+  if (stages.length === 0) return null;
+  const ready = race.status === 'ready';
+  return (
+    <div className="racesync-addrace-progress" aria-live="polite">
+      <div className="racesync-addrace-progress-head">
+        {ready ? (
+          <strong>Ready in {seconds(race.readyMs ?? race.elapsedMs ?? 0)}</strong>
+        ) : (
+          <span>Adding · {seconds(race.elapsedMs ?? 0)}</span>
+        )}
+      </div>
+      <ol className="racesync-addrace-stages">
+        {stages.map((stage) => (
+          <li key={stage.stage} className={`is-${stage.state}`}>
+            <span className="racesync-addrace-stage-mark" aria-hidden="true">
+              {stage.state === 'done' ? '✓' : '•'}
+            </span>
+            <span className="racesync-addrace-stage-name">{STAGE_LABEL[stage.stage] ?? stage.stage}</span>
+            {stage.detail && <span className="racesync-addrace-stage-detail">{stage.detail}</span>}
+            {stage.ms != null && <span className="racesync-addrace-stage-ms mono">{seconds(stage.ms)}</span>}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
 const IN_FLIGHT = new Set(['queued', 'syncing']);
 
 const STATUS_LABEL = {
@@ -92,10 +141,14 @@ function RaceSyncAddRace({ query = '', onBack, onDone }) {
             status: status.status,
             sessionId: status.sessionId ?? null,
             error: status.error ?? null,
+            stages: status.stages ?? [],
+            elapsedMs: status.elapsedMs ?? null,
+            readyMs: status.readyMs ?? null,
           });
           if (status.status === 'ready' && wantedRef.current === sessionKey) {
+            // Let "Ready in …" land on screen, then open the race.
             wantedRef.current = null;
-            open(status.sessionId);
+            setTimeout(() => open(status.sessionId), READY_PAUSE_MS);
           }
         } catch {
           // A missed poll is retried on the next tick.
@@ -158,7 +211,7 @@ function RaceSyncAddRace({ query = '', onBack, onDone }) {
         </select>
       </div>
       <p className="racesync-search-note">
-        Adding a race copies its laps, stops and positions from OpenF1 — a minute or two.
+        Adding a race copies its laps, stops and positions from OpenF1 — usually a few seconds.
       </p>
 
       {notice && <p className="racesync-addrace-notice">{notice}</p>}
@@ -202,6 +255,7 @@ function RaceSyncAddRace({ query = '', onBack, onDone }) {
               ) : (
                 <span className="racesync-addrace-action is-idle" aria-hidden="true" />
               )}
+              <SyncProgress race={race} />
             </li>
           ))}
           {shown.length === 0 && (

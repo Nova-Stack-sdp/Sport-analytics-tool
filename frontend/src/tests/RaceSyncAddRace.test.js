@@ -83,30 +83,55 @@ test('what was typed in the search narrows the list to the race being looked for
   expect(within(list).queryByText('Bahrain Grand Prix')).not.toBeInTheDocument();
 });
 
-test('adding a race syncs it, polls it, and opens it the moment it is ready', async () => {
+test('adding a race shows it arriving stage by stage, then opens it', async () => {
   jest.useFakeTimers();
   requestRaceSync.mockResolvedValue({ sessionKey: 9523, status: 'queued' });
+  const fetchDone = { stage: 'fetch', state: 'done', ms: 4180, detail: '1,220 laps · 3,104 positions · 702 KB' };
   getRaceSyncStatus
-    .mockResolvedValueOnce({ sessionKey: 9523, status: 'syncing' })
-    .mockResolvedValueOnce({ sessionKey: 9523, status: 'ready', sessionId: 's-monaco' });
+    .mockResolvedValueOnce({
+      sessionKey: 9523,
+      status: 'syncing',
+      elapsedMs: 2600,
+      stages: [
+        { stage: 'session', state: 'done', ms: 910, detail: 'Monaco Race · 20 drivers' },
+        { stage: 'fetch', state: 'start', ms: null, detail: null },
+      ],
+    })
+    .mockResolvedValueOnce({
+      sessionKey: 9523,
+      status: 'ready',
+      sessionId: 's-monaco',
+      readyMs: 6240,
+      stages: [{ stage: 'session', state: 'done', ms: 910, detail: 'Monaco Race · 20 drivers' }, fetchDone],
+    });
   const { onDone } = renderAddRace({ query: 'monaco 2024' });
 
   fireEvent.click(await screen.findByRole('button', { name: 'Add Monaco Grand Prix' }));
   expect(requestRaceSync).toHaveBeenCalledWith(9523);
   expect(await screen.findByText('Queued')).toBeInTheDocument();
 
+  // Checked every second: the clock and each stage as it lands.
   await act(async () => {
-    jest.advanceTimersByTime(4000);
+    jest.advanceTimersByTime(1000);
   });
-  expect(await screen.findByText('Adding…')).toBeInTheDocument();
+  expect(await screen.findByText('Adding · 2.6 s')).toBeInTheDocument();
+  expect(screen.getByText('Finding the race')).toBeInTheDocument();
+  expect(screen.getByText('Monaco Race · 20 drivers')).toBeInTheDocument();
+  expect(screen.getByText('Downloading from OpenF1')).toBeInTheDocument();
 
-  // The race lands: the list of races is re-read so the new one is in the
-  // search, and it is loaded into the stage.
+  // Ready: the total lands on screen, the race list is re-read so the new
+  // race is in the search, and a moment later it is loaded into the stage.
   getFixtures.mockResolvedValue({
     fixtures: [{ id: 's-monaco', meetingName: 'Monaco Grand Prix', replayReady: true }],
   });
   await act(async () => {
-    jest.advanceTimersByTime(4000);
+    jest.advanceTimersByTime(1000);
+  });
+  expect(await screen.findByText('Ready in 6.2 s')).toBeInTheDocument();
+  expect(screen.getByText('4.2 s')).toBeInTheDocument();
+  expect(onDone).not.toHaveBeenCalled();
+  await act(async () => {
+    jest.advanceTimersByTime(1200);
   });
   expect(await screen.findByText('picked:s-monaco · races:1')).toBeInTheDocument();
   expect(onDone).toHaveBeenCalled();

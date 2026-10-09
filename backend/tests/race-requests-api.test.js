@@ -153,19 +153,29 @@ describe('POST /api/race-requests', () => {
 
   test('queues a sync, runs it, and reports the race ready with its new session', async () => {
     let finishSync;
+    // The sync reports its stages as it goes; this one stops mid-way.
     const runSync = jest.fn(
-      () =>
+      (key, { onProgress }) =>
         new Promise((resolve) => {
+          onProgress({ stage: 'session', state: 'start' });
+          onProgress({ stage: 'session', state: 'done', ms: 420, detail: 'Australia Race · 20 drivers' });
+          onProgress({ stage: 'fetch', state: 'start' });
           finishSync = resolve;
         })
     );
     const app = makeApp({ runSync });
     const queued = await authed(request(app).post('/api/race-requests')).send({ sessionKey: 9488 });
     expect(queued.status).toBe(202);
-    expect(runSync).toHaveBeenCalledWith(9488);
+    expect(runSync).toHaveBeenCalledWith(9488, { onProgress: expect.any(Function) });
 
+    // While it runs, the request shows each stage and the time so far.
     const during = await request(app).get('/api/race-requests/9488');
     expect(during.body.status).toBe('syncing');
+    expect(during.body.stages).toEqual([
+      { stage: 'session', state: 'done', ms: 420, detail: 'Australia Race · 20 drivers' },
+      { stage: 'fetch', state: 'start', ms: null, detail: null },
+    ]);
+    expect(during.body.elapsedMs).toEqual(expect.any(Number));
     // The season list shows the request too.
     const listed = await request(app).get('/api/race-requests/available?year=2024');
     expect(listed.body.races.find((r) => r.sessionKey === 9488).status).toBe('syncing');
@@ -180,6 +190,7 @@ describe('POST /api/race-requests', () => {
     await settle();
     const done = await request(app).get('/api/race-requests/9488');
     expect(done.body).toMatchObject({ status: 'ready', sessionId: 's-australia' });
+    expect(done.body.readyMs).toEqual(expect.any(Number));
   });
 
   test('runs one sync at a time, in the order asked', async () => {
