@@ -231,8 +231,8 @@ function OverviewPage() {
                     </div>
                   </>
                 )}
-                <Link to="/teams" className="btn btn-ghost btn-full" style={{ marginTop: 14 }}>
-                  View all teams
+                <Link to="/statistics?view=constructors" className="btn btn-ghost btn-full" style={{ marginTop: 14 }}>
+                  View constructors' standings
                 </Link>
               </div>
 

@@ -24,7 +24,7 @@ const DESTINATIONS = [
     to: '/statistics',
     label: 'Statistics',
     short: 'St',
-    desc: 'Driver tables for a season, a whole career, or a single fixture.',
+    desc: 'Drivers\' and constructors\' standings for a season, plus career and single-fixture figures.',
   },
   {
     to: '/timetravel',

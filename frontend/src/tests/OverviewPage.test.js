@@ -78,6 +78,7 @@ describe('OverviewPage', () => {
     renderPage();
     await screen.findByText('Miami Grand Prix');
     expect(screen.getByRole('link', { name: 'Open this fixture' })).toHaveAttribute('href', '/fixtures?session=s1');
+    expect(screen.getByRole('link', { name: "View constructors' standings" })).toHaveAttribute('href', '/statistics?view=constructors');
     expect(screen.getByRole('link', { name: 'Miami Grand Prix · Race' })).toHaveAttribute('href', '/fixtures?session=s1');
     expect(screen.getByText('OpenF1 sync')).toBeInTheDocument();
     expect(screen.getByText('+1,520 (3 corrected)')).toBeInTheDocument();
