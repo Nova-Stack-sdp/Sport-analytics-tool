@@ -32,7 +32,7 @@ describe('OverviewPage additional states', () => {
     renderPage();
     await screen.findByText('Live GP');
 
-    expect(screen.getByText('12,345')).toBeInTheDocument();
+    expect(screen.getByText((12345).toLocaleString().replace(/\s/g, ' '))).toBeInTheDocument();
     expect(screen.getByText('live')).toHaveClass('live-blink');
     expect(screen.getByText('Lap 3')).toBeInTheDocument();
     expect(screen.getByText('A · 60%')).toBeInTheDocument();

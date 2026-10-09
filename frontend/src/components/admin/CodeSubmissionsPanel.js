@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect, useCallback } from 'react';
+import { Fragment, useState, useEffect, useCallback, useRef } from 'react';
 import { listCodeSubmissions, getCodeSubmission, reviewCodeSubmission } from '../../api/client';
 
 const REVIEW_TABS = ['Pending', 'Approved', 'Rejected'];
@@ -16,6 +16,7 @@ function describeError(err) {
 // read from code_submission; approving MOVES a script into verified_code,
 // which is where the Approved tab reads from.
 function CodeSubmissionsPanel() {
+  const loadRequest = useRef(0);
   const [activeTab, setActiveTab] = useState('Pending');
   const [submissions, setSubmissions] = useState([]);
   const [counts, setCounts] = useState(null);
@@ -25,16 +26,20 @@ function CodeSubmissionsPanel() {
   const [notice, setNotice] = useState(null);
 
   const loadSubmissions = useCallback(async (tab) => {
+    const requestId = ++loadRequest.current;
     setLoading(true);
+    setCounts(null);
     setLoadError(null);
     try {
       const data = await listCodeSubmissions(TAB_TO_STATUS[tab]);
+      if (requestId !== loadRequest.current) return;
       setSubmissions(data.submissions || []);
       setCounts(data.counts || null);
     } catch (err) {
+      if (requestId !== loadRequest.current) return;
       setLoadError(describeError(err));
     } finally {
-      setLoading(false);
+      if (requestId === loadRequest.current) setLoading(false);
     }
   }, []);
 
@@ -42,6 +47,7 @@ function CodeSubmissionsPanel() {
     setDetail(NO_DETAIL);
     setNotice(null);
     loadSubmissions(activeTab);
+    return () => { loadRequest.current += 1; };
   }, [activeTab, loadSubmissions]);
 
   async function handleReview(submission, status) {
@@ -94,18 +100,19 @@ function CodeSubmissionsPanel() {
         </div>
         <div className="tabs">
           {REVIEW_TABS.map((tab) => (
-            <div
+            <button
+              type="button"
               key={tab}
               className={`tab${activeTab === tab ? ' active' : ''}`}
               onClick={() => setActiveTab(tab)}
             >
               {tab}
-            </div>
+            </button>
           ))}
         </div>
         {notice && <div className="card-note" role="status" style={{ color: 'var(--status-green)' }}>{notice}</div>}
         {loading && <div className="card-note">Loading…</div>}
-        {loadError && <div className="card-note" style={{ color: 'var(--status-red)' }}>{loadError}</div>}
+        {loadError && <div className="card-note" role="alert" style={{ color: 'var(--status-red)' }}>{loadError} <button type="button" className="btn btn-ghost btn-sm" onClick={() => loadSubmissions(activeTab)}>Retry</button></div>}
         {!loading && !loadError && (
           <div className="table-scroll">
             <table>

@@ -302,6 +302,13 @@ export function markNotificationRead(id) {
 // Data endpoints
 // ---------------------------------------------------------------------------
 
+export async function downloadDatasetExport({ dataset, season, format }) {
+  const query = new URLSearchParams({ format });
+  if (season) query.set('season', season);
+  const response = await request(`/api/v1/exports/${encodeURIComponent(dataset)}?${query}`, { raw: true });
+  return response.blob();
+}
+
 export function getOverview() {
   return request('/api/overview');
 }

@@ -14,12 +14,11 @@ jest.mock('../api/client', () => ({
 }));
 
 describe('static platform pages', () => {
-  test('renders the datasets distribution workflow and published releases', () => {
+  test('renders the dataset export form without mock releases', () => {
     render(<DatasetsPanel />);
     expect(screen.getByText('Build a custom export')).toBeInTheDocument();
-    expect(screen.getByText('Request export')).toBeInTheDocument();
-    expect(screen.getByText('Driver telemetry')).toBeInTheDocument();
-    expect(screen.getByText('v2026.10.20')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Download export' })).toBeInTheDocument();
+    expect(screen.queryByText('Published releases')).not.toBeInTheDocument();
   });
 
   test('renders the submissions pipeline and switches review tabs', () => {
@@ -34,7 +33,7 @@ describe('static platform pages', () => {
     expect(screen.getByText('Rejected', { selector: '.tab' })).toHaveClass('active');
   });
 
-  test('renders every administration tab and all data-state actions', async () => {
+  test('renders the supported administration tabs', async () => {
     listCodeSubmissions.mockResolvedValue({ submissions: [], counts: { pending: 0, approved: 0, rejected: 0 } });
     render(<AdminPage />);
     expect(await screen.findByText('No code submissions')).toBeInTheDocument();
@@ -46,29 +45,9 @@ describe('static platform pages', () => {
     expect(await screen.findByText('No datasets')).toBeInTheDocument();
     expect(listAdminDatasets).toHaveBeenCalledWith('pending');
 
-    fireEvent.click(screen.getByText('API Keys', { selector: '.tab' }));
-    expect(screen.getByText('API keys & quotas')).toBeInTheDocument();
-    expect(screen.getAllByText('Revoke').length).toBeGreaterThan(0);
-    expect(screen.getByText('92%')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByText('Dataset Releases', { selector: '.tab' }));
-    expect(screen.getByText('Release management')).toBeInTheDocument();
-    expect(screen.getByText('Publish')).toBeInTheDocument();
-    expect(screen.getAllByText('Deprecate').length).toBeGreaterThan(0);
-    expect(screen.getByText('Schema documentation')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByText('API Versions', { selector: '.tab' }));
-    expect(screen.getByText('Version lifecycle')).toBeInTheDocument();
-    expect(screen.getByText('Notify consumers')).toBeInTheDocument();
-    expect(screen.getByText('View changelog')).toBeInTheDocument();
-    expect(screen.getByText('v2 → v3 migration progress')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByText('Reconciliation', { selector: '.tab' }));
-    expect(screen.getByText('Submitter disagreements & corrections')).toBeInTheDocument();
-    expect(screen.getAllByText('Resolve').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Escalate').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Propagated ✓').length).toBeGreaterThan(0);
-    expect(screen.getByText('Correction propagation log')).toBeInTheDocument();
+    for (const label of ['API Keys', 'Dataset Releases', 'API Versions', 'Reconciliation']) {
+      expect(screen.queryByText(label)).not.toBeInTheDocument();
+    }
   });
 
   test('does not embed a video when no race catalogue can be loaded', async () => {

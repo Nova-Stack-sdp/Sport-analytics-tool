@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { submitData, listSubmissions, reviewSubmission } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 
@@ -20,6 +20,7 @@ function describeError(err) {
 // buttons, since the backend would refuse the action anyway.
 function SubmissionsPanel() {
   const { isAdmin } = useAuth();
+  const loadRequest = useRef(0);
   const [activeTab, setActiveTab] = useState('Pending');
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -35,20 +36,24 @@ function SubmissionsPanel() {
   const [submitting, setSubmitting] = useState(false);
 
   const loadSubmissions = useCallback(async (tab) => {
+    const requestId = ++loadRequest.current;
     setLoading(true);
     setLoadError(null);
     try {
       const data = await listSubmissions(TAB_TO_STATUS[tab]);
+      if (requestId !== loadRequest.current) return;
       setSubmissions(data.submissions || []);
     } catch (err) {
+      if (requestId !== loadRequest.current) return;
       setLoadError(describeError(err));
     } finally {
-      setLoading(false);
+      if (requestId === loadRequest.current) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     loadSubmissions(activeTab);
+    return () => { loadRequest.current += 1; };
   }, [activeTab, loadSubmissions]);
 
   async function handleReview(id, status) {
@@ -70,6 +75,11 @@ function SubmissionsPanel() {
       body = JSON.parse(payloadText);
     } catch {
       setSubmitError('Event data is not valid JSON');
+      setSubmitting(false);
+      return;
+    }
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      setSubmitError('Event data must be a JSON object containing event arrays.');
       setSubmitting(false);
       return;
     }
@@ -95,13 +105,6 @@ function SubmissionsPanel() {
 
   return (
     <div className="developer-panel" id="developer-submissions">
-      <div className="rationale">
-        <span className="ic">◆</span>
-        <div>
-          <b>Why this tab:</b> the brief treats submission as its own pipeline, not a side effect of an admin panel: "a submission... should be checked against the platform's event schema before it is accepted, and a rejection should tell the submitter what was wrong."
-        </div>
-      </div>
-
       <div className="grid grid-2" style={{ marginBottom: 16 }}>
         <div className="card">
           <div className="card-title" style={{ marginBottom: 4 }}>Submit a batch</div>
@@ -180,17 +183,18 @@ function SubmissionsPanel() {
           </div>
           <div className="tabs">
             {REVIEW_TABS.map((tab) => (
-              <div
+              <button
+                type="button"
                 key={tab}
                 className={`tab${activeTab === tab ? ' active' : ''}`}
                 onClick={() => setActiveTab(tab)}
               >
                 {tab}
-              </div>
+              </button>
             ))}
           </div>
           {loading && <div className="card-note">Loading…</div>}
-          {loadError && <div className="card-note" style={{ color: 'var(--status-red)' }}>{loadError}</div>}
+          {loadError && <div className="card-note" role="alert" style={{ color: 'var(--status-red)' }}>{loadError} <button type="button" className="btn btn-ghost btn-sm" onClick={() => loadSubmissions(activeTab)}>Retry</button></div>}
           {!loading && !loadError && (
             <table>
               <tbody>
@@ -210,7 +214,7 @@ function SubmissionsPanel() {
                       {s.deletedAt && <span className="pill pill-gray" style={{ marginLeft: 4 }}>Deleted by admin</span>}
                     </td>
                     <td>
-                      {isAdmin && s.status === 'pending' && (
+                      {isAdmin && s.status === 'pending' && s.purpose !== 'code_test' && !s.deletedAt && (
                         <div style={{ display: 'flex', gap: 6 }}>
                           <button className="btn btn-primary btn-sm" onClick={() => handleReview(s.id, 'accepted')}>Approve</button>
                           <button className="btn btn-ghost btn-sm" onClick={() => handleReview(s.id, 'rejected')}>Reject</button>

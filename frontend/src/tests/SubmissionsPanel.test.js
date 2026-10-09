@@ -32,6 +32,15 @@ describe('SubmissionsPanel', () => {
     listSubmissions.mockResolvedValue({ submissions: [] });
   });
 
+  test.each(['null', '[]', '42'])('rejects a non-object JSON payload: %s', async (payload) => {
+    render(<SubmissionsPanel />);
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: payload } });
+    await submit();
+    expect(await screen.findByText(/must be a JSON object/i)).toBeInTheDocument();
+    expect(submitData).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: /submit batch/i })).toBeEnabled();
+  });
+
   test('shows an auth error instead of a fake "✓ undefined" success on 401', async () => {
     submitData.mockRejectedValue(httpError(401, { error: 'Invalid or expired token' }));
     render(<SubmissionsPanel />);
