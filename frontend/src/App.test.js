@@ -144,7 +144,7 @@ beforeEach(() => {
 
 test('renders the welcome page by default, with the persistent top nav', () => {
   render(<App />);
-  expect(screen.getByRole('heading', { name: 'F1 lytics' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'F1Lytics' })).toBeInTheDocument();
   expect(screen.getByLabelText('Main navigation')).toBeInTheDocument();
 });
 
@@ -1063,12 +1063,14 @@ test('nav shows the full Developer console once developer mode is turned on', as
   expect(screen.getByText(/API endpoints/i)).toBeInTheDocument();
 });
 
-test('the hero banner\'s live fixture link works once signed in', async () => {
+test('the hero banner\'s fixtures link works once signed in', async () => {
   render(<App />);
   emitAuthState(fakeFirebaseUser());
 
-  expect(screen.getByRole('heading', { name: 'F1 lytics' })).toBeInTheDocument();
-  fireEvent.click(screen.getByText('Open live fixture'));
+  expect(screen.getByRole('heading', { name: 'F1Lytics' })).toBeInTheDocument();
+  // The overview request has no backend in this test, so the hero offers
+  // the fixtures list rather than a specific session.
+  fireEvent.click(screen.getByText('Browse fixtures'));
 
   await waitFor(() => expect(screen.getByText('Event log')).toBeInTheDocument());
 });
