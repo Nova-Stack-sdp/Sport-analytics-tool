@@ -24,6 +24,8 @@ const port = process.env.PORT || 8080;
 
 const server = app.listen(port, '0.0.0.0', () => {
   console.log(`Backend listening on port ${port}`);
+  
+  // Start the news feed
   f1NewsService.start();
   rejectedCodeCleanup.start();
 

@@ -10,7 +10,8 @@ jest.unstable_mockModule('firebase-admin', () => ({
 }));
 
 const mockTx = {
-  codeSubmission: { findUnique: jest.fn(), deleteMany: jest.fn() },
+  codeSubmission: { findUnique: jest.fn(), deleteMany: jest.fn(), updateMany: jest.fn() },
+  notification: { create: jest.fn() },
   verifiedCode: { create: jest.fn(), findUnique: jest.fn() },
 };
 const mockPrisma = {
@@ -67,6 +68,8 @@ beforeEach(() => {
     submittedAt: new Date('2026-10-07T09:00:00Z'),
   });
   mockTx.codeSubmission.deleteMany.mockResolvedValue({ count: 1 });
+  mockTx.codeSubmission.updateMany.mockResolvedValue({ count: 1 });
+  mockTx.notification.create.mockResolvedValue({ id: 'notification-1' });
   mockTx.verifiedCode.create.mockResolvedValue({ id: 'vc-1' });
   mockTx.verifiedCode.findUnique.mockResolvedValue(null);
 });
@@ -299,6 +302,41 @@ describe('GET /api/code-submissions/:id', () => {
 describe('PATCH /api/code-submissions/:id', () => {
   const patch = (id, body) => authed(request(createApp()).patch(`/api/code-submissions/${id}`)).send(body);
 
+  test.each(['approved', 'rejected'])('%s notifies the submitter Firebase UID, ignoring a client recipient', async (status) => {
+    asAdmin();
+    const res = await patch('cs-1', { status, submitterId: 'someone-else', userId: 'admin-uid' });
+    expect(res.status).toBe(200);
+    expect(mockTx.notification.create).toHaveBeenCalledTimes(1);
+    expect(mockTx.notification.create).toHaveBeenCalledWith({ data: {
+      userId: 'dev-uid',
+      type: 'system_alert',
+      title: `Code submission ${status}`,
+      message: `Your code submission "Tyre delta" (cs-1) has been ${status}.`,
+      isRead: false,
+    } });
+  });
+
+  test.each(['approved', 'rejected'])('%s aborts the transaction if notification creation fails', async (status) => {
+    asAdmin();
+    mockTx.notification.create.mockRejectedValueOnce(new Error('notification write failed'));
+    let aborted = false;
+    mockPrisma.$transaction.mockImplementationOnce(async (callback) => {
+      try { return await callback(mockTx); } catch (err) { aborted = true; throw err; }
+    });
+    const res = await patch('cs-1', { status });
+    expect(res.status).toBe(500);
+    expect(aborted).toBe(true);
+  });
+
+  test.each(['approved', 'rejected'])('%s does not notify for a repeated review', async (status) => {
+    asAdmin();
+    mockTx.codeSubmission.findUnique.mockResolvedValue({ status: 'rejected' });
+    mockTx.codeSubmission.updateMany.mockResolvedValue({ count: 0 });
+    const res = await patch('cs-1', { status });
+    expect(res.status).toBe(409);
+    expect(mockTx.notification.create).not.toHaveBeenCalled();
+  });
+
   test('is admin only', async () => {
     const res = await patch('cs-1', { status: 'approved' });
     expect(res.status).toBe(403);
@@ -426,18 +464,18 @@ describe('PATCH /api/code-submissions/:id', () => {
 
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ id: 'cs-1', status: 'rejected' });
-      const args = mockPrisma.codeSubmission.updateMany.mock.calls[0][0];
+      const args = mockTx.codeSubmission.updateMany.mock.calls[0][0];
       expect(args.where).toEqual({ id: 'cs-1', status: 'pending' });
       expect(args.data).toMatchObject({ status: 'rejected', reviewedBy: 'admin-uid' });
       expect(args.data.reviewedAt).toBeInstanceOf(Date);
-      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
       expect(mockTx.verifiedCode.create).not.toHaveBeenCalled();
     });
 
     test('returns 409 when the submission was already rejected', async () => {
       asAdmin();
-      mockPrisma.codeSubmission.updateMany.mockResolvedValue({ count: 0 });
-      mockPrisma.codeSubmission.findUnique.mockResolvedValue({ status: 'rejected' });
+      mockTx.codeSubmission.updateMany.mockResolvedValue({ count: 0 });
+      mockTx.codeSubmission.findUnique.mockResolvedValue({ status: 'rejected' });
       const res = await patch('cs-1', { status: 'rejected' });
       expect(res.status).toBe(409);
       expect(res.body.error).toMatch(/already 'rejected'/);
@@ -445,9 +483,9 @@ describe('PATCH /api/code-submissions/:id', () => {
 
     test('returns 409 when the code was already approved and moved', async () => {
       asAdmin();
-      mockPrisma.codeSubmission.updateMany.mockResolvedValue({ count: 0 });
-      mockPrisma.codeSubmission.findUnique.mockResolvedValue(null);
-      mockPrisma.verifiedCode.findUnique.mockResolvedValue({ id: 'vc-1' });
+      mockTx.codeSubmission.updateMany.mockResolvedValue({ count: 0 });
+      mockTx.codeSubmission.findUnique.mockResolvedValue(null);
+      mockTx.verifiedCode.findUnique.mockResolvedValue({ id: 'vc-1' });
       const res = await patch('cs-1', { status: 'rejected' });
       expect(res.status).toBe(409);
       expect(res.body.error).toMatch(/already 'approved'/);
@@ -455,8 +493,8 @@ describe('PATCH /api/code-submissions/:id', () => {
 
     test('returns 404 when neither table has the id', async () => {
       asAdmin();
-      mockPrisma.codeSubmission.updateMany.mockResolvedValue({ count: 0 });
-      mockPrisma.codeSubmission.findUnique.mockResolvedValue(null);
+      mockTx.codeSubmission.updateMany.mockResolvedValue({ count: 0 });
+      mockTx.codeSubmission.findUnique.mockResolvedValue(null);
       const res = await patch('nope', { status: 'rejected' });
       expect(res.status).toBe(404);
     });

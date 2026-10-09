@@ -85,6 +85,19 @@ describe('API client', () => {
     expect(global.fetch).toHaveBeenCalledWith('https://api.example.test/api/teams', expect.any(Object));
   });
 
+  test('notification fetching sends the current Firebase token in the Authorization header', async () => {
+    global.fetch.mockResolvedValue(successfulResponse([]));
+    const client = loadClient();
+    const getIdToken = jest.fn().mockResolvedValue('notification-token');
+    client.setAuthTokenProvider(getIdToken);
+
+    await expect(client.getNotifications()).resolves.toEqual([]);
+
+    expect(getIdToken).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/notifications'),
+      expect.objectContaining({ headers: { Authorization: 'Bearer notification-token' } }));
+  });
+
   test('rejects with a useful status message when the backend responds unsuccessfully', async () => {
     delete process.env.REACT_APP_API_URL;
     global.fetch.mockResolvedValue({ ok: false, status: 503, json: jest.fn() });

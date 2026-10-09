@@ -1,7 +1,7 @@
 import express from 'express';
 import { prisma } from '../lib/prisma.js';
-import { requireAuth, requireVerifiedEmail } from '../middleware/requireAuth.js'; // Ensure this matches your middleware path
-import { notifyDriverFans, notifyTeamFans } from '../services/notificationService.js';
+import { requireAuth, requireVerifiedEmail, requireAdmin } from '../middleware/requireAuth.js';
+import { notifyDriverFans, notifyTeamFans, createNotificationOnce, NOTIFICATION_TYPES, notificationEventKey } from '../services/notificationService.js';
 
 export const notificationsRouter = express.Router();
 
@@ -10,7 +10,6 @@ export const notificationsRouter = express.Router();
 notificationsRouter.get('/', requireAuth, requireVerifiedEmail, async (req, res) => {
   try {
     // 1. Check if the user object exists
-    console.log('Checking auth in notifications:', req.user);
     
     if (!req.user || !req.user.uid) {
       return res.status(401).json({ error: 'User is not logged in or missing uid' });
@@ -34,22 +33,27 @@ notificationsRouter.get('/', requireAuth, requireVerifiedEmail, async (req, res)
 
 // POST /api/notifications
 // Creates a personalized notification strictly for the logged-in user
-notificationsRouter.post('/', requireAuth, async (req, res) => {
+notificationsRouter.post('/', requireAuth, requireVerifiedEmail, async (req, res) => {
   try {
-    const { title, message, type } = req.body;
+    const { title, message, type = 'system_alert', eventKey } = req.body || {};
+    if (typeof message !== 'string' || !message.trim() || message.length > 2000
+      || (title != null && (typeof title !== 'string' || title.length > 200))
+      || !NOTIFICATION_TYPES.includes(type)
+      || (eventKey != null && (typeof eventKey !== 'string' || !eventKey.trim() || eventKey.length > 300))) {
+      return res.status(400).json({ error: 'Invalid notification title, message, type or event key' });
+    }
     
     if (!req.user || !req.user.uid) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const newNotification = await prisma.notification.create({
-      data: {
+    const newNotification = await createNotificationOnce({
         userId: req.user.uid,
-        title,
-        message,
-        type: type || 'system_alert', // Prisma NotificationType enum
+        title: title?.trim() || null,
+        message: message.trim(),
+        type,
+        eventKey: notificationEventKey('client', eventKey || `${type}:${title || ''}:${message.trim()}`),
         isRead: false
-      }
     });
 
     res.status(201).json(newNotification);
@@ -77,7 +81,7 @@ notificationsRouter.patch('/:id/read', requireAuth, requireVerifiedEmail, async 
 
 // POST /api/notifications/trigger-test
 // (In production, restrict this to admins only, or remove it and rely on background jobs)
-notificationsRouter.post('/trigger-test', async (req, res) => {
+notificationsRouter.post('/trigger-test', requireAuth, requireVerifiedEmail, requireAdmin, async (req, res) => {
   try {
     const { driverId, teamId, title, message } = req.body;
 

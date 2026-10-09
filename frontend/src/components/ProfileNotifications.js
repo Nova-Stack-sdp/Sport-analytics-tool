@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { auth } from '../firebase'; // Adjust the import path as necessary
 
 function ProfileNotifications() {
   const [notifications, setNotifications] = useState([]);
@@ -10,9 +11,12 @@ function ProfileNotifications() {
     const fetchNotifications = async () => {
       try {
         const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
+        const token = await auth.currentUser?.getIdToken();
         const response = await fetch(`${API_URL}/api/notifications`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+         },
         credentials: 'include'
         });
 

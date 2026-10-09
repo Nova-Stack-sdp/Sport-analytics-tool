@@ -392,6 +392,8 @@ model Notification {
   title     String?
   message   String
   linkUrl   String?          @map("link_url")
+  // Stable source event, independent of changing headlines or reminder text.
+  eventKey  String?          @map("event_key")
   isRead    Boolean          @default(false) @map("is_read")
   createdAt DateTime         @default(now()) @map("created_at")
 
@@ -401,6 +403,7 @@ model Notification {
   
   // Enforces exactly one notification per user per article title
   @@unique([userId, message])
+  @@unique([userId, eventKey])
   
   @@map("notification")
 }
