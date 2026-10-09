@@ -14,8 +14,9 @@ function placeholderLabel(loading, races) {
 }
 
 // Full-width bar at the top of the replay page: the race catalogue picker on
-// the left and the entry point to the F1 broadcast sync flow on the right.
-function RacePickerBar({ races, selectedSlug, onSelectRace, loading }) {
+// the left — with the way to ask for a race that isn't in it — and the entry
+// point to the F1 broadcast sync flow on the right.
+function RacePickerBar({ races, selectedSlug, onSelectRace, loading, onAddVideo }) {
   return (
     <div className="race-picker-bar">
       <div className="race-picker">
@@ -39,6 +40,11 @@ function RacePickerBar({ races, selectedSlug, onSelectRace, loading }) {
             </option>
           ))}
         </select>
+        {onAddVideo && (
+          <button type="button" className="race-picker-add" onClick={onAddVideo}>
+            Can't find your race? <span>Add a video</span>
+          </button>
+        )}
       </div>
       <Link className="sync-broadcast-button" to="/sync-f1-broadcast">
         <span className="sync-broadcast-copy">

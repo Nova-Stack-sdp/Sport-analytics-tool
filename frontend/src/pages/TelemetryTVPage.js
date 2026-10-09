@@ -19,6 +19,7 @@ import SectionDivider from '../components/telemetry-tv/SectionDivider';
 import StrategyCard from '../components/telemetry-tv/StrategyCard';
 import TelemetryTVFooter from '../components/telemetry-tv/TelemetryTVFooter';
 import TelemetryTVGuide from '../components/telemetry-tv/TelemetryTVGuide';
+import VideoRequestCard from '../components/telemetry-tv/VideoRequestCard';
 import { deriveIndycarLapState } from '../features/telemetry-tv/deriveIndycarLapState';
 import {
   lapFromVideoSeconds,
@@ -43,6 +44,8 @@ import { buildTorontoraceIntelligence } from '../features/telemetry-tv/Torontora
 function TelemetryTVPage() {
   const [races, setRaces] = useState([]);
   const [selectedSlug, setSelectedSlug] = useState('');
+  // The "add a race video" card, opened from the picker when a race isn't listed.
+  const [addingVideo, setAddingVideo] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [raceData, setRaceData] = useState(null);
@@ -258,7 +261,9 @@ function TelemetryTVPage() {
           selectedSlug={selectedSlug}
           onSelectRace={handleRaceSelect}
           loading={loading}
+          onAddVideo={() => setAddingVideo(true)}
         />
+        {addingVideo && <VideoRequestCard onClose={() => setAddingVideo(false)} />}
         {selectedRace ? (
           <>
             {/* Race header: who is racing, how far in, under which flag. */}

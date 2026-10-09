@@ -643,6 +643,16 @@ describe('TelemetryTVPage', () => {
     expect(instruments.querySelector('.ttv-panel-body')).not.toHaveAttribute('hidden');
   });
 
+  test("a race that isn't listed can be asked for from the picker", async () => {
+    getTelemetryTVRaces.mockResolvedValue({ races: RACES });
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: /Can't find your race\? Add a video/ }));
+    const card = screen.getByRole('region', { name: 'Add a race video' });
+    expect(within(card).getByRole('note')).toHaveTextContent('We are strict about copyright.');
+    fireEvent.click(within(card).getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('region', { name: 'Add a race video' })).not.toBeInTheDocument();
+  });
+
   test('folds each of the three race phases away from its own chapter mark', async () => {
     getTelemetryTVRaces.mockResolvedValue({ races: RACES });
     getTelemetryTVRace.mockResolvedValue({ race: RACE_WITH_STATS });

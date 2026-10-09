@@ -447,6 +447,35 @@ export function getTelemetryTVRace(slug) {
   return request(`/api/telemetry-tv/races/${encodeURIComponent(slug)}`);
 }
 
+// A race video a user wants added to Telemetry TV (signed in). Every request
+// is checked for copyright by the developers before it goes live.
+export function submitVideoRequest({ raceName, videoUrl, hostedDescription, notes }) {
+  return request('/api/video-requests', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ raceName, videoUrl, hostedDescription, notes }),
+  });
+}
+
+// The signed-in user's own video requests, newest first.
+export function getMyVideoRequests() {
+  return request('/api/video-requests/mine');
+}
+
+// Admin: the review queue (optionally one status), and a review decision.
+export function getVideoRequests(status) {
+  const query = status ? `?status=${encodeURIComponent(status)}` : '';
+  return request(`/api/video-requests${query}`);
+}
+
+export function reviewVideoRequest(id, { status, reviewNote }) {
+  return request(`/api/video-requests/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status, reviewNote }),
+  });
+}
+
 // Race-day weather for one broadcast: measured conditions over the race
 // window (Open-Meteo archive), or { weather: null } when none can be read.
 export function getTelemetryTVWeather(slug) {

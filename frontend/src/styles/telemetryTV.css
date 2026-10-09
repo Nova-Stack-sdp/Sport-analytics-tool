@@ -243,6 +243,250 @@
   opacity: 0.7;
 }
 
+/* "Can't find your race? Add a video" beside the picker: quiet text with the
+   action in the page's red, so it reads as a way out, not a second picker. */
+#page-telemetry-tv .race-picker-add {
+  flex: 0 0 auto;
+  padding: 6px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+#page-telemetry-tv .race-picker-add span {
+  color: var(--ttv-lead);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+#page-telemetry-tv .race-picker-add:hover span {
+  color: var(--ttv-lead-dark);
+}
+
+/* The add-a-video card under the picker bar. */
+#page-telemetry-tv .ttv-video-request {
+  margin: 0 20px 20px;
+  padding: 16px 18px;
+  border-top: 3px solid var(--ttv-lead);
+}
+
+#page-telemetry-tv .ttv-video-request .card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+#page-telemetry-tv .ttv-video-request-close {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  cursor: pointer;
+}
+
+#page-telemetry-tv .ttv-video-request-close:hover {
+  color: var(--text-primary);
+}
+
+/* The copyright notice: the first thing on the card, set apart and plain. */
+#page-telemetry-tv .ttv-video-request-policy {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--ttv-lead-edge);
+  border-left: 4px solid var(--ttv-lead);
+  border-radius: 6px;
+  background: var(--ttv-lead-soft);
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+#page-telemetry-tv .ttv-video-request-policy-mark {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--ttv-lead);
+  color: #fff;
+  font-weight: 800;
+}
+
+#page-telemetry-tv .ttv-video-request-form {
+  display: grid;
+  gap: 6px;
+  max-width: 720px;
+}
+
+#page-telemetry-tv .ttv-video-request-form > label {
+  margin-top: 8px;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+#page-telemetry-tv .ttv-video-request-optional {
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+#page-telemetry-tv .ttv-video-request-form input[type='text'],
+#page-telemetry-tv .ttv-video-request-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  resize: vertical;
+}
+
+#page-telemetry-tv .ttv-video-request-form input:focus-visible,
+#page-telemetry-tv .ttv-video-request-form textarea:focus-visible {
+  outline: 2px solid var(--ttv-lead);
+  outline-offset: 1px;
+}
+
+#page-telemetry-tv .ttv-video-request-form input[aria-invalid='true'] {
+  border-color: var(--ttv-lead);
+}
+
+#page-telemetry-tv .ttv-video-request-hint {
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+}
+
+#page-telemetry-tv .ttv-video-request-hint.is-error {
+  color: var(--ttv-lead);
+}
+
+#page-telemetry-tv .ttv-video-request-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  padding: 8px;
+  border: 1px solid var(--ttv-pace-edge);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+#page-telemetry-tv .ttv-video-request-preview img {
+  width: 128px;
+  height: 72px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+#page-telemetry-tv .ttv-video-request-preview-title {
+  color: var(--ttv-pace-ink);
+  font-weight: 800;
+}
+
+#page-telemetry-tv .ttv-video-request-or {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+#page-telemetry-tv .ttv-video-request-or::before,
+#page-telemetry-tv .ttv-video-request-or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+#page-telemetry-tv .ttv-video-request-ack {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+#page-telemetry-tv .ttv-video-request-ack input {
+  margin-top: 2px;
+  accent-color: var(--ttv-lead);
+}
+
+#page-telemetry-tv .ttv-video-request-error {
+  margin: 6px 0 0;
+  color: var(--ttv-lead);
+  font-size: 12.5px;
+}
+
+#page-telemetry-tv .ttv-video-request-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+#page-telemetry-tv .ttv-video-request-button {
+  display: inline-block;
+  padding: 9px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+#page-telemetry-tv .ttv-video-request-button.is-primary {
+  border-color: var(--ttv-lead);
+  background: var(--ttv-lead);
+  color: #fff;
+}
+
+#page-telemetry-tv .ttv-video-request-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+#page-telemetry-tv .ttv-video-request-done,
+#page-telemetry-tv .ttv-video-request-signin {
+  max-width: 640px;
+  color: var(--text-primary);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+#page-telemetry-tv .ttv-video-request-done-title {
+  color: var(--ttv-pace-ink);
+  font-size: 15px;
+  font-weight: 800;
+}
+
 #page-telemetry-tv .sync-broadcast-button {
   flex-shrink: 0;
   display: inline-flex;
@@ -2983,6 +3227,7 @@
      margins step in to 12px so the cards keep their reading width. */
   #page-telemetry-tv .battle-radar-section,
   #page-telemetry-tv .race-header-bar,
+  #page-telemetry-tv .ttv-video-request,
   #page-telemetry-tv .ttv-section-divider,
   #page-telemetry-tv .ttv-instruments,
   #page-telemetry-tv .strategy-card,
