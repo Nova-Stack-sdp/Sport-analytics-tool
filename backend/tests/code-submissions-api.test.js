@@ -162,6 +162,18 @@ describe('POST /api/code-submissions', () => {
     );
     expect(mockPrisma.codeSubmission.create).not.toHaveBeenCalled();
   });
+
+  test.each([
+    [undefined, 'Description is required: say what the code does.'],
+    ['   ', 'Description is required: say what the code does.'],
+    ['too short', 'Description must be at least 10 characters.'],
+    ['x'.repeat(1001), 'Description must be at most 1000 characters.'],
+  ])('requires a meaningful description (%p)', async (description, message) => {
+    const res = await authed(request(createApp()).post('/api/code-submissions')).send({ ...VALID_BODY, description });
+    expect(res.status).toBe(400);
+    expect(res.body.errors).toEqual([message]);
+    expect(mockPrisma.codeSubmission.create).not.toHaveBeenCalled();
+  });
 });
 
 describe('GET /api/code-submissions', () => {

@@ -13,6 +13,9 @@ const LIMITS = {
   titleMin: 3,
   titleMax: 80,
   codeMax: 50000,
+  // The description is what the public API and the stats page show as
+  // "what this code does", so it is required and must say something.
+  descriptionMin: 10,
   descriptionMax: 1000,
   maxTags: 5,
   tagMax: 24,
@@ -60,7 +63,10 @@ function validateBody(body = {}) {
   if (!code.trim()) errors.push('Code is required.');
   else if (code.length > LIMITS.codeMax) errors.push(`Code must be at most ${LIMITS.codeMax} characters.`);
 
-  if (description.length > LIMITS.descriptionMax) {
+  if (!description) errors.push('Description is required: say what the code does.');
+  else if (description.length < LIMITS.descriptionMin) {
+    errors.push(`Description must be at least ${LIMITS.descriptionMin} characters.`);
+  } else if (description.length > LIMITS.descriptionMax) {
     errors.push(`Description must be at most ${LIMITS.descriptionMax} characters.`);
   }
 
@@ -69,7 +75,7 @@ function validateBody(body = {}) {
     errors.push(`Each tag must be at most ${LIMITS.tagMax} characters.`);
   }
 
-  return { errors, value: { title, language, code, description: description || null, tags } };
+  return { errors, value: { title, language, code, description, tags } };
 }
 
 codeSubmissionsRouter.post('/', requireAuth, requireVerifiedEmail, requireDeveloperOrAdmin, async (req, res, next) => {
