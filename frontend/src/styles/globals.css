@@ -92,6 +92,10 @@ html, body{margin:0;padding:0;background:#000000;}
 }
 
 /* ===== PAGE HEAD ===== */
+/* Reserve the navigation's actual height, including wrapped mobile links.
+   Admin panels scroll in the remaining space so rows cannot pass under it. */
+.app-frame-admin{height:100vh;height:100dvh;display:grid;grid-template-rows:auto minmax(0,1fr);}
+.app-frame-admin > .app-frame-main{min-height:0;overflow-y:auto;overscroll-behavior-y:contain;}
 .pagehead{max-width:1400px;margin:0 auto;padding:28px var(--page-margin) 0;}
 /* DriverDetailPage/TeamDetailPage have no .pagehead — their .content is the
    first thing under the fixed nav, so it needs the same top offset. */
