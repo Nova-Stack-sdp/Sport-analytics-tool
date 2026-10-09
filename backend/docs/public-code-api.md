@@ -69,8 +69,17 @@ reads the real value back.
 the admin's UID. The public address returns `404` straight away (or within the
 60-second cache). Once approval moves code instead of copying it (branch
 `sprint-4/feat-move-approved-code`), this is the only copy, so removal cannot be
-undone. The admin UI must ask for confirmation. The Remove button itself is
-added to the admin code panel in a later branch.
+undone. The admin panel (Admin → Code Submissions → Approved → **Remove**)
+asks for confirmation first. The script's test data, if any, is retired in the
+same transaction (see `dataset-submissions.md`), and the response says so
+(`testDataRetired`).
+
+## Descriptions
+
+The description is what the API returns as "what this code does", so new
+submissions must have one of at least 10 characters (enforced by the form and
+by `POST /api/code-submissions`). Code approved before this rule may still have
+`"description": null`.
 
 ## Tests
 

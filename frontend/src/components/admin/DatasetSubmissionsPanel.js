@@ -7,6 +7,7 @@ import {
   restoreAdminDataset,
   reviewSubmission,
 } from '../../api/client';
+import { saveBlob, datasetFilename } from '../../utils/download';
 
 // Admin tabs map 1:1 to the backend's ?view= values.
 const VIEWS = [
@@ -51,18 +52,6 @@ function StatusPill({ dataset }) {
   if (dataset.status === 'pending') return <span className="pill pill-amber">Pending</span>;
   if (dataset.status === 'rejected') return <span className="pill status-rejected">Rejected</span>;
   return <span className="pill pill-green">Accepted</span>;
-}
-
-// Saves a Blob through a temporary link; the object URL is released at once.
-function saveBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
 }
 
 // Dataset Submissions tab of the Admin page. Lists developer-uploaded
@@ -150,7 +139,7 @@ function DatasetSubmissionsPanel() {
     setLoadError(null);
     try {
       const { blob, kind } = await downloadAdminDataset(d.id);
-      saveBlob(blob, kind === 'rebuilt' ? `dataset-${d.id}-rebuilt.json` : `dataset-${d.id}.json`);
+      saveBlob(blob, datasetFilename(d.id, kind));
       setNotice(kind === 'rebuilt'
         ? 'Downloaded a rebuilt file: this dataset was uploaded before original files were kept.'
         : 'Downloaded the original upload.');
@@ -226,7 +215,17 @@ function DatasetSubmissionsPanel() {
                         </td>
                         <td className="mono secondary">{d.submitterId}</td>
                         <td className="secondary mono">{formatDate(d.submittedAt)}</td>
-                        <td className="secondary">{recordsText(d)}</td>
+                        <td className="secondary">
+                          {recordsText(d)}
+                          {d.usedBy && (
+                            <div style={{ fontSize: 11 }}>
+                              For “{d.usedBy.title}” ({d.usedBy.status === 'approved' ? 'published' : d.usedBy.status})
+                            </div>
+                          )}
+                          {!d.usedBy && d.purpose === 'code_test' && (
+                            <div style={{ fontSize: 11 }}>Not attached to any script yet</div>
+                          )}
+                        </td>
                         <td><StatusPill dataset={d} /></td>
                         <td>
                           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

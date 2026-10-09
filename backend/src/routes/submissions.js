@@ -221,6 +221,8 @@ submissionsRouter.get('/', requireAuth, requireVerifiedEmail, developerOrAdminTo
         validationErrors: true,
         purpose: true,
         deletedAt: true,
+        summary: true,
+        session: { select: { openf1Key: true, type: true, meeting: { select: { name: true, season: true } } } },
       },
     });
     res.json({ submissions });

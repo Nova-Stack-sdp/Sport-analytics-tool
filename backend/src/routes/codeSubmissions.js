@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { notifyCodeSubmissionReviewed } from '../services/notificationService.js';
 import { requireAuth, requireAdmin, requireVerifiedEmail } from '../middleware/requireAuth.js';
+import { retireTestDataset } from '../lib/testDatasets.js';
 
 export const codeSubmissionsRouter = Router();
 
@@ -13,6 +14,9 @@ const LIMITS = {
   titleMin: 3,
   titleMax: 80,
   codeMax: 50000,
+  // The description is what the public API and the stats page show as
+  // "what this code does", so it is required and must say something.
+  descriptionMin: 10,
   descriptionMax: 1000,
   maxTags: 5,
   tagMax: 24,
@@ -60,7 +64,10 @@ function validateBody(body = {}) {
   if (!code.trim()) errors.push('Code is required.');
   else if (code.length > LIMITS.codeMax) errors.push(`Code must be at most ${LIMITS.codeMax} characters.`);
 
-  if (description.length > LIMITS.descriptionMax) {
+  if (!description) errors.push('Description is required: say what the code does.');
+  else if (description.length < LIMITS.descriptionMin) {
+    errors.push(`Description must be at least ${LIMITS.descriptionMin} characters.`);
+  } else if (description.length > LIMITS.descriptionMax) {
     errors.push(`Description must be at most ${LIMITS.descriptionMax} characters.`);
   }
 
@@ -69,7 +76,43 @@ function validateBody(body = {}) {
     errors.push(`Each tag must be at most ${LIMITS.tagMax} characters.`);
   }
 
-  return { errors, value: { title, language, code, description: description || null, tags } };
+  return { errors, value: { title, language, code, description, tags } };
+}
+
+/**
+ * Checks the optional test dataset a developer attaches to their code.
+ * Returns null when it is usable, otherwise { status, error }.
+ *
+ * It must be the developer's own upload, uploaded as test data, not
+ * deleted, with at least one valid record, and not already attached to
+ * another script (one dataset tests one script).
+ */
+async function checkTestDataset(testDatasetId, uid) {
+  if (typeof testDatasetId !== 'string' || !testDatasetId.trim()) {
+    return { status: 400, error: 'testDatasetId must be the ID of one of your test-data uploads.' };
+  }
+  const dataset = await prisma.submission.findUnique({
+    where: { id: testDatasetId },
+    select: { id: true, submitterId: true, purpose: true, status: true, deletedAt: true },
+  });
+  if (!dataset || dataset.submitterId !== uid) {
+    return { status: 400, error: 'That test dataset was not found among your uploads.' };
+  }
+  if (dataset.purpose !== 'code_test') {
+    return { status: 400, error: 'That dataset was uploaded as race data. Upload it again as "Test data for my submitted code".' };
+  }
+  if (dataset.deletedAt) return { status: 400, error: 'That test dataset was deleted by an admin.' };
+  if (dataset.status === 'rejected') {
+    return { status: 400, error: 'None of the records in that test dataset were valid, so it cannot be used to test code.' };
+  }
+  const [pendingUses, publishedUses] = await Promise.all([
+    prisma.codeSubmission.count({ where: { testDatasetId, status: 'pending' } }),
+    prisma.verifiedCode.count({ where: { testDatasetId } }),
+  ]);
+  if (pendingUses + publishedUses > 0) {
+    return { status: 409, error: 'That test dataset is already attached to another script.' };
+  }
+  return null;
 }
 
 codeSubmissionsRouter.post('/', requireAuth, requireVerifiedEmail, requireDeveloperOrAdmin, async (req, res, next) => {
@@ -79,17 +122,29 @@ codeSubmissionsRouter.post('/', requireAuth, requireVerifiedEmail, requireDevelo
       return res.status(400).json({ error: errors.join(' '), errors });
     }
 
+    const testDatasetId = req.body?.testDatasetId ?? null;
+    if (testDatasetId !== null) {
+      const problem = await checkTestDataset(testDatasetId, req.user.uid);
+      if (problem) return res.status(problem.status).json({ error: problem.error });
+    }
+
     const created = await prisma.codeSubmission.create({
       data: {
         ...value,
+        testDatasetId,
         submitterId: req.user.uid,
         submitterEmail: req.user.email,
         status: 'pending',
       },
-      select: { id: true, status: true, submittedAt: true },
+      select: { id: true, status: true, submittedAt: true, testDatasetId: true },
     });
 
-    res.status(201).json({ id: created.id, status: created.status, submittedAt: created.submittedAt });
+    res.status(201).json({
+      id: created.id,
+      status: created.status,
+      submittedAt: created.submittedAt,
+      testDatasetId: created.testDatasetId,
+    });
   } catch (err) {
     next(err);
   }
@@ -108,6 +163,7 @@ const LIST_SELECT = {
   submittedAt: true,
   reviewedBy: true,
   reviewedAt: true,
+  testDatasetId: true,
 };
 
 function verifiedAsListRow(v) {
@@ -122,6 +178,7 @@ function verifiedAsListRow(v) {
     submittedAt: v.submittedAt,
     reviewedBy: v.verifiedBy,
     reviewedAt: v.verifiedAt,
+    testDatasetId: v.testDatasetId ?? null,
   };
 }
 
@@ -139,6 +196,7 @@ function findVerifiedForList(take) {
       submittedAt: true,
       verifiedBy: true,
       verifiedAt: true,
+      testDatasetId: true,
     },
   });
 }
@@ -192,17 +250,58 @@ function verifiedAsDetail(v) {
   };
 }
 
+// What a reviewer needs to know about the test data attached to a script.
+const TEST_DATASET_INCLUDE = {
+  testDataset: {
+    select: {
+      id: true,
+      status: true,
+      deletedAt: true,
+      summary: true,
+      submittedAt: true,
+      session: { select: { openf1Key: true, type: true, meeting: { select: { name: true, season: true } } } },
+      upload: { select: { sizeBytes: true } },
+    },
+  },
+};
+
+export function testDatasetSummary(dataset) {
+  if (!dataset) return null;
+  const meeting = dataset.session?.meeting;
+  return {
+    id: dataset.id,
+    sessionKey: dataset.session?.openf1Key ?? null,
+    sessionLabel: meeting ? `${meeting.name} · ${dataset.session.type} ${meeting.season}` : null,
+    validRecords: dataset.summary?.validRecords ?? null,
+    rejectedRecords: dataset.summary?.rejectedRecords ?? null,
+    submittedAt: dataset.submittedAt,
+    deleted: Boolean(dataset.deletedAt),
+    hasOriginalUpload: Boolean(dataset.upload),
+  };
+}
+
+function withTestDataset(row, shape) {
+  const { testDataset, ...rest } = row;
+  return { ...shape(rest), testDataset: testDatasetSummary(testDataset) };
+}
+
 // Looks in code_submission first (pending, rejected, and rows approved
 // before approval moved code), then in verified_code by the original
 // submission ID, since that is the ID the admin list hands out for
 // approved rows.
 codeSubmissionsRouter.get('/:id', requireAuth, requireVerifiedEmail, requireAdmin, async (req, res, next) => {
   try {
-    const submission = await prisma.codeSubmission.findUnique({ where: { id: req.params.id } });
-    if (submission) return res.json(submission);
+    const submission = await prisma.codeSubmission.findUnique({
+      where: { id: req.params.id },
+      include: TEST_DATASET_INCLUDE,
+    });
+    if (submission) return res.json(withTestDataset(submission, (row) => row));
 
-    const verified = await prisma.verifiedCode.findUnique({ where: { sourceSubmissionId: req.params.id } });
-    if (verified) return res.json(verifiedAsDetail(verified));
+    const verified = await prisma.verifiedCode.findUnique({
+      where: { sourceSubmissionId: req.params.id },
+      include: TEST_DATASET_INCLUDE,
+    });
+    if (verified) return res.json(withTestDataset(verified, verifiedAsDetail));
 
     res.status(404).json({ error: 'Code submission not found' });
   } catch (err) {
@@ -249,6 +348,7 @@ async function approveSubmission(id, adminUid) {
           submitterId: submission.submitterId,
           submitterEmail: submission.submitterEmail,
           submittedAt: submission.submittedAt,
+          testDatasetId: submission.testDatasetId ?? null,
           verifiedBy: adminUid,
         },
       }).catch((err) => {
@@ -273,14 +373,18 @@ async function approveSubmission(id, adminUid) {
   }
 }
 
+// Rejecting is one transaction: the status change, retiring the script's
+// test data, and notifying the developer. If any step fails, none happen.
 async function rejectSubmission(id, adminUid) {
   return prisma.$transaction(async (tx) => {
+    const reviewedAt = new Date();
     const { count } = await tx.codeSubmission.updateMany({
       where: { id, status: 'pending' },
-      data: { status: 'rejected', reviewedBy: adminUid, reviewedAt: new Date() },
+      data: { status: 'rejected', reviewedBy: adminUid, reviewedAt },
     });
     if (count === 1) {
       const submission = await tx.codeSubmission.findUnique({ where: { id } });
+      await retireTestDataset(tx, submission.testDatasetId, adminUid, reviewedAt);
       await notifyCodeSubmissionReviewed(submission, 'rejected', tx);
       return { ok: true };
     }

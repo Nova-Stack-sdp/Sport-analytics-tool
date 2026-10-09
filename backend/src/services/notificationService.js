@@ -65,3 +65,17 @@ export const notifyDriverFans = (driverId, title, message, linkUrl = null) =>
 
 export const notifyTeamFans = (teamId, title, message, linkUrl = null) =>
   notifyFans({ teamId }, 'team_update', title, message, linkUrl);
+
+// Tells a developer that an admin approved or rejected their code. Called
+// inside the review transaction (db = tx), so a failed notification rolls
+// the review back and a review never happens without its notification. The
+// recipient always comes from the stored submission, never from the request.
+export async function notifyCodeSubmissionReviewed(submission, status, db = prisma) {
+  return createNotificationOnce({
+    userId: submission.submitterId,
+    type: 'system_alert',
+    title: `Code submission ${status}`,
+    message: `Your code submission "${submission.title}" (${submission.id}) has been ${status}.`,
+    isRead: false,
+  }, db);
+}

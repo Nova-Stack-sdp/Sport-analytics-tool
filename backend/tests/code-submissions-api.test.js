@@ -13,6 +13,7 @@ const mockTx = {
   codeSubmission: { findUnique: jest.fn(), deleteMany: jest.fn(), updateMany: jest.fn() },
   notification: { create: jest.fn() },
   verifiedCode: { create: jest.fn(), findUnique: jest.fn() },
+  submission: { updateMany: jest.fn() },
 };
 const mockPrisma = {
   codeSubmission: {
@@ -21,12 +22,14 @@ const mockPrisma = {
     findUnique: jest.fn(),
     updateMany: jest.fn(),
     groupBy: jest.fn(),
+    count: jest.fn(),
   },
   verifiedCode: {
     findMany: jest.fn(),
     findUnique: jest.fn(),
     count: jest.fn(),
   },
+  submission: { findUnique: jest.fn() },
   $transaction: jest.fn((callback) => callback(mockTx)),
 };
 jest.unstable_mockModule('../src/lib/prisma.js', () => ({ prisma: mockPrisma }));
@@ -134,9 +137,65 @@ describe('POST /api/code-submissions', () => {
       code: VALID_BODY.code,
       description: 'Lap-time loss per lap.',
       tags: [],
+      testDatasetId: null,
       submitterId: 'dev-uid',
       submitterEmail: 'dev@example.test',
       status: 'pending',
+    });
+    expect(mockPrisma.submission.findUnique).not.toHaveBeenCalled();
+  });
+
+  describe('with test data attached', () => {
+    const dataset = (extra = {}) => ({
+      id: 'ds-1', submitterId: 'dev-uid', purpose: 'code_test', status: 'pending', deletedAt: null, ...extra,
+    });
+    beforeEach(() => {
+      mockPrisma.submission.findUnique.mockResolvedValue(dataset());
+      mockPrisma.codeSubmission.count.mockResolvedValue(0);
+      mockPrisma.verifiedCode.count.mockResolvedValue(0);
+      mockPrisma.codeSubmission.create.mockResolvedValue({
+        id: 'cs-1', status: 'pending', submittedAt: new Date('2026-10-07T09:00:00Z'), testDatasetId: 'ds-1',
+      });
+    });
+    const post = (testDatasetId) => authed(request(createApp()).post('/api/code-submissions')).send({ ...VALID_BODY, testDatasetId });
+
+    test('links the developer\'s own test data to the code', async () => {
+      const res = await post('ds-1');
+      expect(res.status).toBe(201);
+      expect(res.body.testDatasetId).toBe('ds-1');
+      expect(mockPrisma.codeSubmission.create.mock.calls[0][0].data.testDatasetId).toBe('ds-1');
+      expect(mockPrisma.codeSubmission.count).toHaveBeenCalledWith({ where: { testDatasetId: 'ds-1', status: 'pending' } });
+    });
+
+    test.each([
+      ['someone else\'s upload', dataset({ submitterId: 'other-dev' }), 400, /not found among your uploads/],
+      ['an unknown dataset', null, 400, /not found among your uploads/],
+      ['race data', dataset({ purpose: 'race_data' }), 400, /uploaded as race data/],
+      ['a deleted dataset', dataset({ deletedAt: new Date() }), 400, /deleted by an admin/],
+      ['a dataset with no valid records', dataset({ status: 'rejected' }), 400, /None of the records/],
+    ])('refuses %s, storing nothing', async (_label, found, status, message) => {
+      mockPrisma.submission.findUnique.mockResolvedValue(found);
+      const res = await post('ds-1');
+      expect(res.status).toBe(status);
+      expect(res.body.error).toMatch(message);
+      expect(mockPrisma.codeSubmission.create).not.toHaveBeenCalled();
+    });
+
+    test.each([
+      ['pending code', 1, 0],
+      ['published code', 0, 1],
+    ])('refuses test data already attached to %s (409)', async (_label, pending, published) => {
+      mockPrisma.codeSubmission.count.mockResolvedValue(pending);
+      mockPrisma.verifiedCode.count.mockResolvedValue(published);
+      const res = await post('ds-1');
+      expect(res.status).toBe(409);
+      expect(mockPrisma.codeSubmission.create).not.toHaveBeenCalled();
+    });
+
+    test.each([[''], [42]])('refuses a malformed testDatasetId %p', async (value) => {
+      const res = await post(value);
+      expect(res.status).toBe(400);
+      expect(mockPrisma.codeSubmission.create).not.toHaveBeenCalled();
     });
   });
 
@@ -160,6 +219,18 @@ describe('POST /api/code-submissions', () => {
         'Code is required.',
       ])
     );
+    expect(mockPrisma.codeSubmission.create).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    [undefined, 'Description is required: say what the code does.'],
+    ['   ', 'Description is required: say what the code does.'],
+    ['too short', 'Description must be at least 10 characters.'],
+    ['x'.repeat(1001), 'Description must be at most 1000 characters.'],
+  ])('requires a meaningful description (%p)', async (description, message) => {
+    const res = await authed(request(createApp()).post('/api/code-submissions')).send({ ...VALID_BODY, description });
+    expect(res.status).toBe(400);
+    expect(res.body.errors).toEqual([message]);
     expect(mockPrisma.codeSubmission.create).not.toHaveBeenCalled();
   });
 });
@@ -222,6 +293,7 @@ describe('GET /api/code-submissions', () => {
       submittedAt: '2026-10-06T08:00:00.000Z',
       reviewedBy: 'admin-uid',
       reviewedAt: '2026-10-07T08:00:00.000Z',
+      testDatasetId: null,
     }]);
   });
 
@@ -286,7 +358,7 @@ describe('GET /api/code-submissions/:id', () => {
     const res = await authed(request(createApp()).get('/api/code-submissions/cs-7'));
 
     expect(res.status).toBe(200);
-    expect(mockPrisma.verifiedCode.findUnique).toHaveBeenCalledWith({ where: { sourceSubmissionId: 'cs-7' } });
+    expect(mockPrisma.verifiedCode.findUnique.mock.calls[0][0].where).toEqual({ sourceSubmissionId: 'cs-7' });
     expect(res.body).toMatchObject({
       id: 'cs-7',
       verifiedCodeId: 'vc-1',
@@ -296,6 +368,58 @@ describe('GET /api/code-submissions/:id', () => {
       tags: ['pits'],
       reviewedBy: 'admin-uid',
     });
+  });
+});
+
+describe('test data shown to reviewers', () => {
+  const testDataset = {
+    id: 'ds-1', status: 'pending', deletedAt: null,
+    summary: { validRecords: 12, rejectedRecords: 2, eventsWritten: 0 },
+    submittedAt: new Date('2026-10-06T07:00:00Z'),
+    session: { openf1Key: 9999, type: 'Race', meeting: { name: 'Italian Grand Prix', season: 2026 } },
+    upload: { sizeBytes: 2048 },
+  };
+  const SUMMARY = {
+    id: 'ds-1', sessionKey: 9999, sessionLabel: 'Italian Grand Prix · Race 2026',
+    validRecords: 12, rejectedRecords: 2, submittedAt: '2026-10-06T07:00:00.000Z',
+    deleted: false, hasOriginalUpload: true,
+  };
+
+  test('a pending script\'s detail includes a summary of its test data', async () => {
+    asAdmin();
+    mockPrisma.codeSubmission.findUnique.mockResolvedValue({ id: 'cs-1', code: 'x', status: 'pending', testDatasetId: 'ds-1', testDataset });
+    const res = await authed(request(createApp()).get('/api/code-submissions/cs-1'));
+    expect(res.status).toBe(200);
+    expect(res.body.testDataset).toEqual(SUMMARY);
+    expect(res.body.testDatasetId).toBe('ds-1');
+    expect(mockPrisma.codeSubmission.findUnique.mock.calls[0][0].include.testDataset.select).toMatchObject({ summary: true, deletedAt: true });
+  });
+
+  test('an approved script keeps showing its test data, and a script without any shows null', async () => {
+    asAdmin();
+    mockPrisma.codeSubmission.findUnique.mockResolvedValue(null);
+    mockPrisma.verifiedCode.findUnique.mockResolvedValue({
+      id: 'vc-1', sourceSubmissionId: 'cs-7', title: 't', language: 'Python', code: 'x', description: 'd', tags: [],
+      submitterId: 'dev-uid', submitterEmail: null, submittedAt: new Date(), verifiedBy: 'admin-uid', verifiedAt: new Date(),
+      testDatasetId: 'ds-1', testDataset: { ...testDataset, deletedAt: new Date() },
+    });
+    const approved = await authed(request(createApp()).get('/api/code-submissions/cs-7'));
+    expect(approved.body.testDataset).toEqual({ ...SUMMARY, deleted: true });
+
+    mockPrisma.codeSubmission.findUnique.mockResolvedValue({ id: 'cs-2', code: 'x', status: 'pending', testDatasetId: null, testDataset: null });
+    const none = await authed(request(createApp()).get('/api/code-submissions/cs-2'));
+    expect(none.body.testDataset).toBeNull();
+  });
+
+  test('approval carries the test data link into verified code', async () => {
+    asAdmin();
+    mockTx.codeSubmission.findUnique.mockResolvedValue({
+      id: 'cs-1', title: 't', language: 'Python', code: 'x', description: 'd', tags: [], status: 'pending',
+      submitterId: 'dev-uid', submitterEmail: null, submittedAt: new Date('2026-10-07T09:00:00Z'), testDatasetId: 'ds-1',
+    });
+    const res = await authed(request(createApp()).patch('/api/code-submissions/cs-1')).send({ status: 'approved' });
+    expect(res.status).toBe(200);
+    expect(mockTx.verifiedCode.create.mock.calls[0][0].data.testDatasetId).toBe('ds-1');
   });
 });
 
@@ -383,6 +507,7 @@ describe('PATCH /api/code-submissions/:id', () => {
           submitterId: 'dev-uid',
           submitterEmail: 'dev@example.test',
           submittedAt: new Date('2026-10-07T09:00:00Z'),
+          testDatasetId: null,
           verifiedBy: 'admin-uid',
         },
       });
@@ -458,6 +583,12 @@ describe('PATCH /api/code-submissions/:id', () => {
   });
 
   describe('rejecting', () => {
+    beforeEach(() => {
+      mockTx.codeSubmission.updateMany.mockResolvedValue({ count: 1 });
+      mockTx.codeSubmission.findUnique.mockResolvedValue({ testDatasetId: null });
+      mockTx.submission.updateMany.mockResolvedValue({ count: 1 });
+    });
+
     test('sets the status to rejected and records who reviewed it, without touching verified code', async () => {
       asAdmin();
       const res = await patch('cs-1', { status: 'rejected' });
@@ -470,15 +601,32 @@ describe('PATCH /api/code-submissions/:id', () => {
       expect(args.data.reviewedAt).toBeInstanceOf(Date);
       expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
       expect(mockTx.verifiedCode.create).not.toHaveBeenCalled();
+      expect(mockTx.submission.updateMany).not.toHaveBeenCalled();
     });
 
-    test('returns 409 when the submission was already rejected', async () => {
+    test('retires the script\'s test data and notifies the developer in the same transaction', async () => {
+      asAdmin();
+      mockTx.codeSubmission.findUnique.mockResolvedValue({ testDatasetId: 'ds-1' });
+
+      const res = await patch('cs-1', { status: 'rejected' });
+
+      expect(res.status).toBe(200);
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+      const args = mockTx.submission.updateMany.mock.calls[0][0];
+      expect(args.where).toEqual({ id: 'ds-1', purpose: 'code_test', deletedAt: null });
+      expect(args.data.deletedBy).toBe('admin-uid');
+      expect(args.data.deletedAt).toEqual(mockTx.codeSubmission.updateMany.mock.calls[0][0].data.reviewedAt);
+      expect(mockTx.notification.create).toHaveBeenCalledTimes(1);
+    });
+
+    test('returns 409 when the submission was already rejected, retiring nothing', async () => {
       asAdmin();
       mockTx.codeSubmission.updateMany.mockResolvedValue({ count: 0 });
       mockTx.codeSubmission.findUnique.mockResolvedValue({ status: 'rejected' });
       const res = await patch('cs-1', { status: 'rejected' });
       expect(res.status).toBe(409);
       expect(res.body.error).toMatch(/already 'rejected'/);
+      expect(mockTx.submission.updateMany).not.toHaveBeenCalled();
     });
 
     test('returns 409 when the code was already approved and moved', async () => {

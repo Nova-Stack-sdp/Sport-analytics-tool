@@ -12,6 +12,9 @@ export const LIMITS = {
   titleMin: 3,
   titleMax: 80,
   codeMax: 50000,
+  // Same rule as the backend: the description is what the public API and
+  // the stats page show as "what this code does".
+  descriptionMin: 10,
   descriptionMax: 1000,
   maxTags: 5,
   tagMax: 24,
@@ -65,8 +68,11 @@ export function validateSubmission(draft = {}) {
     errors.push({ field: 'code', message: `Code must be at most ${LIMITS.codeMax} characters.` });
   }
 
-  // Description is optional — but when given, it still has to fit.
-  if (description.length > LIMITS.descriptionMax) {
+  if (!description) {
+    errors.push({ field: 'description', message: 'Description is required: say what the code does.' });
+  } else if (description.length < LIMITS.descriptionMin) {
+    errors.push({ field: 'description', message: `Description must be at least ${LIMITS.descriptionMin} characters.` });
+  } else if (description.length > LIMITS.descriptionMax) {
     errors.push({ field: 'description', message: `Description must be at most ${LIMITS.descriptionMax} characters.` });
   }
 
@@ -84,11 +90,32 @@ export function validateSubmission(draft = {}) {
 // that already passed validateSubmission — it trims and normalizes but never
 // invents missing values.
 export function normalizeSubmission(draft = {}) {
+  const testDatasetId = String(draft.testDatasetId ?? '').trim();
   return {
     title: String(draft.title ?? '').trim(),
     language: String(draft.language ?? '').trim(),
     code: String(draft.code ?? ''),
     description: String(draft.description ?? '').trim(),
     tags: parseTags(draft.tags),
+    // Optional: the developer's own test data for this script. Only sent
+    // when one was picked, so the body is unchanged otherwise.
+    ...(testDatasetId && { testDatasetId }),
   };
+}
+
+// Which of a developer's dataset uploads can be attached to code as test
+// data: uploaded as test data, not deleted, and with valid records (an
+// auto-rejected upload is no use for testing). The backend checks the same
+// and also refuses data already attached to another script.
+export function usableTestDatasets(submissions = []) {
+  return submissions.filter((s) => s.purpose === 'code_test' && !s.deletedAt && s.status === 'pending');
+}
+
+export function describeTestDataset(s) {
+  const meeting = s.session?.meeting;
+  const where = meeting ? `${meeting.name} · ${s.session.type} ${meeting.season}` : `session_key ${s.session?.openf1Key ?? '?'}`;
+  const valid = s.summary?.validRecords;
+  const records = valid == null ? '' : ` — ${valid} valid record${valid === 1 ? '' : 's'}`;
+  const when = s.submittedAt ? `, uploaded ${new Date(s.submittedAt).toLocaleDateString()}` : '';
+  return `${where}${records}${when}`;
 }

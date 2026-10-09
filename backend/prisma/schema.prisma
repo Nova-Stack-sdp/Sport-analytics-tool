@@ -213,6 +213,9 @@ model Submission {
 
   events Event[]
   upload SubmissionUpload?
+  // Code that names this dataset as its test data (purpose code_test only).
+  testDataForCode         CodeSubmission[] @relation("CodeTestDataset")
+  testDataForVerifiedCode VerifiedCode[]   @relation("VerifiedCodeTestDataset")
 
   @@index([sessionId])
   @@index([status])
@@ -432,10 +435,15 @@ model CodeSubmission {
   submittedAt    DateTime             @default(now()) @map("submitted_at")
   reviewedBy     String?              @map("reviewed_by")
   reviewedAt     DateTime?            @map("reviewed_at")
+  // Optional test data the developer uploaded for an admin to try this code
+  // on: a dataset submission with purpose code_test, from the same developer.
+  testDatasetId  String?              @map("test_dataset_id")
+  testDataset    Submission?          @relation("CodeTestDataset", fields: [testDatasetId], references: [id], onDelete: SetNull)
 
   @@index([status, submittedAt])
   @@index([status, reviewedAt])
   @@index([submitterId])
+  @@index([testDatasetId])
   @@map("code_submission")
 }
 
@@ -463,8 +471,13 @@ model VerifiedCode {
   submittedAt        DateTime @default(now()) @map("submitted_at")
   verifiedBy         String   @map("verified_by")
   verifiedAt         DateTime @default(now()) @map("verified_at")
+  // Carried over from the submission on approval, so the test data stays
+  // linked to the published code.
+  testDatasetId      String?     @map("test_dataset_id")
+  testDataset        Submission? @relation("VerifiedCodeTestDataset", fields: [testDatasetId], references: [id], onDelete: SetNull)
 
   @@index([submitterId, verifiedAt])
+  @@index([testDatasetId])
   @@map("verified_code")
 }
 
