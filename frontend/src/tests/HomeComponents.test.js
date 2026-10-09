@@ -44,10 +44,10 @@ describe('home-page components', () => {
     expect(question).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(question);
     expect(question).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByText(/live analytics platform/i)).toBeInTheDocument();
+    expect(screen.getByText(/A Formula 1 analytics site/i)).toBeInTheDocument();
     fireEvent.click(question);
     expect(question).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByText(/live analytics platform/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/A Formula 1 analytics site/i)).not.toBeInTheDocument();
   });
 
   test('rotates hero images and clears the slide timer on unmount', () => {
@@ -157,5 +157,13 @@ describe('home-page components', () => {
     await waitFor(() => expect(getOverview).toHaveBeenCalled());
     expect(screen.getByText('Formula 1 analytics')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Browse fixtures' })).toHaveAttribute('href', '/fixtures');
+  });
+
+  test('FAQ answers make no live or real-time claims and describe the real access rules', () => {
+    render(<Faq />);
+    screen.getAllByRole('button').forEach((q) => fireEvent.click(q));
+    expect(screen.queryByText(/real time|live analytics/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Nothing on the site is a live feed/)).toBeInTheDocument();
+    expect(screen.getByText(/turn on developer mode in Profile → Settings/)).toBeInTheDocument();
   });
 });
