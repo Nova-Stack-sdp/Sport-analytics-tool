@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import VideoRequestsTab from '../components/admin/VideoRequestsTab';
 
-const ADMIN_TABS = ['Submitters', 'API Keys', 'Dataset Releases', 'API Versions', 'Reconciliation'];
+const ADMIN_TABS = ['Submitters', 'API Keys', 'Dataset Releases', 'API Versions', 'Reconciliation', 'Video Requests'];
 
 // ── Mock data ────────────────────────────────────────────────────────────────
 
@@ -393,7 +394,7 @@ function AdminPage() {
         <div className="rationale">
           <span className="ic">◆</span>
           <div>
-            <b>Why this page:</b> the administrator is the only role with authority across the entire data pipeline — from who can submit data, to which API keys are live, to how conflicting values are resolved and corrections ripple through every projection. This page consolidates that governance surface into five sections matching each distinct responsibility.
+            <b>Why this page:</b> the administrator is the only role with authority across the entire data pipeline — from who can submit data, to which API keys are live, to how conflicting values are resolved and corrections ripple through every projection, to which race videos users send clear our copyright check. This page consolidates that governance surface into six sections matching each distinct responsibility.
           </div>
         </div>
 
@@ -414,6 +415,7 @@ function AdminPage() {
         {activeTab === 'Dataset Releases' && <DatasetReleasesTab />}
         {activeTab === 'API Versions' && <ApiVersionsTab />}
         {activeTab === 'Reconciliation' && <ReconciliationTab />}
+        {activeTab === 'Video Requests' && <VideoRequestsTab />}
       </div>
     </div>
   );

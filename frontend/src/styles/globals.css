@@ -881,3 +881,12 @@ label.settings-row-label{display:block;}
   .f1-calendar-session{font-size:8.5px;}
   .f1-calendar-head h2{font-size:17.5px;}
 }
+
+/* Admin · race video requests: the thumbnail links out to the video, and a
+   rejection asks for the reason the user will be told. */
+.video-request-source{display:inline-flex;align-items:center;gap:8px;color:inherit;text-decoration:none;}
+.video-request-source img{border-radius:4px;object-fit:cover;}
+.video-request-source:hover .mono{text-decoration:underline;}
+.video-request-reject{display:grid;gap:6px;min-width:220px;}
+.video-request-reject textarea{width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text-primary);font:inherit;font-size:12px;}
+.video-request-error{margin-top:4px;color:var(--status-red);font-size:11.5px;}
