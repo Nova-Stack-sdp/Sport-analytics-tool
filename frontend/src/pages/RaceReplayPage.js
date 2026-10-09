@@ -68,7 +68,7 @@ function RaceReplayPage() {
         <div className="rationale">
           <span className="ic">◆</span>
           <div>
-            <b>Related:</b> <Link to="/timetravel">Time-Travel</Link> shows how a single driver's result changed as data was corrected, and <Link to="/fixtures">Fixtures &amp; Events</Link> lists every event behind a session.{' '}
+            <b>Related:</b> <Link className="data-link" to="/timetravel">Time-Travel</Link> shows how a single driver's result changed as data was corrected, and <Link className="data-link" to="/fixtures">Fixtures &amp; Events</Link> lists every event behind a session.{' '}
             The safety-car "fixed distance ahead of the leader" positioning is adapted from{' '}
             <a href="https://github.com/tomshaw3591/f1-race-replay" target="_blank" rel="noreferrer" style={{ color: 'var(--info)' }}>F1 Race Replay</a>{' '}
             by Tom Shaw (MIT License).
@@ -79,7 +79,7 @@ function RaceReplayPage() {
           <div className="card-head">
             <div className="card-title">Session</div>
             {selectedSessionId && (
-              <Link to={`/fixtures?session=${encodeURIComponent(selectedSessionId)}`}>Open its event log</Link>
+              <Link className="data-link" to={`/fixtures?session=${encodeURIComponent(selectedSessionId)}`}>Open its event log</Link>
             )}
           </div>
           {fixturesLoading && <p className="secondary">Loading available sessions…</p>}

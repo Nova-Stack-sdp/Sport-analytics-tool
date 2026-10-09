@@ -901,3 +901,9 @@ label.settings-row-label{display:block;}
   .security-grid{grid-template-columns:1fr;}
   .stat-mini .v{font-size:19px;overflow-wrap:anywhere;}
 }
+
+/* Links inside data tables and cards: readable in both themes, never the
+   browser's default blue/purple. */
+.data-link{color:inherit;text-decoration:none;border-bottom:1px dotted var(--text-tertiary);}
+.data-link:hover{color:var(--accent);border-bottom-color:var(--accent);text-decoration:none;}
+

@@ -14,7 +14,7 @@ function sessionStatusPillClass(status) {
 
 function OverviewPage() {
   // Follows the clock / time zone choices in Profile → Settings.
-  const { formatDateTime } = useDateTimeFormat();
+  const { formatDate, formatDateTime, formatTime } = useDateTimeFormat();
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -95,7 +95,9 @@ function OverviewPage() {
               </div>
               <div className="stat-mini">
                 <div className="l">Last data update</div>
-                <div className="v accent">{stats.lastDataUpdate ? formatDateTime(stats.lastDataUpdate) : '—'}</div>
+                <div className="v accent" title={stats.lastDataUpdate ? formatDateTime(stats.lastDataUpdate) : undefined}>
+                  {stats.lastDataUpdate ? formatDate(stats.lastDataUpdate) : '—'}
+                </div>
               </div>
             </div>
 
@@ -128,10 +130,10 @@ function OverviewPage() {
                     )}
                     {recentEvents.map((event) => (
                       <div className="log-row" key={event.id}>
-                        <span className="log-time">{formatDateTime(event.occurredAt)}</span>
+                        <span className="log-time">{formatTime(event.occurredAt)}</span>
                         <span>{eventTypeLabel(event.eventType)}</span>
                         <span className="secondary">
-                          {[event.driverName, event.lapNumber != null ? `Lap ${event.lapNumber}` : null]
+                          {[event.driverName, event.lapNumber > 0 ? `Lap ${event.lapNumber}` : null]
                             .filter(Boolean)
                             .join(' · ')}
                         </span>
@@ -254,10 +256,10 @@ function OverviewPage() {
                       </tr>
                       {recentUpdates.map((update) => (
                         <tr key={update.id}>
-                          <td className="secondary">{formatDateTime(update.publishedAt)}</td>
+                          <td className="secondary" title={formatDateTime(update.publishedAt)}>{formatDate(update.publishedAt)}</td>
                           <td>
                             {update.session ? (
-                              <Link to={fixtureLink(update.session.id)}>{sessionLabel(update.session)}</Link>
+                              <Link className="data-link" to={fixtureLink(update.session.id)}>{sessionLabel(update.session)}</Link>
                             ) : '—'}
                           </td>
                           <td className="secondary">{submissionSourceLabel(update.source)}</td>

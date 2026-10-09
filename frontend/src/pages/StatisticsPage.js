@@ -52,11 +52,11 @@ function TeamTag({ row }) {
       {row.teamCode ?? row.teamName}
     </span>
   );
-  return row.teamId ? <Link to={`/team/${row.teamId}`} aria-label={row.teamName}>{tag}</Link> : tag;
+  return row.teamId ? <Link to={`/team/${row.teamId}`} aria-label={row.teamName} style={{ textDecoration: 'none' }}>{tag}</Link> : tag;
 }
 
 function DriverLink({ row }) {
-  return <Link to={`/driver/${row.driverId}`}>{row.name}</Link>;
+  return <Link className="data-link" to={`/driver/${row.driverId}`}>{row.name}</Link>;
 }
 
 function positionsGained(value) {
@@ -181,7 +181,7 @@ function StatisticsPage() {
                 ))}
               </select>
               {shownSessionId && (
-                <Link to={`/fixtures?session=${encodeURIComponent(shownSessionId)}`}>
+                <Link className="data-link" to={`/fixtures?session=${encodeURIComponent(shownSessionId)}`}>
                   See the events behind these figures
                 </Link>
               )}
@@ -240,7 +240,7 @@ function StatisticsPage() {
                     <td>{i + 1}</td>
                     <td>
                       <TeamTag row={row} />{' '}
-                      {row.teamId ? <Link to={`/team/${row.teamId}`}>{row.name}</Link> : row.name}
+                      {row.teamId ? <Link className="data-link" to={`/team/${row.teamId}`}>{row.name}</Link> : row.name}
                     </td>
                     <td className={i === 0 ? 'mono' : 'mono secondary'}>{formatPoints(row.points)}</td>
                     <td className="mono secondary">{row.wins}</td>

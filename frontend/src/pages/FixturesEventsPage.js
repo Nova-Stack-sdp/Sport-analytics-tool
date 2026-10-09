@@ -264,7 +264,7 @@ function FixturesEventsPage() {
                         </span>
                         <span className="log-event">{event.driverName ?? '—'}</span>
                         <span className="mono secondary">
-                          {[detail, event.lapNumber != null ? `Lap ${event.lapNumber}` : null].filter(Boolean).join(' · ')}
+                          {[detail, event.lapNumber > 0 ? `Lap ${event.lapNumber}` : null].filter(Boolean).join(' · ')}
                         </span>
                       </div>
                     );

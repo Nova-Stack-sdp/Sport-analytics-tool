@@ -31,6 +31,10 @@ const eventsResponse = {
       payload: { final_position: 1, points: 25, status: 'finished' }, isCorrection: false, superseded: false,
     },
     {
+      id: 'e0', eventType: 'grid_position', lapNumber: 0, occurredAt: '2024-03-02T15:00:00.000Z', driverName: 'Max VERSTAPPEN',
+      payload: { position: 1 }, isCorrection: false, superseded: false,
+    },
+    {
       id: 'e2', eventType: 'pit_stop', lapNumber: 17, occurredAt: '2024-03-02T15:40:00.000Z', driverName: 'Lando NORRIS',
       payload: { pit_duration_ms: 23400 }, isCorrection: true, superseded: false,
     },
@@ -84,12 +88,14 @@ describe('FixturesEventsPage', () => {
     expect(screen.getByText('Result', { selector: '.log-row span' })).toBeInTheDocument();
     expect(screen.getByText('23.4 s in the pit lane · Lap 17')).toBeInTheDocument();
     expect(screen.getByText('Correction')).toBeInTheDocument();
+    // Lap 0 (the grid) isn't a lap anyone would look for, so it isn't shown.
+    expect(screen.queryByText(/Lap 0/)).not.toBeInTheDocument();
     expect(screen.queryByText('Ingested')).not.toBeInTheDocument();
   });
 
   test('says how much of the log is shown and loads the rest on request', async () => {
     renderPage();
-    expect(await screen.findByText(/Showing 2 of 1,520 events/)).toBeInTheDocument();
+    expect(await screen.findByText(/Showing 3 of 1,520 events/)).toBeInTheDocument();
 
     getFixtureEvents.mockResolvedValueOnce({
       ...eventsResponse,
@@ -100,7 +106,7 @@ describe('FixturesEventsPage', () => {
 
     expect(await screen.findByText('YELLOW flag · Lap 30')).toBeInTheDocument();
     expect(getFixtureEvents).toHaveBeenLastCalledWith('s1', { type: undefined, includeSuperseded: false, cursor: 'e2' });
-    expect(screen.getByText(/Showing 3 of 1,520 events/)).toBeInTheDocument();
+    expect(screen.getByText(/Showing 4 of 1,520 events/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument();
   });
 
