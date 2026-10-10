@@ -105,7 +105,7 @@ function SubmissionsPanel() {
 
   return (
     <div className="developer-panel" id="developer-submissions">
-      <div className="grid grid-2" style={{ marginBottom: 16 }}>
+      <div className="grid submission-layout" style={{ marginBottom: 16 }}>
         <div className="card">
           <div className="card-title" style={{ marginBottom: 4 }}>Submit a batch</div>
           <div className="card-title-sub" style={{ marginBottom: 12 }}>OpenF1-shaped JSON, checked against the event schema</div>
@@ -196,35 +196,39 @@ function SubmissionsPanel() {
           {loading && <div className="card-note">Loading…</div>}
           {loadError && <div className="card-note" role="alert" style={{ color: 'var(--status-red)' }}>{loadError} <button type="button" className="btn btn-ghost btn-sm" onClick={() => loadSubmissions(activeTab)}>Retry</button></div>}
           {!loading && !loadError && (
-            <table>
-              <tbody>
-                <tr><th>Session</th><th>Submitted</th><th>Status</th><th></th></tr>
-                {submissions.length === 0 && (
-                  <tr><td colSpan={4} className="secondary">No submissions</td></tr>
-                )}
-                {submissions.map((s) => (
-                  <tr key={s.id}>
-                    <td className="mono secondary">{s.sessionId}</td>
-                    <td className="secondary mono">{new Date(s.submittedAt).toLocaleString()}</td>
-                    <td>
-                      {s.status === 'pending' && <span className="pill pill-amber">Pending</span>}
-                      {s.status === 'accepted' && <span className="pill pill-green">Approved</span>}
-                      {s.status === 'rejected' && <span className="pill status-rejected">Rejected</span>}
-                      {s.purpose === 'code_test' && <span className="pill pill-blue" style={{ marginLeft: 4 }}>Test data</span>}
-                      {s.deletedAt && <span className="pill pill-gray" style={{ marginLeft: 4 }}>Deleted by admin</span>}
-                    </td>
-                    <td>
-                      {isAdmin && s.status === 'pending' && s.purpose !== 'code_test' && !s.deletedAt && (
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button className="btn btn-primary btn-sm" onClick={() => handleReview(s.id, 'accepted')}>Approve</button>
-                          <button className="btn btn-ghost btn-sm" onClick={() => handleReview(s.id, 'rejected')}>Reject</button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="submission-queue-scroll">
+              <table className="submission-queue-table">
+                <tbody>
+                  <tr><th>Session</th><th>Submitted</th><th>Status</th><th></th></tr>
+                  {submissions.length === 0 && (
+                    <tr><td colSpan={4} className="secondary">No submissions</td></tr>
+                  )}
+                  {submissions.map((s) => (
+                    <tr key={s.id}>
+                      <td className="mono secondary" title={s.sessionId}>
+                        {s.sessionId || '—'}
+                      </td>
+                      <td className="secondary mono">{new Date(s.submittedAt).toLocaleString()}</td>
+                      <td>
+                        {s.status === 'pending' && <span className="pill pill-amber">Pending</span>}
+                        {s.status === 'accepted' && <span className="pill pill-green">Approved</span>}
+                        {s.status === 'rejected' && <span className="pill status-rejected">Rejected</span>}
+                        {s.purpose === 'code_test' && <span className="pill pill-blue" style={{ marginLeft: 4 }}>Test data</span>}
+                        {s.deletedAt && <span className="pill pill-gray" style={{ marginLeft: 4 }}>Deleted by admin</span>}
+                      </td>
+                      <td>
+                        {isAdmin && s.status === 'pending' && s.purpose !== 'code_test' && !s.deletedAt && (
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button className="btn btn-primary btn-sm" onClick={() => handleReview(s.id, 'accepted')}>Approve</button>
+                            <button className="btn btn-ghost btn-sm" onClick={() => handleReview(s.id, 'rejected')}>Reject</button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
           <div className="card-note" style={{ marginTop: 14 }}>
             {isAdmin
