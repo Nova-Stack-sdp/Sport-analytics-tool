@@ -59,6 +59,19 @@ function sendOpenF1Failure(res, error) {
   });
 }
 
+// OpenF1 filters a time window with comparison operators on the record's
+// own `date` field: /location?session_key=…&date>…&date<… . There is no
+// date_start/date_end filter on these resources — sending those makes
+// OpenF1 answer with an error instead of data, which is why every chunk
+// used to come back empty. URLSearchParams encodes the keys as date%3E /
+// date%3C, which OpenF1 accepts.
+function buildWindowUrl(resource, sessionKey, windowStartMs, windowEndMs) {
+  const url = buildResourceUrl(resource, { session_key: sessionKey });
+  url.searchParams.append('date>', new Date(windowStartMs).toISOString());
+  url.searchParams.append('date<', new Date(windowEndMs).toISOString());
+  return url;
+}
+
 async function fetchRequiredResource(resource, params) {
   const result = await fetchOpenF1Json(buildResourceUrl(resource, params));
   if (result.status === 404) return [];
@@ -111,11 +124,7 @@ async function fetchCarDataChunked(sessionKey, sessionStart, sessionEnd) {
     // Overlap by 1 second so records at a boundary aren't missed.
     const windowEnd = Math.min(windowStart + chunkMs + 1000, endMs + 1000);
     await paceBundleRequests();
-    const url = buildResourceUrl('car_data', {
-      session_key: sessionKey,
-      date_start: new Date(windowStart).toISOString(),
-      date_end: new Date(windowEnd).toISOString(),
-    });
+    const url = buildWindowUrl('car_data', sessionKey, windowStart, windowEnd);
     const result = await fetchOpenF1Json(url);
     if (result.status === 404) continue;
     if (result.status !== 200) {
@@ -143,11 +152,7 @@ async function fetchLocationDataChunked(sessionKey, sessionStart, sessionEnd) {
   for (let windowStart = startMs; windowStart < endMs; windowStart += chunkMs) {
     const windowEnd = Math.min(windowStart + chunkMs + 1000, endMs + 1000);
     await paceBundleRequests();
-    const url = buildResourceUrl('location', {
-      session_key: sessionKey,
-      date_start: new Date(windowStart).toISOString(),
-      date_end: new Date(windowEnd).toISOString(),
-    });
+    const url = buildWindowUrl('location', sessionKey, windowStart, windowEnd);
     const result = await fetchOpenF1Json(url);
     if (result.status === 404) continue;
     if (result.status !== 200) {
@@ -295,6 +300,8 @@ export async function fetchBarcelonaRaceRaw() {
  * (the caller falls back to a static per-circuit shape, then to the
  * illustrative track), not a failure.
  */
+export { buildWindowUrl };
+
 export async function fetchSessionTrackTelemetryRaw(sessionKey) {
   const sessionResult = await fetchOpenF1Json(
     buildResourceUrl('sessions', { session_key: sessionKey })
