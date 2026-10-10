@@ -100,7 +100,7 @@ function DriverDetailPage() {
             </div>
             <div className="dd-barrow">
               <div><div className="dd-bar-label">Season starts</div><div className="dd-bar-val">{stats.starts ?? 0}</div></div>
-              <div><div className="dd-bar-label">Season points</div><div className="dd-bar-val" style={{ color: driver.teamColor }}>{points(stats.points)}</div></div>
+              <div><div className="dd-bar-label">Season points</div><div className="dd-bar-val">{points(stats.points)}</div></div>
               <div><div className="dd-bar-label">Season podiums</div><div className="dd-bar-val">{stats.podiums ?? 0}</div></div>
               <div><div className="dd-bar-label">Average finish</div><div className="dd-bar-val">{position(stats.averageFinish)}</div></div>
             </div>
