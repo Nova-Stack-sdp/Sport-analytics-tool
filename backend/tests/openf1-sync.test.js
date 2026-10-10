@@ -1,10 +1,24 @@
 import { jest } from '@jest/globals';
 
-const mockRunDerivation = jest.fn();
+// The OpenF1 sync now lives in src/ingestion/openf1/ (client.js, mapEvents.js,
+// syncSession.js); src/jobs/openf1-sync.js is only its command-line entry.
+// These cases pin the details of the fetch, the mappings, the dimension
+// upserts and the submission status rules. openf1-ingestion.test.js covers
+// the rate limiter and the pipeline's stages.
+
 const mockPlanIngestion = jest.fn();
 const mockSummarizePlan = jest.fn();
-const mockPrismaClient = jest.fn();
-const mockPrismaPg = jest.fn();
+
+jest.unstable_mockModule('../src/ingestion/planIngestion.js', () => ({
+  planIngestion: mockPlanIngestion,
+  summarizePlan: mockSummarizePlan,
+}));
+
+const { createOpenF1Client } = await import('../src/ingestion/openf1/client.js');
+const { gridSessionKey, mapFlag, mapOpenF1Records, mapSessionType } = await import(
+  '../src/ingestion/openf1/mapEvents.js'
+);
+const { syncOpenF1Session } = await import('../src/ingestion/openf1/syncSession.js');
 
 const tx = {
   submission: { create: jest.fn() },
@@ -24,43 +38,9 @@ const db = {
   entry: { upsert: jest.fn() },
   event: { findMany: jest.fn() },
   $transaction: jest.fn(),
-  $disconnect: jest.fn(),
 };
 
-jest.unstable_mockModule('../src/derivation/index.js', () => ({
-  runDerivationForSession: mockRunDerivation,
-}));
-jest.unstable_mockModule('../src/ingestion/planIngestion.js', () => ({
-  planIngestion: mockPlanIngestion,
-  summarizePlan: mockSummarizePlan,
-}));
-jest.unstable_mockModule('@prisma/adapter-pg', () => ({
-  PrismaPg: mockPrismaPg,
-}));
-jest.unstable_mockModule('@prisma/client', () => ({
-  default: {
-    PrismaClient: mockPrismaClient,
-    SubmissionSource: { openf1_sync: 'openf1_sync' },
-    SubmissionStatus: {
-      accepted: 'accepted',
-      rejected: 'rejected',
-      partially_accepted: 'partially_accepted',
-    },
-    EventType: {
-      lap_completed: 'lap_completed',
-      pit_stop: 'pit_stop',
-      tyre_stint: 'tyre_stint',
-      position_change: 'position_change',
-      flag_event: 'flag_event',
-      race_control_message: 'race_control_message',
-      weather_snapshot: 'weather_snapshot',
-      grid_position: 'grid_position',
-      classification: 'classification',
-    },
-  },
-}));
-
-let syncJob;
+const mockRunDerivation = jest.fn();
 
 const sessionStart = new Date('2024-03-02T14:00:00.000Z');
 const sessionEnd = new Date('2024-03-02T16:00:00.000Z');
@@ -90,15 +70,55 @@ function response(body, status = 200) {
   return {
     status,
     ok: status >= 200 && status < 300,
-    json: async () => body,
+    text: async () => JSON.stringify(body),
   };
 }
 
-function endpoint(url) {
-  return new URL(url).pathname.split('/').pop();
+function fakeClock() {
+  let t = 0;
+  const waits = [];
+  return {
+    waits,
+    now: () => t,
+    sleep: async (ms) => {
+      waits.push(ms);
+      t += ms;
+    },
+  };
 }
 
-function setupDimensionMocks() {
+// An OpenF1 stand-in for the pipeline: answers by endpoint, records each ask.
+function fakeClient({ laps = [], sessionName = 'Practice 1', meetingSessions } = {}) {
+  const session = { ...sessionData, session_name: sessionName };
+  const asked = [];
+  return {
+    asked,
+    stats: { bytes: 0 },
+    get: async (path, params = {}) => {
+      asked.push({ path, params });
+      switch (path) {
+        case 'sessions':
+          if ('session_key' in params) return params.session_key === 300 ? [session] : [];
+          return meetingSessions ?? [{ session_key: 301, session_name: 'Qualifying' }];
+        case 'meetings':
+          return [meetingData];
+        case 'drivers':
+          return driversData;
+        case 'laps':
+          return laps;
+        default:
+          return [];
+      }
+    },
+  };
+}
+
+function sync(sessionKey, client) {
+  return syncOpenF1Session(sessionKey, { prisma: db, client, runDerivation: mockRunDerivation });
+}
+
+beforeEach(() => {
+  jest.clearAllMocks();
   db.circuit.upsert.mockResolvedValue({ id: 'circuit-1' });
   db.meeting.upsert.mockResolvedValue({ id: 'meeting-1', season: 2024 });
   db.session.upsert.mockResolvedValue({
@@ -107,53 +127,11 @@ function setupDimensionMocks() {
     startTime: sessionStart,
     endTime: sessionEnd,
   });
-  db.team.upsert
-    .mockResolvedValueOnce({ id: 'team-1' })
-    .mockResolvedValueOnce({ id: 'team-1' });
-  db.driver.upsert
-    .mockResolvedValueOnce({ id: 'driver-1' })
-    .mockResolvedValueOnce({ id: 'driver-11' });
-  db.entry.upsert
-    .mockResolvedValueOnce({ id: 'entry-1' })
-    .mockResolvedValueOnce({ id: 'entry-11' });
-}
-
-function setupFetch({ laps = [], sessionName = 'Practice 1' } = {}) {
-  const session = { ...sessionData, session_name: sessionName };
-  global.fetch.mockImplementation(async (url) => {
-    switch (endpoint(url)) {
-      case 'sessions':
-        return response(new URL(url).searchParams.has('session_key') ? [session] : [
-          { session_key: 301, session_name: 'Qualifying' },
-        ]);
-      case 'meetings':
-        return response([meetingData]);
-      case 'drivers':
-        return response(driversData);
-      case 'laps':
-        return response(laps);
-      default:
-        return response([]);
-    }
-  });
-}
-
-beforeAll(async () => {
-  mockPrismaClient.mockReturnValue(db);
-  syncJob = await import('../src/jobs/openf1-sync.js');
-});
-
-beforeEach(() => {
-  jest.clearAllMocks();
-  jest.spyOn(globalThis, 'setTimeout').mockImplementation((callback) => {
-    queueMicrotask(callback);
-    return 0;
-  });
-  jest.spyOn(console, 'warn').mockImplementation(() => {});
-  jest.spyOn(console, 'log').mockImplementation(() => {});
-  jest.spyOn(console, 'error').mockImplementation(() => {});
-  jest.spyOn(globalThis, 'fetch');
-  setupDimensionMocks();
+  db.team.upsert.mockResolvedValue({ id: 'team-1' });
+  db.driver.upsert.mockImplementation(async ({ where }) => ({ id: `driver-${where.driverNumber}` }));
+  db.entry.upsert.mockImplementation(async ({ create }) => ({
+    id: create.driverId.replace('driver-', 'entry-'),
+  }));
   tx.submission.create.mockResolvedValue({
     id: 'submission-1',
     status: 'partially_accepted',
@@ -179,72 +157,68 @@ beforeEach(() => {
   }));
 });
 
-afterEach(() => {
-  jest.restoreAllMocks();
-});
-
 describe('OpenF1 sync helper functions', () => {
   test('fetches JSON with query parameters, treats 404 as empty, retries 429, and rejects other errors', async () => {
-    global.fetch
+    const clock = fakeClock();
+    const fetchImpl = jest.fn()
       .mockResolvedValueOnce(response([{ id: 1 }]))
       .mockResolvedValueOnce(response({ detail: 'No results found.' }, 404))
       .mockResolvedValueOnce(response({}, 429))
       .mockResolvedValueOnce(response([{ id: 2 }]))
       .mockResolvedValueOnce(response({}, 503));
+    const client = createOpenF1Client({ ...clock, fetchImpl, retryBaseMs: 600 });
 
-    await expect(syncJob.fetchOpenF1('laps', { session_key: 300 })).resolves.toEqual([{ id: 1 }]);
-    expect(global.fetch.mock.calls[0][0]).toBe(
-      'https://api.openf1.org/v1/laps?session_key=300'
-    );
-    await expect(syncJob.fetchOpenF1('pit', { session_key: 300 })).resolves.toEqual([]);
-    await expect(syncJob.fetchOpenF1('weather')).resolves.toEqual([{ id: 2 }]);
-    expect(global.fetch).toHaveBeenCalledTimes(4);
-    expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), 3000);
-    expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), 300);
-    await expect(syncJob.fetchOpenF1('position')).rejects.toThrow(
+    await expect(client.get('laps', { session_key: 300 })).resolves.toEqual([{ id: 1 }]);
+    expect(fetchImpl.mock.calls[0][0]).toBe('https://api.openf1.org/v1/laps?session_key=300');
+    await expect(client.get('pit', { session_key: 300 })).resolves.toEqual([]);
+    await expect(client.get('weather')).resolves.toEqual([{ id: 2 }]);
+    expect(fetchImpl).toHaveBeenCalledTimes(4);
+    expect(clock.waits).toContain(600);
+    expect(client.stats).toMatchObject({ requests: 4, retries: 1 });
+    await expect(client.get('position')).rejects.toThrow(
       'OpenF1 request failed: https://api.openf1.org/v1/position -> 503'
     );
   });
 
-  test('maps known and unknown session names and flag values', () => {
-    expect(syncJob.mapSessionType('Practice 1')).toBe('FP1');
-    expect(syncJob.mapSessionType('Practice 2')).toBe('FP2');
-    expect(syncJob.mapSessionType('Practice 3')).toBe('FP3');
-    expect(syncJob.mapSessionType('Qualifying')).toBe('Q');
-    expect(syncJob.mapSessionType('Sprint Qualifying')).toBe('Q');
-    expect(syncJob.mapSessionType('Sprint Shootout')).toBe('Q');
-    expect(syncJob.mapSessionType('Sprint')).toBe('Sprint');
-    expect(syncJob.mapSessionType('Race')).toBe('Race');
-    expect(syncJob.mapSessionType('Unknown')).toBe('Q');
+  test('gives up on a 429 that outlasts the retries', async () => {
+    const clock = fakeClock();
+    const fetchImpl = jest.fn(async () => response({}, 429));
+    const client = createOpenF1Client({ ...clock, fetchImpl, maxRetries: 2, retryBaseMs: 100 });
 
-    expect(syncJob.mapFlag(null)).toBeNull();
-    expect(syncJob.mapFlag('green')).toBe('green');
-    expect(syncJob.mapFlag('CLEAR')).toBe('green');
-    expect(syncJob.mapFlag('YELLOW')).toBe('yellow');
-    expect(syncJob.mapFlag('DOUBLE YELLOW')).toBe('yellow');
-    expect(syncJob.mapFlag('RED')).toBe('red');
-    expect(syncJob.mapFlag('SAFETY CAR')).toBe('safety_car');
-    expect(syncJob.mapFlag('VIRTUAL SAFETY CAR')).toBe('vsc');
-    expect(syncJob.mapFlag('CHEQUERED')).toBe('chequered');
-    expect(syncJob.mapFlag('BLUE')).toBe('blue');
-    expect(syncJob.mapFlag('BLACK AND WHITE')).toBe('black_and_white');
-    expect(syncJob.mapFlag('UNKNOWN')).toBeNull();
+    await expect(client.get('laps')).rejects.toThrow('-> 429');
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(clock.waits.filter((ms) => ms === 100 || ms === 200)).toEqual([100, 200]);
+  });
+
+  test('maps known and unknown session names and flag values', () => {
+    expect(mapSessionType('Practice 1')).toBe('FP1');
+    expect(mapSessionType('Practice 2')).toBe('FP2');
+    expect(mapSessionType('Practice 3')).toBe('FP3');
+    expect(mapSessionType('Qualifying')).toBe('Q');
+    expect(mapSessionType('Sprint Qualifying')).toBe('Q');
+    expect(mapSessionType('Sprint Shootout')).toBe('Q');
+    expect(mapSessionType('Sprint')).toBe('Sprint');
+    expect(mapSessionType('Race')).toBe('Race');
+    expect(mapSessionType('Unknown')).toBe('Q');
+
+    expect(mapFlag(null)).toBeNull();
+    expect(mapFlag('green')).toBe('green');
+    expect(mapFlag('CLEAR')).toBe('green');
+    expect(mapFlag('YELLOW')).toBe('yellow');
+    expect(mapFlag('DOUBLE YELLOW')).toBe('yellow');
+    expect(mapFlag('RED')).toBe('red');
+    expect(mapFlag('SAFETY CAR')).toBe('safety_car');
+    expect(mapFlag('VIRTUAL SAFETY CAR')).toBe('vsc');
+    expect(mapFlag('CHEQUERED')).toBe('chequered');
+    expect(mapFlag('BLUE')).toBe('blue');
+    expect(mapFlag('BLACK AND WHITE')).toBe('black_and_white');
+    expect(mapFlag('UNKNOWN')).toBeNull();
   });
 
   test('upserts session dimensions and rejects a missing OpenF1 session', async () => {
-    setupFetch();
-    const dimensions = await syncJob.syncDimensions('300');
+    const result = await sync('300', fakeClient());
 
-    expect(dimensions).toEqual({
-      sessionId: 'session-1',
-      season: 2024,
-      entryByDriverNumber: new Map([[1, 'entry-1'], [11, 'entry-11']]),
-      meetingKey: 100,
-      sessionName: 'Practice 1',
-      sessionType: 'Race',
-      sessionStart,
-      sessionEnd,
-    });
+    expect(result.sessionId).toBe('session-1');
     expect(db.circuit.upsert).toHaveBeenCalledWith(expect.objectContaining({
       where: { openf1Key: 200 },
       create: expect.objectContaining({ name: 'Bahrain', country: 'Bahrain' }),
@@ -258,39 +232,41 @@ describe('OpenF1 sync helper functions', () => {
       create: expect.objectContaining({ meetingId: 'meeting-1', type: 'FP1', status: 'finished' }),
     }));
     expect(db.entry.upsert).toHaveBeenCalledTimes(2);
+    expect(db.entry.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      create: { sessionId: 'session-1', driverId: 'driver-11', teamId: 'team-1' },
+    }));
 
-    global.fetch.mockResolvedValue(response([]));
-    await expect(syncJob.syncDimensions(999)).rejects.toThrow(
-      'No session found for session_key=999'
+    await expect(sync(999, fakeClient())).rejects.toThrow(
+      'OpenF1 has no session with session_key=999'
     );
   });
 
-  test('resolves qualifying grids for races and sprint variants, and skips unavailable grids', async () => {
-    global.fetch.mockResolvedValue(response([
+  test('resolves qualifying grids for races and sprint variants, and skips unavailable grids', () => {
+    const raceWeekend = [
       { session_key: 301, session_name: 'Qualifying' },
       { session_key: 300, session_name: 'Race' },
-    ]));
-    await expect(syncJob.resolveGridSessionKey(100, 'Practice 1')).resolves.toBeNull();
-    await expect(syncJob.resolveGridSessionKey(100, 'Race')).resolves.toBe(301);
+    ];
+    expect(gridSessionKey('Practice 1', raceWeekend)).toBeNull();
+    expect(gridSessionKey('Race', raceWeekend)).toBe(301);
 
-    global.fetch.mockResolvedValue(response([
+    expect(gridSessionKey('Sprint', [{ session_key: 302, session_name: 'Sprint Shootout' }])).toBe(302);
+    expect(gridSessionKey('Sprint', [
       { session_key: 302, session_name: 'Sprint Shootout' },
-    ]));
-    await expect(syncJob.resolveGridSessionKey(100, 'Sprint')).resolves.toBe(302);
+      { session_key: 303, session_name: 'Sprint Qualifying' },
+    ])).toBe(303);
 
-    global.fetch.mockResolvedValue(response([]));
-    await expect(syncJob.resolveGridSessionKey(100, 'Race')).resolves.toBeNull();
-    expect(console.warn).toHaveBeenCalled();
+    expect(gridSessionKey('Race', [])).toBeNull();
+    expect(gridSessionKey('Race', undefined)).toBeNull();
   });
 
-  test('collects normalized events and records invalid or unknown driver data', async () => {
+  test('collects normalized events and records invalid or unknown driver data', () => {
     const records = {
       laps: [
         { driver_number: 1, lap_number: 1, lap_duration: 80.1234, duration_sector_1: 25.1, is_pit_out_lap: true },
         { driver_number: 9, lap_number: 2, lap_duration: 80 },
         { driver_number: 1, lap_number: 3, lap_duration: 0 },
       ],
-      pit: [
+      pits: [
         { driver_number: 1, lap_number: 4, date: '2024-03-02T14:10:00Z', pit_duration: 2.5 },
         { driver_number: 9, lap_number: 4, date: '2024-03-02T14:10:00Z' },
         { driver_number: 1, lap_number: 5, date: '2024-03-02T14:11:00Z', pit_duration: -1 },
@@ -299,13 +275,13 @@ describe('OpenF1 sync helper functions', () => {
         { driver_number: 1, lap_start: 1, lap_end: 20, compound: 'MEDIUM', stint_number: 1, tyre_age_at_start: 3 },
         { driver_number: 9, lap_start: 1 },
       ],
-      position: [
+      positions: [
         { driver_number: 1, date: '2024-03-02T14:00:02Z', position: 2 },
         { driver_number: 1, date: '2024-03-02T14:00:01Z', position: 2 },
         { driver_number: 1, date: '2024-03-02T14:00:03Z', position: 1 },
         { driver_number: 9, date: '2024-03-02T14:00:01Z', position: 3 },
       ],
-      race_control: [
+      raceControl: [
         { category: 'Flag', flag: 'GREEN', date: '2024-03-02T14:00:00Z', lap_number: 1 },
         { category: 'Flag', flag: 'UNKNOWN', date: '2024-03-02T14:00:00Z', lap_number: 1 },
         { category: 'Other', message: 'Track clear', date: '2024-03-02T14:00:00Z', lap_number: 1 },
@@ -318,22 +294,20 @@ describe('OpenF1 sync helper functions', () => {
         rainfall: 0,
         wind_speed: 3,
       }],
-      starting_grid: [
+      grid: [
         { driver_number: 1, position: 1 },
         { driver_number: 9, position: 2 },
       ],
-      session_result: [
+      results: [
         { driver_number: 1, position: 1, points: 26, dsq: false, dnf: false },
         { driver_number: 11, position: 2, points: 18, dsq: true, dnf: false },
         { driver_number: 9, position: 3, points: 15 },
       ],
     };
-    global.fetch.mockImplementation(async (url) => response(records[endpoint(url)] || []));
 
-    const { events, rejections } = await syncJob.collectEvents(
-      300,
+    const { events, rejections } = mapOpenF1Records(
+      records,
       new Map([[1, 'entry-1'], [11, 'entry-11']]),
-      301,
       { sessionStart, sessionEnd }
     );
 
@@ -374,23 +348,24 @@ describe('OpenF1 sync helper functions', () => {
       'grid_position',
       'classification',
     ]);
-    const gridRequest = global.fetch.mock.calls
-      .map(([url]) => new URL(url))
-      .find((url) => url.pathname.endsWith('/starting_grid'));
-    expect(gridRequest.searchParams.get('session_key')).toBe('301');
   });
 
-  test('does not request starting-grid data when no qualifying key was resolved', async () => {
-    global.fetch.mockResolvedValue(response([]));
-    const result = await syncJob.collectEvents(300, new Map(), null, {
-      sessionStart,
-      sessionEnd,
+  test('maps nothing from an empty session', () => {
+    expect(mapOpenF1Records({}, new Map(), { sessionStart, sessionEnd })).toEqual({
+      events: [],
+      rejections: [],
     });
-    expect(result).toEqual({ events: [], rejections: [] });
-    expect(global.fetch).not.toHaveBeenCalledWith(
-      expect.stringContaining('/starting_grid'),
-      expect.anything()
-    );
+  });
+
+  test('asks for the grid under the qualifying key, and not at all when none was found', async () => {
+    const withQualifying = fakeClient({ sessionName: 'Race' });
+    await sync(300, withQualifying);
+    const gridAsks = withQualifying.asked.filter(({ path }) => path === 'starting_grid');
+    expect(gridAsks).toEqual([{ path: 'starting_grid', params: { session_key: 301 } }]);
+
+    const noQualifying = fakeClient({ sessionName: 'Race', meetingSessions: [] });
+    await sync(300, noQualifying);
+    expect(noQualifying.asked.some(({ path }) => path === 'starting_grid')).toBe(false);
   });
 });
 
@@ -410,7 +385,7 @@ describe('OpenF1 session sync', () => {
       payload: { lap_time_ms: 81000 },
     };
     const correctionEvent = { ...insertEvent, lapNumber: 3 };
-    setupFetch({ laps: [validLap, { driver_number: 99, lap_number: 2, lap_duration: 80 }] });
+    const client = fakeClient({ laps: [validLap, { driver_number: 99, lap_number: 2, lap_duration: 80 }] });
     db.event.findMany.mockResolvedValue([{
       id: 'old-event',
       eventType: 'lap_completed',
@@ -427,9 +402,10 @@ describe('OpenF1 session sync', () => {
       duplicates: [],
     });
 
-    const submission = await syncJob.syncSession('300');
+    const result = await sync('300', client);
 
-    expect(submission).toMatchObject({ id: 'submission-1', status: 'partially_accepted' });
+    expect(result.submission).toMatchObject({ id: 'submission-1', status: 'partially_accepted' });
+    expect(result.changed).toBe(true);
     expect(tx.submission.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         source: 'openf1_sync',
@@ -473,30 +449,23 @@ describe('OpenF1 session sync', () => {
   });
 
   test('marks an empty clean sync accepted and skips derivation when there are no changes', async () => {
-    setupFetch();
-    mockPlanIngestion.mockReturnValue({
-      insert: [],
-      corrections: [],
-      unchanged: [],
-      duplicates: [],
-    });
     tx.submission.create.mockResolvedValue({ id: 'submission-2', status: 'accepted' });
 
-    await syncJob.syncSession(300);
+    const result = await sync(300, fakeClient());
 
     expect(tx.submission.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ status: 'accepted', validationErrors: undefined }),
     });
     expect(tx.event.createMany).not.toHaveBeenCalled();
     expect(tx.event.create).not.toHaveBeenCalled();
+    expect(result.changed).toBe(false);
     expect(mockRunDerivation).not.toHaveBeenCalled();
   });
 
   test('marks a sync rejected when all collected records are invalid', async () => {
-    setupFetch({ laps: [{ driver_number: 99, lap_number: 1, lap_duration: 80 }] });
     tx.submission.create.mockResolvedValue({ id: 'submission-3', status: 'rejected' });
 
-    await syncJob.syncSession(300);
+    await sync(300, fakeClient({ laps: [{ driver_number: 99, lap_number: 1, lap_duration: 80 }] }));
 
     expect(tx.submission.create).toHaveBeenCalledWith({
       data: expect.objectContaining({

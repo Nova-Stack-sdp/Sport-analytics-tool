@@ -59,6 +59,16 @@ describe('DatasetSubmissionsPanel', () => {
     window.confirm.mockRestore();
   });
 
+  test('shows a retryable error without an empty queue on failure', async () => {
+    listAdminDatasets.mockRejectedValueOnce(new Error('Service unavailable'));
+    render(<DatasetSubmissionsPanel />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Service unavailable');
+    expect(screen.queryByText('No datasets')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('Italian Grand Prix · Race 2026')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
   test('loads the pending queue with tab counts and the row details', async () => {
     render(<DatasetSubmissionsPanel />);
 

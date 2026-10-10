@@ -44,6 +44,29 @@ function renderPage() {
 }
 
 describe('OverviewPage', () => {
+  test.each([
+    [0.8846153846, 0.8461538462, '88.5%', '84.6%'],
+    [0, 1, '0.0%', '100.0%'],
+    [null, undefined, '—', '—'],
+  ])('formats reliability values %s and %s', async (a, b, expectedA, expectedB) => {
+    getOverview.mockResolvedValue({ ...sampleResponse, teamComparison: [
+      { ...sampleResponse.teamComparison[0], reliabilityRate: a },
+      { ...sampleResponse.teamComparison[1], reliabilityRate: b },
+    ] });
+    renderPage();
+    const label = await screen.findByText('Reliability rate');
+    expect(Array.from(label.parentElement.querySelectorAll('.metric-vals span'), node => node.textContent)).toEqual([expectedA, expectedB]);
+  });
+
+  test('renders the empty session message outside the event-column grid', async () => {
+    getOverview.mockResolvedValue({ ...sampleResponse, recentEvents: [] });
+    renderPage();
+    const message = await screen.findByText('No events recorded for this session yet.');
+    expect(message).toHaveClass('overview-events-empty');
+    expect(message.closest('.log-row')).toBeNull();
+    expect(message.parentElement).toHaveClass('log-ticker');
+  });
+
   test('shows real data from the backend once it loads', async () => {
     getOverview.mockResolvedValue(sampleResponse);
 
@@ -59,8 +82,8 @@ describe('OverviewPage', () => {
     expect(screen.getByText('Red Bull Racing', { exact: false })).toBeInTheDocument();
     expect(screen.getByText('Lap completed')).toBeInTheDocument();
     expect(screen.getByText('Max Verstappen · Lap 42')).toBeInTheDocument();
-    expect(screen.getByText('94%')).toBeInTheDocument();
-    expect(screen.getByText('88%')).toBeInTheDocument();
+    expect(screen.getByText('94.0%')).toBeInTheDocument();
+    expect(screen.getByText('88.0%')).toBeInTheDocument();
   });
 
   test('shows an error message if the backend request fails', async () => {

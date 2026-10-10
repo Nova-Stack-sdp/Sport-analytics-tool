@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { getStatistics } from '../api/client';
+import { getStatistics, listPublicCode, publicCodeUrl } from '../api/client';
 import { formatLapTime as lapTime } from '../utils/eventDetails';
 import { percent } from '../utils/eventLabels';
 
@@ -85,6 +85,28 @@ function StatisticsPage() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [scripts, setScripts] = useState([]);
+  const [scriptsLoading, setScriptsLoading] = useState(true);
+  const [scriptsError, setScriptsError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    listPublicCode()
+      .then((result) => {
+        if (!cancelled) setScripts(result.data);
+      })
+      .catch(() => {
+        if (!cancelled) setScriptsError('Unable to load approved scripts. Please try again later.');
+      })
+      .finally(() => {
+        if (!cancelled) setScriptsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function updateParams(next) {
     const params = new URLSearchParams(searchParams);
@@ -286,6 +308,36 @@ function StatisticsPage() {
             Figures count only published data: OpenF1 syncs and developer uploads an admin has accepted. Click a driver or team for their profile; on the Fixture tab, open the event log behind the figures.
           </div>
         </div>
+
+        <section className="card" aria-labelledby="approved-scripts-title">
+          <div className="card-head">
+            <h2 className="card-title" id="approved-scripts-title">Approved developer scripts</h2>
+          </div>
+          <p className="secondary">Reviewed scripts available through the public API. Each endpoint returns the script as text.</p>
+
+          {scriptsLoading && <p className="secondary" role="status">Loading approved scripts…</p>}
+          {scriptsError && <p className="secondary" role="alert">{scriptsError}</p>}
+          {!scriptsLoading && !scriptsError && scripts.length === 0 && (
+            <p className="secondary">No approved scripts are available yet.</p>
+          )}
+          {!scriptsLoading && !scriptsError && scripts.length > 0 && (
+            <ul style={{ listStyle: 'none', padding: 0, display: 'grid', gap: 16 }}>
+              {scripts.map((script) => (
+                <li key={script.slug}>
+                  {/* The public API exposes the submitted title as name. */}
+                  <h3 className="card-title">{script.name}</h3>
+                  <p className="secondary">{script.description}</p>
+                  <span className="pill pill-gray" style={{ whiteSpace: 'normal' }}>
+                    Author: Anonymous (Privacy Protected)
+                  </span>
+                  <p className="card-note" style={{ overflowWrap: 'anywhere' }}>
+                    Endpoint: <a className="mono" href={publicCodeUrl(script.endpoint)}>{publicCodeUrl(script.endpoint)}</a>
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
     </div>
   );

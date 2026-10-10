@@ -36,7 +36,7 @@ describe('OverviewPage additional states', () => {
     expect(screen.getByText('flag')).toBeInTheDocument();
     expect(screen.getByText('A · 60%')).toBeInTheDocument();
     expect(screen.getByText('B · 40%')).toBeInTheDocument();
-    expect(screen.getByText('95%')).toBeInTheDocument();
+    expect(screen.getByText('95.0%')).toBeInTheDocument();
     expect(screen.getByText('Developer upload')).toBeInTheDocument();
     expect(screen.getByText('something new')).toBeInTheDocument();
     expect(screen.getByText('+0')).toBeInTheDocument();

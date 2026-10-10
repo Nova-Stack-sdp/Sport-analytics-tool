@@ -22,7 +22,7 @@ function AppFrame({ theme, onToggleTheme }) {
     <>
       {isRaceSync ? (
         <>
-          <RaceSyncHeader />
+          <RaceSyncHeader theme={theme} onToggleTheme={onToggleTheme} />
           <RaceSyncNav />
         </>
       ) : (
@@ -35,7 +35,7 @@ function AppFrame({ theme, onToggleTheme }) {
   );
 
   return (
-    <div className={`app-frame${isRaceSync ? ' app-frame-racesync' : ''}`}>
+    <div className={`app-frame${isRaceSync ? ' app-frame-racesync' : ''}${pathname === '/admin' ? ' app-frame-admin' : ''}`}>
       {/* The race search in the header writes the selection the page reads, so
           the provider has to wrap both halves of the frame. Context renders no
           DOM, so the header, rail and main stay direct grid children. */}

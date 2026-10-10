@@ -95,6 +95,10 @@ html, body{margin:0;padding:0;background:#000000;}
 }
 
 /* ===== PAGE HEAD ===== */
+/* Reserve the navigation's actual height, including wrapped mobile links.
+   Admin panels scroll in the remaining space so rows cannot pass under it. */
+.app-frame-admin{height:100vh;height:100dvh;display:grid;grid-template-rows:auto minmax(0,1fr);}
+.app-frame-admin > .app-frame-main{min-height:0;overflow-y:auto;overscroll-behavior-y:contain;}
 .pagehead{max-width:1400px;margin:0 auto;padding:28px var(--page-margin) 0;}
 /* DriverDetailPage/TeamDetailPage have no .pagehead — their .content is the
    first thing under the fixed nav, so it needs the same top offset. */
@@ -175,6 +179,7 @@ td.secondary{color:var(--text-secondary);}
 .tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:12px;}
 .tab{padding:7px 4px;font-size:14px;font-weight:600;color:var(--text-tertiary);cursor:pointer;border-bottom:2px solid transparent;margin-right:16px;}
 .tab.active{color:var(--text-primary);border-color:var(--accent);}
+button.tab{border-top:0;border-right:0;border-left:0;background:transparent;font-family:inherit;}
 
 .kv{display:flex;justify-content:space-between;font-size:14px;padding:5px 0;color:var(--text-secondary);}
 .kv b{color:var(--text-primary);font-weight:600;font-family:var(--font-mono);font-size:13px;}
@@ -195,6 +200,9 @@ td.secondary{color:var(--text-secondary);}
 .metric-label{color:var(--text-secondary);}
 .metric-vals{display:flex;gap:22px;}
 .metric-vals span{width:56px;text-align:right;font-family:var(--font-mono);font-size:13px;}
+.overview-team-performance .metric-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;}
+.overview-team-performance .metric-vals{display:grid;grid-template-columns:repeat(2,minmax(7ch,1fr));gap:12px;font-family:var(--font-mono);font-size:13px;}
+.overview-team-performance .metric-vals span{width:auto;white-space:nowrap;font-variant-numeric:tabular-nums;}
 
 .progress-bar{height:8px;background:var(--gray-pill-bg);border-radius:5px;overflow:hidden;margin:10px 0;}
 .progress-fill{height:100%;background:var(--text-primary);border-radius:5px;}
@@ -211,6 +219,10 @@ td.secondary{color:var(--text-secondary);}
 .log-ticker{font-family:var(--font-mono);font-size:12.5px;max-height:200px;overflow-y:auto;}
 .log-row{display:grid;grid-template-columns:64px 74px 1fr 100px;gap:10px;padding:6px 0;border-bottom:1px solid var(--border-soft);align-items:center;}
 .log-row:last-child{border-bottom:none;}
+.submission-queue-scroll{max-width:100%;overflow-x:auto;}
+.submission-layout{grid-template-columns:minmax(0,1fr);}
+.submission-queue-table th,.submission-queue-table td{white-space:nowrap;}
+.overview-events-empty{display:block;margin:0;padding:6px 0;}
 .log-time{color:var(--text-tertiary);}
 .log-event{color:var(--text-secondary);}
 .derived-note{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-tertiary);margin-top:8px;}
@@ -887,6 +899,14 @@ label.settings-row-label{display:block;}
   .f1-calendar-head h2{font-size:17.5px;}
 }
 
+/* Admin · race video requests: the thumbnail links out to the video, and a
+   rejection asks for the reason the user will be told. */
+.video-request-source{display:inline-flex;align-items:center;gap:8px;color:inherit;text-decoration:none;}
+.video-request-source img{border-radius:4px;object-fit:cover;}
+.video-request-source:hover .mono{text-decoration:underline;}
+.video-request-reject{display:grid;gap:6px;min-width:220px;}
+.video-request-reject textarea{width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text-primary);font:inherit;font-size:12px;}
+.video-request-error{margin-top:4px;color:var(--status-red);font-size:11.5px;}
 .app-shell{overflow-x:clip;}
 .grid > *{min-width:0;}
 .table-scroll{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;}

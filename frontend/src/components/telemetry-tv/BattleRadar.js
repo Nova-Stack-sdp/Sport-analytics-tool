@@ -1,22 +1,18 @@
-// Battle Radar - full-width section showing current race dynamics.
-// Shows each driver's gap to the car ahead and the pace advantage needed
-// to close it — the real number that matters for an overtake.
-function BattleRadarTitle({ context }) {
-  if (!context) {
-    return (
-      <>
-        <div className="card-title">Battle Radar</div>
-        <div className="card-title-sub">Front, midfield, and back action</div>
-      </>
-    );
-  }
+import CollapsiblePanel from './CollapsiblePanel';
 
-  return (
-    <>
-      <div className="card-title">{context.headline ?? 'Pace & Strategy Intelligence'}</div>
-      <div className="card-title-sub">{context.subtitle ?? 'Front, midfield, and back action'}</div>
-    </>
-  );
+// Race Intelligence - full-width section showing current race dynamics.
+// The three columns track the story top to bottom: the fight for the lead,
+// the midfield pressure, and the cars running the alternate strategy —
+// each entry carries the gap to the car ahead and the pace advantage needed
+// to close it, the real number that matters for an overtake.
+//
+// The head is the card's own: a race that ships curated context renames the
+// radar through it, a race that does not keeps the derived title.
+function radarHeading(context) {
+  return {
+    title: context?.headline ?? 'Race Intelligence',
+    sub: context?.subtitle ?? 'Lead battle, midfield pressure and strategy',
+  };
 }
 
 function overtakeAdvice(entry) {
@@ -42,34 +38,51 @@ function overtakeAdvice(entry) {
 }
 
 function BattleRadar({ model, context = null }) {
+  const heading = radarHeading(context);
+
+  // The old Race So Far card's "Biggest Move" stat, folded in here: the one
+  // position swing on the board right now, kept live off the same leaderboard
+  // the columns read.
+  const biggestMove = model?.entries
+    ? model.entries
+      .filter((entry) => Number.isFinite(entry.lapDelta) && entry.lapDelta !== 0)
+      .sort((first, second) => Math.abs(second.lapDelta) - Math.abs(first.lapDelta))[0]
+    : null;
+
   if (!model?.entries?.length) {
     return (
-      <div className="card battle-radar-section">
-        <div className="card-head">
-          <div>
-            <BattleRadarTitle context={context} />
-          </div>
-          <span className="pill pill-blue">Race dynamics</span>
-        </div>
+      <CollapsiblePanel
+        className="battle-radar-section"
+        title={heading.title}
+        sub={heading.sub}
+        aside={<span className="pill pill-blue">Race dynamics</span>}
+      >
         <div className="battle-radar-empty">
           Telemetry feed not configured.
         </div>
-      </div>
+      </CollapsiblePanel>
     );
   }
 
   return (
-    <div className="card battle-radar-section">
-      <div className="card-head">
-        <div>
-          <BattleRadarTitle context={context} />
+    <CollapsiblePanel
+      className="battle-radar-section"
+      title={heading.title}
+      sub={heading.sub}
+      aside={<span className="pill pill-blue">Race dynamics</span>}
+    >
+      {biggestMove && (
+        <div className="battle-radar-highlights">
+          <span className="battle-radar-highlight-chip">
+            <strong>{biggestMove.driverName ?? `Car ${biggestMove.carNumber}`}</strong>
+            {` ${biggestMove.lapDelta > 0 ? 'up' : 'down'} ${Math.abs(biggestMove.lapDelta)} place${Math.abs(biggestMove.lapDelta) === 1 ? '' : 's'} this lap`}
+          </span>
         </div>
-        <span className="pill pill-blue">Race dynamics</span>
-      </div>
+      )}
 
       <div className="battle-radar-grid">
         {model.columns.map((column) => (
-          <div key={column.label} className={`radar-column ${column.accent}`}>
+          <div key={column.label} className={`radar-column is-${column.tone}`}>
             <div className="radar-column-header">{column.label}</div>
             {column.entries.length === 0 && <div className="radar-column-empty">No drivers in this range.</div>}
             {column.entries.map((entry, index) => {
@@ -120,7 +133,7 @@ function BattleRadar({ model, context = null }) {
           </div>
         ))}
       </div>
-    </div>
+    </CollapsiblePanel>
   );
 }
 

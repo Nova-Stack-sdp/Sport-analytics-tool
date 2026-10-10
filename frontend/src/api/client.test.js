@@ -34,6 +34,18 @@ describe('API client', () => {
     global.fetch = originalFetch;
   });
 
+  test('downloads an export through the configured API with filters and credentials', async () => {
+    process.env.REACT_APP_API_URL = 'https://api.example.test';
+    const blob = new Blob(['[]']);
+    global.fetch.mockResolvedValue({ ok: true, blob: async () => blob });
+    const client = loadClient();
+    expect(await client.downloadDatasetExport({ dataset: 'events', season: '2025', format: 'json' })).toBe(blob);
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://api.example.test/api/v1/exports/events?format=json&season=2025',
+      expect.objectContaining({ credentials: 'include' }),
+    );
+  });
+
   test('uses the fallback URL and sends every API helper to its expected endpoint', async () => {
     delete process.env.REACT_APP_API_URL;
     const response = successfulResponse({ source: 'backend' });

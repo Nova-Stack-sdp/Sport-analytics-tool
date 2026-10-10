@@ -88,10 +88,13 @@ export function buildBattleRadarModel(leaderboard = []) {
     .map((position) => radarEntries.find((entry) => entry.position === position))
     .filter(Boolean);
   const midpoint = Math.floor(totalDrivers / 2);
+  // Each column carries the one hue that names its story — the fight for the
+  // win, the battles under threat behind it, the alternate-strategy runners —
+  // so the three pockets of the order are told apart by colour alone.
   const columns = totalDrivers === 0 ? [] : [
-    { label: 'Front', accent: 'accent', entries: entriesAtPositions([1, 2, 3]) },
-    { label: 'Midfield', accent: 'amber', entries: entriesAtPositions([midpoint, midpoint + 1, midpoint + 2]) },
-    { label: 'Back', accent: 'red', entries: entriesAtPositions([totalDrivers, totalDrivers - 1, totalDrivers - 2]) },
+    { label: 'Lead battle', tone: 'lead', entries: entriesAtPositions([1, 2, 3]) },
+    { label: 'Midfield pressure', tone: 'caution', entries: entriesAtPositions([midpoint, midpoint + 1, midpoint + 2]) },
+    { label: 'Strategy', tone: 'strategy', entries: entriesAtPositions([totalDrivers, totalDrivers - 1, totalDrivers - 2]) },
   ];
 
   return {

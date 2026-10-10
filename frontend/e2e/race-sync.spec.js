@@ -177,15 +177,15 @@ test.describe('RaceSync', () => {
     ).not.toHaveAttribute('aria-disabled');
 
     // The workflow spine above the band: Observe is the live step, and
-    // Simulate is honest about having no data behind it yet.
+    // Simulate is a live step too, with the sim console right under it.
     const spine = page.getByRole('group', { name: 'Race workflow' });
     await expect(
       spine.getByRole('button', { name: /What happened/ })
     ).toHaveAttribute('aria-current', 'step');
     await expect(
       spine.getByRole('button', { name: /What if we changed it/ })
-    ).toHaveAttribute('aria-disabled', 'true');
-    await expect(spine.getByText('no simulation data')).toBeVisible();
+    ).not.toHaveAttribute('aria-disabled');
+    await expect(page.getByRole('region', { name: 'Simulation console' })).toBeVisible();
 
     // Jumping to Diagnose scrolls the pace reading into view and moves the
     // red step marker onto the second phase.

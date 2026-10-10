@@ -67,6 +67,17 @@ export function buildLapCalibration(race) {
   return { points: monotonic, totalLaps: totalLaps ?? Math.floor(lastLap) };
 }
 
+// Video second at which the race itself starts: the green flag, i.e. the
+// calibration's first point (lap 1 in progress). Everything the player shows
+// before it is build-up — grid walk, intros, formation laps — so the page
+// waits rather than reporting a race that has not begun. Null when the race
+// ships no usable calibration: with no known start to wait for, callers keep
+// the always-on behaviour.
+export function raceStartVideoSeconds(race) {
+  const calibration = buildLapCalibration(race);
+  return calibration ? calibration.points[0].videoSeconds : null;
+}
+
 // Lap running at the given video second, clamped to the race distance. Null
 // when the race ships no usable calibration, so callers can fall back to the
 // manual lap cursor.

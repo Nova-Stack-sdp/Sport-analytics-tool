@@ -1,9 +1,13 @@
 import { act, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import StatisticsPage from '../pages/StatisticsPage';
-import { getStatistics } from '../api/client';
+import { getStatistics, listPublicCode } from '../api/client';
 
-jest.mock('../api/client', () => ({ getStatistics: jest.fn() }));
+jest.mock('../api/client', () => ({
+  getStatistics: jest.fn(),
+  listPublicCode: jest.fn(),
+  publicCodeUrl: (endpoint) => `https://api.example.com${endpoint}`,
+}));
 
 const fixture = {
   view: 'fixture',
@@ -21,7 +25,10 @@ function renderPage(path = '/statistics?view=fixture') {
 }
 
 describe('StatisticsPage additional states', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    listPublicCode.mockResolvedValue({ data: [] });
+  });
 
   test('formats every fixture column and handles missing teams and codes', async () => {
     getStatistics.mockResolvedValue(fixture);
