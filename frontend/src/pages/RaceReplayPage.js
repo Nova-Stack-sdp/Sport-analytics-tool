@@ -70,7 +70,7 @@ function RaceReplayPage() {
           <div>
             <b>Related:</b> <Link className="data-link" to="/timetravel">Time-Travel</Link> shows how a single driver's result changed as data was corrected, and <Link className="data-link" to="/fixtures">Fixtures &amp; Events</Link> lists every event behind a session.{' '}
             The safety-car "fixed distance ahead of the leader" positioning is adapted from{' '}
-            <a href="https://github.com/tomshaw3591/f1-race-replay" target="_blank" rel="noreferrer" style={{ color: 'var(--info)' }}>F1 Race Replay</a>{' '}
+            <a href="https://github.com/IAmTomShaw/f1-race-replay/" target="_blank" rel="noreferrer" style={{ color: 'var(--info)' }}>F1 Race Replay</a>{' '}
             by Tom Shaw (MIT License).
           </div>
         </div>
