@@ -232,6 +232,9 @@ test('shows the branded RaceSync header on the RaceSync page only', () => {
   expect(screen.getByPlaceholderText('Type Race Title...')).toBeInTheDocument();
   // Notifications belong to the signed-in account — no session, no bell.
   expect(screen.queryByRole('button', { name: /Notifications/ })).not.toBeInTheDocument();
+  // The app nav's ☀/☾ quick flip rides this bar too — the theme does not
+  // stop at the route boundary.
+  expect(screen.getByTitle('Toggle dark mode')).toBeInTheDocument();
   // The chip is a prompt until the map is scoped (covered in the stage test).
   expect(
     screen.getByRole('button', { name: 'Choose what to see' })
@@ -524,8 +527,14 @@ test('the RaceSync header search loads the picked race and the view menu narrows
 
   // The lap chip reads the playhead out and is also the jump box, so its
   // number lives in the field's own value rather than in a text node: this is
-  // the one way the flow below reads which lap the stage has landed on.
-  const findLap = (lapNumber) => within(stage).findByDisplayValue(String(lapNumber));
+  // the one way the flow below reads which lap the stage has landed on. It is
+  // found by its own label — the sim console's pace slider also holds a value.
+  const findLap = (lapNumber) =>
+    waitFor(() => {
+      const field = within(stage).getByLabelText('Lap');
+      expect(field).toHaveValue(String(lapNumber));
+      return field;
+    });
 
   // Two more shorthand readers for the panels under the map, so the
   // assertions about them read as what they say rather than as markup. The
@@ -569,19 +578,15 @@ test('the RaceSync header search loads the picked race and the view menu narrows
   ).toBeInTheDocument();
 
   // Under the readings, the workflow spine names the page's three phases.
-  // The active step is the last one jumped to; Simulate has no data behind
-  // it yet and says so instead of pretending — the rail's honesty rule.
+  // The active step is the last one jumped to; Simulate is a live step now —
+  // the sim console it jumps to sits directly under the spine.
   const spine = within(stage).getByRole('group', { name: 'Race workflow' });
   const observeStep = within(spine).getByRole('button', { name: /What happened\?/ });
   const diagnoseStep = within(spine).getByRole('button', { name: /Why did it happen\?/ });
   expect(observeStep).toHaveAttribute('aria-current', 'step');
   const simulateStep = within(spine).getByRole('button', { name: /What if we changed it\?/ });
-  expect(simulateStep).toHaveAttribute('aria-disabled', 'true');
-  expect(simulateStep).toHaveAttribute(
-    'title',
-    'Counterfactuals need data this page doesn’t have yet — nothing here simulates a changed race'
-  );
-  expect(within(spine).getByText('no simulation data')).toBeInTheDocument();
+  expect(simulateStep).not.toHaveAttribute('aria-disabled');
+  expect(within(stage).getByRole('region', { name: 'Simulation console' })).toBeInTheDocument();
 
   // Jumping to Diagnose moves the red step marker and scrolls the pace
   // reading into view — jsdom has no real scrolling, so the assertion is the
@@ -700,10 +705,10 @@ test('the RaceSync header search loads the picked race and the view menu narrows
   expect(
     within(leaderCard).getByText('Latest stint: no measurable tyre wear yet')
   ).toBeInTheDocument();
-  // …and the recommended-strategy row stays honest: nothing on this page
-  // simulates an alternate race, so the button is out.
-  expect(within(leaderCard).getByText('no simulation data')).toBeInTheDocument();
-  expect(within(leaderCard).getByRole('button', { name: 'Run Simulation' })).toBeDisabled();
+  // …and the card points down to the sim console for the what-if.
+  expect(
+    within(leaderCard).getByRole('link', { name: /What if HAM pitted differently\?/ })
+  ).toHaveAttribute('href', '#racesync-section-sim-console');
   // Clicking away confirms too — a typed lap is never silently dropped…
   fireEvent.focus(lapField);
   fireEvent.change(lapField, { target: { value: '12' } });
@@ -732,6 +737,59 @@ test('the RaceSync header search loads the picked race and the view menu narrows
   expect(
     within(stage).getByRole('button', { name: 'Replay speed 2×' })
   ).toBeInTheDocument();
+
+  // The sim console, paused on lap 12. Its levers act on the driver Driver
+  // Analysis reads — by default the leader, Hamilton, whose real stop put
+  // him on new tyres on lap 11.
+  const simConsole = within(stage).getByRole('region', { name: 'Simulation console' });
+  const replayMode = within(spine).getByRole('button', { name: 'Replay' });
+  const simMode = within(spine).getByRole('button', { name: 'Sim' });
+  expect(replayMode).toHaveAttribute('aria-pressed', 'true');
+  expect(within(simConsole).getByRole('radio', { name: 'HAM' })).toHaveAttribute(
+    'aria-checked',
+    'true'
+  );
+  expect(
+    within(simConsole).getByText('L11', { selector: '.racesync-sim-pit-laps' })
+  ).toBeInTheDocument();
+  expect(within(simConsole).getByText('as raced')).toBeInTheDocument();
+
+  // Moving the stop a lap later re-runs the race straight away: the page
+  // enters sim mode, the stepper reads the stop's new lap against the real
+  // one, and the broadcast line under the spine says what changed.
+  fireEvent.click(within(simConsole).getByRole('button', { name: 'Move the stop later' }));
+  expect(simMode).toHaveAttribute('aria-pressed', 'true');
+  expect(
+    within(simConsole).getByText('L12', { selector: '.racesync-sim-pit-laps' })
+  ).toBeInTheDocument();
+  expect(within(simConsole).getByText('1 lap later · real L11')).toBeInTheDocument();
+  expect(within(stage).getByRole('status', { name: 'Simulation broadcast' })).toHaveTextContent(
+    /HAM stopped 1 lap late/
+  );
+  // The roster marks the car carrying the change.
+  expect(within(stage).getByTitle('Carrying a simulation tweak')).toBeInTheDocument();
+
+  // Picking another car in the console moves Driver Analysis with it; the
+  // caption says so and is the way back to the leader.
+  fireEvent.click(within(simConsole).getByRole('radio', { name: 'VER' }));
+  expect(
+    within(panel('Driver Analysis')).getByRole('heading', { name: 'Max Verstappen' })
+  ).toBeInTheDocument();
+  fireEvent.click(
+    within(panel('Driver Analysis')).getByRole('button', { name: 'picked · show leader' })
+  );
+  expect(
+    within(panel('Driver Analysis')).getByRole('heading', { name: 'Lewis Hamilton' })
+  ).toBeInTheDocument();
+
+  // Reset all clears every change: the broadcast line goes, and Replay hands
+  // the page back to the real race.
+  fireEvent.click(within(simConsole).getByRole('button', { name: 'Reset all' }));
+  expect(
+    within(stage).queryByRole('status', { name: 'Simulation broadcast' })
+  ).not.toBeInTheDocument();
+  fireEvent.click(replayMode);
+  expect(replayMode).toHaveAttribute('aria-pressed', 'true');
 
   // The header's view menu scopes the map. Its lists come from the loaded
   // session's own field, so this picks a team that is really in the race.
@@ -1081,6 +1139,22 @@ test('the nav theme button flips the theme and remembers it as a preference', ()
 
   expect(document.documentElement.dataset.theme).toBe('light');
   expect(JSON.parse(window.localStorage.getItem('f1-analytics-preferences')).theme).toBe('light');
+});
+
+// The RaceSync header swaps out the nav that carried that button, so it
+// carries the flip itself — same quick flip, same remembered preference.
+test('the RaceSync header theme button flips the theme and remembers it as a preference', () => {
+  window.history.pushState({}, '', '/sync-f1-broadcast');
+  render(<App />);
+  expect(document.documentElement.dataset.theme).toBe('dark');
+  // Dark shows the sun — the glyph offers the mode you would switch to.
+  expect(screen.getByTitle('Toggle dark mode')).toHaveTextContent('☀');
+
+  fireEvent.click(screen.getByTitle('Toggle dark mode'));
+
+  expect(document.documentElement.dataset.theme).toBe('light');
+  expect(JSON.parse(window.localStorage.getItem('f1-analytics-preferences')).theme).toBe('light');
+  expect(screen.getByTitle('Toggle dark mode')).toHaveTextContent('☾');
 });
 
 test('applies saved density and reduce-motion preferences to the page', () => {

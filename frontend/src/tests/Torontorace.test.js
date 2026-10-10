@@ -18,7 +18,7 @@ describe('Torontorace intelligence', () => {
     const intelligence = buildTorontoraceIntelligence({ lapState, selectedSlug: 'toronto-2025' });
 
     expect(intelligence.raceSlug).toBe('toronto-2025');
-    expect(intelligence.battleRadar.columns.map((column) => column.label)).toEqual(['Front', 'Midfield', 'Back']);
+    expect(intelligence.battleRadar.columns.map((column) => column.label)).toEqual(['Lead battle', 'Midfield pressure', 'Strategy']);
     expect(intelligence.weather.note).toContain('dry');
     expect(intelligence.strategySignals[0].label).toMatch(/track|tire|pacing/i);
     expect(intelligence.narrative).toMatch(/Toronto|track|tire|pace/i);

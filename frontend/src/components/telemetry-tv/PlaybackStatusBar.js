@@ -1,6 +1,13 @@
-import { formatGapSeconds } from '../../features/telemetry-tv/raceAnalytics';
+import { formatGapSeconds, formatLapSeconds } from '../../features/telemetry-tv/raceAnalytics';
 
-// Controls the historical lap cursor and shows the leader's published lap data.
+// The Race Control strip: the race state at the selected lap — position in
+// the distance, the leader's published margin, the fastest lap already run —
+// plus the flag the track is under, and the lap cursor that scrubs the video.
+//
+// The readouts are split into two tiers rather than laid out as one flat row:
+// the two numbers a viewer checks constantly (the lap and the margin) are set
+// large, and the four supporting readings sit below them at one smaller size,
+// so the strip has one obvious first answer instead of six equal ones.
 function formatVideoClock(seconds) {
   if (seconds == null || !Number.isFinite(Number(seconds))) return '--';
   const total = Math.max(0, Math.floor(Number(seconds)));
@@ -10,34 +17,61 @@ function formatVideoClock(seconds) {
   return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
 
-function PlaybackStatusBar({ race, lap, videoSeconds, margin, onLapChange, leaderLap }) {
+// Fastest lap among the laps the broadcast has already reached — the same
+// spoiler rule the pace chart follows.
+function fastestSoFar(lapTrend, lap) {
+  const paced = (Array.isArray(lapTrend?.records) ? lapTrend.records : [])
+    .filter((record) => record.lap <= lap && record.lapSeconds != null);
+  if (paced.length === 0) return null;
+  return paced.reduce((best, record) => (record.lapSeconds < best.lapSeconds ? record : best));
+}
+
+function PlaybackStatusBar({ race, lap, videoSeconds, margin, onLapChange, leaderLap, lapTrend }) {
   const totalLaps = Number(race?.session?.totalLaps) || 1;
   const marginTitle = margin == null
     ? "Leader's official margin at this lap"
     : `${margin.delta >= 0 ? 'Lead grew' : 'Lead shrank'} by ${Math.abs(margin.delta).toFixed(2)}s vs lap ${Math.max(1, lap - 1)}`;
+  const fastest = fastestSoFar(lapTrend, lap);
+  const underYellow = leaderLap?.flag === 'Yellow';
+  const progressPercent = (Math.min(Math.max(lap, 0), totalLaps) / totalLaps) * 100;
 
   return (
-    <div className="playback-status-bar">
-      <div className="status-left">
-        <div className="status-item">
-          <span className="status-label">Race lap</span>
-          <span className="status-value mono">{race ? `${lap} / ${totalLaps}` : '--'}</span>
+    <section className="card race-control-bar" aria-label="Race control">
+      <div className="race-control-row">
+        <span className="race-control-title">Race Control</span>
+
+        {/* Hero tier: the two numbers the strip exists for. */}
+        <div className="status-hero">
+          <div className="status-item is-hero">
+            <span className="status-label">Race lap</span>
+            <span className="status-value mono">{race ? `${lap} / ${totalLaps}` : '--'}</span>
+          </div>
+          <div className="status-item is-hero">
+            <span className="status-label">Leader margin</span>
+            <span className="status-value mono" title={marginTitle}>
+              {formatGapSeconds(margin?.currentGap)}
+              {margin != null && Math.abs(margin.delta) >= 0.05 && (
+                <span className={`margin-trend ${margin.delta > 0 ? 'up' : 'down'}`}>
+                  {margin.delta > 0 ? '▲' : '▼'}
+                </span>
+              )}
+            </span>
+          </div>
         </div>
-        <div className="status-item">
-          <span className="status-label">Video time</span>
-          <span className="status-value mono" title="Absolute video position reported by the player">
-            {formatVideoClock(videoSeconds)}
+
+        <div className="status-right">
+          <span className={`sync-badge ${underYellow ? 'caution' : 'synced'}`}>
+            {leaderLap?.flag ?? (race ? 'Race report' : 'No data')}
           </span>
         </div>
+      </div>
+
+      {/* Feed tier: the supporting readings, all at one size. */}
+      <div className="status-feed">
         <div className="status-item">
-          <span className="status-label">Leader margin</span>
-          <span className="status-value mono" title={marginTitle}>
-            {formatGapSeconds(margin?.currentGap)}
-            {margin != null && Math.abs(margin.delta) >= 0.05 && (
-              <span className={`margin-trend ${margin.delta > 0 ? 'up' : 'down'}`}>
-                {margin.delta > 0 ? '▲' : '▼'}
-              </span>
-            )}
+          <span className="status-label">Fastest</span>
+          <span className="status-value mono" title="Fastest lap already run">
+            {formatLapSeconds(fastest?.lapSeconds)}
           </span>
         </div>
         <div className="status-item">
@@ -52,12 +86,21 @@ function PlaybackStatusBar({ race, lap, videoSeconds, margin, onLapChange, leade
               : `${Number(leaderLap.speed).toFixed(1)} mph ±2.0`}
           </span>
         </div>
+        <div className="status-item">
+          <span className="status-label">Video time</span>
+          <span className="status-value mono" title="Absolute video position reported by the player">
+            {formatVideoClock(videoSeconds)}
+          </span>
+        </div>
       </div>
 
-      <div className="status-right">
-        <span className={`sync-badge ${leaderLap?.flag === 'Yellow' ? 'caution' : 'synced'}`}>
-          {leaderLap?.flag ?? (race ? 'Race report' : 'No data')}
-        </span>
+      {/* The race-distance progress line under the readouts, mirroring the
+          mock's lap bar: full width at the checkered flag. */}
+      <div className="race-control-progress" aria-hidden="true">
+        <span
+          className={`race-control-progress-fill${underYellow ? ' is-yellow' : ''}`}
+          style={{ width: `${progressPercent}%` }}
+        />
       </div>
 
       <label className="lap-range-control">
@@ -73,7 +116,7 @@ function PlaybackStatusBar({ race, lap, videoSeconds, margin, onLapChange, leade
           onChange={(event) => onLapChange(Number(event.target.value))}
         />
       </label>
-    </div>
+    </section>
   );
 }
 

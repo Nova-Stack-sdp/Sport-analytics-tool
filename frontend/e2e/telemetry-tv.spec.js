@@ -48,8 +48,12 @@ test.describe('TelemetryTV', () => {
       'src',
       'https://www.youtube.com/embed/2ifguXu0P7s?enablejsapi=1&playsinline=1&start=1704'
     );
-    await expect(page.locator('.video-panel .card-title')).toHaveText(
+    // The race header owns the event name; the video panel is the band that
+    // plays it.
+    await expect(page.locator('.race-header-title')).toHaveText(
       'Acura Grand Prix of Long Beach'
     );
+    await expect(page.locator('.video-panel .card-title')).toHaveText('Live Broadcast');
+    await expect(page.locator('.race-header-flag')).toHaveText('STANDBY');
   });
 });

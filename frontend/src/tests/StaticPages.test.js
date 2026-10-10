@@ -52,16 +52,15 @@ describe('static platform pages', () => {
 
   test('does not embed a video when no race catalogue can be loaded', async () => {
     getTelemetryTVRaces.mockRejectedValue(new Error('catalogue unavailable'));
-    // The picker bar carries the page's link across to RaceSync, so the page
-    // needs a router around it even when the video itself never loads.
+    // The page renders router links (the race picker's sync entry point),
+    // so it needs a Router context like every other page test.
     render(
       <MemoryRouter>
         <TelemetryTVPage />
       </MemoryRouter>
     );
-    // A failed catalogue leaves the page on its guide — nothing is picked, so
-    // the video panel never mounts to say "No video source configured". The
-    // guide is what reports the failure instead.
+    // A failed catalogue leaves the page on the guide, which names the error
+    // and never mounts a player.
     expect(await screen.findByText('catalogue unavailable')).toBeInTheDocument();
     expect(screen.queryByTitle('YouTube video player')).not.toBeInTheDocument();
   });

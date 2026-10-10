@@ -1,12 +1,29 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import TelemetryTVPage from '../pages/TelemetryTVPage';
-import { getTelemetryTVRace, getTelemetryTVRaces } from '../api/client';
+import { getTelemetryTVRace, getTelemetryTVRaces, getTelemetryTVWeather } from '../api/client';
 
 jest.mock('../api/client', () => ({
   getTelemetryTVRaces: jest.fn(),
   getTelemetryTVRace: jest.fn(),
+  getTelemetryTVWeather: jest.fn(),
 }));
+
+// Race-day weather as the backend summarises it from Open-Meteo's archive.
+const WEATHER = {
+  condition: { key: 'clear', label: 'Clear', code: 0 },
+  airTemperatureC: 25.9,
+  airTemperatureRangeC: [25, 26.5],
+  humidityPct: 58,
+  windSpeedKmh: 15.9,
+  windDirectionDeg: 323,
+  windCompass: 'NW',
+  precipitationMm: 0,
+  cloudCoverPct: 16,
+  venue: 'Exhibition Place, Toronto',
+  window: { date: '2025-07-20', from: '12:00', to: '17:00', timezone: 'GMT-4' },
+  source: { name: 'Open-Meteo historical weather', url: 'https://open-meteo.com' },
+};
 
 const RACES = [
   {
@@ -192,6 +209,8 @@ async function pickRace(slug = 'toronto-2025') {
 beforeEach(() => {
   getTelemetryTVRaces.mockReset();
   getTelemetryTVRace.mockReset();
+  getTelemetryTVWeather.mockReset();
+  getTelemetryTVWeather.mockResolvedValue({ weather: null });
 });
 
 describe('TelemetryTVPage', () => {
@@ -205,12 +224,19 @@ describe('TelemetryTVPage', () => {
     expect(await screen.findByRole('region', { name: 'How to use Telemetry TV' })).toBeInTheDocument();
     expect(screen.getByText('Watch the broadcast. Read the race.')).toBeInTheDocument();
     expect(screen.queryByTitle('YouTube video player')).not.toBeInTheDocument();
-    expect(screen.queryByText('Race So Far')).not.toBeInTheDocument();
+    expect(screen.queryByText('Master Board')).not.toBeInTheDocument();
     expect(getTelemetryTVRace).not.toHaveBeenCalled();
 
     // Picking a race swaps the guide for the player; the detail still waits for play.
     await pickRace();
     const iframe = await screen.findByTitle('YouTube video player');
+    // The race header names the broadcast before anything is playing.
+    expect(screen.getByRole('region', { name: 'Race header' })).toHaveTextContent(
+      'Ontario Honda Dealers Indy Toronto'
+    );
+    expect(screen.getByText('Live • 27 cars')).toBeInTheDocument();
+    expect(screen.getByText('LAP -- / 90')).toBeInTheDocument();
+    expect(screen.getByText('STANDBY')).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'How to use Telemetry TV' })).not.toBeInTheDocument();
     expect(getTelemetryTVRace).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Play race' }));
@@ -221,7 +247,7 @@ describe('TelemetryTVPage', () => {
     );
     expect(screen.getByLabelText('Choose a race')).toHaveValue('toronto-2025');
     expect(screen.getByLabelText('Choose a race').closest('.race-picker-bar')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'RaceSync' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /RaceSync/ })).toHaveAttribute(
       'href',
       '/sync-f1-broadcast'
     );
@@ -240,9 +266,29 @@ describe('TelemetryTVPage', () => {
     expect(p2Driver.closest('tr').cells[7]).toHaveTextContent('±2.0');
     expect(screen.getByText('Master Board')).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Derived speed' })).toBeInTheDocument();
-    expect(screen.getByText('Race So Far')).toBeInTheDocument();
-    expect(screen.queryByText('Race Analysis')).not.toBeInTheDocument();
+    // The observation layer: named bands over the player and the running
+    // order, with the race header now answering to the report. "Live
+    // Broadcast" reads twice by design — band caption and player title.
+    expect(screen.getAllByText('Live Broadcast')).toHaveLength(2);
+    expect(screen.getByText('Live Order')).toBeInTheDocument();
+    expect(screen.getByText('Race Control')).toBeInTheDocument();
+    expect(screen.getByText('LAP 1 / 2')).toBeInTheDocument();
+    expect(screen.getByText('GREEN')).toBeInTheDocument();
+    // The analysis chapter marks sit between the live grid and the radar and
+    // between the analysis row and the race sequence.
+    expect(screen.getByText('Now we move from observation to analysis')).toBeInTheDocument();
+    expect(screen.getByText('Deeper investigation')).toBeInTheDocument();
+    // Final answers wait for the checkered flag: at lap 1 the race overview
+    // band and the official classification stay out of view, and the lead
+    // battle carries the running totals (the old Race So Far numbers).
+    expect(screen.queryByRole('region', { name: 'Race overview' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Official Driver Stats')).not.toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Result' })).not.toBeInTheDocument();
+    const leadBattle = screen.getByRole('region', { name: 'Lead battle' });
+    expect(within(leadBattle).getByText('Lead stretches through lap 1 of 2')).toBeInTheDocument();
+    const sofar = leadBattle.querySelector('.lead-battle-sofar');
+    expect(sofar).toHaveTextContent('0 lead changes');
+    expect(sofar).toHaveTextContent('0 laps under yellow');
     expect(screen.getByRole('img', { name: 'Colton Herta, laps 1 to 1' })).toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'No cautions through selected lap' })).toBeInTheDocument();
     expect(screen.getByLabelText('Select race lap')).toHaveValue('1');
@@ -286,7 +332,13 @@ describe('TelemetryTVPage', () => {
     fireEvent.change(lapControl, { target: { value: '2' } });
 
     expect(await screen.findByText('Official order at lap 2')).toBeInTheDocument();
-    expect(screen.getByText("Overtake: Pato O'Ward moves ahead of Colton Herta for P1.")).toBeInTheDocument();
+    // A pass for P1 is a lead change: breaking, so the narrator cuts to it.
+    const commentary = screen.getByRole('region', { name: 'Live commentary' });
+    expect(commentary).toHaveAttribute('data-tier', 'breaking');
+    expect(commentary).toHaveTextContent("Lead change: Pato O'Ward takes the lead from Colton Herta.");
+    // …and says why it matters: who lost it, for how long, which change it is.
+    expect(commentary).toHaveTextContent('Colton Herta had led since lap 1 · first lead change of the race');
+    expect(within(commentary).getAllByText("O'Ward", { selector: 'strong' }).length).toBeGreaterThan(0);
     const leaderRow = screen.getByText("Pato O'Ward", { selector: '.driver-meta span' }).closest('tr');
     expect(leaderRow).toHaveTextContent('P1');
     expect(leaderRow.cells[6]).toHaveTextContent('2');
@@ -298,7 +350,12 @@ describe('TelemetryTVPage', () => {
     expect(previousLeaderRow.cells[7]).toHaveTextContent('101.2 mph');
     expect(previousLeaderRow.cells[7]).not.toHaveTextContent('±');
     expect(screen.getByText('Yellow')).toBeInTheDocument();
-    expect(screen.getByText('Race Analysis')).toBeInTheDocument();
+    // Lap 2 is the checkered lap: the report phase opens (overview band and
+    // the official classification) while the radar keeps narrating the move
+    // of the race.
+    expect(screen.getByRole('region', { name: 'Race overview' })).toBeInTheDocument();
+    expect(screen.getByText('up 1 place this lap').closest('.battle-radar-highlight-chip'))
+      .toHaveTextContent("Pato O'Ward up 1 place this lap");
     expect(screen.getByRole('columnheader', { name: 'Result' })).toBeInTheDocument();
   });
 
@@ -309,6 +366,16 @@ describe('TelemetryTVPage', () => {
     await pickRace();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Play race' }));
+
+    // 100 s is still the pre-race build-up (green flag 184 s): the
+    // dashboards wait and the countdown says how far the broadcast is from
+    // going green.
+    await screen.findByRole('region', { name: 'Waiting for race start' });
+    deliverPlayerTime(100);
+    expect(screen.getByText('Broadcast to green')).toBeInTheDocument();
+
+    // The green flag wakes them at lap 1.
+    deliverPlayerTime(184);
     await screen.findByText('Official order at lap 1');
 
     // 300 s sits between lap 1 complete (248 s) and the checkered flag: lap 2.
@@ -342,11 +409,14 @@ describe('TelemetryTVPage', () => {
     await pickRace();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Play race' }));
-    await screen.findByText('Race start: Lap 1.');
+    // The curated anchors place the green flag at 535 s, so the race and its
+    // commentary both wait with the dashboards.
+    await screen.findByRole('region', { name: 'Waiting for race start' });
+    expect(screen.queryByText('Race start: Lap 1.')).not.toBeInTheDocument();
 
     // 600 s: past the green flag anchor (535 s), before the lap-2 anchor.
     deliverPlayerTime(600);
-    expect(screen.getByText('Green flag: Herta leads out of turn 1.')).toBeInTheDocument();
+    expect(await screen.findByText('Green flag: Herta leads out of turn 1.')).toBeInTheDocument();
     expect(screen.getByLabelText('Select race lap')).toHaveValue('1');
 
     // 2500 s: lap 2 is running and the 2400 s caution has already aired.
@@ -354,6 +424,44 @@ describe('TelemetryTVPage', () => {
     expect(screen.getByText('Caution: debris at turn 5 halts the run.')).toBeInTheDocument();
     expect(screen.queryByText('Green flag: Herta leads out of turn 1.')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Select race lap')).toHaveValue('2');
+  });
+
+  test('keeps the dashboards dark before the green flag and wakes them at race start', async () => {
+    getTelemetryTVRaces.mockResolvedValue({ races: RACES });
+    getTelemetryTVRace.mockResolvedValue({ race: RACE_WITH_ANCHORS });
+    renderPage();
+    await pickRace();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Play race' }));
+
+    // The race report has landed but the broadcast is still pre-race
+    // (green flag 535 s): no stats load into view — the standby card stands
+    // in for every dashboard at once and names the moment it waits on.
+    const waitCard = await screen.findByRole('region', { name: 'Waiting for race start' });
+    expect(within(waitCard).getByText('Green flag')).toBeInTheDocument();
+    expect(within(waitCard).getByText('0:08:55')).toBeInTheDocument();
+    expect(screen.queryByText('Master Board')).not.toBeInTheDocument();
+    expect(screen.queryByText('Official Driver Stats')).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Race overview' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Race Intelligence')).not.toBeInTheDocument();
+
+    // 100 s into the broadcast: still waiting, now with the countdown.
+    deliverPlayerTime(100);
+    expect(
+      within(screen.getByRole('region', { name: 'Waiting for race start' })).getByText('7:15')
+    ).toBeInTheDocument();
+
+    // The green flag wakes every dashboard at lap 1.
+    deliverPlayerTime(535);
+    expect(await screen.findByText('Official order at lap 1')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Waiting for race start' })).not.toBeInTheDocument();
+
+    // Scrubbing back into the build-up parks them again: the gate answers to
+    // the video clock, not to time passing.
+    deliverPlayerTime(300);
+    await screen.findByRole('region', { name: 'Waiting for race start' });
+    expect(screen.queryByText('Official order at lap 1')).not.toBeInTheDocument();
+    expect(screen.queryByText('Race Intelligence')).not.toBeInTheDocument();
   });
 
   test('plots the curated broadcast pit stops and calls them out in the ticker', async () => {
@@ -369,8 +477,16 @@ describe('TelemetryTVPage', () => {
     await screen.findByText('Official order at lap 2');
 
     expect(container.querySelectorAll('.pit-stop-marker')).toHaveLength(2);
-    expect(screen.getByText("Pit stop: O'Ward stops on lap 2.")).toBeInTheDocument();
+    // Lap 2 is the last: the narrator leads with the result — breaking news
+    // outranks a routine stop, which waits its turn behind it.
+    const commentary = screen.getByRole('region', { name: 'Live commentary' });
+    expect(commentary).toHaveAttribute('data-tier', 'breaking');
+    expect(commentary).toHaveTextContent("Race finished: Pato O'Ward wins.");
     expect(screen.getByText('Broadcast-called stops only (2 of 5).')).toBeInTheDocument();
+    // The strategy card's pit window reads the stop that just happened.
+    expect(screen.getByText('Pit window')).toBeInTheDocument();
+    expect(screen.getByText('0 laps since last stop')).toBeInTheDocument();
+    expect(screen.getByText("Last called: O'Ward, lap 2")).toBeInTheDocument();
   });
 
   test('seeks the embedded video when the lap slider moves', async () => {
@@ -381,6 +497,9 @@ describe('TelemetryTVPage', () => {
 
     const iframe = await screen.findByTitle('YouTube video player');
     fireEvent.click(screen.getByRole('button', { name: 'Play race' }));
+    // Green flag is 184 s in this fixture: the dashboards wait until then.
+    await screen.findByRole('region', { name: 'Waiting for race start' });
+    deliverPlayerTime(184);
     await screen.findByText('Official order at lap 1');
 
     const postMessage = jest.spyOn(iframe.contentWindow, 'postMessage').mockImplementation(() => {});
@@ -404,15 +523,174 @@ describe('TelemetryTVPage', () => {
     await screen.findByText('Official order at lap 1');
 
     expect(screen.getByText('Pace Trend')).toBeInTheDocument();
-    const paceCard = container.querySelector('.race-pace-card');
-    expect(paceCard.querySelectorAll('.pace-bar')).toHaveLength(2);
-    // Selected lap 1 is 1:04.019; the fastest lap of the race is 1:01.654.
+    const paceCard = container.querySelector('.ttv-instruments');
+    // Lap 1 is the only lap run: one bar, the fastest lap known so far is
+    // lap 1's 1:04.019, and the eventual 1:01.654 stays hidden as a spoiler.
+    expect(paceCard.querySelectorAll('.pace-bar')).toHaveLength(1);
     expect(paceCard).toHaveTextContent('1:04.019');
-    expect(paceCard).toHaveTextContent('1:01.654');
-    expect(paceCard).toHaveTextContent('lap 2');
+    expect(paceCard).toHaveTextContent('Fastest lap so far');
+    expect(paceCard).not.toHaveTextContent('1:01.654');
     // Lap 1 is the only green-flag lap: the green average reads its time.
     expect(paceCard).toHaveTextContent('Green average');
     expect(paceCard).toHaveTextContent('1 green-flag lap');
+
+    // The strategy card reads the same single lap: not enough of a green run
+    // to call tyre fall-off, no visible stops yet, and the selected lap IS
+    // the fastest so far.
+    expect(screen.getByText('Strategy / Tyre Analysis')).toBeInTheDocument();
+    const strategyCard = container.querySelector('.strategy-card');
+    expect(strategyCard).toHaveTextContent('Tyre degradation');
+    expect(strategyCard).toHaveTextContent('Too early to call');
+    expect(strategyCard).toHaveTextContent('Opening stint');
+    expect(strategyCard).toHaveTextContent('Fastest lap');
+    expect(strategyCard).toHaveTextContent('Fastest so far: 1:04.019 (lap 1)');
+    // Race Control quotes the same fastest-so-far number.
+    expect(screen.getByText('Fastest').closest('.status-item')).toHaveTextContent('1:04.019');
+
+    fireEvent.change(screen.getByLabelText('Select race lap'), { target: { value: '2' } });
+    await screen.findByText('Official order at lap 2');
+    // The checkered lap completes the chart: both bars and the race fastest.
+    expect(paceCard.querySelectorAll('.pace-bar')).toHaveLength(2);
+    expect(paceCard).toHaveTextContent('1:01.654');
+    expect(paceCard).toHaveTextContent('lap 2');
+    expect(paceCard).toHaveTextContent('Fastest lap of the race');
+    // The strategy rows follow the cursor: lap 2 is now the pace-setter.
+    expect(strategyCard).toHaveTextContent('Fastest so far: 1:01.654 (lap 2)');
+  });
+
+  test('shows the race-day weather in the header as measured readings', async () => {
+    getTelemetryTVRaces.mockResolvedValue({ races: RACES });
+    getTelemetryTVRace.mockResolvedValue({ race: RACE_WITH_STATS });
+    getTelemetryTVWeather.mockResolvedValue({ weather: WEATHER });
+    renderPage();
+    await pickRace();
+
+    // The weather loads with the pick, before the green flag: the sky as an
+    // icon with its condition, then each reading with its unit, and the
+    // window and source it was read from.
+    const header = screen.getByRole('region', { name: 'Race header' });
+    const conditions = await within(header).findByRole('region', { name: 'Race-day weather' });
+    expect(getTelemetryTVWeather).toHaveBeenCalledWith('toronto-2025');
+    expect(
+      within(conditions).getByRole('img', { name: 'Clear, 25.9 degrees Celsius' })
+    ).toBeInTheDocument();
+    // The readings are a definition list: each label, then its value.
+    expect(
+      within(conditions).getAllByRole('term').map((term) => term.textContent)
+    ).toEqual(['Air', 'Humidity', 'Wind', 'Rain', 'Cloud']);
+    const [air, humidity, wind, rain, cloud] = within(conditions).getAllByRole('definition');
+    expect(air).toHaveTextContent('25.9°C');
+    expect(air).toHaveTextContent('79 °F');
+    expect(humidity).toHaveTextContent('58%');
+    expect(wind).toHaveTextContent('16km/hfrom NW');
+    expect(rain).toHaveTextContent('0.0mmdry');
+    expect(cloud).toHaveTextContent('16%');
+    expect(within(conditions).getByText(/12:00–17:00 local · 2025-07-20/)).toBeInTheDocument();
+    expect(
+      within(conditions).getByRole('link', { name: 'Open-Meteo historical weather' })
+    ).toHaveAttribute('href', 'https://open-meteo.com');
+  });
+
+  test('names the broadcast in the header with no conditions when none were measured', async () => {
+    getTelemetryTVRaces.mockResolvedValue({ races: RACES });
+    getTelemetryTVRace.mockResolvedValue({ race: RACE_WITH_STATS });
+    renderPage();
+    await pickRace();
+
+    // No reading, no glyph: nothing in the band reads as a conditions sensor
+    // without a measurement behind it.
+    const header = screen.getByRole('region', { name: 'Race header' });
+    expect(within(header).queryByRole('img')).not.toBeInTheDocument();
+    expect(header.querySelector('.race-header-titles')).toHaveTextContent(
+      'Ontario Honda Dealers Indy Toronto'
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Play race' }));
+    await screen.findByText('Official order at lap 1');
+
+    // The report has landed: still no glyph in the header.
+    expect(within(header).queryByRole('img')).not.toBeInTheDocument();
+  });
+
+  test('folds the analysis cards away from their own heads', async () => {
+    getTelemetryTVRaces.mockResolvedValue({ races: RACES });
+    getTelemetryTVRace.mockResolvedValue({ race: RACE_WITH_STATS });
+    const { container } = renderPage();
+    await pickRace();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Play race' }));
+    await screen.findByText('Official order at lap 1');
+
+    // The analysis layer reads battle first, then the instruments, then
+    // strategy — each one foldable from its own head.
+    const panels = container.querySelectorAll('.ttv-panel');
+    expect([...panels].map((panel) => panel.querySelector('.card-title').textContent)).toEqual([
+      'Race Intelligence',
+      'Race Instruments',
+      'Strategy / Tyre Analysis',
+    ]);
+
+    const instruments = container.querySelector('.ttv-instruments');
+    const body = instruments.querySelector('.ttv-panel-body');
+    expect(body).not.toHaveAttribute('hidden');
+
+    fireEvent.click(within(instruments).getByRole('button', { name: 'Collapse Race Instruments' }));
+    expect(instruments.querySelector('.ttv-panel-body')).toHaveAttribute('hidden');
+    // Folding is a view choice, not a data loss: the readings stay in the DOM.
+    expect(instruments.querySelector('.ttv-panel-body')).toHaveTextContent('Pace Trend');
+
+    fireEvent.click(within(instruments).getByRole('button', { name: 'Expand Race Instruments' }));
+    expect(instruments.querySelector('.ttv-panel-body')).not.toHaveAttribute('hidden');
+  });
+
+  test("a race that isn't listed can be asked for from the picker", async () => {
+    getTelemetryTVRaces.mockResolvedValue({ races: RACES });
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: /Can't find your race\? Add a video/ }));
+    const card = screen.getByRole('region', { name: 'Add a race video' });
+    expect(within(card).getByRole('note')).toHaveTextContent('We are strict about copyright.');
+    fireEvent.click(within(card).getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('region', { name: 'Add a race video' })).not.toBeInTheDocument();
+  });
+
+  test('folds each of the three race phases away from its own chapter mark', async () => {
+    getTelemetryTVRaces.mockResolvedValue({ races: RACES });
+    getTelemetryTVRace.mockResolvedValue({ race: RACE_WITH_STATS });
+    renderPage();
+    await pickRace();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Play race' }));
+    await screen.findByText('Official order at lap 1');
+
+    // Each phase, and a reading that lives inside it.
+    const phases = [
+      ['Live observation', 'Live Order'],
+      ['Now we move from observation to analysis', 'Strategy / Tyre Analysis'],
+      ['Deeper investigation', 'Lead stretches through lap 1 of 2'],
+    ];
+    for (const [label, reading] of phases) {
+      const phase = screen.getByRole('region', { name: label });
+      const toggle = within(phase).getByRole('button', { name: `Collapse ${label}` });
+      expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      expect(within(phase).getByText(reading)).toBeVisible();
+
+      fireEvent.click(toggle);
+      expect(within(phase).getByRole('button', { name: `Expand ${label}` })).toHaveAttribute(
+        'aria-expanded',
+        'false'
+      );
+      // Folding is a view choice, not a data loss: the reading is still in
+      // the page, just out of view.
+      expect(within(phase).getByText(reading)).not.toBeVisible();
+    }
+
+    // The broadcast player stays mounted inside its folded phase, so it keeps
+    // driving the lap clock; and every phase opens again from the same mark.
+    expect(screen.getByTitle('YouTube video player')).toBeInTheDocument();
+    for (const [label, reading] of phases) {
+      fireEvent.click(screen.getByRole('button', { name: `Expand ${label}` }));
+      expect(within(screen.getByRole('region', { name: label })).getByText(reading)).toBeVisible();
+    }
   });
 
   test('shows the official per-driver classification stats', async () => {
@@ -423,6 +701,13 @@ describe('TelemetryTVPage', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Play race' }));
     await screen.findByText('Official order at lap 1');
+
+    // The official classification is a final answer: it stays out of view
+    // until the checkered lap.
+    expect(screen.queryByText('Official Driver Stats')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Select race lap'), { target: { value: '2' } });
+    await screen.findByText('Official order at lap 2');
 
     expect(screen.getByText('Official Driver Stats')).toBeInTheDocument();
     const rows = container.querySelectorAll('.driver-stats-table tbody tr');
@@ -451,6 +736,26 @@ describe('TelemetryTVPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Play race' }));
     await screen.findByText('Official order at lap 1');
 
+    // Live phase: the lead battle replays only the laps already run — one
+    // stretch, the lap-2 caution still ahead, running totals in the header —
+    // and the race overview band is held back as a checkered-flag answer.
+    const leadBattle = screen.getByRole('region', { name: 'Lead battle' });
+    expect(within(leadBattle).getByText('Lead stretches through lap 1 of 2')).toBeInTheDocument();
+    const sofar = leadBattle.querySelector('.lead-battle-sofar');
+    expect(sofar).toHaveTextContent('0 lead changes');
+    expect(sofar).toHaveTextContent('0 laps under yellow');
+    expect(within(leadBattle).getByRole('img', {
+      name: 'Lead stretches across 2 laps, 1 different leader',
+    })).toBeInTheDocument();
+    expect(container.querySelectorAll('.lead-battle-segment')).toHaveLength(1);
+    expect(container.querySelectorAll('.lead-battle-caution')).toHaveLength(0);
+    expect(within(leadBattle).getByText('Lap 1')).toBeInTheDocument();
+    expect(within(leadBattle).getByText('Lap 2')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Race overview' })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Select race lap'), { target: { value: '2' } });
+    await screen.findByText('Official order at lap 2');
+
     // Overview band: the race-level numbers the payload carries. RACE_DETAIL
     // has no podium/pole/summary, so those tiles stay omitted rather than faked.
     const overview = screen.getByRole('region', { name: 'Race overview' });
@@ -470,7 +775,6 @@ describe('TelemetryTVPage', () => {
     expect(within(overview).queryByText('Winner')).not.toBeInTheDocument();
 
     // Lead battle: two stretches across the 2-lap fixture, one caution window.
-    const leadBattle = screen.getByRole('region', { name: 'Lead battle' });
     expect(within(leadBattle).getByText('Official lead stretches across 2 laps')).toBeInTheDocument();
     expect(within(leadBattle).getByText('2 leaders')).toBeInTheDocument();
     expect(within(leadBattle).getByRole('img', {
@@ -478,8 +782,6 @@ describe('TelemetryTVPage', () => {
     })).toBeInTheDocument();
     expect(container.querySelectorAll('.lead-battle-segment')).toHaveLength(2);
     expect(container.querySelectorAll('.lead-battle-caution')).toHaveLength(1);
-    expect(within(leadBattle).getByText('Lap 1')).toBeInTheDocument();
-    expect(within(leadBattle).getByText('Lap 2')).toBeInTheDocument();
   });
 
   test('shows the leader margin and finish summary once the race completes', async () => {

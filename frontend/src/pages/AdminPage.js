@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import CodeSubmissionsPanel from '../components/admin/CodeSubmissionsPanel';
 import DatasetSubmissionsPanel from '../components/admin/DatasetSubmissionsPanel';
+import VideoRequestsTab from '../components/admin/VideoRequestsTab';
 
-const ADMIN_TABS = ['Code Submissions', 'Dataset Submissions'];
+const ADMIN_TABS = ['Code Submissions', 'Dataset Submissions', 'Video Requests'];
 
 function AdminPage() {
   const [activeTab, setActiveTab] = useState('Code Submissions');
@@ -13,7 +14,7 @@ function AdminPage() {
         <div className="section-eyebrow">System administration</div>
         <div className="section-title">Admin</div>
         <div className="section-desc">
-          Review submitted scripts and datasets, inspect uploads, and manage accepted or deleted data.
+          Review submitted scripts, datasets and race video requests, inspect uploads, and manage accepted or deleted data.
         </div>
       </div>
       <div className="content">
@@ -33,6 +34,7 @@ function AdminPage() {
 
         {activeTab === 'Code Submissions' && <CodeSubmissionsPanel />}
         {activeTab === 'Dataset Submissions' && <DatasetSubmissionsPanel />}
+        {activeTab === 'Video Requests' && <VideoRequestsTab />}
       </div>
     </div>
   );

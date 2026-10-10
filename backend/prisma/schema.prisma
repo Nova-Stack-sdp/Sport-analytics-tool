@@ -535,3 +535,36 @@ model PendingSignup {
   @@index([email, createdAt])
   @@map("pending_signup")
 }
+
+enum VideoRequestStatus {
+  pending
+  approved
+  rejected
+}
+
+// A race video a user asked to have added to Telemetry TV. Every request is
+// checked by the developers for copyright before anything goes live, so it
+// is stored pending and reviewed by an admin; the requester is notified of
+// the outcome.
+model VideoRequest {
+  id                String             @id @default(uuid()) @map("video_request_id")
+  // References an auth-system user ID (e.g., Firebase UID), not a local FK.
+  userId            String             @map("user_id")
+  userEmail         String?            @map("user_email")
+  raceName          String             @map("race_name")
+  // The link as given, and the YouTube video ID read from it (null when the
+  // user described where the video is instead of linking it).
+  videoUrl          String?            @map("video_url")
+  youtubeId         String?            @map("youtube_id")
+  hostedDescription String?            @map("hosted_description")
+  notes             String?
+  status            VideoRequestStatus @default(pending)
+  reviewNote        String?            @map("review_note")
+  reviewedBy        String?            @map("reviewed_by")
+  reviewedAt        DateTime?          @map("reviewed_at")
+  createdAt         DateTime           @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@map("video_request")
+}
