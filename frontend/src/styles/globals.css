@@ -176,6 +176,7 @@ td.secondary{color:var(--text-secondary);}
 .tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:12px;}
 .tab{padding:7px 4px;font-size:14px;font-weight:600;color:var(--text-tertiary);cursor:pointer;border-bottom:2px solid transparent;margin-right:16px;}
 .tab.active{color:var(--text-primary);border-color:var(--accent);}
+button.tab{border-top:0;border-right:0;border-left:0;background:transparent;font-family:inherit;}
 
 .kv{display:flex;justify-content:space-between;font-size:14px;padding:5px 0;color:var(--text-secondary);}
 .kv b{color:var(--text-primary);font-weight:600;font-family:var(--font-mono);font-size:13px;}
@@ -215,6 +216,9 @@ td.secondary{color:var(--text-secondary);}
 .log-ticker{font-family:var(--font-mono);font-size:12.5px;max-height:200px;overflow-y:auto;}
 .log-row{display:grid;grid-template-columns:64px 74px 1fr 100px;gap:10px;padding:6px 0;border-bottom:1px solid var(--border-soft);align-items:center;}
 .log-row:last-child{border-bottom:none;}
+.submission-queue-scroll{max-width:100%;overflow-x:auto;}
+.submission-layout{grid-template-columns:minmax(0,1fr);}
+.submission-queue-table th,.submission-queue-table td{white-space:nowrap;}
 .overview-events-empty{display:block;margin:0;padding:6px 0;}
 .log-time{color:var(--text-tertiary);}
 .log-event{color:var(--text-secondary);}

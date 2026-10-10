@@ -53,7 +53,7 @@ function ApiDocsPage() {
         <div className="rationale">
           <span className="ic">◆</span>
           <div>
-            <b>Current status:</b> Overview, Statistics, Fixtures/Events, and Time-Travel are live and read from real, derived data. Submissions, Datasets, and Admin are still static UI — there's no write endpoint yet.
+            <b>Current status:</b> Public data is available through /api/v1. Developers can submit datasets and scripts for review; admins can review submissions and manage uploaded datasets. These write operations require sign-in and the appropriate role.
           </div>
         </div>
 
@@ -74,7 +74,7 @@ function ApiDocsPage() {
             <div className="pstep done"><div className="n">4</div><div className="t">PostgreSQL (Neon)</div></div>
           </div>
           <div className="card-note">
-            Step 2 fans out to four route groups — Overview, Statistics, Fixtures, and Time-Travel — each querying Prisma independently before the response reaches the browser.
+            The API serves race data and handles authenticated submission and review workflows.
           </div>
         </div>
 

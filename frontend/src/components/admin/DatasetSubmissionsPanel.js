@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect, useCallback } from 'react';
+import { Fragment, useState, useEffect, useCallback, useRef } from 'react';
 import {
   listAdminDatasets,
   getAdminDataset,
@@ -60,6 +60,7 @@ function StatusPill({ dataset }) {
 // them. Deleting is a soft delete: the dataset and its events are hidden
 // everywhere but can be restored from the Deleted tab.
 function DatasetSubmissionsPanel() {
+  const loadRequest = useRef(0);
   const [view, setView] = useState('pending');
   const [datasets, setDatasets] = useState([]);
   const [counts, setCounts] = useState(null);
@@ -70,16 +71,20 @@ function DatasetSubmissionsPanel() {
   const [detail, setDetail] = useState(NO_DETAIL);
 
   const load = useCallback(async (currentView) => {
+    const requestId = ++loadRequest.current;
     setLoading(true);
+    setCounts(null);
     setLoadError(null);
     try {
       const data = await listAdminDatasets(currentView);
+      if (requestId !== loadRequest.current) return;
       setDatasets(data.datasets || []);
       setCounts(data.counts || null);
     } catch (err) {
+      if (requestId !== loadRequest.current) return;
       setLoadError(describeError(err));
     } finally {
-      setLoading(false);
+      if (requestId === loadRequest.current) setLoading(false);
     }
   }, []);
 
@@ -87,6 +92,7 @@ function DatasetSubmissionsPanel() {
     setDetail(NO_DETAIL);
     setNotice(null);
     load(view);
+    return () => { loadRequest.current += 1; };
   }, [view, load]);
 
   // Runs an action on one row, shows the outcome, and reloads the list.
@@ -184,19 +190,20 @@ function DatasetSubmissionsPanel() {
         </div>
         <div className="tabs">
           {VIEWS.map((v) => (
-            <div
+            <button
+              type="button"
               key={v.view}
               className={`tab${view === v.view ? ' active' : ''}`}
               onClick={() => setView(v.view)}
             >
               {v.label}{counts ? ` (${counts[v.view]})` : ''}
-            </div>
+            </button>
           ))}
         </div>
         {notice && <div className="card-note" role="status" style={{ color: 'var(--status-green)' }}>{notice}</div>}
-        {loadError && <div className="card-note" role="alert" style={{ color: 'var(--status-red)' }}>{loadError}</div>}
+        {loadError && <div className="card-note" role="alert" style={{ color: 'var(--status-red)' }}>{loadError} <button type="button" className="btn btn-ghost btn-sm" onClick={() => load(view)}>Retry</button></div>}
         {loading && <div className="card-note">Loading…</div>}
-        {!loading && (
+        {!loading && !loadError && (
           <div className="table-scroll">
             <table>
               <tbody>
