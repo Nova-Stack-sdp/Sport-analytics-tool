@@ -17,6 +17,38 @@ function describeError(err) {
   return err.body?.error || err.message;
 }
 
+// The submission policy run on the stored code by the API (see
+// lib/securityHelpers.js). It is a filter, not a verdict: "passed" means no
+// known problem was found, and the reviewer still reads the code.
+function PolicyCheck({ check, status }) {
+  if (check.passed) {
+    return (
+      <div className="kv" style={{ marginTop: 10 }}>
+        <span>Policy check</span>
+        <b style={{ color: 'var(--status-green)' }}>Passed: no known problems. Still read the code before approving.</b>
+      </div>
+    );
+  }
+  const count = check.findings.length;
+  const consequence = status === 'approved'
+    ? 'It was published before this check existed; consider removing it.'
+    : 'Approving it will be refused; reject it instead.';
+  return (
+    <div className="kv" style={{ marginTop: 10 }}>
+      <span>Policy check</span>
+      <div role="alert" style={{ color: 'var(--status-red)' }}>
+        <b>{count} problem{count === 1 ? '' : 's'} found. {consequence}</b>
+        <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+          {check.findings.map((f, i) => (
+            // eslint-disable-next-line react/no-array-index-key -- findings have no id; order is stable.
+            <li key={i}>{f.line ? `Line ${f.line}: ` : ''}{f.message}</li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 // Submissions tab of the Admin page. Every row, count and status comes from
 // GET/PATCH /api/code-submissions; there is no mock data, so an unreachable
 // backend shows an error or an empty queue. Pending and rejected scripts are
@@ -206,6 +238,7 @@ function CodeSubmissionsPanel() {
                             <>
                               {detail.data.description && <div className="secondary" style={{ marginBottom: 8 }}>{detail.data.description}</div>}
                               <pre className="mono" style={{ margin: 0, padding: 12, overflowX: 'auto', background: 'var(--border-soft)' }}>{detail.data.code}</pre>
+                              {detail.data.policyCheck && <PolicyCheck check={detail.data.policyCheck} status={s.status} />}
                               <div className="kv" style={{ marginTop: 10 }}>
                                 <span>Test data</span>
                                 {detail.data.testDataset ? (

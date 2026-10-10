@@ -81,6 +81,46 @@ describe('CodeSubmissionsPanel', () => {
     expect(screen.queryByText('const delta = 1;')).not.toBeInTheDocument();
   });
 
+  test('shows the policy check with each problem and its line', async () => {
+    listCodeSubmissions.mockResolvedValue({ submissions: [submission()] });
+    getCodeSubmission.mockResolvedValue({
+      id: 'cs_1',
+      code: 'const fs = require("fs");',
+      policyCheck: { passed: false, findings: [{ line: 1, column: 12, rule: 'global', message: '`require` isn\'t available to submitted scripts: it loads modules or files.' }] },
+    });
+    render(<CodeSubmissionsPanel />);
+    fireEvent.click(await screen.findByRole('button', { name: 'View code' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('1 problem found. Approving it will be refused; reject it instead.');
+    expect(alert).toHaveTextContent('Line 1: `require` isn\'t available to submitted scripts');
+  });
+
+  test('a passing check still reminds the reviewer to read the code', async () => {
+    listCodeSubmissions.mockResolvedValue({ submissions: [submission()] });
+    getCodeSubmission.mockResolvedValue({ id: 'cs_1', code: 'export const a = 1;', policyCheck: { passed: true, findings: [] } });
+    render(<CodeSubmissionsPanel />);
+    fireEvent.click(await screen.findByRole('button', { name: 'View code' }));
+    expect(await screen.findByText(/Passed: no known problems\. Still read the code/)).toBeInTheDocument();
+  });
+
+  test('an approved script that fails the current check suggests removing it', async () => {
+    listCodeSubmissions.mockResolvedValue({ submissions: [submission({ status: 'approved', verifiedCodeId: 'vc_1' })] });
+    getCodeSubmission.mockResolvedValue({ id: 'cs_1', code: 'eval("1")', policyCheck: { passed: false, findings: [{ line: 1, message: 'x' }, { line: 2, message: 'y' }] } });
+    render(<CodeSubmissionsPanel />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Approved' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'View code' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('2 problems found. It was published before this check existed; consider removing it.');
+  });
+
+  test('a refused approval shows the API\'s reason', async () => {
+    listCodeSubmissions.mockResolvedValue({ submissions: [submission()] });
+    reviewCodeSubmission.mockRejectedValue(httpError(422, { error: 'This script fails the submission policy, so it can\'t be published. Line 1: `require` isn\'t available to submitted scripts: it loads modules or files. Reject it instead.' }));
+    render(<CodeSubmissionsPanel />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Approve' }));
+    expect(await screen.findByText(/fails the submission policy, so it can't be published/)).toBeInTheDocument();
+  });
+
   test('shows an empty state instead of made-up rows', async () => {
     render(<CodeSubmissionsPanel />);
 
