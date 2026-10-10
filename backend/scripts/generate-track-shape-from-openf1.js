@@ -36,6 +36,20 @@ const DEFAULT_OUTPUT_DIR = path.join(
   'track-shapes'
 );
 
+/** A one-line summary of what OpenF1 sent, for error messages. */
+export function describeTelemetry({ location = [], laps = [] }) {
+  const usable = location.filter((r) => Number.isFinite(r.x) && Number.isFinite(r.y) && r.x !== 0 && r.y !== 0);
+  const cars = new Set(usable.map((r) => r.driver_number)).size;
+  const dates = location.map((r) => r.date).filter(Boolean).sort();
+  const lapsList = Array.isArray(laps) ? laps : [];
+  const timed = lapsList.filter((l) => l.date_start).length;
+  return [
+    `${location.length} location records, ${usable.length} on track from ${cars} cars`,
+    dates.length ? `from ${dates[0]} to ${dates[dates.length - 1]}` : 'no timestamps',
+    `${lapsList.length} laps, ${timed} with a start time`,
+  ].join('; ');
+}
+
 /**
  * Fetches one session's telemetry, derives the outline and writes it.
  * Dependencies are passed in so tests can run it without the network.
@@ -65,11 +79,11 @@ export async function buildTrackShapeFile({
   }
   const shape = deriveTrackShapeFromTelemetry(telemetry.location, telemetry.laps);
   if (!shape) {
-    throw new Error('Not enough location points on a clean lap to trace the circuit');
+    throw new Error(`Not enough location points on any lap to trace the circuit (${describeTelemetry(telemetry)})`);
   }
   // OpenF1 sends 0,0 samples while a car's transponder is idle; they would
   // pull a spike to the origin into the outline.
-  const points = shape.points.filter((p) => !(p.x === 0 && p.y === 0));
+  const points = shape.points.filter((p) => p.x !== 0 && p.y !== 0);
   if (points.length < 10) {
     throw new Error('Not enough location points on a clean lap to trace the circuit');
   }

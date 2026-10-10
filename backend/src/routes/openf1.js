@@ -314,11 +314,68 @@ export async function fetchSessionTrackTelemetryRaw(sessionKey) {
   const lapsResult = await fetchRequiredResource('laps', { session_key: sessionKey });
   const laps = Array.isArray(lapsResult) ? lapsResult : lapsResult.payload;
 
-  await paceBundleRequests();
-  const location = await fetchLocationDataChunked(sessionKey, session.date_start, session.date_end);
-  if (location.length === 0) return null;
+  // A track outline needs one clean lap of one car, so only that lap's
+  // location samples are fetched: a few hundred records instead of every
+  // car for the whole race (~50,000 per 10 minutes). The lap's own start
+  // times are used rather than the session's date_start/date_end, which are
+  // its *scheduled* times — the 2026 Bahrain GP was scheduled 07:00–09:00
+  // UTC but its laps ran 08:33–10:20.
+  const windows = representativeLapWindows(laps);
+  if (windows.length === 0) {
+    // No lap timing at all: fall back to the scheduled window.
+    await paceBundleRequests();
+    const location = await fetchLocationDataChunked(sessionKey, session.date_start, session.date_end);
+    return location.length === 0 ? null : { laps, location };
+  }
 
-  return { laps, location };
+  for (const window of windows) {
+    await paceBundleRequests();
+    const url = buildWindowUrl('location', sessionKey, window.start, window.end);
+    url.searchParams.append('driver_number', String(window.driverNumber));
+    const result = await fetchOpenF1Json(url);
+    if (result.status === 404) continue;
+    if (result.status !== 200) {
+      throw new OpenF1PassthroughError(result.status, result.payload);
+    }
+    const onTrack = result.payload.filter(
+      (r) => Number.isFinite(r.x) && Number.isFinite(r.y) && r.x !== 0 && r.y !== 0
+    );
+    if (onTrack.length >= 10) return { laps, location: result.payload };
+  }
+  return null;
+}
+
+/**
+ * Laps to try for the outline, best first: the car with the most timed
+ * laps, starting a third of the way into the race (clear of first-lap
+ * incidents), then later laps, then earlier ones. Each window runs from
+ * one lap's start to the next lap's start. At most `limit` are returned.
+ */
+export function representativeLapWindows(laps, limit = 6) {
+  const timed = (Array.isArray(laps) ? laps : []).filter(
+    (l) => l.lap_number && Number.isFinite(Date.parse(l.date_start))
+  );
+  const byDriver = new Map();
+  for (const lap of timed) {
+    if (!byDriver.has(lap.driver_number)) byDriver.set(lap.driver_number, []);
+    byDriver.get(lap.driver_number).push(lap);
+  }
+  const best = [...byDriver.entries()].sort((a, b) => b[1].length - a[1].length || a[0] - b[0])[0];
+  if (!best || best[1].length < 2) return [];
+  const [driverNumber, driverLaps] = best;
+  driverLaps.sort((a, b) => a.lap_number - b.lap_number);
+
+  const first = Math.floor(driverLaps.length / 3);
+  const order = [];
+  for (let i = first; i < driverLaps.length - 1; i += 1) order.push(i);
+  for (let i = first - 1; i >= 0; i -= 1) order.push(i);
+
+  return order.slice(0, limit).map((i) => ({
+    driverNumber,
+    lapNumber: driverLaps[i].lap_number,
+    start: Date.parse(driverLaps[i].date_start),
+    end: Date.parse(driverLaps[i + 1].date_start),
+  })).filter((w) => w.end > w.start);
 }
 
 // One raw bundle containing the OpenF1 records consumed by the existing sync

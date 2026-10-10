@@ -47,44 +47,66 @@ const TRACK_SHAPES_DIR = path.join(
 export function deriveTrackShapeFromTelemetry(locationRecords, lapsRecords, targetPoints = 200) {
   if (!Array.isArray(locationRecords) || locationRecords.length === 0) return null;
 
-  const countsByDriver = new Map();
-  for (const record of locationRecords) {
-    countsByDriver.set(record.driver_number, (countsByDriver.get(record.driver_number) ?? 0) + 1);
+  // OpenF1 sends 0,0 while a car's transponder is idle (garage, grid), the
+  // odd sample with one coordinate exactly 0 mid-lap, and some records
+  // with no y at all; none of them is a point on the circuit, and one
+  // would draw a spike to the axis.
+  const usable = locationRecords.filter(
+    (r) => Number.isFinite(r.x) && Number.isFinite(r.y) && r.x !== 0 && r.y !== 0
+  );
+
+  const pointsByDriver = new Map();
+  for (const record of usable) {
+    const t = Date.parse(record.date);
+    if (!Number.isFinite(t)) continue;
+    if (!pointsByDriver.has(record.driver_number)) pointsByDriver.set(record.driver_number, []);
+    pointsByDriver.get(record.driver_number).push({ t, x: record.x, y: record.y });
   }
-  const [referenceDriver] = [...countsByDriver.entries()].sort((a, b) => b[1] - a[1])[0] ?? [null];
-  if (referenceDriver == null) return null;
+  // Best-covered cars first; a few are enough to find one clean lap.
+  const drivers = [...pointsByDriver.entries()]
+    .sort((a, b) => b[1].length - a[1].length)
+    .slice(0, 5);
 
-  const driverLaps = (lapsRecords ?? [])
-    .filter((lap) => lap.driver_number === referenceDriver && lap.lap_number && lap.date_start)
-    .sort((a, b) => a.lap_number - b.lap_number);
+  const downsampled = (pts) => {
+    const step = Math.max(1, Math.floor(pts.length / targetPoints));
+    return pts.filter((_, i) => i % step === 0).map(({ x, y }) => ({ x, y }));
+  };
 
-  let windowStartMs = null;
-  let windowEndMs = null;
-  if (driverLaps.length > 2) {
-    const sampleIndex = Math.floor(driverLaps.length / 3);
-    windowStartMs = Date.parse(driverLaps[sampleIndex].date_start);
-    windowEndMs = driverLaps[sampleIndex + 1]
-      ? Date.parse(driverLaps[sampleIndex + 1].date_start)
-      : windowStartMs + 2 * 60 * 1000;
+  for (const [driverNumber, pts] of drivers) {
+    pts.sort((a, b) => a.t - b.t);
+    const driverLaps = (lapsRecords ?? [])
+      .filter((lap) => lap.driver_number === driverNumber && lap.lap_number && lap.date_start)
+      .sort((a, b) => a.lap_number - b.lap_number);
+
+    if (driverLaps.length <= 2) {
+      // Not enough lap timing to pick one lap: trace everything this car
+      // sent, as before.
+      if (pts.length >= MIN_POINTS) return { points: downsampled(pts), sourceDriverNumber: driverNumber };
+      continue;
+    }
+
+    // Start a third of the way in (clear of first-lap incidents and
+    // late-race oddities), then try the following laps, then the earlier
+    // ones — the first lap with enough samples wins. A single lap can be
+    // empty in the data (a gap in the feed, a pit stop, a safety car
+    // bunching the timing), so one bad lap no longer means no outline.
+    const first = Math.floor(driverLaps.length / 3);
+    const order = [];
+    for (let i = first; i < driverLaps.length - 1; i += 1) order.push(i);
+    for (let i = first - 1; i >= 0; i -= 1) order.push(i);
+
+    for (const i of order) {
+      const start = Date.parse(driverLaps[i].date_start);
+      const end = Date.parse(driverLaps[i + 1].date_start);
+      if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) continue;
+      const lap = pts.filter((p) => p.t >= start && p.t <= end);
+      if (lap.length >= MIN_POINTS) return { points: downsampled(lap), sourceDriverNumber: driverNumber };
+    }
   }
-
-  const candidatePoints = locationRecords
-    .filter((record) => record.driver_number === referenceDriver)
-    .filter((record) => {
-      if (windowStartMs == null) return true;
-      const t = Date.parse(record.date);
-      return t >= windowStartMs && t <= windowEndMs;
-    })
-    .map((record) => ({ x: record.x, y: record.y }))
-    .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
-
-  if (candidatePoints.length < 10) return null;
-
-  const step = Math.max(1, Math.floor(candidatePoints.length / targetPoints));
-  const points = candidatePoints.filter((_, i) => i % step === 0);
-
-  return { points, sourceDriverNumber: referenceDriver };
+  return null;
 }
+
+const MIN_POINTS = 10;
 
 // Matches the filename convention generate_track_shapes.py writes — e.g.
 // "Spa-Francorchamps" -> "spa-francorchamps.json".

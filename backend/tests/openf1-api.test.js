@@ -134,30 +134,55 @@ describe('GET /api/openf1/races/barcelona-2026/raw', () => {
 });
 
 describe('fetchSessionTrackTelemetryRaw (location data for track outlines)', () => {
-  test('asks OpenF1 for each time window with date> / date<, not date_start / date_end', async () => {
+  const session = { session_key: 11731, date_start: '2026-10-04T07:00:00+00:00', date_end: '2026-10-04T09:00:00+00:00' };
+  // A race that started late: laps run after the scheduled end.
+  const laps = Array.from({ length: 9 }, (_, i) => ({
+    driver_number: 1,
+    lap_number: i + 1,
+    date_start: new Date(Date.parse('2026-10-04T08:33:00Z') + i * 100_000).toISOString(),
+    lap_duration: 100,
+  })).concat([{ driver_number: 4, lap_number: 1, date_start: '2026-10-04T08:33:01Z' }]);
+  const onTrack = (start) => Array.from({ length: 30 }, (_, i) => ({
+    driver_number: 1, date: new Date(Date.parse(start) + i * 1000).toISOString(), x: 100 + i, y: 7,
+  }));
+
+  test('fetches one lap of one car, by its real lap times, with date> / date<', async () => {
     const { fetchSessionTrackTelemetryRaw } = await import('../src/routes/openf1.js');
     global.fetch.mockImplementation(async (url) => {
       const resource = url.pathname.split('/').pop();
-      const payload = {
-        sessions: [{ session_key: 11731, date_start: '2026-10-04T07:00:00+00:00', date_end: '2026-10-04T07:20:00+00:00' }],
-        laps: [{ driver_number: 1, lap_number: 1, date_start: '2026-10-04T07:01:00Z' }],
-        location: [{ driver_number: 1, date: '2026-10-04T07:05:00Z', x: 10, y: 20 }],
-      }[resource];
+      const payload = resource === 'location' ? onTrack(url.searchParams.get('date>')) : { sessions: [session], laps }[resource];
       return { status: 200, text: async () => JSON.stringify(payload) };
     });
 
     const result = await fetchSessionTrackTelemetryRaw(11731);
 
     const locationUrls = global.fetch.mock.calls.map(([url]) => url).filter((url) => url.pathname.endsWith('/location'));
-    expect(locationUrls).toHaveLength(2); // a 20-minute session in 10-minute windows
-    for (const url of locationUrls) {
-      expect(url.searchParams.has('date_start')).toBe(false);
-      expect(url.searchParams.has('date_end')).toBe(false);
-      expect(url.toString()).toMatch(/date%3E=2026-10-04T07%3A[01]0%3A00\.000Z/);
-      expect(url.toString()).toMatch(/date%3C=/);
-    }
-    expect(locationUrls[0].searchParams.get('date>')).toBe('2026-10-04T07:00:00.000Z');
-    expect(result.location).toHaveLength(2);
+    expect(locationUrls).toHaveLength(1);
+    const [url] = locationUrls;
+    expect(url.searchParams.has('date_start')).toBe(false);
+    expect(url.searchParams.get('driver_number')).toBe('1');
+    // Lap 4 (a third of 9 laps) — after the scheduled 09:00 end.
+    expect(url.searchParams.get('date>')).toBe('2026-10-04T08:38:00.000Z');
+    expect(url.searchParams.get('date<')).toBe('2026-10-04T08:39:40.000Z');
+    expect(result.location).toHaveLength(30);
+  });
+
+  test('moves on to the next lap when one has no location samples', async () => {
+    const { fetchSessionTrackTelemetryRaw } = await import('../src/routes/openf1.js');
+    let locationCalls = 0;
+    global.fetch.mockImplementation(async (url) => {
+      const resource = url.pathname.split('/').pop();
+      if (resource === 'location') {
+        locationCalls += 1;
+        if (locationCalls === 1) return { status: 404, text: async () => JSON.stringify({ detail: 'No results found.' }) };
+        return { status: 200, text: async () => JSON.stringify(onTrack(url.searchParams.get('date>'))) };
+      }
+      return { status: 200, text: async () => JSON.stringify({ sessions: [session], laps }[resource]) };
+    });
+
+    const result = await fetchSessionTrackTelemetryRaw(11731);
+    expect(locationCalls).toBe(2);
+    expect(result.location).toHaveLength(30);
   });
 
   test('buildWindowUrl writes the window as OpenF1 comparison filters', async () => {
@@ -166,5 +191,24 @@ describe('fetchSessionTrackTelemetryRaw (location data for track outlines)', () 
     expect(url.toString()).toBe(
       'https://api.openf1.org/v1/car_data?session_key=11307&date%3E=2026-06-14T13%3A00%3A00.000Z&date%3C=2026-06-14T13%3A10%3A01.000Z'
     );
+  });
+});
+
+describe('representativeLapWindows', () => {
+  test('a third of the way in, then later laps, then earlier ones, for the car with the most laps', async () => {
+    const { representativeLapWindows } = await import('../src/routes/openf1.js');
+    const laps = Array.from({ length: 6 }, (_, i) => ({ driver_number: 81, lap_number: i + 1, date_start: `2026-10-04T08:0${i}:00Z` }))
+      .concat([{ driver_number: 1, lap_number: 1, date_start: '2026-10-04T08:00:00Z' }, { driver_number: 1, lap_number: 2, date_start: null }]);
+    const windows = representativeLapWindows(laps);
+    expect(windows.map((w) => w.lapNumber)).toEqual([3, 4, 5, 2, 1]);
+    expect(windows.every((w) => w.driverNumber === 81)).toBe(true);
+    expect(windows[0]).toMatchObject({ start: Date.parse('2026-10-04T08:02:00Z'), end: Date.parse('2026-10-04T08:03:00Z') });
+  });
+
+  test('no usable lap timing gives no windows', async () => {
+    const { representativeLapWindows } = await import('../src/routes/openf1.js');
+    expect(representativeLapWindows([])).toEqual([]);
+    expect(representativeLapWindows({ detail: 'error' })).toEqual([]);
+    expect(representativeLapWindows([{ driver_number: 1, lap_number: 1, date_start: null }])).toEqual([]);
   });
 });
