@@ -34,6 +34,18 @@ describe('API client', () => {
     global.fetch = originalFetch;
   });
 
+  test('downloads an export through the configured API with filters and credentials', async () => {
+    process.env.REACT_APP_API_URL = 'https://api.example.test';
+    const blob = new Blob(['[]']);
+    global.fetch.mockResolvedValue({ ok: true, blob: async () => blob });
+    const client = loadClient();
+    expect(await client.downloadDatasetExport({ dataset: 'events', season: '2025', format: 'json' })).toBe(blob);
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://api.example.test/api/v1/exports/events?format=json&season=2025',
+      expect.objectContaining({ credentials: 'include' }),
+    );
+  });
+
   test('uses the fallback URL and sends every API helper to its expected endpoint', async () => {
     delete process.env.REACT_APP_API_URL;
     const response = successfulResponse({ source: 'backend' });
@@ -45,6 +57,7 @@ describe('API client', () => {
     await client.getStatistics({ view: 'drivers', season: 2026, sessionId: 'session-1' });
     await client.getFixtures();
     await client.getFixtureEvents('session-1');
+    await client.getFixtureEvents('session-1', { type: 'pit_stop', includeSuperseded: true, cursor: 'e-9', limit: 50 });
     await client.getTimeTravelContext();
     await client.getTimeTravelContext('session-1');
     await client.getTimeTravelChangelog('entry-1');
@@ -61,6 +74,7 @@ describe('API client', () => {
       `${FALLBACK_API_URL}/api/statistics?view=drivers&season=2026&sessionId=session-1`,
       `${FALLBACK_API_URL}/api/fixtures`,
       `${FALLBACK_API_URL}/api/fixtures/session-1/events`,
+      `${FALLBACK_API_URL}/api/fixtures/session-1/events?type=pit_stop&includeSuperseded=true&cursor=e-9&limit=50`,
       `${FALLBACK_API_URL}/api/timetravel/context`,
       `${FALLBACK_API_URL}/api/timetravel/context?sessionId=session-1`,
       `${FALLBACK_API_URL}/api/timetravel/changelog?entryId=entry-1`,
@@ -71,7 +85,7 @@ describe('API client', () => {
       `${FALLBACK_API_URL}/api/drivers`,
       `${FALLBACK_API_URL}/api/drivers/driver-1`,
     ]);
-    expect(response.json).toHaveBeenCalledTimes(14);
+    expect(response.json).toHaveBeenCalledTimes(15);
   });
 
   test('uses a configured API URL', async () => {

@@ -3,11 +3,14 @@ import { memo } from 'react';
 // Who led when: one segment per official lead stretch, laid across the race
 // distance, with caution windows shaded. The driver who led the most laps is
 // picked out in red; the rest read as neutral bars so the shape of the race
-// — long control vs brief interchanges — is the story.
-const LeadBattle = memo(function LeadBattle({ leadBattle }) {
+// — long control vs brief interchanges — is the story. While the replay is
+// still running the stretches are clipped to the current lap and the header
+// strip carries the running lead-change and yellow-lap counts (the old Race
+// So Far card's two live numbers, folded in here where they belong).
+const LeadBattle = memo(function LeadBattle({ leadBattle, lap, isFinished }) {
   if (!leadBattle || leadBattle.stretches.length === 0) return null;
 
-  const { stretches, cautions, totalLaps, lapsLed } = leadBattle;
+  const { stretches, cautions, totalLaps, lapsLed, raceSoFar } = leadBattle;
   const spanPercent = (fromLap, toLap) => ({
     left: `${(((fromLap - 0.5) / totalLaps) * 100).toFixed(3)}%`,
     width: `${((((toLap - fromLap + 1) / totalLaps)) * 100).toFixed(3)}%`,
@@ -19,7 +22,9 @@ const LeadBattle = memo(function LeadBattle({ leadBattle }) {
         <div>
           <div className="card-title">Lead Battle</div>
           <div className="card-title-sub">
-            Official lead stretches{totalLaps ? ` across ${totalLaps} laps` : ''}
+            {isFinished
+              ? `Official lead stretches${totalLaps ? ` across ${totalLaps} laps` : ''}`
+              : `Lead stretches through lap ${lap} of ${totalLaps}`}
           </div>
         </div>
         <span className="pill pill-gray">
@@ -27,10 +32,23 @@ const LeadBattle = memo(function LeadBattle({ leadBattle }) {
         </span>
       </div>
 
+      {!isFinished && raceSoFar && (
+        <div className="lead-battle-sofar">
+          <span className="lead-battle-sofar-chip">
+            <strong>{raceSoFar.leadChanges}</strong>
+            {` lead change${raceSoFar.leadChanges === 1 ? '' : 's'}`}
+          </span>
+          <span className="lead-battle-sofar-chip is-yellow">
+            <strong>{raceSoFar.cautionLaps}</strong>
+            {` lap${raceSoFar.cautionLaps === 1 ? '' : 's'} under yellow`}
+          </span>
+        </div>
+      )}
+
       <div
         className="lead-battle-chart"
         role="img"
-        aria-label={`Lead stretches across ${totalLaps} laps, ${lapsLed.length} different leaders`}
+        aria-label={`Lead stretches across ${totalLaps} laps, ${lapsLed.length} different leader${lapsLed.length === 1 ? '' : 's'}`}
       >
         {stretches.map((stretch, index) => (
           <span

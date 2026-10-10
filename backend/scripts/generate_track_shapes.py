@@ -118,6 +118,12 @@ CIRCUITS = [
 #     Madrid-related EventName.
 # Both simply won't get a file from this script — Race Replay's
 # illustrative fallback covers them until one becomes available for real.
+#
+# UPDATE (Oct 2026): both races have now run, so OpenF1 has real location
+# data for them. Generate their outlines from that instead, with
+#   node scripts/generate-track-shape-from-openf1.js 11731 "Kuala Lumpur"
+#   node scripts/generate-track-shape-from-openf1.js 11369 "Madring"
+# (session keys of the 2026 Bahrain and Spanish Grands Prix).
 UNRESOLVED = ['kuala-lumpur', 'madring']
 
 SESSION_TYPE = 'R'  # Race

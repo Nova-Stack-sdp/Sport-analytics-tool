@@ -72,7 +72,6 @@ function VideoCard({ video }) {
             {video.thumbnailUrl && (
               <img src={video.thumbnailUrl} alt="" loading="lazy" />
             )}
-            <span className="popular-badge">#{video.rank} trending</span>
             <button
               type="button"
               className="play-btn"
@@ -96,8 +95,14 @@ function VideoCard({ video }) {
   );
 }
 
+const SECTION_TITLE = 'Latest from Formula 1';
+const LIVE_SUB = 'The newest uploads on the official FORMULA 1 YouTube channel.';
+// The backend serves a saved list when YouTube can't be reached (source: 'fallback').
+const SAVED_SUB = 'A saved selection of race highlights. The latest uploads from YouTube aren\'t available right now.';
+
 function FeaturedVideos() {
   const [videos, setVideos] = useState([]);
+  const [source, setSource] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -107,6 +112,7 @@ function FeaturedVideos() {
       .then((data) => {
         if (!cancelled) {
           setVideos(data.videos || []);
+          setSource(data.source ?? null);
           setLoading(false);
         }
       })
@@ -127,8 +133,8 @@ function FeaturedVideos() {
         <div className="page">
           <div className="section-head">
             <div className="tag">Featured videos</div>
-            <h2 className="section-title">Popular right now</h2>
-            <p className="section-sub">Latest Formula 1 videos from the official YouTube channel, ranked by what's trending.</p>
+            <h2 className="section-title">{SECTION_TITLE}</h2>
+            <p className="section-sub">{LIVE_SUB}</p>
           </div>
           <div className="video-row">
             {[1, 2, 3, 4].map((n) => (
@@ -152,8 +158,8 @@ function FeaturedVideos() {
         <div className="page">
           <div className="section-head">
             <div className="tag">Featured videos</div>
-            <h2 className="section-title">Popular right now</h2>
-            <p className="section-sub">Latest Formula 1 videos from the official YouTube channel.</p>
+            <h2 className="section-title">{SECTION_TITLE}</h2>
+            <p className="section-sub">{LIVE_SUB}</p>
           </div>
           <p className="video-unavailable">
             Featured videos are temporarily unavailable. Browse the official{' '}
@@ -176,8 +182,8 @@ function FeaturedVideos() {
       <div className="page">
         <div className="section-head">
           <div className="tag">Featured videos</div>
-          <h2 className="section-title">Popular right now</h2>
-          <p className="section-sub">Latest Formula 1 videos from the official YouTube channel, ranked by what's trending.</p>
+          <h2 className="section-title">{SECTION_TITLE}</h2>
+          <p className="section-sub">{source === 'fallback' ? SAVED_SUB : LIVE_SUB}</p>
         </div>
         <div className="video-row">
           {videos.map((video) => (

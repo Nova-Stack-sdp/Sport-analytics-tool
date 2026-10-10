@@ -86,8 +86,10 @@ const PlaybackVideo = forwardRef(function PlaybackVideo({
     <div className="card video-panel">
       <div className="card-head live-panel-head">
         <div>
-          <div className="card-title">{race?.eventName ?? 'Race replay'}</div>
+          <div className="card-title">Live Broadcast</div>
           <div className="card-title-sub">
+            {/* The race header band above the grid owns the event name; the
+                video panel stays the band that plays it. */}
             {race ? 'Official broadcast replay' : loading ? 'Loading races…' : 'No video source configured'}
           </div>
         </div>

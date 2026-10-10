@@ -4,6 +4,7 @@ jest.unstable_mockModule('../src/lib/prisma.js', () => ({ prisma: {} }));
 
 let createApp;
 let request;
+let clearPopularVideosCache;
 
 function mockFetch(responses) {
   global.fetch = jest.fn((url) => {
@@ -23,6 +24,7 @@ function mockFetch(responses) {
 
 beforeAll(async () => {
   ({ createApp } = await import('../src/app.js'));
+  ({ clearPopularVideosCache } = await import('../src/routes/videos.js'));
   ({ default: request } = await import('supertest'));
 });
 
@@ -30,6 +32,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   delete process.env.YOUTUBE_API_KEY;
   delete global.fetch;
+  clearPopularVideosCache();
 });
 
 describe('GET /api/videos/popular', () => {
@@ -89,7 +92,7 @@ describe('GET /api/videos/popular', () => {
     expect(res.body.videos[1].sub).toBe('2K views · 2026');
   });
 
-  test('uses fallback video list with youtube source when search returns no videos', async () => {
+  test('serves the saved list and says so when YouTube has no recent uploads', async () => {
     process.env.YOUTUBE_API_KEY = 'yt-test-key';
     mockFetch([
       { url: 'googleapis.com/youtube/v3/search', body: { items: [] } },
@@ -99,7 +102,7 @@ describe('GET /api/videos/popular', () => {
     const res = await request(app).get('/api/videos/popular');
 
     expect(res.status).toBe(200);
-    expect(res.body.source).toBe('youtube');
+    expect(res.body.source).toBe('fallback');
     expect(res.body.videos[0].id).toBe('3OMLs3yI-KE');
   });
 
@@ -150,4 +153,38 @@ describe('GET /api/videos/popular', () => {
     expect(res.body.videos[0].sub).toBe('900 views · 2026');
   });
 
+
+  test('reuses a YouTube result instead of calling YouTube on every request', async () => {
+    process.env.YOUTUBE_API_KEY = 'yt-test-key';
+    mockFetch([
+      { url: 'googleapis.com/youtube/v3/search', body: { items: [{ id: { videoId: 'v1' } }] } },
+      { url: 'googleapis.com/youtube/v3/videos', body: { items: [{ id: 'v1', snippet: { title: 'Cached' } }] } },
+    ]);
+    const app = createApp();
+    const first = await request(app).get('/api/videos/popular');
+    const second = await request(app).get('/api/videos/popular');
+
+    expect(second.body).toEqual(first.body);
+    expect(first.body.source).toBe('youtube');
+    expect(global.fetch).toHaveBeenCalledTimes(2); // one search + one videos call, not four
+  });
+
+  test('does not cache the fallback, so YouTube is retried next time', async () => {
+    process.env.YOUTUBE_API_KEY = 'yt-test-key';
+    mockFetch([{ url: 'googleapis.com/youtube/v3/search', status: 500, ok: false }]);
+    const app = createApp();
+    await request(app).get('/api/videos/popular');
+    await request(app).get('/api/videos/popular');
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  test('omits the year rather than inventing one when a video has no publish date', async () => {
+    process.env.YOUTUBE_API_KEY = 'yt-test-key';
+    mockFetch([
+      { url: 'googleapis.com/youtube/v3/search', body: { items: [{ id: { videoId: 'nodate' } }] } },
+      { url: 'googleapis.com/youtube/v3/videos', body: { items: [{ id: 'nodate', snippet: { title: 'No date' }, statistics: { viewCount: '12' } }] } },
+    ]);
+    const res = await request(createApp()).get('/api/videos/popular');
+    expect(res.body.videos[0].sub).toBe('12 views');
+  });
 });

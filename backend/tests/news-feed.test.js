@@ -1,8 +1,16 @@
 import { jest } from '@jest/globals';
 import express from 'express';
 import request from 'supertest';
-import { createF1NewsService } from '../src/lib/f1NewsFeed.js';
-import { createNewsRouter } from '../src/routes/news.js';
+import { createF1NewsService, parseEspnF1News, parseF1NewsRss } from '../src/lib/f1NewsFeed.js';
+// News API refresh also invokes notification tagging. Keep this suite local
+// and independent of application database credentials or live followers.
+jest.unstable_mockModule('../src/lib/prisma.js', () => ({
+  prisma: {
+    driver: { findMany: jest.fn().mockResolvedValue([]) },
+    team: { findMany: jest.fn().mockResolvedValue([]) },
+  },
+}));
+const { createNewsRouter } = await import('../src/routes/news.js');
 
 const TEST_FEED_URL = 'https://example.test/f1/news';
 
@@ -36,7 +44,7 @@ function espnFeed(items) {
       description: item.summary,
       published: item.publishedAt,
       images: item.imageUrl ? [{ url: item.imageUrl }] : [],
-      categories: [{ type: 'league', description: 'Formula One' }],
+      categories: item.categories || [{ type: 'league', description: 'Formula One' }],
       links: { web: { href: item.url } },
     })),
   });
@@ -59,6 +67,35 @@ const secondStory = {
   publishedAt: 'Thu, 24 Sep 2026 11:00:00 GMT',
 };
 
+const basketballStory = {
+  id: 'basketball',
+  title: 'Shai Gilgeous-Alexander joins athletes who became owners',
+  url: 'https://www.espn.com/nfl/story/_/id/29553205/athletes-team-owners',
+  summary: 'LeBron James, Serena Williams and Lewis Hamilton join a list of owners.',
+  publishedAt: 'Thu, 24 Sep 2026 12:00:00 GMT',
+  categories: [
+    { type: 'league', description: 'WNBA' },
+    { type: 'league', description: 'NFL' },
+    { type: 'league', description: 'Formula One' },
+  ],
+};
+
+test('filters ESPN multi-sport stories before the item limit without losing genuine F1 reports', () => {
+  const f1Story = { ...firstStory, url: 'https://www.espn.com/f1/story/_/id/123/norris-wins' };
+  const unclassified = { ...basketballStory, id: 'unknown', url: 'https://example.test/news/owners', categories: [] };
+  expect(parseEspnF1News(JSON.parse(espnFeed([basketballStory, unclassified, f1Story])), { maxItems: 1 }))
+    .toEqual([expect.objectContaining({ id: f1Story.id })]);
+  const generic = { ...basketballStory, url: 'https://example.test/news/owners' };
+  expect(parseEspnF1News(JSON.parse(espnFeed([generic])))).toEqual([]);
+});
+
+test('keeps F1 URL reports without category metadata and rejects unrelated RSS stories', () => {
+  const f1Story = { ...firstStory, title: 'Norris takes victory', categories: [], url: 'https://www.espn.com/f1/story/_/id/123/victory' };
+  expect(parseEspnF1News(JSON.parse(espnFeed([f1Story])))).toHaveLength(1);
+  expect(parseF1NewsRss(rss([basketballStory, firstStory])))
+    .toEqual([expect.objectContaining({ title: firstStory.title })]);
+});
+
 describe('F1 news feed service', () => {
   function memoryStore(saved = null) {
     return {
@@ -69,6 +106,21 @@ describe('F1 news feed service', () => {
       }),
     };
   }
+
+  test('excludes unrelated stories from persisted cache, fresh responses and stored snapshots', async () => {
+    const savedF1 = { ...firstStory, category: 'Formula 1', source: 'BBC Sport' };
+    // Even a previously defaulted Formula 1 label must not override an NFL URL.
+    const newsStore = memoryStore({ items: [{ ...basketballStory, category: 'Formula 1' }, savedF1] });
+    const fetchImpl = jest.fn()
+      .mockResolvedValueOnce(upstreamResponse('', { status: 503 }))
+      .mockResolvedValueOnce(upstreamResponse(espnFeed([basketballStory, secondStory])));
+    const service = createF1NewsService({ fetchImpl, feedUrl: TEST_FEED_URL, newsStore });
+    expect((await service.hydrate()).items).toEqual([savedF1]);
+    expect((await service.refresh()).items).toEqual([savedF1]);
+    const snapshot = await service.refresh();
+    expect(snapshot.items.map((article) => article.id)).toEqual([secondStory.id]);
+    expect(newsStore.write.mock.calls[0][0].items.map((article) => article.id)).toEqual([secondStory.id]);
+  });
 
   test('combines simultaneous refreshes into one provider request', async () => {
     let resolveFetch;

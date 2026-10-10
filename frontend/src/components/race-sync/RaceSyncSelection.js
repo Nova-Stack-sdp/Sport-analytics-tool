@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { getFixtures } from '../../api/client';
 
 // Which race the RaceSync workspace is looking at — shared between the
@@ -44,6 +44,16 @@ export function RaceSyncSelectionProvider({ children }) {
     };
   }, []);
 
+  // Re-read the list after a race has been added (see RaceSyncAddRace), so
+  // the new race is in the search — and can be picked — without a reload.
+  const refreshFixtures = useCallback(async () => {
+    const result = await getFixtures();
+    const ready = (result.fixtures ?? []).filter((f) => f.replayReady);
+    setFixtures(ready);
+    setError(null);
+    return ready;
+  }, []);
+
   const selected = useMemo(
     () => fixtures.find((f) => f.id === selectedId) ?? null,
     [fixtures, selectedId]
@@ -63,12 +73,13 @@ export function RaceSyncSelectionProvider({ children }) {
       selected,
       selectedId,
       selectRace: setSelectedId,
+      refreshFixtures,
       scope,
       setScope,
       roster,
       setRoster,
     }),
-    [fixtures, loading, error, selected, selectedId, scope, roster]
+    [fixtures, loading, error, selected, selectedId, scope, roster, refreshFixtures]
   );
 
   return (

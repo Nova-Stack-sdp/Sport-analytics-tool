@@ -11,6 +11,8 @@ export const SECTION_ANCHORS = {
   overview: 'racesync-section-overview',
   // The pace card, with the race-state table above it.
   driverAnalysis: 'racesync-section-driver-analysis',
+  // The sim console under the workflow spine — where every lever lives.
+  simConsole: 'racesync-section-sim-console',
   // The tyre stints, with the pit stops beneath them.
   strategy: 'racesync-section-strategy',
   // The lap-time delta chart.

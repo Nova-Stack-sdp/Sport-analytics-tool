@@ -65,6 +65,25 @@ function stableId(value) {
   return createHash('sha256').update(value).digest('hex').slice(0, 20);
 }
 
+// Provider feeds can include syndicated, multi-sport stories tagged with F1
+// only incidentally. An unrelated primary sport must not become F1 news just
+// because a driver is mentioned or a secondary league tag says Formula One.
+const F1_TOPIC = /\b(?:f1|formula[\s-]*(?:1|one))\b/i;
+const OTHER_SPORT_PATH = /(?:^|\/)(?:nba|wnba|nfl|nhl|mlb|soccer|basketball|football|tennis|golf|cricket|rugby|nascar|indycar|motogp)(?:\/|$)/i;
+const OTHER_SPORT_CATEGORY = /^(?:nba|wnba|nfl|nhl|mlb|soccer|basketball|football|tennis|golf|cricket|rugby|nascar|indycar|motogp)$/i;
+
+function isF1NewsArticle(article) {
+  const url = safeHttpUrl(article?.url);
+  if (!url) return false;
+  const path = new URL(url).pathname;
+  if (OTHER_SPORT_PATH.test(path)) return false;
+  if (/(?:^|\/)(?:f1|formula-?1)(?:\/|$)/i.test(path)) return true;
+  const category = stripMarkup(String(article.category || ''));
+  if (OTHER_SPORT_CATEGORY.test(category)) return false;
+  return F1_TOPIC.test(category)
+    || F1_TOPIC.test(`${article.title || ''} ${article.summary || ''}`);
+}
+
 export function parseF1NewsRss(xml, { maxItems = DEFAULT_MAX_ITEMS, source = 'BBC Sport' } = {}) {
   if (typeof xml !== 'string' || !xml.includes('<')) return [];
 
@@ -90,11 +109,13 @@ export function parseF1NewsRss(xml, { maxItems = DEFAULT_MAX_ITEMS, source = 'BB
         url: link,
         imageUrl: imageFromItem(item, rawDescription),
         publishedAt,
-        category: stripMarkup(tagValue(item, 'category')) || 'Formula 1',
+        category: stripMarkup(tagValue(item, 'category')),
         source,
       };
     })
     .filter(Boolean)
+    .filter(isF1NewsArticle)
+    .map((article) => ({ ...article, category: article.category || 'Formula 1' }))
     .sort((a, b) => new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0))
     .slice(0, maxItems);
 }
@@ -114,7 +135,7 @@ export function parseEspnF1News(payload, { maxItems = DEFAULT_MAX_ITEMS } = {}) 
         : publishedDate.toISOString();
       const category = article.categories?.find((item) => item?.type === 'league')?.description
         || article.categories?.[0]?.description
-        || 'Formula 1';
+        || '';
       const imageUrl = article.images
         ?.map((image) => safeHttpUrl(image?.url))
         .find(Boolean) || null;
@@ -126,11 +147,13 @@ export function parseEspnF1News(payload, { maxItems = DEFAULT_MAX_ITEMS } = {}) 
         url,
         imageUrl,
         publishedAt,
-        category: stripMarkup(category) || 'Formula 1',
+        category: stripMarkup(category),
         source: 'ESPN',
       };
     })
     .filter(Boolean)
+    .filter(isF1NewsArticle)
+    .map((article) => ({ ...article, category: article.category || 'Formula 1' }))
     .sort((a, b) => new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0))
     .slice(0, maxItems);
 }
@@ -208,7 +231,7 @@ export function createF1NewsService({
     hydratePromise = (async () => {
       const saved = await newsStore?.read?.();
       if (saved?.items?.length) {
-        articles = saved.items.slice(0, maxItems);
+        articles = saved.items.filter(isF1NewsArticle).slice(0, maxItems);
         lastUpdated = saved.lastUpdated || lastUpdated;
         persistedAt = saved.persistedAt || persistedAt;
       }

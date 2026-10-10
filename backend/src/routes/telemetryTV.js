@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getTorontoraceContext } from '../data/Torontorace.js';
 import { getLongBeachraceContext } from '../data/LongBeachrace.js';
+import { getRaceWeather, isoDate } from '../lib/raceWeather.js';
 
 export const telemetryTVRouter = Router();
 
@@ -58,6 +59,44 @@ telemetryTVRouter.get('/races', async (req, res, next) => {
     races.sort((a, b) => parseDateMs(b.sessionDate) - parseDateMs(a.sessionDate));
 
     return res.json({ races });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Race-day weather for the header: the venue's measured conditions over the
+// race window, from Open-Meteo's archive (see lib/raceWeather.js). Its own
+// endpoint so the header can show it the moment a race is picked, without
+// waiting for the full report. A race with no venue lookup, or an archive
+// that can't be reached, answers `weather: null` — never a guess.
+telemetryTVRouter.get('/races/:slug/weather', async (req, res, next) => {
+  try {
+    const curated = CURATED_RACE_CONTEXTS[req.params.slug]?.() ?? null;
+    const lookup = curated?.weatherLookup;
+    if (!lookup) return res.json({ weather: null });
+
+    // The report's own session date wins over the curated fallback.
+    let date = lookup.date;
+    try {
+      const { prisma } = await import('../lib/prisma.js');
+      const rows = await prisma.externalApiCache.findMany({
+        where: { key: { startsWith: `indycar:${req.params.slug}-race:v` } },
+      });
+      const reported = rows
+        .map((row) => isoDate(row.payload?.session?.sessionDate))
+        .find(Boolean);
+      if (reported) date = reported;
+    } catch {
+      // No report to read the date from — the curated date stands.
+    }
+
+    let weather = null;
+    try {
+      weather = await getRaceWeather({ ...lookup, date, venue: curated.venue });
+    } catch {
+      weather = null;
+    }
+    return res.json({ weather });
   } catch (err) {
     return next(err);
   }

@@ -110,6 +110,18 @@ describe('DriverDetailPage', () => {
     expect(screen.getByText('0.5')).toBeInTheDocument();
   });
 
+  test('season figures are plain text on a themed panel; the team colour is only the panel edge', async () => {
+    getDriver.mockResolvedValueOnce(fullDriver);
+    const { container } = renderPage();
+    await screen.findByText('Max Verstappen');
+    const panel = container.querySelector('.dd-barrow');
+    expect(panel).not.toBeNull();
+    // No figure inside is coloured inline: a light team colour (e.g. Mercedes
+    // teal) would be unreadable on the light theme.
+    panel.querySelectorAll('.dd-bar-val').forEach((value) => expect(value).not.toHaveAttribute('style'));
+    expect(container.querySelector('.dd-hero').style.getPropertyValue('--tc')).toBe('#3671C6');
+  });
+
   test('shows the uploaded photo ahead of the cached and live images', async () => {
     getDriver.mockResolvedValue({
       ...fullDriver,

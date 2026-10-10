@@ -29,3 +29,9 @@ test('the bulk rebuild applies the same filter', async () => {
   await rebuildSessionStats(prisma, 'session-1').catch(() => {});
   expect(prisma.event.findMany.mock.calls[0][0].where).toMatchObject({ sourceSubmission: VISIBLE_SOURCE });
 });
+
+test('public pages use the same rule as the statistics', async () => {
+  const { FROM_PUBLISHED_DATASET, PUBLISHED_SUBMISSION } = await import('../src/lib/eventVisibility.js');
+  expect(FROM_PUBLISHED_DATASET).toEqual({ sourceSubmission: VISIBLE_SOURCE });
+  expect(PUBLISHED_SUBMISSION).toEqual(VISIBLE_SOURCE);
+});

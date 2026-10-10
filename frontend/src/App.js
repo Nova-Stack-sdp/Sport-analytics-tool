@@ -22,7 +22,7 @@ function AppFrame({ theme, onToggleTheme }) {
     <>
       {isRaceSync ? (
         <>
-          <RaceSyncHeader />
+          <RaceSyncHeader theme={theme} onToggleTheme={onToggleTheme} />
           <RaceSyncNav />
         </>
       ) : (

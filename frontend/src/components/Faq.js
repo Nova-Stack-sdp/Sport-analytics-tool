@@ -1,25 +1,27 @@
 import { useState } from 'react';
 
+// Keep these answers true to how the site works today: data arrives when a
+// finished session is synced, and nothing is a live feed.
 const FAQS = [
   {
     q: 'What is F1Lytics?',
-    a: 'A live analytics platform for Formula 1 — every stat is derived from real race event data rather than entered by hand.',
+    a: 'A Formula 1 analytics site. Race data is stored as a log of individual events — laps, pit stops, position changes, results — and every statistic is calculated from that log rather than typed in by hand.',
   },
   {
     q: 'How current is the data?',
-    a: 'Overview and Fixtures update in near real time during a session. Statistics and Time-Travel reflect the latest completed data sync.',
+    a: 'A session is added after it has finished, when its data is synced from OpenF1. The pages show it within about a minute of the sync. Nothing on the site is a live feed.',
   },
   {
     q: 'Do I need an account to use it?',
-    a: 'No — Overview, Fixtures & Events, Statistics, and Time-Travel are open to everyone. Signing in unlocks Submissions, Datasets, and Developer tools.',
+    a: 'No. Overview, Fixtures & Events, Statistics, Time-Travel, Race Replay, Drivers, Teams and Telemetry TV are open to everyone. With an account you can follow drivers and teams and get notifications about them. Developers with a verified email can turn on developer mode in Profile → Settings to submit datasets and code for an admin to review.',
   },
   {
     q: 'What is Time-Travel?',
-    a: 'It replays a session\'s standings and events as they looked at any chosen moment, using the changelog behind the data.',
+    a: 'It shows how one driver\'s result in a session changed as data was added and corrected over time, and lets you compare that result at two points in its history.',
   },
   {
     q: 'Where does the data come from?',
-    a: 'Race and session data is synced from the OpenF1 API. See the Developer page for endpoint details once you\'re signed in.',
+    a: 'Race data comes from the OpenF1 API, plus datasets submitted by developers once an admin has accepted them. News comes from BBC Sport and ESPN, videos from the official Formula 1 YouTube channel, and some driver and team profile details from API-Sports.',
   },
 ];
 

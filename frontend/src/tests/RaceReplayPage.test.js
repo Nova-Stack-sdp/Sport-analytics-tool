@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import RaceReplayPage from '../pages/RaceReplayPage';
 import { PreferencesProvider } from '../context/PreferencesContext';
 import * as apiClient from '../api/client';
@@ -32,6 +33,10 @@ const SAFETY_CAR_STATE = makeState({
   ],
 });
 
+function renderPage(path = '/replay') {
+  return render(<MemoryRouter initialEntries={[path]}><RaceReplayPage /></MemoryRouter>);
+}
+
 describe('race replay page (real data, mocked API)', () => {
   beforeEach(() => {
     jest.restoreAllMocks();
@@ -43,9 +48,9 @@ describe('race replay page (real data, mocked API)', () => {
 
   test('auto-selects the first replay-ready match and shows the real leaderboard once data resolves', async () => {
     jest.spyOn(apiClient, 'getRaceReplayState').mockResolvedValue(makeState());
-    render(<RaceReplayPage />);
+    renderPage();
 
-    await waitFor(() => expect(screen.getByLabelText(/select a match to replay/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText(/select a session to replay/i)).toBeInTheDocument());
     await waitFor(() => expect(screen.getByText('George Russell')).toBeInTheDocument());
     expect(screen.getByText('Max Verstappen')).toBeInTheDocument();
     expect(screen.getAllByText('MEDIUM').length).toBeGreaterThan(0);
@@ -53,31 +58,31 @@ describe('race replay page (real data, mocked API)', () => {
 
   test('only lists replay-ready fixtures in the picker', async () => {
     jest.spyOn(apiClient, 'getRaceReplayState').mockResolvedValue(makeState());
-    render(<RaceReplayPage />);
+    renderPage();
 
-    await waitFor(() => expect(screen.getByLabelText(/select a match to replay/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText(/select a session to replay/i)).toBeInTheDocument());
     expect(screen.queryByText(/Not Synced Grand Prix/i)).not.toBeInTheDocument();
     expect(screen.getByText(/Spanish Grand Prix/i)).toBeInTheDocument();
   });
 
   test('shows a message instead of a picker when no fixture is replay-ready', async () => {
     apiClient.getFixtures.mockResolvedValue({ fixtures: [{ id: 's2', meetingName: 'Not Synced Grand Prix', season: 2026, type: 'Race', replayReady: false }] });
-    render(<RaceReplayPage />);
+    renderPage();
 
     await waitFor(() => expect(screen.getByText(/no synced sessions have enough data/i)).toBeInTheDocument());
-    expect(screen.queryByLabelText(/select a match to replay/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/select a session to replay/i)).not.toBeInTheDocument();
   });
 
   test('shows an error state and lets the user retry', async () => {
     jest.spyOn(apiClient, 'getRaceReplayState').mockRejectedValue(new Error('network down'));
-    render(<RaceReplayPage />);
+    renderPage();
     await waitFor(() => expect(screen.getByText(/Couldn't load replay data/i)).toBeInTheDocument());
     expect(screen.getByText('Try again')).toBeInTheDocument();
   });
 
   test('detects a real safety car period from race control messages', async () => {
     jest.spyOn(apiClient, 'getRaceReplayState').mockResolvedValue(SAFETY_CAR_STATE);
-    render(<RaceReplayPage />);
+    renderPage();
     await waitFor(() => expect(screen.getByText('Safety car deployed')).toBeInTheDocument());
 
     fireEvent.click(screen.getByLabelText('Show safety car'));
@@ -90,7 +95,7 @@ describe('race replay page (real data, mocked API)', () => {
       JSON.stringify({ replaySpeed: 4, replayShowSafetyCar: false })
     );
     jest.spyOn(apiClient, 'getRaceReplayState').mockResolvedValue(SAFETY_CAR_STATE);
-    render(<PreferencesProvider><RaceReplayPage /></PreferencesProvider>);
+    render(<MemoryRouter><PreferencesProvider><RaceReplayPage /></PreferencesProvider></MemoryRouter>);
 
     await waitFor(() => expect(screen.getByText('4×')).toBeInTheDocument());
     expect(screen.getByLabelText('Show safety car')).not.toBeChecked();
@@ -100,7 +105,7 @@ describe('race replay page (real data, mocked API)', () => {
 
   test('pause button toggles its own label', async () => {
     jest.spyOn(apiClient, 'getRaceReplayState').mockResolvedValue(makeState());
-    render(<RaceReplayPage />);
+    renderPage();
     await waitFor(() => expect(screen.getByText('⏸ Pause')).toBeInTheDocument());
     fireEvent.click(screen.getByText('⏸ Pause'));
     expect(screen.getByText('▶ Play')).toBeInTheDocument();
@@ -108,7 +113,7 @@ describe('race replay page (real data, mocked API)', () => {
 
   test('shows final classification with a winner once the backend reports atEnd', async () => {
     jest.spyOn(apiClient, 'getRaceReplayState').mockResolvedValue(makeState({ atEnd: true, lap: 66 }));
-    render(<RaceReplayPage />);
+    renderPage();
 
     await waitFor(() => expect(screen.getByText(/wins/i)).toBeInTheDocument());
     expect(screen.getByText(/George Russell wins/i)).toBeInTheDocument();
@@ -121,17 +126,18 @@ describe('race replay page (real data, mocked API)', () => {
       const theta = (i / 30) * Math.PI * 2;
       return { x: 500 * Math.cos(theta), y: 500 * Math.sin(theta) };
     });
-    apiClient.getRaceReplayTrackShape.mockResolvedValue({ points, sourceDriverNumber: 1 });
+    apiClient.getRaceReplayTrackShape.mockResolvedValue({ points, sourceDriverNumber: 1, source: 'fastf1-static-fallback' });
     jest.spyOn(apiClient, 'getRaceReplayState').mockResolvedValue(makeState());
-    render(<RaceReplayPage />);
+    renderPage();
 
     await waitFor(() => expect(screen.getByText('George Russell')).toBeInTheDocument());
     await waitFor(() => expect(screen.queryByText(/illustrative track/i)).not.toBeInTheDocument());
+    expect(screen.getByText('Track outline from a FastF1 trace of this circuit.')).toBeInTheDocument();
   });
 
   test('shows the illustrative-track note when no real track shape is available', async () => {
     jest.spyOn(apiClient, 'getRaceReplayState').mockResolvedValue(makeState());
-    render(<RaceReplayPage />);
+    renderPage();
     await waitFor(() => expect(screen.getByText(/illustrative track/i)).toBeInTheDocument());
   });
 
@@ -141,7 +147,7 @@ describe('race replay page (real data, mocked API)', () => {
     );
     jest.spyOn(apiClient, 'getRaceReplayState').mockImplementation(mockFn);
 
-    render(<RaceReplayPage />);
+    renderPage();
     await waitFor(() => expect(screen.getByText('George Russell')).toBeInTheDocument());
 
     fireEvent.click(screen.getByText('⏭ Skip to end'));
@@ -163,12 +169,80 @@ describe('race replay page (real data, mocked API)', () => {
     );
     jest.spyOn(apiClient, 'getRaceReplayState').mockImplementation(mockFn);
 
-    render(<RaceReplayPage />);
+    renderPage();
     await waitFor(() => expect(screen.getByText('George Russell')).toBeInTheDocument());
     expect(mockFn).toHaveBeenCalledWith('s1', expect.anything());
 
-    fireEvent.change(screen.getByLabelText(/select a match to replay/i), { target: { value: 's-other' } });
+    fireEvent.change(screen.getByLabelText(/select a session to replay/i), { target: { value: 's-other' } });
 
     await waitFor(() => expect(mockFn).toHaveBeenCalledWith('s-other', expect.anything()));
+  });
+
+  test('uses the safety-car state the API works out, not just the last few messages', async () => {
+    jest.spyOn(apiClient, 'getRaceReplayState').mockResolvedValue(makeState({
+      safetyCar: null,
+      recentRaceControl: [{ category: 'SafetyCar', flag: null, message: 'SAFETY CAR DEPLOYED' }],
+    }));
+    renderPage();
+    await waitFor(() => expect(screen.getByText('George Russell')).toBeInTheDocument());
+    expect(screen.queryByText('Safety car deployed')).not.toBeInTheDocument();
+  });
+
+  test('shows a virtual safety car as its own state', async () => {
+    jest.spyOn(apiClient, 'getRaceReplayState').mockResolvedValue(makeState({ safetyCar: 'VSC' }));
+    renderPage();
+    expect(await screen.findByText('Virtual safety car')).toBeInTheDocument();
+    expect(screen.queryByText('Safety car deployed')).not.toBeInTheDocument();
+  });
+
+  test('labels cars with surname codes and describes the order as at this lap, not live', async () => {
+    jest.spyOn(apiClient, 'getRaceReplayState').mockResolvedValue(makeState());
+    const { container } = renderPage();
+    await waitFor(() => expect(screen.getByText('George Russell')).toBeInTheDocument());
+    const labels = [...container.querySelectorAll('.replay-dot-label')].map((n) => n.textContent);
+    expect(labels).toEqual(expect.arrayContaining(['RUS', 'HAM', 'VER']));
+    expect(screen.getByText('Race order and tyre compounds at this lap')).toBeInTheDocument();
+    expect(screen.queryByText(/Live race order/)).not.toBeInTheDocument();
+  });
+
+  test('final classification marks retirements instead of giving them a position', async () => {
+    jest.spyOn(apiClient, 'getRaceReplayState').mockResolvedValue(makeState({
+      atEnd: true,
+      lap: 66,
+      leaderboard: [
+        { entryId: 'e1', driverNumber: 63, driverName: 'George Russell', teamName: 'Mercedes', position: 1, status: 'finished' },
+        { entryId: 'e3', driverNumber: 1, driverName: 'Max Verstappen', teamName: 'Red Bull Racing', position: null, status: 'dnf' },
+      ],
+    }));
+    renderPage();
+    expect(await screen.findByText('DNF')).toBeInTheDocument();
+    expect(screen.getByText('🏆')).toBeInTheDocument();
+  });
+
+  test('opens the session named in the address and links to its event log; no Watch Live link', async () => {
+    apiClient.getFixtures.mockResolvedValue({
+      fixtures: [
+        { id: 's1', meetingName: 'Spanish Grand Prix', season: 2026, type: 'Race', replayReady: true },
+        { id: 's0', meetingName: 'Abu Dhabi Grand Prix', season: 2025, type: 'Race', replayReady: true },
+      ],
+    });
+    const mockFn = jest.fn(() => Promise.resolve(makeState()));
+    jest.spyOn(apiClient, 'getRaceReplayState').mockImplementation(mockFn);
+    renderPage('/replay?session=s0');
+    await waitFor(() => expect(mockFn).toHaveBeenCalledWith('s0', expect.anything()));
+    expect(screen.getByRole('link', { name: 'Open its event log' })).toHaveAttribute('href', '/fixtures?session=s0');
+    expect(screen.getByRole('group', { name: '2025' })).toBeInTheDocument();
+    expect(screen.queryByText(/Watch Live/)).not.toBeInTheDocument();
+  });
+});
+
+describe('trackSourceNote', () => {
+  const { trackSourceNote } = jest.requireActual('../components/race-replay/RaceReplayViewer');
+  test('names where the outline came from', () => {
+    expect(trackSourceNote(true, { source: 'fastf1-static-fallback' })).toMatch(/FastF1 trace of this circuit/);
+    expect(trackSourceNote(true, { source: 'openf1-static' })).toMatch(/OpenF1 location data recorded at this circuit/);
+    expect(trackSourceNote(true, { source: 'openf1-live' })).toMatch(/this session's OpenF1 location data/);
+    expect(trackSourceNote(false, null, 'no shape')).toMatch(/Illustrative track/);
+    expect(trackSourceNote(false, null, null)).toMatch(/Loading the track outline/);
   });
 });

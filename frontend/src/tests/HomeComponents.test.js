@@ -3,9 +3,9 @@ import { MemoryRouter } from 'react-router-dom';
 import Faq from '../components/Faq';
 import FeaturedVideos from '../components/FeaturedVideos';
 import HeroBanner from '../components/HeroBanner';
-import { getPopularVideos } from '../api/client';
+import { getOverview, getPopularVideos } from '../api/client';
 
-jest.mock('../api/client', () => ({ getPopularVideos: jest.fn() }));
+jest.mock('../api/client', () => ({ getPopularVideos: jest.fn(), getOverview: jest.fn() }));
 
 const videos = [
   {
@@ -35,6 +35,7 @@ function renderVideos() {
 describe('home-page components', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    getOverview.mockReturnValue(new Promise(() => {}));
   });
 
   test('expands and collapses FAQ answers independently', () => {
@@ -43,10 +44,10 @@ describe('home-page components', () => {
     expect(question).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(question);
     expect(question).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByText(/live analytics platform/i)).toBeInTheDocument();
+    expect(screen.getByText(/A Formula 1 analytics site/i)).toBeInTheDocument();
     fireEvent.click(question);
     expect(question).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByText(/live analytics platform/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/A Formula 1 analytics site/i)).not.toBeInTheDocument();
   });
 
   test('rotates hero images and clears the slide timer on unmount', () => {
@@ -56,7 +57,8 @@ describe('home-page components', () => {
     act(() => jest.advanceTimersByTime(3000));
     expect(container.querySelectorAll('.hero-image-slide.is-active')).toHaveLength(1);
     expect(container.querySelectorAll('.hero-image-slide')[1]).toHaveClass('is-active');
-    expect(screen.getByRole('link', { name: 'Open live fixture' })).toHaveAttribute('href', '/fixtures');
+    expect(screen.getByRole('link', { name: 'Browse fixtures' })).toHaveAttribute('href', '/fixtures');
+    expect(screen.queryByText(/Live · Round/)).not.toBeInTheDocument();
     unmount();
     jest.useRealTimers();
   });
@@ -122,5 +124,46 @@ describe('home-page components', () => {
     pending.unmount();
     await act(async () => resolve({ videos }));
     expect(getPopularVideos).toHaveBeenCalledTimes(2);
+  });
+
+  test('says when the videos are the saved selection rather than the latest uploads', async () => {
+    getPopularVideos.mockResolvedValueOnce({ source: 'fallback', videos });
+    renderVideos();
+    expect(await screen.findByText(/saved selection of race highlights/i)).toBeInTheDocument();
+    expect(screen.queryByText(/trending/i)).not.toBeInTheDocument();
+  });
+
+  test('describes YouTube results as the latest uploads, newest first', async () => {
+    getPopularVideos.mockResolvedValueOnce({ source: 'youtube', videos });
+    renderVideos();
+    expect(await screen.findByText(/newest uploads on the official FORMULA 1 YouTube channel/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Latest from Formula 1' })).toBeInTheDocument();
+  });
+
+  test('hero names the real latest session and links straight to it', async () => {
+    getOverview.mockResolvedValueOnce({
+      season: 2025,
+      latestSession: { id: 'sess-1', meetingName: 'Abu Dhabi Grand Prix', type: 'Race' },
+    });
+    render(<MemoryRouter><HeroBanner /></MemoryRouter>);
+    expect(await screen.findByText('2025 season · Latest: Abu Dhabi Grand Prix Race')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open the latest fixture' })).toHaveAttribute('href', '/fixtures?session=sess-1');
+    expect(screen.getByRole('heading', { name: 'F1Lytics' })).toBeInTheDocument();
+  });
+
+  test('hero falls back to a plain eyebrow and the fixtures list if the overview fails', async () => {
+    getOverview.mockRejectedValueOnce(new Error('down'));
+    render(<MemoryRouter><HeroBanner /></MemoryRouter>);
+    await waitFor(() => expect(getOverview).toHaveBeenCalled());
+    expect(screen.getByText('Formula 1 analytics')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Browse fixtures' })).toHaveAttribute('href', '/fixtures');
+  });
+
+  test('FAQ answers make no live or real-time claims and describe the real access rules', () => {
+    render(<Faq />);
+    screen.getAllByRole('button').forEach((q) => fireEvent.click(q));
+    expect(screen.queryByText(/real time|live analytics/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Nothing on the site is a live feed/)).toBeInTheDocument();
+    expect(screen.getByText(/turn on developer mode in Profile → Settings/)).toBeInTheDocument();
   });
 });

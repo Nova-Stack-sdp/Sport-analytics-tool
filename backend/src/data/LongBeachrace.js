@@ -4,6 +4,18 @@ export const longbeachrace = {
   raceSlug: 'long-beach-2023',
   eventName: 'Acura Grand Prix of Long Beach',
   venue: 'Streets of Long Beach, California',
+  // Where and when to read race-day weather (see lib/raceWeather.js). The
+  // date is the fallback when the report's own session date can't be read;
+  // the hours are the race-day afternoon, local time — the reports carry no
+  // wall-clock race times, so the header names the window it read.
+  weatherLookup: {
+    latitude: 33.765,
+    longitude: -118.192,
+    timezone: 'America/Los_Angeles',
+    date: '2023-04-16',
+    fromHour: 12,
+    toHour: 17,
+  },
   // Curated video->lap anchors from the broadcast (green flag, restarts,
   // "N to go" calls), shifted onto the lap-in-progress convention the
   // player's clock maps onto, so playback tracks the right lap throughout.

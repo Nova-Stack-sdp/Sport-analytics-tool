@@ -1,6 +1,7 @@
 import {
   buildLapCalibration,
   lapFromVideoSeconds,
+  raceStartVideoSeconds,
   videoSecondsForLap,
 } from './videoToLap';
 
@@ -82,6 +83,24 @@ describe('buildLapCalibration', () => {
       session: { totalLaps: 2 },
       clock: { checkpoints: [{ event: 'Green flag (start of timing)', videoSeconds: 100 }] },
     })).toBeNull();
+  });
+});
+
+describe('raceStartVideoSeconds', () => {
+  test('returns the first calibration point — the green-flag second', () => {
+    expect(raceStartVideoSeconds(TORONTO_RACE)).toBe(184);
+    expect(raceStartVideoSeconds({
+      session: { totalLaps: 90 },
+      lapCalibration: [
+        { video_s: 535, lap: 1 },
+        { video_s: 1957, lap: 21 },
+      ],
+    })).toBe(535);
+  });
+
+  test('returns null when the race has no usable calibration', () => {
+    expect(raceStartVideoSeconds({ session: { totalLaps: 2 } })).toBeNull();
+    expect(raceStartVideoSeconds(null)).toBeNull();
   });
 });
 

@@ -1,4 +1,7 @@
 import {
+  teamClassFor,
+  driverCode,
+  isSafetyCarActive,
   buildTrackGeometry,
   nearestArcLengthFraction,
   svgPointAtArcLengthFraction,
@@ -295,5 +298,43 @@ describe('speedMultiplierForCorrection', () => {
       const result = speedMultiplierForCorrection(delta, 6, 0.6, 1.6);
       expect(result).toBeGreaterThan(0);
     }
+  });
+});
+describe('teamClassFor', () => {
+  test.each([
+    ['Red Bull Racing', 'redbull'],
+    ['Oracle Red Bull Racing', 'redbull'],
+    ['Haas F1 Team', 'haas'],
+    ['Visa Cash App RB F1 Team', 'racingbulls'],
+    ['RB', 'racingbulls'],
+    ['Kick Sauber', 'sauber'],
+    ['McLaren', 'mclaren'],
+    ['Audi', 'default'],
+    [null, 'default'],
+  ])('%p → %p', (name, expected) => {
+    expect(teamClassFor(name)).toBe(expected);
+  });
+});
+
+describe('driverCode', () => {
+  test('uses the surname, like a timing screen', () => {
+    expect(driverCode('Max VERSTAPPEN', 1)).toBe('VER');
+    expect(driverCode('Lewis HAMILTON', 44)).toBe('HAM');
+    expect(driverCode('  Kimi   ANTONELLI ', 12)).toBe('ANT');
+  });
+  test('falls back to the car number', () => {
+    expect(driverCode(null, 81)).toBe('81');
+    expect(driverCode('', undefined)).toBe('?');
+  });
+});
+
+describe('isSafetyCarActive (fallback when the API sends no safetyCar)', () => {
+  const rc = (message, category = 'SafetyCar') => ({ category, flag: null, message });
+  test('the latest safety-car message decides', () => {
+    expect(isSafetyCarActive([rc('SAFETY CAR DEPLOYED')])).toBe(true);
+    expect(isSafetyCarActive([rc('SAFETY CAR DEPLOYED'), rc('SAFETY CAR IN THIS LAP')])).toBe(false);
+    expect(isSafetyCarActive([{ category: 'Flag', flag: 'safety_car', message: null }])).toBe(true);
+    expect(isSafetyCarActive([rc('VIRTUAL SAFETY CAR DEPLOYED')])).toBe(false);
+    expect(isSafetyCarActive([])).toBe(false);
   });
 });

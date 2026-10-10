@@ -115,7 +115,8 @@ or by accepting a manual submission, which triggers `backend/src/derivation/inde
 ## Testing & Coverage
 
 - **Frontend:** `react-scripts test` (Create React App / Jest). Coverage outputs automatically to `coverage/lcov.info` — do **not** set `coverageDirectory` in the Jest config, as it breaks the Codecov upload.
-- **Backend:** `npm test` (Jest + Supertest), covering the overview, statistics, fixtures, timetravel, and auth-middleware routes.
+- **Backend:** `npm test` (Jest + Supertest). For a coverage report run `npm test -- --coverage` in `backend/` and open `backend/coverage/index.html`. Set `DATABASE_URL=postgresql://nobody@127.0.0.1:1/none` so no test can reach Neon, and run `npx prisma generate` first after any schema change; tests that fail to load count as uncovered and drag the numbers towards 0%.
+- **Coverage reports are not committed.** `coverage/` folders are git-ignored: each person generates their own, and CI runs the tests fresh. A committed report is a stale snapshot of one machine's run.
 
 ## CI/CD
 

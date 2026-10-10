@@ -1,9 +1,17 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 // Read-only reuse of Race Replay's team-name → palette-key mapper, so a line on
 // a chart carries the same colour as that team's marker on the map above it.
 import { teamClassFor } from '../race-replay/raceReplayHelpers';
 import { useRaceSyncSelection } from './RaceSyncSelection';
-import { useRaceSyncLapSeries } from './useRaceSyncLapSeries';
+import { useRaceSyncSim } from './RaceSyncSimContext';
+import {
+  breaksCompoundRule,
+  compoundChoices,
+  DEFAULT_TWEAK,
+  pitCallAtLap,
+  simSummaryAtLap,
+  stopLapBounds,
+} from './raceSyncSim';
 import { driverPhotoUrl, useRaceSyncPeople } from './useRaceSyncPeople';
 import { entryInScope, isScopeActive, scopeLabel } from './raceSyncViewScope';
 import { displayName, driverCode } from './raceSyncDriverNames';
@@ -31,11 +39,20 @@ import {
 // as positions on a circuit. Six readings of one replay — where the field is,
 // how quick each car is, what its tyres have done, what the stops cost, and how
 // every lap compares with the pace being watched — all drawn from the race
-// replay series (see useRaceSyncLapSeries) and all following the same two
+// replay series (fetched once in RaceSyncSimContext, which this file reads)
+// and all following the same two
 // things the map follows: the view scope in the header, and the playhead. A
 // panel never shows a lap the replay hasn't reached. (How each reading is
 // derived lives beside this file, in raceSyncReadings — the same split the map
 // and the view scope already use.)
+//
+// The sim console sits under the spine whenever a race is picked; the sim
+// readings — the pit-window briefing, the two sim charts and the broadcast
+// line — draw only in sim mode with a tweak live, and everything they show comes from raceSyncSim, the delta
+// model beside raceSyncReadings: the real laps re-priced for tyre age and
+// the pit loss, never invented telemetry. The lap series and the sim are
+// read from the shared sim surface (see RaceSyncSimContext) — one fetch, one
+// sim for the stage, the panels and the spine together.
 //
 // Each panel says what it plots rather than what a mockup promised. Where the
 // synced data has no speed, brake, gear or sector channels to plot — it has
@@ -134,8 +151,10 @@ function stoppageNote(count) {
 const CHART_WIDTH = 1000;
 const CHART_HEIGHT = 220;
 
-function LapChart({ traces, reference, mode, uptoLap, totalLaps, label }) {
-  const domain = chartDomain({ traces, reference, mode });
+function LapChart({ traces, reference, mode, uptoLap, totalLaps, label, domain: domainOverride, zeroLine = false }) {
+  // The sim charts pass a domain of their own (see the two panels below);
+  // every other chart lets raceSyncReadings measure the band.
+  const domain = domainOverride ?? chartDomain({ traces, reference, mode });
   if (!domain) return <p className="racesync-panel-empty">No timed laps to plot yet.</p>;
 
   const lastLap = Math.max(
@@ -174,11 +193,28 @@ function LapChart({ traces, reference, mode, uptoLap, totalLaps, label }) {
             x2={CHART_WIDTH}
             y2={CHART_HEIGHT}
           />
+          {/* A delta chart's honest midpoint: above the line is slower than
+              the real race, below is quicker. */}
+          {zeroLine && domain.min < 0 && domain.max > 0 && (
+            <line
+              className="racesync-chart-zero"
+              x1="0"
+              x2={CHART_WIDTH}
+              y1={scaleY(0)}
+              y2={scaleY(0)}
+            />
+          )}
           {traces.map((trace) => {
-            const points = trace.points.map(
-              (point) => `${scaleX(point.lap)},${scaleY(plottedValue(point, { mode, reference }))}`
-            );
-            if (points.length === 0) return null;
+            const toPoints = (list) =>
+              list.map(
+                (point) =>
+                  `${scaleX(point.lap)},${scaleY(plottedValue(point, { mode, reference }))}`
+              );
+            const points = toPoints(trace.points);
+            // The ghost of the real race under a sim line: same driver, same
+            // team colour, drawn first so the solid sim line rides on top.
+            const ghostPoints = trace.ghostPoints ? toPoints(trace.ghostPoints) : null;
+            if (points.length === 0 && (!ghostPoints || ghostPoints.length === 0)) return null;
             // One lap is not a line: an opening lap gets a short flat mark so
             // the race's first lap is visible at all.
             if (points.length === 1) {
@@ -186,11 +222,22 @@ function LapChart({ traces, reference, mode, uptoLap, totalLaps, label }) {
               points.push(`${Number(points[0].split(',')[0]) - 5},${points[0].split(',')[1]}`);
             }
             return (
-              <polyline
-                key={trace.entryId}
-                className={`racesync-chart-line racesync-car-${teamClassFor(trace.teamName)}`}
-                points={points.join(' ')}
-              />
+              <g key={trace.entryId}>
+                {ghostPoints && ghostPoints.length > 0 && (
+                  <polyline
+                    className={`racesync-chart-line is-ghost racesync-car-${teamClassFor(
+                      trace.teamName
+                    )}`}
+                    points={ghostPoints.join(' ')}
+                  />
+                )}
+                {points.length > 0 && (
+                  <polyline
+                    className={`racesync-chart-line racesync-car-${teamClassFor(trace.teamName)}`}
+                    points={points.join(' ')}
+                  />
+                )}
+              </g>
             );
           })}
         </svg>
@@ -228,9 +275,489 @@ function ChartLegend({ traces }) {
   );
 }
 
+// The pace dial's readout: "+0.15s/lap" eases off, "-0.15s/lap" finds time,
+// and zero says exactly what it means — the real race's pace.
+function paceDeltaLabel(value) {
+  if (!Number.isFinite(value) || value === 0) return 'race pace';
+  return `${value < 0 ? '-' : '+'}${Math.abs(value).toFixed(2)}s/lap`;
+}
+
+// The briefing under the sim console: the pit window each tweaked driver
+// still has to take, beside what the change has cost so far. It follows the
+// playhead like every other reading, folds away when the reader wants the
+// console's full height, and fades once every tweaked car has taken its
+// last stop — the window has closed, and the card says so by stepping back
+// instead of leaving the page.
+function SimBriefing({ sim, driversById, lap }) {
+  const [open, setOpen] = useState(true);
+  const rows = sim.tweaked
+    .map((entryId) => simSummaryAtLap(sim, entryId, driversById, lap))
+    .filter(Boolean);
+  if (rows.length === 0) return null;
+  const windowOpen = rows.some((row) => row.nextStop != null);
+  return (
+    <div className={`racesync-briefing${windowOpen ? '' : ' is-dim'}`}>
+      <button
+        type="button"
+        className="racesync-briefing-head"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span className="racesync-briefing-title">Pit window</span>
+        <span className="racesync-briefing-chevron" aria-hidden="true">
+          {open ? '▾' : '▸'}
+        </span>
+      </button>
+      {open && (
+        <ul className="racesync-briefing-list">
+          {rows.map((row) => {
+            // The row lights in the pit call's colour while a call is live
+            // (see RaceSyncPitCall), keyed by the moment so it blinks once
+            // as the moment begins.
+            const call = pitCallAtLap(sim, row.entryId, lap);
+            return (
+              <li
+                key={call ? `${row.entryId}:${call.kind}:${call.stopLap}` : row.entryId}
+                className={`racesync-briefing-row${call ? ` is-call is-${call.tone}` : ''}`}
+              >
+                <span
+                  className={`racesync-briefing-driver racesync-team-text racesync-car-${teamClassFor(
+                    row.teamName
+                  )}`}
+                >
+                  {driverCode(row.driverName)}
+                </span>
+                <span className="racesync-briefing-stop">
+                  {row.nextStop != null ? (
+                    <>
+                      Next stop <strong>L{row.nextStop}</strong>
+                      {row.nextStopDelta != null && row.nextStopDelta !== 0 && (
+                        <span className="racesync-briefing-shift">
+                          {' '}
+                          ({Math.abs(row.nextStopDelta)}{' '}
+                          {row.nextStopDelta < 0 ? 'earlier' : 'later'} than the real race)
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="racesync-briefing-done">All stops taken</span>
+                  )}
+                </span>
+                {row.raceDelta != null && (
+                  <span
+                    className={`racesync-briefing-delta${
+                      row.raceDelta > 0 ? ' is-loss' : row.raceDelta < 0 ? ' is-gain' : ''
+                    }`}
+                  >
+                    {formatDelta(row.raceDelta)}s
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// The sim console: one bar directly under the workflow spine, always on
+// screen once a race is picked, so the levers are never something to go
+// looking for. Left to right it reads as the question it answers — WHO
+// (a chip per car in view, tweaked cars marked), WHAT (the pit stepper and
+// the pace slider for that car) — and the pit-window briefing hangs under
+// it once anything is tweaked. Touching a lever enters sim mode (the
+// context does that), so in replay the bar simply invites the first move.
+// The stop readout shows the ACTUAL laps the shift produced (clamped by the
+// race), with the real race's laps beside it for reference.
+function SimConsole({ drivers, defaultEntryId, lap, driversById }) {
+  const {
+    mode,
+    sim,
+    simLive,
+    tweaks,
+    updateTweak,
+    resetTweak,
+    resetAllTweaks,
+    pickedDriver,
+    setPickedDriver,
+  } = useRaceSyncSim();
+
+  // Running order at the playhead, so the chips read like the timing tower.
+  const ordered = useMemo(() => {
+    const at = (driver) => driver.position?.[lap - 1] ?? Number.POSITIVE_INFINITY;
+    return [...drivers].sort((a, b) => at(a) - at(b));
+  }, [drivers, lap]);
+
+  // Who the levers act on: the same driver Driver Analysis reads — the
+  // picked car while it is in view, else the card's own default (the leader).
+  const inView = (entryId) => ordered.some((driver) => driver.entryId === entryId);
+  const targetId = inView(pickedDriver)
+    ? pickedDriver
+    : inView(defaultEntryId)
+      ? defaultEntryId
+      : ordered[0]?.entryId ?? null;
+  const target = ordered.find((driver) => driver.entryId === targetId) ?? null;
+  const targetSim = target && sim ? sim.drivers.get(target.entryId) ?? null : null;
+  const tweak = tweaks[targetId] ?? DEFAULT_TWEAK;
+  const paceDelta = tweak.paceDelta ?? 0;
+  const anyTweaked = Object.keys(tweaks).length > 0;
+
+  // Move one stop a lap, the others holding. The new shift is written from
+  // the lap the stop ACTUALLY lands on, so pressing past an edge never piles
+  // up a shift the race can't honour — and the buttons stop at the edge too.
+  const moveStop = (index, step) => {
+    const base = targetSim.baseStopLaps[index];
+    const { min, max } = stopLapBounds(targetSim.newStopLaps, index, sim.totalLaps);
+    const lap = Math.min(Math.max(targetSim.newStopLaps[index] + step, min), max);
+    const stopShifts = targetSim.baseStopLaps.map(
+      (_, i) => (i === index ? lap - base : targetSim.newStopLaps[i] - targetSim.baseStopLaps[i])
+    );
+    updateTweak(target.entryId, { pitShift: 0, stopShifts });
+  };
+
+  // Swap one stint's tyre. Picking the compound the stint really ran clears
+  // the swap, so "back to as raced" is the same click as any other choice.
+  const choices = compoundChoices(sim?.model);
+  const swapCompound = (index, key) => {
+    const real = String(targetSim.compounds[index] ?? '').toLowerCase();
+    const stintCompounds = targetSim.compounds.map((_, i) =>
+      i === index ? (key === real ? null : key) : tweak.stintCompounds?.[i] ?? null
+    );
+    updateTweak(target.entryId, { stintCompounds });
+  };
+
+  return (
+    <section
+      id={SECTION_ANCHORS.simConsole}
+      className={`racesync-console${mode === 'sim' ? ' is-sim' : ''}`}
+      aria-label="Simulation console"
+    >
+      <div className="racesync-console-head">
+        <span className="racesync-console-title">Simulate</span>
+        <span className="racesync-console-hint">
+          {simLive
+            ? 'The map, charts and timing now show the re-run race.'
+            : 'Pick a car, then move its stops, swap its tyres or change its pace — the race re-runs instantly.'}
+        </span>
+        {anyTweaked && (
+          <button type="button" className="racesync-sim-reset" onClick={resetAllTweaks}>
+            Reset all
+          </button>
+        )}
+      </div>
+
+      {ordered.length === 0 ? (
+        <p className="racesync-panel-empty">No drivers in view.</p>
+      ) : (
+        <>
+          <div className="racesync-console-cars" role="radiogroup" aria-label="Car to simulate">
+            {ordered.map((driver) => {
+              const picked = driver.entryId === targetId;
+              const tweaked = Boolean(tweaks[driver.entryId]);
+              return (
+                <button
+                  key={driver.entryId}
+                  type="button"
+                  role="radio"
+                  aria-checked={picked}
+                  className={`racesync-console-car${picked ? ' is-picked' : ''}${
+                    tweaked ? ' is-tweaked' : ''
+                  }`}
+                  title={`${displayName(driver.driverName)}${tweaked ? ' — tweaked' : ''}`}
+                  // Clicking the picked car again lets go of it, and the
+                  // console and Driver Analysis fall back to the leader.
+                  onClick={() =>
+                    setPickedDriver(pickedDriver === driver.entryId ? null : driver.entryId)
+                  }
+                >
+                  <span
+                    className={`racesync-stage-legend-dot racesync-car-${teamClassFor(
+                      driver.teamName
+                    )}`}
+                    aria-hidden="true"
+                  />
+                  {driverCode(driver.driverName)}
+                </button>
+              );
+            })}
+          </div>
+
+          {targetSim ? (
+            <div className="racesync-console-levers">
+              {/* One stepper per real stop, so a two-stopper's first stop
+                  can come early while the second holds. */}
+              <div className="racesync-console-lever">
+                <span className="racesync-sim-label">
+                  {driverCode(target.driverName)}{' '}
+                  {targetSim.baseStopLaps.length > 1 ? 'pit stops' : 'pit stop'}
+                </span>
+                {targetSim.baseStopLaps.length === 0 ? (
+                  <span className="racesync-sim-note">No stops in the real race to move</span>
+                ) : (
+                  <ol className="racesync-console-stops">
+                    {targetSim.newStopLaps.map((stopLap, index) => {
+                      const base = targetSim.baseStopLaps[index];
+                      const shift = stopLap - base;
+                      const { min, max } = stopLapBounds(
+                        targetSim.newStopLaps,
+                        index,
+                        sim.totalLaps
+                      );
+                      const name = targetSim.baseStopLaps.length > 1 ? `stop ${index + 1}` : 'the stop';
+                      return (
+                        <li key={index} className="racesync-console-stop">
+                          {targetSim.baseStopLaps.length > 1 && (
+                            <span className="racesync-console-stop-num">{index + 1}</span>
+                          )}
+                          <div className="racesync-sim-stepper">
+                            <button
+                              type="button"
+                              className="racesync-sim-stepper-btn"
+                              title={`Move ${name} one lap earlier`}
+                              aria-label={`Move ${name} earlier`}
+                              onClick={() => moveStop(index, -1)}
+                              disabled={stopLap <= min}
+                            >
+                              −
+                            </button>
+                            <span className="racesync-sim-pit-laps">L{stopLap}</span>
+                            <button
+                              type="button"
+                              className="racesync-sim-stepper-btn"
+                              title={`Move ${name} one lap later`}
+                              aria-label={`Move ${name} later`}
+                              onClick={() => moveStop(index, 1)}
+                              disabled={stopLap >= max}
+                            >
+                              +
+                            </button>
+                          </div>
+                          <span className="racesync-sim-note">
+                            {shift === 0
+                              ? 'as raced'
+                              : `${Math.abs(shift)} ${Math.abs(shift) === 1 ? 'lap' : 'laps'} ${
+                                  shift < 0 ? 'earlier' : 'later'
+                                } · real L${base}`}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                )}
+              </div>
+
+              {/* One row per stint: the laps it covers and a chip for every
+                  compound the field ran this race — the one the stint runs
+                  on is lit, and the real one carries a dot. */}
+              {targetSim.compounds.length > 0 && choices.length > 0 && (
+                <div className="racesync-console-lever">
+                  <span className="racesync-sim-label">
+                    {driverCode(target.driverName)} tyres
+                  </span>
+                  <ol className="racesync-console-stints">
+                    {targetSim.newCompounds.map((compound, index) => {
+                      const from = index === 0 ? 1 : targetSim.newStopLaps[index - 1];
+                      const to =
+                        index < targetSim.newStopLaps.length
+                          ? targetSim.newStopLaps[index] - 1
+                          : sim.totalLaps;
+                      const current = String(compound ?? '').toLowerCase();
+                      const real = String(targetSim.compounds[index] ?? '').toLowerCase();
+                      return (
+                        <li key={index} className="racesync-console-stint">
+                          <span className="racesync-console-stint-laps">
+                            L{from}–{to}
+                          </span>
+                          <span
+                            className="racesync-console-tyres"
+                            role="radiogroup"
+                            aria-label={`Stint ${index + 1} tyre`}
+                          >
+                            {choices.map((key) => {
+                              const chip = compoundChip(key);
+                              return (
+                                <button
+                                  key={key}
+                                  type="button"
+                                  role="radio"
+                                  aria-checked={key === current}
+                                  className={`racesync-console-tyre racesync-tyre racesync-tyre-${
+                                    chip.key
+                                  }${key === current ? ' is-on' : ''}${
+                                    key === real ? ' is-real' : ''
+                                  }`}
+                                  title={`${chip.label}${key === real ? ' (as raced)' : ''}`}
+                                  onClick={() => swapCompound(index, key)}
+                                >
+                                  {chip.letter}
+                                </button>
+                              );
+                            })}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                  {breaksCompoundRule(targetSim.compounds, targetSim.newCompounds) && (
+                    <span className="racesync-sim-note is-warn">
+                      Only one dry compound — breaks the two-compound rule
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <div className="racesync-console-lever is-pace">
+                <span className="racesync-sim-label">{driverCode(target.driverName)} pace</span>
+                <div className="racesync-sim-pace">
+                  <span className="racesync-sim-pace-end">Faster</span>
+                  <input
+                    type="range"
+                    className="racesync-sim-pace-slider"
+                    min="-0.5"
+                    max="0.5"
+                    step="0.05"
+                    value={paceDelta}
+                    aria-label="Pace change per lap"
+                    aria-valuetext={paceDeltaLabel(paceDelta)}
+                    onChange={(event) =>
+                      updateTweak(target.entryId, { paceDelta: Number(event.target.value) })
+                    }
+                  />
+                  <span className="racesync-sim-pace-end">Slower</span>
+                </div>
+                <span className="racesync-sim-note">{paceDeltaLabel(paceDelta)}</span>
+              </div>
+
+              {tweaks[target.entryId] && (
+                <button
+                  type="button"
+                  className="racesync-sim-reset"
+                  onClick={() => resetTweak(target.entryId)}
+                >
+                  Reset {driverCode(target.driverName)}
+                </button>
+              )}
+            </div>
+          ) : (
+            <p className="racesync-driver-strategy-hint">
+              No lap data to simulate for this driver.
+            </p>
+          )}
+        </>
+      )}
+
+      {simLive && sim && <SimBriefing sim={sim} driversById={driversById} lap={lap} />}
+    </section>
+  );
+}
+
+// The broadcast sentence under the spine: what was changed, what it has
+// cost, who it moved. Numbers carry the weight (bold), drivers carry their
+// team colours, and the clause order is cause → effect — the same order
+// the sim computes them.
+function SimBroadcast({ sim, driversById, lap }) {
+  const rows = sim.tweaked
+    .map((entryId) => simSummaryAtLap(sim, entryId, driversById, lap))
+    .filter(Boolean);
+  if (rows.length === 0) return null;
+  return (
+    <div className="racesync-broadcast" role="status" aria-label="Simulation broadcast">
+      {rows.map((row) => (
+        <p key={row.entryId} className="racesync-broadcast-line">
+          <span
+            className={`racesync-broadcast-driver racesync-team-text racesync-car-${teamClassFor(
+              row.teamName
+            )}`}
+          >
+            {driverCode(row.driverName)}
+          </span>{' '}
+          <SimCause row={row} />
+          {row.swing && (
+            <>
+              {' '}and{' '}
+              <strong>
+                {row.swing.places > 0
+                  ? `gained ${row.swing.places}`
+                  : `lost ${Math.abs(row.swing.places)}`}
+              </strong>{' '}
+              {Math.abs(row.swing.places) === 1 ? 'place' : 'places'} on lap{' '}
+              <strong>{row.swing.lap}</strong>
+              {row.swing.tradedName && (
+                <>
+                  {' '}to{' '}
+                  <span
+                    className={`racesync-broadcast-driver racesync-team-text racesync-car-${teamClassFor(
+                      row.swing.tradedTeam
+                    )}`}
+                  >
+                    {driverCode(row.swing.tradedName)}
+                  </span>
+                </>
+              )}
+            </>
+          )}
+          {row.raceDelta != null && (
+            <>
+              {' '}— net <strong>{formatDelta(row.raceDelta)}s</strong>
+            </>
+          )}
+          {row.nextStop != null && (
+            <>
+              {', '}next stop <strong>L{row.nextStop}</strong>
+            </>
+          )}
+          .
+        </p>
+      ))}
+    </div>
+  );
+}
+
+// The cause clause of the broadcast sentence, from what the sim actually
+// applied: each stop's real movement (clamped by the race — the
+// sentence reports what happened, not what was asked for) and the pace dial.
+function SimCause({ row }) {
+  const parts = [];
+  const deltas = row.stopDeltas ?? [];
+  deltas.forEach((delta, index) => {
+    if (!delta) return;
+    const laps = `${Math.abs(delta)} ${Math.abs(delta) === 1 ? 'lap' : 'laps'}`;
+    // A one-stopper "stopped 2 laps early"; a multi-stopper names the stop.
+    parts.push(
+      deltas.length > 1
+        ? `took stop ${index + 1} ${laps} ${delta < 0 ? 'early' : 'late'}`
+        : `stopped ${laps} ${delta < 0 ? 'early' : 'late'}`
+    );
+  });
+  (row.compoundSwaps ?? []).forEach((swap) => {
+    const label = compoundChip(swap.to)?.label?.toLowerCase() ?? String(swap.to).toLowerCase();
+    parts.push(`ran ${label}s in stint ${swap.stint}`);
+  });
+  if (row.paceDelta !== 0) {
+    parts.push(
+      row.paceDelta < 0
+        ? `found ${Math.abs(row.paceDelta).toFixed(2)}s a lap`
+        : `eased off ${Math.abs(row.paceDelta).toFixed(2)}s a lap`
+    );
+  }
+  return <>{parts.length > 0 ? parts.join(' and ') : 'changed strategy'}</>;
+}
+
 function RaceSyncGraphs({ sessionId, snapshot, race, workflow, children }) {
   const { scope } = useRaceSyncSelection();
-  const { series, error } = useRaceSyncLapSeries(sessionId);
+  // The lap series and the sim both come from the shared surface: one fetch,
+  // one sim, so the panels, the stage and the spine can never disagree about
+  // what the race was or what a change did. (The panels used to own this
+  // fetch; it moved up into RaceSyncSimContext with the sim.)
+  const {
+    series,
+    seriesError: error,
+    sim,
+    simLive,
+    pickedDriver,
+    setPickedDriver,
+  } = useRaceSyncSim();
   const people = useRaceSyncPeople();
 
   const lap = snapshot?.lap ?? 0;
@@ -273,11 +800,11 @@ function RaceSyncGraphs({ sessionId, snapshot, race, workflow, children }) {
   }, [drivers, pace]);
   const twin = useMemo(() => lapTraces(twinDrivers, lap), [twinDrivers, lap]);
 
-  // The driver the Driver Analysis card reads in depth: the scope's driver
-  // when exactly one is in view, otherwise whoever leads at the playhead —
-  // the position column's own last-played entry, falling back to the
-  // leaderboard's order while the field is still on the grid.
-  const focusEntry = useMemo(() => {
+  // The card's default driver: the scope's driver when exactly one is in
+  // view, otherwise whoever leads at the playhead — the position column's own
+  // last-played entry, falling back to the leaderboard's order while the
+  // field is still on the grid.
+  const leaderEntry = useMemo(() => {
     if (drivers.length === 0) return null;
     if (drivers.length === 1) return drivers[0];
     const leaderAtLap = drivers.find((driver) => driver.position?.[lap - 1] === 1);
@@ -285,6 +812,14 @@ function RaceSyncGraphs({ sessionId, snapshot, race, workflow, children }) {
     const first = raceState[0];
     return drivers.find((driver) => driver.entryId === first?.entryId) ?? drivers[0];
   }, [drivers, lap, raceState]);
+  // The driver the Driver Analysis card reads in depth: the one picked from
+  // the console's chips or the map's roster while they are in view, else the
+  // default above. Letting go of the pick (clicking it again) falls back.
+  const pickedEntry = useMemo(
+    () => drivers.find((driver) => driver.entryId === pickedDriver) ?? null,
+    [drivers, pickedDriver]
+  );
+  const focusEntry = pickedEntry ?? leaderEntry;
   const summary = useMemo(() => driverSummary(focusEntry, drivers, lap), [focusEntry, drivers, lap]);
   const photoUrl = driverPhotoUrl(people.driverByName(focusEntry?.driverName));
   const teamLogo = people.teamByName(focusEntry?.teamName)?.logoUrl ?? null;
@@ -293,6 +828,93 @@ function RaceSyncGraphs({ sessionId, snapshot, race, workflow, children }) {
   // second flag drawing.
   const focusNation =
     people.driverByName(focusEntry?.driverName)?.countryCode?.toUpperCase() ?? null;
+
+  // Every series driver keyed by entryId, for naming the car a position was
+  // traded with in the briefing and the broadcast line.
+  const driversById = useMemo(
+    () => new Map((series?.drivers ?? []).map((driver) => [driver.entryId, driver])),
+    [series]
+  );
+
+  // The sim's two charts, cut at the playhead like every other reading. The
+  // gap chart keeps the real race alongside as a ghost trace under each sim
+  // line; the delta chart is the tweaked drivers' cumulative gain or loss
+  // against their own logged race.
+  const simGapTraces = useMemo(() => {
+    if (!simLive || !sim || lap < 1) return null;
+    const cut = Math.min(lap, sim.totalLaps);
+    const traces = drivers
+      .map((driver) => {
+        const simGap = sim.simGapToLeader.get(driver.entryId);
+        const baseGap = sim.baseGapToLeader.get(driver.entryId);
+        if (!simGap && !baseGap) return null;
+        const toPoints = (array) => {
+          const points = [];
+          for (let l = 1; l <= cut; l += 1) {
+            const value = array?.[l - 1];
+            if (Number.isFinite(value)) points.push({ lap: l, seconds: value });
+          }
+          return points;
+        };
+        return {
+          entryId: driver.entryId,
+          driverName: driver.driverName,
+          teamName: driver.teamName,
+          points: toPoints(simGap),
+          ghostPoints: toPoints(baseGap),
+        };
+      })
+      .filter(Boolean);
+    return traces.length > 0 ? traces : null;
+  }, [simLive, sim, drivers, lap]);
+
+  const simDeltaTraces = useMemo(() => {
+    if (!simLive || !sim || lap < 1) return null;
+    const cut = Math.min(lap, sim.totalLaps);
+    const traces = sim.tweaked
+      .map((entryId) => {
+        const driver = sim.drivers.get(entryId);
+        if (!driver) return null;
+        const points = [];
+        for (let l = 1; l <= cut; l += 1) {
+          const value = driver.deltaVsBaseline[l - 1];
+          if (Number.isFinite(value)) points.push({ lap: l, seconds: value });
+        }
+        if (points.length === 0) return null;
+        return {
+          entryId: driver.entryId,
+          driverName: driver.driverName,
+          teamName: driver.teamName,
+          points,
+        };
+      })
+      .filter(Boolean);
+    return traces.length > 0 ? traces : null;
+  }, [simLive, sim, lap]);
+
+  // Domains the sim charts have to force. The gap chart covers ghost and
+  // solid traces together (the baseline can sit above the sim early in a
+  // stint), and the delta chart is symmetric about its zero line so a gain
+  // and a loss read at the same weight.
+  const simGapDomain = useMemo(() => {
+    if (!simGapTraces) return null;
+    const values = simGapTraces.flatMap((trace) =>
+      [...trace.points, ...trace.ghostPoints].map((point) => point.seconds)
+    );
+    if (values.length === 0) return null;
+    const low = Math.min(...values);
+    const high = Math.max(...values);
+    const pad = (high - low || 1) * 0.12;
+    return { min: Math.max(0, low - pad), max: high + pad };
+  }, [simGapTraces]);
+
+  const simDeltaDomain = useMemo(() => {
+    if (!simDeltaTraces) return null;
+    const values = simDeltaTraces.flatMap((trace) => trace.points.map((point) => point.seconds));
+    if (values.length === 0) return null;
+    const extent = Math.max(Math.abs(Math.min(...values)), Math.abs(Math.max(...values)), 0.5);
+    return { min: -extent * 1.15, max: extent * 1.15 };
+  }, [simDeltaTraces]);
 
   if (!sessionId) return null;
 
@@ -581,11 +1203,28 @@ function RaceSyncGraphs({ sessionId, snapshot, race, workflow, children }) {
             rail: who they are — introduced by the app's own driver and team
             records, so the photo and the badge are the same assets the driver
             and team pages serve — and the summary the synced data honestly
-            supports. The strategy recommendation the mockup draws has no
-            simulation behind it and says so instead of inventing one. */}
+            supports, closing on a link down to the sim console. */}
         <Panel
           title="Driver Analysis"
-          caption={drivers.length === 1 ? 'in scope' : lap > 0 ? 'race leader' : 'starting grid'}
+          caption={
+            pickedEntry && drivers.length > 1 ? (
+              // A picked driver says so, and offers the way back to the leader.
+              <button
+                type="button"
+                className="racesync-driver-unpick"
+                title="Show the race leader again"
+                onClick={() => setPickedDriver(null)}
+              >
+                picked · show leader
+              </button>
+            ) : drivers.length === 1 ? (
+              'in scope'
+            ) : lap > 0 ? (
+              'race leader'
+            ) : (
+              'starting grid'
+            )
+          }
           rail
           anchor={SECTION_ANCHORS.driverAnalysis}
         >
@@ -690,31 +1329,36 @@ function RaceSyncGraphs({ sessionId, snapshot, race, workflow, children }) {
                 <NoLaps />
               )}
 
-              {/* The recommendation block the design draws, honest rather
-                  than present: no alternate strategy can be computed from one
-                  race that already happened, so the row names that and the
-                  button stays out — the same rule as the spine's Simulate. */}
-              <div className="racesync-driver-strategy">
-                <span className="racesync-driver-strategy-label">Recommended strategy</span>
-                <span className="racesync-driver-strategy-hint">no simulation data</span>
-                <button
-                  type="button"
-                  className="racesync-driver-sim"
-                  disabled
-                  aria-disabled="true"
-                  title="Nothing on this page simulates alternate strategies — the synced data is one race that already happened"
-                >
-                  Run Simulation
-                </button>
-              </div>
+              {/* The levers moved to the sim console under the spine; the
+                  card points there so a reader who looks here still finds
+                  them in one click. */}
+              <a className="racesync-driver-sim-link" href={`#${SECTION_ANCHORS.simConsole}`}>
+                What if {driverCode(focusEntry.driverName)} pitted differently? Simulate ↓
+              </a>
             </div>
           )}
         </Panel>
 
         {/* The workflow spine takes the full-width row under the readings —
             the three phases lead on the left, and every control that drives
-            the playhead sits on it beside the replay mark. */}
-        {workflow}
+            the playhead sits on it beside the replay mark. The sim console
+            rides directly under it, always visible, so the levers sit beside
+            the Replay/Sim switch instead of inside a card. The broadcast line
+            follows: one sentence per tweaked driver, saying what the change
+            is doing at the playhead — cause first, then the cost, then who
+            it moved. One block, so the grid places all three as one row. */}
+        <div className="racesync-spine-block">
+          {workflow}
+          {workflow && (
+            <SimConsole
+              drivers={drivers}
+              defaultEntryId={leaderEntry?.entryId ?? null}
+              lap={lap}
+              driversById={driversById}
+            />
+          )}
+          {simLive && sim && <SimBroadcast sim={sim} driversById={driversById} lap={lap} />}
+        </div>
 
         {/* The caption stands where it stood when the readings were a row of
             panels under the map: between the map's band and the readings that
@@ -746,82 +1390,133 @@ function RaceSyncGraphs({ sessionId, snapshot, race, workflow, children }) {
           </div>
         </header>
 
-        <Panel
-          title="Lap Time Delta"
-          caption={delta.reference != null ? `Quickest ${formatLapTime(delta.reference)}` : null}
-          anchor={SECTION_ANCHORS.lapTime}
-          wide
-        >
-          {lap === 0 ? (
-            <NoLaps />
-          ) : (
-            <>
-              <LapChart
-                traces={delta.traces}
-                reference={delta.reference}
-                mode="delta"
-                uptoLap={lap}
-                totalLaps={totalLaps}
-                label="Lap time delta"
-              />
-              <ChartLegend traces={delta.traces} />
-              <p className="racesync-panel-note">
-                One line per driver in view, each lap measured against the quickest lap in
-                this comparison. Corner-level braking and traction aren’t in the synced data
-                for any session, so the laps themselves are the breakdown — a spike is a slow
-                lap, and the stops above are where the spikes are.{' '}
-                {stoppageNote(delta.stoppageLaps)}
-              </p>
-            </>
-          )}
-        </Panel>
+        {/* The two lap charts read as a pair: side by side on one full-width
+            row, each taking half — they fall under each other only once a
+            half stops being wide enough to read a lap chart. */}
+        <div className="racesync-chart-pair">
+          <Panel
+            title="Lap Time Delta"
+            caption={delta.reference != null ? `Quickest ${formatLapTime(delta.reference)}` : null}
+            anchor={SECTION_ANCHORS.lapTime}
+          >
+            {lap === 0 ? (
+              <NoLaps />
+            ) : (
+              <>
+                <LapChart
+                  traces={delta.traces}
+                  reference={delta.reference}
+                  mode="delta"
+                  uptoLap={lap}
+                  totalLaps={totalLaps}
+                  label="Lap time delta"
+                />
+                <ChartLegend traces={delta.traces} />
+                <p className="racesync-panel-note">
+                  One line per driver in view, each lap measured against the quickest lap in
+                  this comparison. Corner-level braking and traction aren’t in the synced data
+                  for any session, so the laps themselves are the breakdown — a spike is a slow
+                  lap, and the stops above are where the spikes are.{' '}
+                  {stoppageNote(delta.stoppageLaps)}
+                </p>
+              </>
+            )}
+          </Panel>
 
-        <Panel
-          title="Twin Line"
-          caption={
-            twinDrivers.length === 2
-              ? twinDrivers.map((driver) => driverCode(driver.driverName)).join(' vs ')
-              : null
-          }
-          anchor={SECTION_ANCHORS.comparison}
-          wide
-        >
-          {lap === 0 ? (
-            <NoLaps />
-          ) : twinDrivers.length < 2 ? (
-            <p className="racesync-panel-empty">
-              Two drivers are needed for a two-line reading — scope a pair on the map above.
-            </p>
-          ) : (
-            <>
-              <div className="racesync-twin">
-                {twin.traces.map((trace) => (
-                  <div key={trace.entryId} className="racesync-twin-card">
-                    <DriverTag driverName={trace.driverName} teamName={trace.teamName} />
-                    <span className="racesync-twin-value">{formatLapTime(trace.best)}</span>
-                    <span className="racesync-twin-meta">
-                      best · {trace.points.length} {trace.points.length === 1 ? 'lap' : 'laps'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <LapChart
-                traces={twin.traces}
-                reference={twin.reference}
-                mode="pace"
-                uptoLap={lap}
-                totalLaps={totalLaps}
-                label="Lap times"
-              />
-              <p className="racesync-panel-note">
-                Lap times, not telemetry: no speed, brake, gear or DRS channels are synced
-                for these sessions, so two drivers’ laps are the twin reading this data can
-                honestly draw.{' '}
-                {stoppageNote(twin.stoppageLaps)}
+          <Panel
+            title="Twin Line"
+            caption={
+              twinDrivers.length === 2
+                ? twinDrivers.map((driver) => driverCode(driver.driverName)).join(' vs ')
+                : null
+            }
+            anchor={SECTION_ANCHORS.comparison}
+          >
+            {lap === 0 ? (
+              <NoLaps />
+            ) : twinDrivers.length < 2 ? (
+              <p className="racesync-panel-empty">
+                Two drivers are needed for a two-line reading — scope a pair on the map above.
               </p>
-            </>
-          )}
-        </Panel>
+            ) : (
+              <>
+                <div className="racesync-twin">
+                  {twin.traces.map((trace) => (
+                    <div key={trace.entryId} className="racesync-twin-card">
+                      <DriverTag driverName={trace.driverName} teamName={trace.teamName} />
+                      <span className="racesync-twin-value">{formatLapTime(trace.best)}</span>
+                      <span className="racesync-twin-meta">
+                        best · {trace.points.length} {trace.points.length === 1 ? 'lap' : 'laps'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <LapChart
+                  traces={twin.traces}
+                  reference={twin.reference}
+                  mode="pace"
+                  uptoLap={lap}
+                  totalLaps={totalLaps}
+                  label="Lap times"
+                />
+                <p className="racesync-panel-note">
+                  Lap times, not telemetry: no speed, brake, gear or DRS channels are synced
+                  for these sessions, so two drivers’ laps are the twin reading this data can
+                  honestly draw.{' '}
+                  {stoppageNote(twin.stoppageLaps)}
+                </p>
+              </>
+            )}
+          </Panel>
+        </div>
+
+        {/* The sim's two charts, drawn only while a sim is live and paired
+            side by side like the lap charts above. The gap chart holds the
+            real race alongside as a ghost trace — the baseline is the
+            comparison, never deleted — and the delta chart is symmetric
+            about zero so a gain and a loss read at the same weight. */}
+        {simLive && (
+          <div className="racesync-chart-pair">
+            {simGapTraces && simGapDomain && (
+              <Panel title="Simulated Gap to Leader" caption="solid sim · ghost real">
+                <LapChart
+                  traces={simGapTraces}
+                  mode="pace"
+                  uptoLap={lap}
+                  totalLaps={totalLaps}
+                  label="Simulated gap to leader"
+                  domain={simGapDomain}
+                />
+                <ChartLegend traces={simGapTraces} />
+                <p className="racesync-panel-note">
+                  Solid lines are the sim; the ghosted line under each is the same
+                  driver’s real race. The sim re-prices tyre age and the pit loss —
+                  everything else in the log is left exactly as it happened.
+                </p>
+              </Panel>
+            )}
+
+            {simDeltaTraces && simDeltaDomain && (
+              <Panel title="Cumulative Delta" caption="sim vs the real race">
+                <LapChart
+                  traces={simDeltaTraces}
+                  mode="pace"
+                  uptoLap={lap}
+                  totalLaps={totalLaps}
+                  label="Cumulative delta"
+                  domain={simDeltaDomain}
+                  zeroLine
+                />
+                <ChartLegend traces={simDeltaTraces} />
+                <p className="racesync-panel-note">
+                  Seconds gained or lost against the driver’s own logged race, lap
+                  by lap — above the line is slower than the real race, below is
+                  quicker.
+                </p>
+              </Panel>
+            )}
+          </div>
+        )}
       </div>
     </section>
   );

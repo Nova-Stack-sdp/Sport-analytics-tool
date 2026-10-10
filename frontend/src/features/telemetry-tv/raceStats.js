@@ -84,14 +84,26 @@ export function buildRaceOverview(race) {
 // Stretches of consecutive laps each car led, in lap order, with caution
 // windows for shading and a per-driver laps-led tally sorted high to low.
 // Null when the payload carries no lead stretches at all.
-export function buildLeadBattle(race) {
-  const stretches = (Array.isArray(race?.leaders) ? race.leaders : [])
+//
+// throughLap replays the battle as it stood at that lap — stretches and
+// cautions are clipped to it, the tallies count only laps already run, and
+// raceSoFar carries the running lead-change and yellow-lap counts — so the
+// live chart never reveals a lead swap the broadcast has not reached yet.
+// The race distance (the chart's scale) always stays the full distance.
+export function buildLeadBattle(race, throughLap = null) {
+  const clampLap = numberOrNull(throughLap);
+  const clip = (fromLap, toLap) => {
+    if (clampLap == null) return { fromLap, toLap };
+    if (fromLap > clampLap) return null;
+    return { fromLap, toLap: Math.min(toLap, clampLap) };
+  };
+
+  const rawStretches = (Array.isArray(race?.leaders) ? race.leaders : [])
     .map((entry) => ({
       car: carKey(entry?.car),
       driver: driverDisplayName(entry?.driver) ?? entry?.driver ?? null,
       fromLap: numberOrNull(entry?.from),
       toLap: numberOrNull(entry?.to),
-      laps: numberOrNull(entry?.laps),
     }))
     .filter((stretch) => (
       stretch.fromLap != null
@@ -100,9 +112,20 @@ export function buildLeadBattle(race) {
     ))
     .sort((first, second) => first.fromLap - second.fromLap);
 
-  if (stretches.length === 0) return null;
+  if (rawStretches.length === 0) return null;
 
-  const totalLaps = Math.max(...stretches.map((stretch) => stretch.toLap));
+  const stretches = rawStretches
+    .map((stretch) => {
+      const span = clip(stretch.fromLap, stretch.toLap);
+      if (!span) return null;
+      return { ...stretch, fromLap: span.fromLap, toLap: span.toLap, laps: span.toLap - span.fromLap + 1 };
+    })
+    .filter(Boolean);
+
+  // The chart is always laid across the full race distance — a half-run race
+  // shows a half-filled chart, not a squeezed one.
+  const totalLaps = numberOrNull(race?.session?.totalLaps)
+    ?? Math.max(...rawStretches.map((stretch) => stretch.toLap));
 
   const cautions = (Array.isArray(race?.cautions) ? race.cautions : [])
     .map((caution) => ({
@@ -114,18 +137,18 @@ export function buildLeadBattle(race) {
       && caution.toLap != null
       && caution.toLap >= caution.fromLap
     ))
+    .map((caution) => clip(caution.fromLap, caution.toLap))
+    .filter(Boolean)
     .sort((first, second) => first.fromLap - second.fromLap);
 
   const led = new Map();
   for (const stretch of stretches) {
     const key = stretch.car ?? stretch.driver ?? 'unknown';
     const current = led.get(key) ?? { car: stretch.car, driver: stretch.driver, laps: 0 };
-    current.laps += stretch.laps ?? (stretch.toLap - stretch.fromLap + 1);
+    current.laps += stretch.laps;
     led.set(key, current);
   }
-  const lapsLed = [...led.values()]
-    .map((entry) => ({ ...entry, laps: entry.laps }))
-    .sort((first, second) => second.laps - first.laps);
+  const lapsLed = [...led.values()].sort((first, second) => second.laps - first.laps);
   const leaderKey = lapsLed[0] ? (lapsLed[0].car ?? lapsLed[0].driver) : null;
 
   return {
@@ -138,5 +161,9 @@ export function buildLeadBattle(race) {
     lapsLed,
     leaderCar: lapsLed[0]?.car ?? null,
     leaderLaps: lapsLed[0]?.laps ?? null,
+    raceSoFar: {
+      leadChanges: Math.max(0, stretches.length - 1),
+      cautionLaps: cautions.reduce((total, caution) => total + (caution.toLap - caution.fromLap + 1), 0),
+    },
   };
 }

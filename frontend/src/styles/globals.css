@@ -5,6 +5,8 @@
 :root{
   --bg:#FFFFFF;
   --surface:#FFFFFF;
+  /* A panel set inside a card, e.g. the driver page's season figures. */
+  --surface-raised:#F2F2F4;
   --border:#555555;
   --border-soft:rgba(0,0,0,0.06);
   --text-primary:#000000;
@@ -47,6 +49,7 @@
 [data-theme="dark"]{
   --bg:#000000;
   --surface:#000000;
+  --surface-raised:#16161A;
   --border:#555555;
   --border-soft:rgba(255,255,255,0.08);
   --text-primary:#FFFFFF;
@@ -176,6 +179,7 @@ td.secondary{color:var(--text-secondary);}
 .tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:12px;}
 .tab{padding:7px 4px;font-size:14px;font-weight:600;color:var(--text-tertiary);cursor:pointer;border-bottom:2px solid transparent;margin-right:16px;}
 .tab.active{color:var(--text-primary);border-color:var(--accent);}
+button.tab{border-top:0;border-right:0;border-left:0;background:transparent;font-family:inherit;}
 
 .kv{display:flex;justify-content:space-between;font-size:14px;padding:5px 0;color:var(--text-secondary);}
 .kv b{color:var(--text-primary);font-weight:600;font-family:var(--font-mono);font-size:13px;}
@@ -215,6 +219,9 @@ td.secondary{color:var(--text-secondary);}
 .log-ticker{font-family:var(--font-mono);font-size:12.5px;max-height:200px;overflow-y:auto;}
 .log-row{display:grid;grid-template-columns:64px 74px 1fr 100px;gap:10px;padding:6px 0;border-bottom:1px solid var(--border-soft);align-items:center;}
 .log-row:last-child{border-bottom:none;}
+.submission-queue-scroll{max-width:100%;overflow-x:auto;}
+.submission-layout{grid-template-columns:minmax(0,1fr);}
+.submission-queue-table th,.submission-queue-table td{white-space:nowrap;}
 .overview-events-empty{display:block;margin:0;padding:6px 0;}
 .log-time{color:var(--text-tertiary);}
 .log-event{color:var(--text-secondary);}
@@ -439,8 +446,8 @@ section.faq-section{padding-top:0;}
 .dd-meta{display:flex;gap:26px;margin-bottom:18px;flex-wrap:wrap;}
 .dd-meta div{font-size:11.5px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;}
 .dd-meta strong{display:block;font-size:16px;font-weight:700;color:var(--text-primary);}
-.dd-barrow{display:flex;gap:22px;background:#686874;border:1px solid var(--border-soft);border-radius:0;padding:14px 18px;flex-wrap:wrap;}
-.dd-bar-label{font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;}
+.dd-barrow{display:flex;gap:22px;background:var(--surface-raised);border:1px solid var(--border-soft);border-left:3px solid var(--tc,var(--accent));border-radius:0;padding:14px 18px;flex-wrap:wrap;}
+.dd-bar-label{font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;}
 .dd-bar-val{font-size:15px;font-weight:700;color:var(--text-primary);}
 .dd-cards{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin:26px 0;}
 .dd-card{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow-soft);}
@@ -892,6 +899,14 @@ label.settings-row-label{display:block;}
   .f1-calendar-head h2{font-size:17.5px;}
 }
 
+/* Admin · race video requests: the thumbnail links out to the video, and a
+   rejection asks for the reason the user will be told. */
+.video-request-source{display:inline-flex;align-items:center;gap:8px;color:inherit;text-decoration:none;}
+.video-request-source img{border-radius:4px;object-fit:cover;}
+.video-request-source:hover .mono{text-decoration:underline;}
+.video-request-reject{display:grid;gap:6px;min-width:220px;}
+.video-request-reject textarea{width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text-primary);font:inherit;font-size:12px;}
+.video-request-error{margin-top:4px;color:var(--status-red);font-size:11.5px;}
 .app-shell{overflow-x:clip;}
 .grid > *{min-width:0;}
 .table-scroll{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;}
@@ -909,3 +924,9 @@ label.settings-row-label{display:block;}
   .security-grid{grid-template-columns:1fr;}
   .stat-mini .v{font-size:19px;overflow-wrap:anywhere;}
 }
+
+/* Links inside data tables and cards: readable in both themes, never the
+   browser's default blue/purple. */
+.data-link{color:inherit;text-decoration:none;border-bottom:1px dotted var(--text-tertiary);}
+.data-link:hover{color:var(--accent);border-bottom-color:var(--accent);text-decoration:none;}
+

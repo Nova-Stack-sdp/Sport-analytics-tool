@@ -1,15 +1,56 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
+// Every public page, in the same order as the welcome page's cards.
 const PLATFORM_LINKS = [
   { to: '/overview', label: 'Overview' },
   { to: '/fixtures', label: 'Fixtures & events' },
   { to: '/statistics', label: 'Statistics' },
   { to: '/timetravel', label: 'Time-Travel' },
+  { to: '/replay', label: 'Race Replay' },
+  { to: '/drivers', label: 'Drivers' },
+  { to: '/teams', label: 'Teams' },
+  { to: '/telemetry-tv', label: 'Telemetry TV' },
 ];
 
+function AccountLinks({ user }) {
+  if (!user) {
+    return (
+      <>
+        <li><Link to="/sign-in">Sign in</Link></li>
+        <li><Link to="/sign-up">Create account</Link></li>
+      </>
+    );
+  }
+  return (
+    <>
+      <li><Link to="/profile">Profile</Link></li>
+      <li><Link to="/profile?tab=notifications">Notifications</Link></li>
+      <li><Link to="/profile?tab=settings">Settings</Link></li>
+    </>
+  );
+}
+
+// The developer tools need a signed-in, verified account with developer
+// mode turned on (Profile → Settings), so each state gets the next step.
+function DeveloperLinks({ user, isDeveloperMode }) {
+  if (!user) {
+    return <li><Link to="/sign-in">Sign in to submit data</Link></li>;
+  }
+  if (!isDeveloperMode) {
+    return <li><Link to="/profile?tab=settings">Turn on developer mode</Link></li>;
+  }
+  return (
+    <>
+      <li><Link to="/developer">Developer workspace</Link></li>
+      <li><Link to="/developer/api-docs">API docs</Link></li>
+    </>
+  );
+}
+
 function Footer() {
-  const { user } = useAuth();
+  const { user, isDeveloperMode } = useAuth();
+  const year = new Date().getFullYear();
 
   return (
     <footer>
@@ -20,7 +61,7 @@ function Footer() {
               <div className="brand-badge">F1</div>
               <div className="footer-brand-name">F1Lytics</div>
             </div>
-            <p className="footer-tagline">Live Formula 1 analytics, derived from race event data.</p>
+            <p className="footer-tagline">Formula 1 analytics, derived from race event data.</p>
           </div>
           <div>
             <div className="footer-col-title">Platform</div>
@@ -35,24 +76,18 @@ function Footer() {
           <div>
             <div className="footer-col-title">Account</div>
             <ul className="footer-links">
-              <li><Link to="/sign-in">Sign in</Link></li>
-              <li><Link to="/sign-up">Create account</Link></li>
-              {user && <li><Link to="/profile">Profile</Link></li>}
-              {user && <li><Link to="/submissions">Submissions</Link></li>}
+              <AccountLinks user={user} />
             </ul>
           </div>
           <div>
             <div className="footer-col-title">Developers</div>
             <ul className="footer-links">
-              {user && <li><Link to="/datasets">Datasets</Link></li>}
-              {user && <li><Link to="/developer">Developer docs</Link></li>}
-              {!user && <li><Link to="/sign-in">Sign in for developer tools</Link></li>}
+              <DeveloperLinks user={user} isDeveloperMode={isDeveloperMode} />
             </ul>
           </div>
         </div>
         <div className="footer-bottom">
-          <p className="footer-copy">© 2026 F1Lytics. Data sourced via the OpenF1 API.</p>
-          <div className="footer-live"><span className="dot" />2026 season · live</div>
+          <p className="footer-copy">© {year} F1Lytics. Race data from the OpenF1 API.</p>
         </div>
       </div>
     </footer>

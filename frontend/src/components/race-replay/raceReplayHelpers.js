@@ -1,43 +1,77 @@
-// Helpers for turning a real /api/watch-live/state leaderboard into
-// something the simplified oval track can render.
+// Helpers for turning the /api/race-replay/:sessionId/state leaderboard
+// into something the track map can render. Also used by RaceSync.
 
-// Only a handful of teams had explicit brand colors in globals.css (from
-// the earlier mock-data version, which only had 3 teams). Real leaderboard
-// data includes the full grid, so this maps every current team name to a
-// CSS class, with a neutral fallback for anything unmapped.
-const TEAM_CLASS_BY_NAME = {
-  'red bull racing': 'redbull',
+// Team names change between seasons and sources ("Red Bull Racing",
+// "Oracle Red Bull Racing", "Visa Cash App RB F1 Team", "Haas F1 Team"…),
+// so names are reduced to a key before looking up the colour class. The
+// classes exist in globals.css and raceSync.css; a team without one (e.g.
+// Audi, Cadillac) uses the neutral 'default'.
+const TEAM_CLASS_BY_KEY = {
+  redbull: 'redbull',
+  redbullracing: 'redbull',
+  oracleredbullracing: 'redbull',
   mercedes: 'mercedes',
+  mercedesamgpetronasformulaoneteam: 'mercedes',
   ferrari: 'ferrari',
+  scuderiaferrari: 'ferrari',
+  scuderiaferrarihp: 'ferrari',
   mclaren: 'mclaren',
-  'aston martin': 'astonmartin',
+  mclarenracing: 'mclaren',
+  mclarenformula1team: 'mclaren',
+  astonmartin: 'astonmartin',
+  astonmartinf1team: 'astonmartin',
+  astonmartinaramcoformulaoneteam: 'astonmartin',
   alpine: 'alpine',
+  alpinef1team: 'alpine',
+  bwtalpinef1team: 'alpine',
   williams: 'williams',
+  williamsracing: 'williams',
+  atlassianwilliamsf1team: 'williams',
   haas: 'haas',
+  haasf1team: 'haas',
+  moneygramhaasf1team: 'haas',
+  tgrhaasf1team: 'haas',
   sauber: 'sauber',
-  'kick sauber': 'sauber',
+  kicksauber: 'sauber',
+  stakef1teamkicksauber: 'sauber',
+  alfaromeo: 'sauber',
   rb: 'racingbulls',
-  'racing bulls': 'racingbulls',
+  racingbulls: 'racingbulls',
+  visacashapprb: 'racingbulls',
+  visacashapprbf1team: 'racingbulls',
+  visacashappracingbullsformulaoneteam: 'racingbulls',
+  alphatauri: 'racingbulls',
+  scuderiaalphatauri: 'racingbulls',
 };
 
 export function teamClassFor(teamName) {
   if (!teamName) return 'default';
-  return TEAM_CLASS_BY_NAME[teamName.trim().toLowerCase()] ?? 'default';
+  const key = String(teamName).toLowerCase().replace(/[^a-z0-9]/g, '');
+  return TEAM_CLASS_BY_KEY[key] ?? 'default';
 }
 
-// OpenF1's race_control category for a safety car period is "SafetyCar", but
-// this is checked defensively against category/flag/message text too, since
-// the exact field the free tier populates can vary and hasn't been confirmed
-// against a live response for this specific session.
+// Three-letter code from the surname, the way timing screens show it:
+// OpenF1 names are "Max VERSTAPPEN", so the code is "VER", not "MAX".
+export function driverCode(driverName, driverNumber) {
+  const parts = String(driverName ?? '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return driverNumber != null ? String(driverNumber) : '?';
+  return parts[parts.length - 1].slice(0, 3).toUpperCase();
+}
+
+// Fallback for a backend that doesn't send `safetyCar` yet: only the last
+// five race-control messages are available, so the latest safety-car
+// message decides. The /state response's `safetyCar` field is preferred —
+// it replays the whole race up to the lap (see routes/raceReplay.js).
 export function isSafetyCarActive(recentRaceControl) {
   if (!Array.isArray(recentRaceControl) || recentRaceControl.length === 0) return false;
-  return recentRaceControl.some((event) => {
-    const haystack = [event.category, event.flag, event.message]
-      .filter(Boolean)
-      .join(' ')
-      .toUpperCase();
-    return haystack.includes('SAFETY CAR') || haystack.includes('SAFETYCAR');
-  });
+  for (let i = recentRaceControl.length - 1; i >= 0; i -= 1) {
+    const event = recentRaceControl[i];
+    const text = [event.category, event.flag, event.message].filter(Boolean).join(' ').toUpperCase();
+    if (text.includes('VIRTUAL SAFETY CAR') || text.includes(' VSC')) continue;
+    if (/IN THIS LAP|WITHDRAWN|ENDING/.test(text)) return false;
+    if (text.includes('SAFETY CAR') || text.includes('SAFETYCAR') || text.includes('SAFETY_CAR')) return true;
+  }
+  return false;
 }
 
 // We don't have real GPS/location data (OpenF1's /location endpoint isn't

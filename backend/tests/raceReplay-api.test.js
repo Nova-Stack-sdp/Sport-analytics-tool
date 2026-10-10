@@ -171,6 +171,14 @@ describe('GET /api/race-replay/:sessionId/track-shape', () => {
     expect(res.body.points.length).toBeGreaterThan(0);
   });
 
+  test('serves a saved FastF1 trace for a circuit that has one, labelled as such', async () => {
+    mockPrisma.session.findUnique.mockResolvedValue({ ...SESSION, meeting: { name: 'Bahrain Grand Prix', circuit: { name: 'Sakhir' } } });
+    const res = await request(createApp()).get('/api/race-replay/s1/track-shape');
+    expect(res.status).toBe(200);
+    expect(res.body.source).toBe('fastf1-static-fallback');
+    expect(mockFetchSessionTrackTelemetryRaw).not.toHaveBeenCalled();
+  });
+
   test('falls back to 404 (not a fabricated shape) when no real telemetry exists anywhere', async () => {
     mockPrisma.session.findUnique.mockResolvedValue(SESSION); // circuit name has no static file
     mockFetchSessionTrackTelemetryRaw.mockResolvedValue(null);

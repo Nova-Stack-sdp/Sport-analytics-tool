@@ -34,6 +34,10 @@ describe('DeveloperPage', () => {
     renderDeveloperPage();
 
     expect(screen.getByText('API endpoints')).toBeInTheDocument();
+    expect(screen.getByText('/api/v1/fixtures')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /full API documentation/i })).toHaveAttribute('href', '/developer/api-docs');
+    expect(screen.queryByText('Manage keys →')).not.toBeInTheDocument();
+    expect(screen.queryByText('View usage history')).not.toBeInTheDocument();
     expect(screen.queryByText(/how to turn on developer mode/i)).not.toBeInTheDocument();
   });
 

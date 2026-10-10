@@ -302,6 +302,13 @@ export function markNotificationRead(id) {
 // Data endpoints
 // ---------------------------------------------------------------------------
 
+export async function downloadDatasetExport({ dataset, season, format }) {
+  const query = new URLSearchParams({ format });
+  if (season) query.set('season', season);
+  const response = await request(`/api/v1/exports/${encodeURIComponent(dataset)}?${query}`, { raw: true });
+  return response.blob();
+}
+
 export function getOverview() {
   return request('/api/overview');
 }
@@ -319,8 +326,38 @@ export function getFixtures() {
   return request('/api/fixtures');
 }
 
-export function getFixtureEvents(sessionId) {
-  return request(`/api/fixtures/${sessionId}/events`);
+// Adding a race RaceSync doesn't have yet (see backend routes/raceRequests.js):
+// one season's OpenF1 races, each marked with where it stands here…
+export function getAvailableRaces(year) {
+  return request(`/api/race-requests/available?year=${encodeURIComponent(year)}`, {
+    timeoutMs: 20000,
+  });
+}
+
+// …a sync request for one of them (signed-in users only)…
+export function requestRaceSync(sessionKey) {
+  return request('/api/race-requests', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionKey }),
+  });
+}
+
+// …and where that request stands: queued, syncing, ready or failed.
+export function getRaceSyncStatus(sessionKey) {
+  return request(`/api/race-requests/${encodeURIComponent(sessionKey)}`);
+}
+
+// options: { type, includeSuperseded, cursor, limit } — see
+// backend/src/routes/fixtures.js. Pass page.nextCursor to get the next page.
+export function getFixtureEvents(sessionId, options = {}) {
+  const params = new URLSearchParams();
+  if (options.type) params.set('type', options.type);
+  if (options.includeSuperseded) params.set('includeSuperseded', 'true');
+  if (options.cursor) params.set('cursor', options.cursor);
+  if (options.limit) params.set('limit', String(options.limit));
+  const query = params.toString();
+  return request(`/api/fixtures/${encodeURIComponent(sessionId)}/events${query ? `?${query}` : ''}`);
 }
 
 export function getTimeTravelContext(sessionId) {
@@ -445,10 +482,12 @@ export function getRaceReplayState(sessionId, { lap } = {}) {
   return request(`/api/race-replay/${sessionId}/state?${params.toString()}`);
 }
 
-// Real track outline for this session's circuit — live OpenF1 telemetry
-// when available, else a static FastF1-generated shape for the circuit,
-// else a 404 (the caller falls back to the illustrative track, same as
-// Watch Live already does for getTrackShape above).
+// Track outline for this session's circuit: a static FastF1 trace of the
+// circuit when one has been generated (checked first, it's instant), else
+// one traced from the session's OpenF1 location data, else a 404 and the
+// caller draws an illustrative track. The response's `source` says which
+// ('fastf1-static-fallback', 'openf1-static' for a saved OpenF1 trace, or
+// 'openf1-live').
 export function getRaceReplayTrackShape(sessionId) {
   return request(`/api/race-replay/${sessionId}/track-shape`);
 }
@@ -612,6 +651,43 @@ export function getTelemetryTVRaces() {
 
 export function getTelemetryTVRace(slug) {
   return request(`/api/telemetry-tv/races/${encodeURIComponent(slug)}`);
+}
+
+// A race video a user wants added to Telemetry TV (signed in). Every request
+// is checked for copyright by the developers before it goes live.
+export function submitVideoRequest({ raceName, videoUrl, hostedDescription, notes }) {
+  return request('/api/video-requests', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ raceName, videoUrl, hostedDescription, notes }),
+  });
+}
+
+// The signed-in user's own video requests, newest first.
+export function getMyVideoRequests() {
+  return request('/api/video-requests/mine');
+}
+
+// Admin: the review queue (optionally one status), and a review decision.
+export function getVideoRequests(status) {
+  const query = status ? `?status=${encodeURIComponent(status)}` : '';
+  return request(`/api/video-requests${query}`);
+}
+
+export function reviewVideoRequest(id, { status, reviewNote }) {
+  return request(`/api/video-requests/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status, reviewNote }),
+  });
+}
+
+// Race-day weather for one broadcast: measured conditions over the race
+// window (Open-Meteo archive), or { weather: null } when none can be read.
+export function getTelemetryTVWeather(slug) {
+  return request(`/api/telemetry-tv/races/${encodeURIComponent(slug)}/weather`, {
+    timeoutMs: 15000,
+  });
 }
 
 // ---------------------------------------------------------------------------
