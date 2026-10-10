@@ -20,6 +20,12 @@ function validDraft(overrides = {}) {
 }
 
 describe('validateSubmission', () => {
+  test('reports prohibited JavaScript against the code field', () => {
+    const result = validateSubmission(validDraft({ code: 'document.cookie' }));
+    expect(result.valid).toBe(false);
+    expect(result.errors).toEqual([{ field: 'code', message: expect.stringContaining('prohibited') }]);
+  });
+
   test('accepts a draft that satisfies every rule', () => {
     const result = validateSubmission(validDraft());
 

@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import SubmissionsPanel from '../components/developer/SubmissionsPanel';
 import { submitData, listSubmissions, reviewSubmission } from '../api/client';
 
@@ -70,6 +70,14 @@ describe('SubmissionsPanel', () => {
 
     expect(await screen.findByText(/pending — 2 event\(s\) written/)).toBeInTheDocument();
     await waitFor(() => expect(submitData).toHaveBeenCalledWith({ laps: [], session_key: 11230 }));
+  });
+
+  test.each(['null', '[]', '{"__proto__":{}}', '['.repeat(33) + '0' + ']'.repeat(33)])('does not send unsafe JSON: %s', async (text) => {
+    await act(async () => { render(<SubmissionsPanel />); });
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: text } });
+    await submit();
+    expect(submitData).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: /submit batch/i })).toBeEnabled();
   });
 
   describe('review queue', () => {

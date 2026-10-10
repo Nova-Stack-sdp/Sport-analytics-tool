@@ -1,4 +1,5 @@
 import express from 'express';
+import { MAX_JSON_BYTES, validateJsonBatch } from './lib/securityHelpers.js';
 import helmet from 'helmet';
 import { serverTiming } from './middleware/serverTiming.js';
 import cors from 'cors';
@@ -114,8 +115,13 @@ export function createApp(options = {}) {
   // Dataset uploads: keep the exact bytes received (req.rawBody) as well as
   // the parsed JSON, so the original upload can be stored and downloaded.
   app.use('/api/submissions', express.json({
-    limit: '20mb',
-    verify: (req, res, buf) => { req.rawBody = buf; },
+    limit: MAX_JSON_BYTES,
+    verify: (req, res, buf, encoding) => {
+      if (encoding !== 'utf-8') throw new Error('JSON must use UTF-8.');
+      const security = validateJsonBatch(new TextDecoder('utf-8', { fatal: true }).decode(buf));
+      if (!security.isValid) throw new Error(security.error);
+      req.rawBody = buf;
+    },
   }));
   app.use(express.json());
   // cookie-parser is required so requireAuth can read the httpOnly
@@ -199,6 +205,12 @@ export function createApp(options = {}) {
   // Centralized error handler — keeps DB/other errors from leaking stack
   // traces to the client while still logging them server-side.
   app.use((err, req, res, next) => {
+    // Parser errors may carry raw request bodies. Never log or echo them.
+    if (err.type === 'entity.too.large') return res.status(413).json({ error: 'Request body exceeds the size limit.' });
+    if (['entity.parse.failed', 'entity.verify.failed', 'request.aborted', 'request.size.invalid'].includes(err.type)) {
+      return res.status(400).json({ error: 'Invalid JSON submission: check syntax, nesting, encoding and prohibited keys.' });
+    }
+    if (err.status === 415) return res.status(415).json({ error: 'Unsupported request encoding.' });
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   });

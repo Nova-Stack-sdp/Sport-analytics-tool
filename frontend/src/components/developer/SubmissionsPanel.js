@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { submitData, listSubmissions, reviewSubmission } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
+import { validateJsonBatch } from '../../utils/securityHelpers';
 
 const REVIEW_TABS = ['Pending', 'Approved', 'Rejected'];
 const TAB_TO_STATUS = { Pending: 'pending', Approved: 'accepted', Rejected: 'rejected' };
@@ -67,9 +68,12 @@ function SubmissionsPanel() {
     setSubmitResult(null);
     let body;
     try {
+      const security = validateJsonBatch(payloadText);
+      if (!security.isValid) throw new Error(security.error);
       body = JSON.parse(payloadText);
-    } catch {
-      setSubmitError('Event data is not valid JSON');
+      if (Array.isArray(body)) throw new Error('Event data must be a JSON object.');
+    } catch (err) {
+      setSubmitError(err.message);
       setSubmitting(false);
       return;
     }
@@ -77,6 +81,8 @@ function SubmissionsPanel() {
     // Race data is the backend's default, so only test data needs saying.
     if (purpose !== 'race_data') body.purpose = purpose;
     try {
+      const security = validateJsonBatch(JSON.stringify(body));
+      if (!security.isValid) throw new Error(security.error);
       const result = await submitData(body);
       setSubmitResult(result);
       if (activeTab === 'Pending') loadSubmissions('Pending');

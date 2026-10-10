@@ -66,6 +66,16 @@ async function buildEntryLookup(sessionId) {
  */
 submissionsRouter.post('/', requireAuth, requireVerifiedEmail, developerOrAdminTo('submit data'), async (req, res, next) => {
   try {
+    if (!req.is('application/json')) return res.status(415).json({ error: 'Content-Type must be application/json' });
+    if (!req.body || Array.isArray(req.body) || typeof req.body !== 'object') {
+      return res.status(400).json({ error: 'Dataset must be a JSON object' });
+    }
+    for (const key of ['laps', 'pit', 'stints', 'position', 'race_control', 'weather', 'starting_grid', 'session_result']) {
+      if (req.body[key] !== undefined && (!Array.isArray(req.body[key]) ||
+          req.body[key].some((record) => !record || typeof record !== 'object' || Array.isArray(record)))) {
+        return res.status(400).json({ error: `${key} must be an array of record objects` });
+      }
+    }
     const { session_key: sessionKey } = req.body;
     if (!sessionKey) {
       return res.status(400).json({ error: 'session_key is required' });

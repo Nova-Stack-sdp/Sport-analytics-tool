@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma.js';
 import { notifyCodeSubmissionReviewed } from '../services/notificationService.js';
 import { requireAuth, requireAdmin, requireVerifiedEmail } from '../middleware/requireAuth.js';
 import { retireTestDataset } from '../lib/testDatasets.js';
+import { scanForMaliciousCode } from '../lib/securityHelpers.js';
 
 export const codeSubmissionsRouter = Router();
 
@@ -63,6 +64,10 @@ function validateBody(body = {}) {
 
   if (!code.trim()) errors.push('Code is required.');
   else if (code.length > LIMITS.codeMax) errors.push(`Code must be at most ${LIMITS.codeMax} characters.`);
+  else if (language === 'JavaScript') {
+    const security = scanForMaliciousCode(body.code);
+    if (!security.isValid) errors.push(security.error);
+  }
 
   if (!description) errors.push('Description is required: say what the code does.');
   else if (description.length < LIMITS.descriptionMin) {
