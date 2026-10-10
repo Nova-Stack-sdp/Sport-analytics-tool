@@ -56,6 +56,10 @@ function readConfig(options) {
     // Token exchanges (POST /api/auth/session) are cheap to replay and the
     // only way to spray stolen ID tokens, so they get their own tight limit.
     sessionRateLimit: options.sessionRateLimit ?? (isTest ? 0 : fromEnv('RATE_LIMIT_SESSION_PER_MINUTE', 20)),
+    // New uploads (datasets and code) per client per HOUR. Each one is
+    // stored and lands in an admin's review queue, so a client that
+    // floods them fills storage and buries real submissions.
+    submissionRateLimit: options.submissionRateLimit ?? (isTest ? 0 : fromEnv('RATE_LIMIT_SUBMISSIONS_PER_HOUR', 30)),
     cacheTtlMs: options.cacheTtlMs ?? (isTest ? 0 : fromEnv('CACHE_TTL_SECONDS', 60) * 1000),
   };
 }
@@ -122,6 +126,15 @@ export function createApp(options = {}) {
   // already on the CORS allowlist (see middleware/originGuard.js). Mounted
   // right after cors so the two always share one origin list.
   app.use(createOriginGuard({ allowedOrigins, wildcard: wildcardOrigin }));
+  // Upload limit, before the body is read: a refused upload costs nothing.
+  // Datasets and code each get their own allowance; only POST (a new
+  // upload) counts, so reviewing and listing are unaffected.
+  if (config.submissionRateLimit > 0) {
+    for (const [path, name] of [['/api/submissions', 'dataset upload'], ['/api/code-submissions', 'code submission']]) {
+      const limiter = createRateLimiter({ limit: config.submissionRateLimit, windowMs: 60 * 60 * 1000, name });
+      app.use(path, (req, res, next) => (req.method === 'POST' && req.path === '/' ? limiter(req, res, next) : next()));
+    }
+  }
   // Dataset uploads: keep the exact bytes received (req.rawBody) as well as
   // the parsed JSON, so the original upload can be stored and downloaded.
   // The submission policy (lib/securityHelpers.js) runs in two halves so the

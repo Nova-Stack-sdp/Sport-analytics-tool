@@ -15,6 +15,12 @@
  * store (e.g. Redis).
  */
 
+// "60 seconds" for the per-minute limits, "hour" for hourly ones.
+function describeWindow(windowMs) {
+  if (windowMs === 60 * 60 * 1000) return 'hour';
+  return `${Math.round(windowMs / 1000)} seconds`;
+}
+
 export function createRateLimiter({
   limit,
   windowMs = 60_000,
@@ -51,7 +57,7 @@ export function createRateLimiter({
       res.set('Retry-After', String(resetSeconds));
       return res.status(429).json({
         error: 'Too many requests',
-        detail: `The ${name} allows ${limit} requests per ${Math.round(windowMs / 1000)} seconds per client. Try again in ${resetSeconds}s.`,
+        detail: `The ${name} allows ${limit} requests per ${describeWindow(windowMs)} per client. Try again in ${resetSeconds}s.`,
       });
     }
     return next();
