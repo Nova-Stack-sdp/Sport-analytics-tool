@@ -6,6 +6,8 @@
 
 // The languages the review pipeline can actually run. Kept deliberately
 // small; the backend route is free to reject anything else server-side too.
+import { scanForMaliciousCode } from '../../utils/securityHelpers';
+
 export const ALLOWED_LANGUAGES = ['JavaScript', 'Python'];
 
 export const LIMITS = {
@@ -66,6 +68,9 @@ export function validateSubmission(draft = {}) {
     errors.push({ field: 'code', message: 'Code is required.' });
   } else if (code.length > LIMITS.codeMax) {
     errors.push({ field: 'code', message: `Code must be at most ${LIMITS.codeMax} characters.` });
+  } else if (language === 'JavaScript') {
+    const security = scanForMaliciousCode(code);
+    if (!security.isValid) errors.push({ field: 'code', message: security.error });
   }
 
   if (!description) {

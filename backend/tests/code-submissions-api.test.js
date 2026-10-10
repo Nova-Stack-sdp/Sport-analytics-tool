@@ -86,6 +86,15 @@ function authed(req) {
   return req.set('Authorization', 'Bearer good-token');
 }
 
+test.each(['eval("x")', 'document["cookie"]', 'window.location', 'localStorage.getItem("x")', 'require("node:child_process")', 'new XMLHttpRequest()'])('blocks unsafe JavaScript before controller work: %s', async (code) => {
+  const res = await authed(request(createApp()).post('/api/code-submissions'))
+    .send({ title: 'Security test', language: 'JavaScript', code, description: 'A security regression test.', testDatasetId: 'ds-security' });
+  expect(res.status).toBe(400);
+  expect(res.body.errors).toEqual([expect.stringContaining('prohibited')]);
+  expect(mockPrisma.submission.findUnique).not.toHaveBeenCalled();
+  expect(mockPrisma.codeSubmission.create).not.toHaveBeenCalled();
+});
+
 function asAdmin() {
   mockVerifyIdToken.mockResolvedValue({ uid: 'admin-uid', email: 'admin@example.test', developer: false, email_verified: true });
 }

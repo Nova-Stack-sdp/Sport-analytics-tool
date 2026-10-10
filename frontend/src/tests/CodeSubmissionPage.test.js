@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import CodeSubmissionPage from '../pages/CodeSubmissionPage';
 import { submitCodeSubmission, listSubmissions } from '../api/client';
 
@@ -93,6 +93,39 @@ describe('CodeSubmissionPage', () => {
     expect(screen.getByText('Code is required.')).toBeInTheDocument();
     expect(screen.getByText('Description is required: say what the code does.')).toBeInTheDocument();
     expect(submitCodeSubmission).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    'eval("x")', 'document.cookie', 'window.location',
+    'localStorage.getItem("x")', 'require("child_process")', 'new XMLHttpRequest()',
+  ])('blocks prohibited JavaScript in the active form: %s', async (code) => {
+    await act(async () => { render(<CodeSubmissionPage />); });
+    fillValidDraft();
+    fill('Code', code);
+    submit();
+
+    expect(screen.getByLabelText('Code')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByText(/Code contains a prohibited/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /submit script/i })).toBeEnabled();
+    expect(submitCodeSubmission).not.toHaveBeenCalled();
+  });
+
+  test('allows a corrected script after a security rejection', async () => {
+    submitCodeSubmission.mockResolvedValue({ id: 'cs_corrected', status: 'pending' });
+    await act(async () => { render(<CodeSubmissionPage />); });
+    fillValidDraft();
+    fill('Code', 'document.cookie');
+    submit();
+    expect(submitCodeSubmission).not.toHaveBeenCalled();
+
+    fill('Code', VALID_CODE);
+    expect(screen.queryByText(/Code contains a prohibited/)).not.toBeInTheDocument();
+    submit();
+    expect(await screen.findByText('cs_corrected')).toBeInTheDocument();
+    expect(submitCodeSubmission).toHaveBeenCalledTimes(1);
+    expect(submitCodeSubmission).toHaveBeenCalledWith(expect.objectContaining({
+      language: 'JavaScript', code: VALID_CODE,
+    }));
   });
 
   test('clears the validation complaints as soon as a field changes', () => {

@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma.js';
 import { notifyCodeSubmissionReviewed } from '../services/notificationService.js';
 import { requireAuth, requireAdmin, requireVerifiedEmail } from '../middleware/requireAuth.js';
 import { retireTestDataset } from '../lib/testDatasets.js';
+import { scanForMaliciousCode } from '../lib/securityHelpers.js';
 
 export const codeSubmissionsRouter = Router();
 
@@ -63,6 +64,10 @@ function validateBody(body = {}) {
 
   if (!code.trim()) errors.push('Code is required.');
   else if (code.length > LIMITS.codeMax) errors.push(`Code must be at most ${LIMITS.codeMax} characters.`);
+  else if (language === 'JavaScript') {
+    const security = scanForMaliciousCode(body.code);
+    if (!security.isValid) errors.push(security.error);
+  }
 
   if (!description) errors.push('Description is required: say what the code does.');
   else if (description.length < LIMITS.descriptionMin) {
@@ -77,6 +82,21 @@ function validateBody(body = {}) {
   }
 
   return { errors, value: { title, language, code, description, tags } };
+}
+
+// Run the existing format and security rules after authorization and before
+// controller work. Keep req.body intact for optional test-dataset validation.
+function validateCodeSubmission(req, res, next) {
+  try {
+    const { errors, value } = validateBody(req.body);
+    if (errors.length > 0) {
+      return res.status(400).json({ error: errors.join(' '), errors });
+    }
+    res.locals.validatedSubmission = value;
+    next();
+  } catch (err) {
+    next(err);
+  }
 }
 
 /**
@@ -115,12 +135,9 @@ async function checkTestDataset(testDatasetId, uid) {
   return null;
 }
 
-codeSubmissionsRouter.post('/', requireAuth, requireVerifiedEmail, requireDeveloperOrAdmin, async (req, res, next) => {
+codeSubmissionsRouter.post('/', requireAuth, requireVerifiedEmail, requireDeveloperOrAdmin, validateCodeSubmission, async (req, res, next) => {
   try {
-    const { errors, value } = validateBody(req.body);
-    if (errors.length > 0) {
-      return res.status(400).json({ error: errors.join(' '), errors });
-    }
+    const value = res.locals.validatedSubmission;
 
     const testDatasetId = req.body?.testDatasetId ?? null;
     if (testDatasetId !== null) {

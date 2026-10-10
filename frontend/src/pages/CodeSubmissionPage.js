@@ -76,7 +76,8 @@ function CodeSubmissionPage() {
     e.preventDefault();
     setSubmitError(null);
     setSubmitResult(null);
-    // Format first — nothing leaves the browser on an invalid draft.
+    // validateSubmission includes securityHelpers.scanForMaliciousCode for
+    // JavaScript. Keep that single gate before normalization and the API call.
     const { valid, errors } = validateSubmission(draft);
     if (!valid) {
       setValidationErrors(errors);

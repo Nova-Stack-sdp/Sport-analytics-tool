@@ -54,6 +54,29 @@ function authed(req) {
   return req.set('Authorization', 'Bearer good-token');
 }
 
+test.each([
+  '{"session_key":11230,"__proto__":{}}',
+  '{"session_key":11230,"nested":{"\\u005f_proto__":{}}}',
+  '['.repeat(33) + '0' + ']'.repeat(33),
+  '{invalid',
+  '[]',
+  '{"session_key":11230,"laps":{}}',
+  '{"session_key":11230,"weather":[null]}',
+])('rejects unsafe dataset before database access: %s', async (body) => {
+  const res = await authed(request(createApp()).post('/api/submissions'))
+    .set('Content-Type', 'application/json').send(body);
+  expect(res.status).toBe(400);
+  expect(mockPrisma.session.findUnique).not.toHaveBeenCalled();
+  expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+});
+
+test('rejects datasets larger than 1 MiB with 413', async () => {
+  const res = await authed(request(createApp()).post('/api/submissions'))
+    .send({ text: 'x'.repeat(1024 * 1024) });
+  expect(res.status).toBe(413);
+  expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+});
+
 describe('POST /api/submissions — auth', () => {
   test('rejects a request with no Authorization header', async () => {
     const app = createApp();
