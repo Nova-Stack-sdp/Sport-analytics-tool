@@ -95,6 +95,26 @@ test.each(['eval("x")', 'document["cookie"]', 'window.location', 'localStorage.g
   expect(mockPrisma.codeSubmission.create).not.toHaveBeenCalled();
 });
 
+test('checks Python too, and returns every finding with its line', async () => {
+  const res = await authed(request(createApp()).post('/api/code-submissions'))
+    .send({ title: 'Python test', language: 'Python', code: 'import math\nimport os\nx = eval("1")', description: 'A security regression test.' });
+  expect(res.status).toBe(400);
+  expect(res.body.errors).toEqual([expect.stringMatching(/^Line 2: Importing `os` isn't allowed/)]);
+  expect(res.body.findings).toEqual([
+    expect.objectContaining({ line: 2, rule: 'import' }),
+    expect.objectContaining({ line: 3, rule: 'builtin' }),
+  ]);
+  expect(mockPrisma.codeSubmission.create).not.toHaveBeenCalled();
+});
+
+test.each([['an array', ['eval("x")']], ['an object', { toString: 'x' }], ['a number', 42]])('refuses code sent as %s instead of text', async (_label, code) => {
+  const res = await authed(request(createApp()).post('/api/code-submissions'))
+    .send({ title: 'Type test', language: 'JavaScript', code, description: 'A type confusion test.' });
+  expect(res.status).toBe(400);
+  expect(res.body.errors).toContain('Code must be text.');
+  expect(mockPrisma.codeSubmission.create).not.toHaveBeenCalled();
+});
+
 function asAdmin() {
   mockVerifyIdToken.mockResolvedValue({ uid: 'admin-uid', email: 'admin@example.test', developer: false, email_verified: true });
 }

@@ -4,10 +4,10 @@
 // API seam will POST, and the colocated tests pin the rules themselves so
 // the backend can be wired against the same contract.
 
+import { checkSubmissionCode } from '../../utils/securityHelpers';
+
 // The languages the review pipeline can actually run. Kept deliberately
 // small; the backend route is free to reject anything else server-side too.
-import { scanForMaliciousCode } from '../../utils/securityHelpers';
-
 export const ALLOWED_LANGUAGES = ['JavaScript', 'Python'];
 
 export const LIMITS = {
@@ -68,9 +68,11 @@ export function validateSubmission(draft = {}) {
     errors.push({ field: 'code', message: 'Code is required.' });
   } else if (code.length > LIMITS.codeMax) {
     errors.push({ field: 'code', message: `Code must be at most ${LIMITS.codeMax} characters.` });
-  } else if (language === 'JavaScript') {
-    const security = scanForMaliciousCode(code);
-    if (!security.isValid) errors.push({ field: 'code', message: security.error });
+  } else if (ALLOWED_LANGUAGES.includes(language)) {
+    // Same submission policy as the API (utils/securityHelpers.js), so a
+    // script is refused here, with line numbers, before it is sent.
+    const check = checkSubmissionCode(language, code);
+    if (!check.isValid) errors.push({ field: 'code', message: check.error });
   }
 
   if (!description) {

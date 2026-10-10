@@ -3,7 +3,7 @@ import { prisma } from '../lib/prisma.js';
 import { notifyCodeSubmissionReviewed } from '../services/notificationService.js';
 import { requireAuth, requireAdmin, requireVerifiedEmail } from '../middleware/requireAuth.js';
 import { retireTestDataset } from '../lib/testDatasets.js';
-import { scanForMaliciousCode } from '../lib/securityHelpers.js';
+import { checkSubmissionCode } from '../lib/securityHelpers.js';
 
 export const codeSubmissionsRouter = Router();
 
@@ -47,9 +47,12 @@ function parseTags(raw) {
 
 function validateBody(body = {}) {
   const errors = [];
+  let codeFindings = null;
   const title = String(body.title ?? '').trim();
   const language = String(body.language ?? '').trim();
-  const code = String(body.code ?? '');
+  // Code must arrive as text: String() on an array or object would store
+  // something the policy check never saw (or throw).
+  const code = typeof body.code === 'string' ? body.code : '';
   const description = String(body.description ?? '').trim();
   const tags = parseTags(body.tags);
 
@@ -62,11 +65,17 @@ function validateBody(body = {}) {
     errors.push(`Language must be one of: ${ALLOWED_LANGUAGES.join(', ')}.`);
   }
 
-  if (!code.trim()) errors.push('Code is required.');
+  if (body.code !== undefined && body.code !== null && typeof body.code !== 'string') errors.push('Code must be text.');
+  else if (!code.trim()) errors.push('Code is required.');
   else if (code.length > LIMITS.codeMax) errors.push(`Code must be at most ${LIMITS.codeMax} characters.`);
-  else if (language === 'JavaScript') {
-    const security = scanForMaliciousCode(body.code);
-    if (!security.isValid) errors.push(security.error);
+  else if (ALLOWED_LANGUAGES.includes(language)) {
+    // The submission policy (lib/securityHelpers.js) for the chosen
+    // language: JavaScript is parsed, Python is checked as text.
+    const check = checkSubmissionCode(language, code);
+    if (!check.isValid) {
+      errors.push(check.error);
+      codeFindings = check.findings;
+    }
   }
 
   if (!description) errors.push('Description is required: say what the code does.');
@@ -81,16 +90,18 @@ function validateBody(body = {}) {
     errors.push(`Each tag must be at most ${LIMITS.tagMax} characters.`);
   }
 
-  return { errors, value: { title, language, code, description, tags } };
+  return { errors, codeFindings, value: { title, language, code, description, tags } };
 }
 
 // Run the existing format and security rules after authorization and before
 // controller work. Keep req.body intact for optional test-dataset validation.
 function validateCodeSubmission(req, res, next) {
   try {
-    const { errors, value } = validateBody(req.body);
+    const { errors, codeFindings, value } = validateBody(req.body);
     if (errors.length > 0) {
-      return res.status(400).json({ error: errors.join(' '), errors });
+      // findings: every policy problem with its line, for clients that
+      // want to mark them in an editor.
+      return res.status(400).json({ error: errors.join(' '), errors, ...(codeFindings && { findings: codeFindings }) });
     }
     res.locals.validatedSubmission = value;
     next();

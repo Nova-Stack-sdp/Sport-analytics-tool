@@ -26,6 +26,13 @@ describe('validateSubmission', () => {
     expect(result.errors).toEqual([{ field: 'code', message: expect.stringMatching(/^Line 1: `document` isn't available/) }]);
   });
 
+  test('checks Python with the Python rules', () => {
+    expect(validateSubmission(validDraft({ language: 'Python', code: 'import subprocess' })).errors)
+      .toEqual([{ field: 'code', message: expect.stringMatching(/^Line 1: Importing `subprocess` isn't allowed/) }]);
+    expect(validateSubmission(validDraft({ language: 'Python', code: 'import statistics\n\ndef mean(xs):\n    return statistics.mean(xs)\n' })))
+      .toEqual({ valid: true, errors: [] });
+  });
+
   test('accepts a draft that satisfies every rule', () => {
     const result = validateSubmission(validDraft());
 
