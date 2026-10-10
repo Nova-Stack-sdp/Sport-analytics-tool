@@ -90,7 +90,7 @@ test.each(['eval("x")', 'document["cookie"]', 'window.location', 'localStorage.g
   const res = await authed(request(createApp()).post('/api/code-submissions'))
     .send({ title: 'Security test', language: 'JavaScript', code, description: 'A security regression test.', testDatasetId: 'ds-security' });
   expect(res.status).toBe(400);
-  expect(res.body.errors).toEqual([expect.stringContaining('prohibited')]);
+  expect(res.body.errors).toEqual([expect.stringMatching(/^Line 1: `\w+` isn't available to submitted scripts/)]);
   expect(mockPrisma.submission.findUnique).not.toHaveBeenCalled();
   expect(mockPrisma.codeSubmission.create).not.toHaveBeenCalled();
 });
