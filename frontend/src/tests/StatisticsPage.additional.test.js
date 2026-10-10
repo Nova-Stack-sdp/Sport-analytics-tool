@@ -1,8 +1,12 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import StatisticsPage from '../pages/StatisticsPage';
-import { getStatistics } from '../api/client';
+import { getStatistics, listPublicCode } from '../api/client';
 
-jest.mock('../api/client', () => ({ getStatistics: jest.fn() }));
+jest.mock('../api/client', () => ({
+  getStatistics: jest.fn(),
+  listPublicCode: jest.fn(),
+  publicCodeUrl: (endpoint) => `https://api.example.com${endpoint}`,
+}));
 
 const season = {
   view: 'season',
@@ -33,7 +37,10 @@ function renderPage() {
 }
 
 describe('StatisticsPage additional states', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    listPublicCode.mockResolvedValue({ data: [] });
+  });
 
   test('formats season rows, supports every team tag type, and changes seasons', async () => {
     getStatistics.mockResolvedValue(season);
