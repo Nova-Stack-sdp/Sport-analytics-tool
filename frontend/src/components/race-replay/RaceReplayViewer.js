@@ -59,9 +59,9 @@ const MAX_SPEED_MULTIPLIER = 1.15;
 // `source`). Car order, tyres and safety-car timing are real either way.
 export function trackSourceNote(usingRealTrack, trackShape, trackShapeError) {
   if (usingRealTrack) {
-    return trackShape?.source === 'openf1-live'
-      ? 'Track outline traced from this session\'s OpenF1 location data.'
-      : 'Track outline from a FastF1 trace of this circuit.';
+    if (trackShape?.source === 'openf1-live') return 'Track outline traced from this session\'s OpenF1 location data.';
+    if (trackShape?.source === 'openf1-static') return 'Track outline traced from OpenF1 location data recorded at this circuit.';
+    return 'Track outline from a FastF1 trace of this circuit.';
   }
   return trackShapeError
     ? 'Illustrative track: no outline is available for this circuit yet. Car order, tyres and safety car timing are still real.'

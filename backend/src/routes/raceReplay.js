@@ -426,8 +426,14 @@ raceReplayRouter.get('/:sessionId/track-shape', async (req, res, next) => {
     // was previously leaving the frontend on its illustrative fallback for
     // 30s-2min+ on every single load. Checking static first makes the
     // common case (a circuit we've already generated a trace for) instant.
+    // Saved files come from FastF1 (generate_track_shapes.py) or, for
+    // circuits FastF1 can't map, from OpenF1 location data
+    // (generate-track-shape-from-openf1.js); `source` says which.
     const staticShape = await readStaticTrackShape(session.meeting.circuit.name);
-    if (staticShape) return res.json({ ...staticShape, source: 'fastf1-static-fallback' });
+    if (staticShape) {
+      const source = staticShape.source === 'openf1' ? 'openf1-static' : 'fastf1-static-fallback';
+      return res.json({ ...staticShape, source });
+    }
 
     // 2. No static trace for this circuit yet — worth the slower live fetch
     // as a last resort, for whatever session-specific telemetry it can get.

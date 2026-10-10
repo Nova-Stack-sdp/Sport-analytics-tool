@@ -457,7 +457,8 @@ export function getRaceReplayState(sessionId, { lap } = {}) {
 // circuit when one has been generated (checked first, it's instant), else
 // one traced from the session's OpenF1 location data, else a 404 and the
 // caller draws an illustrative track. The response's `source` says which
-// ('fastf1-static-fallback' or 'openf1-live').
+// ('fastf1-static-fallback', 'openf1-static' for a saved OpenF1 trace, or
+// 'openf1-live').
 export function getRaceReplayTrackShape(sessionId) {
   return request(`/api/race-replay/${sessionId}/track-shape`);
 }

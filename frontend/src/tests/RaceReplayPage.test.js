@@ -235,3 +235,14 @@ describe('race replay page (real data, mocked API)', () => {
     expect(screen.queryByText(/Watch Live/)).not.toBeInTheDocument();
   });
 });
+
+describe('trackSourceNote', () => {
+  const { trackSourceNote } = jest.requireActual('../components/race-replay/RaceReplayViewer');
+  test('names where the outline came from', () => {
+    expect(trackSourceNote(true, { source: 'fastf1-static-fallback' })).toMatch(/FastF1 trace of this circuit/);
+    expect(trackSourceNote(true, { source: 'openf1-static' })).toMatch(/OpenF1 location data recorded at this circuit/);
+    expect(trackSourceNote(true, { source: 'openf1-live' })).toMatch(/this session's OpenF1 location data/);
+    expect(trackSourceNote(false, null, 'no shape')).toMatch(/Illustrative track/);
+    expect(trackSourceNote(false, null, null)).toMatch(/Loading the track outline/);
+  });
+});

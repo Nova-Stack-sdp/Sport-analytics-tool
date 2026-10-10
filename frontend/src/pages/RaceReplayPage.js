@@ -62,7 +62,7 @@ function RaceReplayPage() {
         <div className="rationale">
           <span className="ic">◆</span>
           <div>
-            <b>What's real:</b> the running order, tyres and safety car periods come from the session's published event data. The event data has no car locations, so cars are spaced along the track in race order rather than placed where they really were. The track outline is a FastF1 trace of the circuit when one has been generated, otherwise one traced from OpenF1 location data for the session, otherwise an illustrative shape — the card says which.
+            <b>What's real:</b> the running order, tyres and safety car periods come from the session's published event data. The event data has no car locations, so cars are spaced along the track in race order rather than placed where they really were. The track outline is a saved trace of the circuit (from FastF1, or from OpenF1 location data) when one exists, otherwise one traced live from OpenF1 location data for the session, otherwise an illustrative shape — the card says which.
           </div>
         </div>
         <div className="rationale">
