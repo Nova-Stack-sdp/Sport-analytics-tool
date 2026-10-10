@@ -5,6 +5,8 @@
 :root{
   --bg:#FFFFFF;
   --surface:#FFFFFF;
+  /* A panel set inside a card, e.g. the driver page's season figures. */
+  --surface-raised:#F2F2F4;
   --border:#555555;
   --border-soft:rgba(0,0,0,0.06);
   --text-primary:#000000;
@@ -47,6 +49,7 @@
 [data-theme="dark"]{
   --bg:#000000;
   --surface:#000000;
+  --surface-raised:#16161A;
   --border:#555555;
   --border-soft:rgba(255,255,255,0.08);
   --text-primary:#FFFFFF;
@@ -443,8 +446,8 @@ section.faq-section{padding-top:0;}
 .dd-meta{display:flex;gap:26px;margin-bottom:18px;flex-wrap:wrap;}
 .dd-meta div{font-size:11.5px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;}
 .dd-meta strong{display:block;font-size:16px;font-weight:700;color:var(--text-primary);}
-.dd-barrow{display:flex;gap:22px;background:#686874;border:1px solid var(--border-soft);border-radius:0;padding:14px 18px;flex-wrap:wrap;}
-.dd-bar-label{font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;}
+.dd-barrow{display:flex;gap:22px;background:var(--surface-raised);border:1px solid var(--border-soft);border-left:3px solid var(--tc,var(--accent));border-radius:0;padding:14px 18px;flex-wrap:wrap;}
+.dd-bar-label{font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;}
 .dd-bar-val{font-size:15px;font-weight:700;color:var(--text-primary);}
 .dd-cards{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin:26px 0;}
 .dd-card{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow-soft);}
@@ -921,3 +924,9 @@ label.settings-row-label{display:block;}
   .security-grid{grid-template-columns:1fr;}
   .stat-mini .v{font-size:19px;overflow-wrap:anywhere;}
 }
+
+/* Links inside data tables and cards: readable in both themes, never the
+   browser's default blue/purple. */
+.data-link{color:inherit;text-decoration:none;border-bottom:1px dotted var(--text-tertiary);}
+.data-link:hover{color:var(--accent);border-bottom-color:var(--accent);text-decoration:none;}
+

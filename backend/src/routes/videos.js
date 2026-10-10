@@ -2,16 +2,17 @@ import { Router } from 'express';
 
 export const videosRouter = Router();
 
-// OpenF1 has no video endpoint, so popular videos come from YouTube instead:
-// the official FORMULA 1 channel (UCB_qr75-ydFVKSF9Dmo6izg) via the YouTube
-// Data API. Set YOUTUBE_API_KEY to pull live rankings; without a key we fall
-// back to a curated list of recent race highlights so the front page never
-// renders empty. No DB / OpenF1 dependency, so the rest of the backend is
-// untouched.
+// OpenF1 has no video endpoint, so the welcome page's videos come from
+// YouTube instead: the official FORMULA 1 channel (UCB_qr75-ydFVKSF9Dmo6izg)
+// via the YouTube Data API. Set YOUTUBE_API_KEY to get the channel's latest
+// uploads; without a key (or if YouTube fails) a saved list of race
+// highlights is served instead, and the response says so (source:
+// 'fallback') so the page can tell visitors. No DB / OpenF1 dependency.
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
 const F1_CHANNEL_ID = 'UCB_qr75-ydFVKSF9Dmo6izg';
 
-// Recent official race highlights — used when YOUTUBE_API_KEY is not set.
+// Saved official race highlights, served when YouTube can't be used. This
+// list does not update itself; the response marks it source: 'fallback'.
 const FALLBACK_VIDEOS = [
   {
     videoId: '3OMLs3yI-KE',
@@ -53,11 +54,10 @@ async function fetchYouTube(path, params) {
 }
 
 /**
- * Live ranking via the YouTube Data API:
- *  1. search.list for recent F1 channel videos
- *  2. videos.list to enrich with view counts / durations
- * Ranked by recency (search.list already orders by date, newest first) —
- * for a race season that's a good proxy for "popular right now".
+ * The channel's latest uploads via the YouTube Data API:
+ *  1. search.list for F1 channel videos from the last 60 days, newest first
+ *  2. videos.list to add view counts
+ * Ordered by upload date, newest first. Nothing here measures popularity.
  */
 async function getPopularFromYouTube() {
   const key = process.env.YOUTUBE_API_KEY;
@@ -97,7 +97,7 @@ async function getPopularFromYouTube() {
     const views = Number(item?.statistics?.viewCount ?? NaN);
     const sub = [
       formatViewCount(views),
-      new Date(snippet.publishedAt || Date.now()).getFullYear().toString(),
+      snippet.publishedAt ? new Date(snippet.publishedAt).getFullYear().toString() : null,
     ]
       .filter(Boolean)
       .join(' · ');
@@ -109,8 +109,39 @@ async function getPopularFromYouTube() {
   });
 }
 
+// search.list costs 100 of the default 10,000 daily quota units, so a
+// result is reused for VIDEOS_CACHE_SECONDS (default 15 minutes) instead of
+// calling YouTube on every welcome-page visit. Only YouTube results are
+// cached; the fallback is cheap and is retried on the next request.
+let cached = null; // { at, body }
+
+function cacheTtlMs() {
+  const seconds = Number(process.env.VIDEOS_CACHE_SECONDS ?? 900);
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds * 1000 : 900_000;
+}
+
+export function clearPopularVideosCache() {
+  cached = null;
+}
+
+function toCards(items) {
+  return items.slice(0, 4).map((item, index) => ({
+    id: item.videoId,
+    videoId: item.videoId,
+    rank: index + 1,
+    title: item.title,
+    sub: item.sub,
+    thumbnailUrl: `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`,
+    youtubeUrl: `https://www.youtube.com/watch?v=${item.videoId}`,
+  }));
+}
+
 videosRouter.get('/popular', async (req, res, next) => {
   try {
+    if (cached && Date.now() - cached.at < cacheTtlMs()) {
+      return res.json(cached.body);
+    }
+
     let items = null;
     try {
       items = await getPopularFromYouTube();
@@ -120,20 +151,14 @@ videosRouter.get('/popular', async (req, res, next) => {
       items = null;
     }
 
-    const source = items === null ? 'fallback' : 'youtube';
-    const list = (items && items.length > 0 ? items : FALLBACK_VIDEOS)
-      .slice(0, 4)
-      .map((item, index) => ({
-        id: item.videoId,
-        videoId: item.videoId,
-        rank: index + 1,
-        title: item.title,
-        sub: item.sub,
-        thumbnailUrl: `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`,
-        youtubeUrl: `https://www.youtube.com/watch?v=${item.videoId}`,
-      }));
-
-    res.json({ source, videos: list });
+    // 'youtube' only when YouTube actually supplied the videos. No key, an
+    // error, or no uploads in the window all serve the saved list, and say so.
+    if (items && items.length > 0) {
+      const body = { source: 'youtube', videos: toCards(items) };
+      cached = { at: Date.now(), body };
+      return res.json(body);
+    }
+    res.json({ source: 'fallback', videos: toCards(FALLBACK_VIDEOS) });
   } catch (err) {
     next(err);
   }

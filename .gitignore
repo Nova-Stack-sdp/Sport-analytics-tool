@@ -5,6 +5,9 @@
 .env.local
 backend/scripts/.fastf1-cache/
 
+# Test coverage reports (generated; see README "Testing & Coverage")
+coverage/
+
 # Playwright output — regenerated on every e2e run, never committed
 frontend/playwright-report/
 frontend/test-results/

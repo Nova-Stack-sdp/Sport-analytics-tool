@@ -2,20 +2,9 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getOverview } from '../api/client';
 import { useDateTimeFormat } from '../context/PreferencesContext';
+import { eventTypeLabel, sessionLabel, submissionSourceLabel } from '../utils/eventLabels';
 
-function statusPillClass(status) {
-  switch (status) {
-    case 'accepted':
-      return 'pill pill-green';
-    case 'rejected':
-      return 'pill pill-red';
-    case 'partially_accepted':
-      return 'pill pill-amber';
-    case 'pending':
-    default:
-      return 'pill pill-amber';
-  }
-}
+const fixtureLink = (sessionId) => `/fixtures?session=${encodeURIComponent(sessionId)}`;
 
 function sessionStatusPillClass(status) {
   if (status === 'live') return 'pill pill-red live-blink';
@@ -29,7 +18,7 @@ function formatReliability(rate) {
 
 function OverviewPage() {
   // Follows the clock / time zone choices in Profile → Settings.
-  const { formatDateTime } = useDateTimeFormat();
+  const { formatDate, formatDateTime, formatTime } = useDateTimeFormat();
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -58,21 +47,25 @@ function OverviewPage() {
   const recentEvents = data?.recentEvents ?? [];
   const leaderboard = data?.leaderboard ?? [];
   const teamComparison = data?.teamComparison ?? [];
-  const submissionQueue = data?.submissionQueue ?? [];
+  const recentUpdates = data?.recentUpdates ?? [];
 
   const [teamA, teamB] = teamComparison;
+  // Each team's share of the two teams' combined points. With no points
+  // yet there is no share to show, so the bar is split evenly and the
+  // labels say so.
   const teamAShare =
     teamA && teamB && teamA.points + teamB.points > 0
       ? Math.round((teamA.points / (teamA.points + teamB.points)) * 100)
       : null;
+  const shareLabel = (share) => (share === null ? 'no points yet' : `${share}%`);
 
   return (
     <div className="page" id="page-overview">
       <div className="pagehead">
-        <div className="section-eyebrow">Home</div>
+        <div className="section-eyebrow">At a glance</div>
         <div className="section-title">Overview</div>
         <div className="section-desc">
-          A single glance at what the platform is doing right now: the latest fixture, current standings, and anything in the queue that needs attention.
+          The latest synced session, the top of this season's drivers' standings, the two leading constructors, and the most recent data added to the platform.
         </div>
       </div>
       <div className="content">
@@ -80,8 +73,7 @@ function OverviewPage() {
           <div className="rationale">
             <span className="ic">⚠</span>
             <div>
-              <b>Couldn't reach the backend:</b> {error}. Check that the API is running and that
-              REACT_APP_API_URL is set correctly.
+              <b>Couldn't load the overview:</b> {error}. Please try again in a moment.
             </div>
           </div>
         )}
@@ -96,18 +88,20 @@ function OverviewPage() {
                 <div className="v">{stats.fixturesTracked}</div>
               </div>
               <div className="stat-mini">
-                <div className="l">Events ingested (24h)</div>
-                <div className="v">{stats.eventsLast24h.toLocaleString()}</div>
+                <div className="l">Seasons covered</div>
+                <div className="v">{stats.seasonsCovered}</div>
               </div>
               <div className="stat-mini">
-                <div className="l">Pending submissions</div>
+                <div className="l">Uploads awaiting review</div>
                 <div className={`v ${stats.pendingSubmissions > 0 ? 'warn' : ''}`}>
                   {stats.pendingSubmissions}
                 </div>
               </div>
               <div className="stat-mini">
-                <div className="l">Sessions finished</div>
-                <div className="v accent">{stats.sessionsFinished}</div>
+                <div className="l">Last data update</div>
+                <div className="v accent" title={stats.lastDataUpdate ? formatDateTime(stats.lastDataUpdate) : undefined}>
+                  {stats.lastDataUpdate ? formatDate(stats.lastDataUpdate) : '—'}
+                </div>
               </div>
             </div>
 
@@ -121,7 +115,7 @@ function OverviewPage() {
                     <div className="card-title-sub">
                       {latestSession
                         ? `${latestSession.circuitName}, ${latestSession.country} · ${latestSession.type} · ${formatDateTime(latestSession.startTime)}`
-                        : 'Run the OpenF1 sync job, or upload a submission, to populate this.'}
+                        : 'No sessions have been synced yet.'}
                     </div>
                   </div>
                   {latestSession && (
@@ -138,24 +132,32 @@ function OverviewPage() {
                     )}
                     {recentEvents.map((event) => (
                       <div className="log-row" key={event.id}>
-                        <span className="log-time">{formatDateTime(event.occurredAt)}</span>
-                        <span className="mono secondary">{event.eventType}</span>
+                        <span className="log-time">{formatTime(event.occurredAt)}</span>
+                        <span>{eventTypeLabel(event.eventType)}</span>
                         <span className="secondary">
-                          {event.lapNumber != null ? `Lap ${event.lapNumber}` : ''}
+                          {[event.driverName, event.lapNumber > 0 ? `Lap ${event.lapNumber}` : null]
+                            .filter(Boolean)
+                            .join(' · ')}
                         </span>
                       </div>
                     ))}
                   </div>
                 )}
-                <Link to="/fixtures" className="btn btn-ghost btn-full" style={{ marginTop: 14 }}>
-                  Open fixture
-                </Link>
+                {latestSession ? (
+                  <Link to={fixtureLink(latestSession.id)} className="btn btn-ghost btn-full" style={{ marginTop: 14 }}>
+                    Open this fixture
+                  </Link>
+                ) : (
+                  <Link to="/fixtures" className="btn btn-ghost btn-full" style={{ marginTop: 14 }}>
+                    Browse fixtures
+                  </Link>
+                )}
               </div>
 
               <div className="card">
                 <div className="card-head">
                   <div className="card-title leaderboard-title">
-                    Driver leaderboard{data.season ? ` — ${data.season}` : ''}
+                    Drivers' standings{data.season ? ` — ${data.season}` : ''}
                   </div>
                 </div>
                 {leaderboard.length === 0 ? (
@@ -181,7 +183,7 @@ function OverviewPage() {
                   </table>
                 )}
                 <Link to="/statistics" className="btn btn-ghost btn-full" style={{ marginTop: 14 }}>
-                  View full leaderboard
+                  View full standings
                 </Link>
               </div>
             </div>
@@ -200,15 +202,15 @@ function OverviewPage() {
                   <>
                     <div className="split-labels">
                       <span>
-                        {teamA.name} · {teamAShare}%
+                        {teamA.name} · {shareLabel(teamAShare)}
                       </span>
                       <span>
-                        {teamB.name} · {100 - teamAShare}%
+                        {teamB.name} · {shareLabel(teamAShare === null ? null : 100 - teamAShare)}
                       </span>
                     </div>
                     <div className="split-bar">
-                      <div style={{ width: `${teamAShare}%` }}></div>
-                      <div style={{ width: `${100 - teamAShare}%` }}></div>
+                      <div style={{ width: `${teamAShare ?? 50}%` }}></div>
+                      <div style={{ width: `${100 - (teamAShare ?? 50)}%` }}></div>
                     </div>
                     <div className="metric-row">
                       <span className="metric-label">Points scored</span>
@@ -233,42 +235,45 @@ function OverviewPage() {
                     </div>
                   </>
                 )}
-                <Link to="/statistics" className="btn btn-ghost btn-full" style={{ marginTop: 14 }}>
-                  View full comparison
+                <Link to="/statistics?view=constructors" className="btn btn-ghost btn-full" style={{ marginTop: 14 }}>
+                  View constructors' standings
                 </Link>
               </div>
 
               <div className="card">
                 <div className="card-head">
-                  <div className="card-title">Submission queue</div>
+                  <div className="card-title">Recent data updates</div>
+                  <span className="card-title-sub">OpenF1 syncs and accepted uploads</span>
                 </div>
-                {submissionQueue.length === 0 ? (
-                  <p className="secondary">No submissions yet.</p>
+                {recentUpdates.length === 0 ? (
+                  <p className="secondary">No data has been published yet.</p>
                 ) : (
                   <table>
                     <tbody>
                       <tr>
+                        <th>Published</th>
+                        <th>Session</th>
                         <th>Source</th>
-                        <th>Submitted</th>
-                        <th>Status</th>
+                        <th>Events</th>
                       </tr>
-                      {submissionQueue.map((submission) => (
-                        <tr key={submission.id}>
-                          <td className="secondary">{submission.source}</td>
-                          <td className="secondary">{formatDateTime(submission.submittedAt)}</td>
+                      {recentUpdates.map((update) => (
+                        <tr key={update.id}>
+                          <td className="secondary" title={formatDateTime(update.publishedAt)}>{formatDate(update.publishedAt)}</td>
                           <td>
-                            <span className={statusPillClass(submission.status)}>
-                              {submission.status}
-                            </span>
+                            {update.session ? (
+                              <Link className="data-link" to={fixtureLink(update.session.id)}>{sessionLabel(update.session)}</Link>
+                            ) : '—'}
+                          </td>
+                          <td className="secondary">{submissionSourceLabel(update.source)}</td>
+                          <td className="mono secondary">
+                            {update.eventsAdded != null ? `+${update.eventsAdded.toLocaleString()}` : '—'}
+                            {update.eventsCorrected ? ` (${update.eventsCorrected} corrected)` : ''}
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 )}
-                <Link to="/submissions" className="btn btn-ghost btn-full" style={{ marginTop: 14 }}>
-                  Open submissions
-                </Link>
               </div>
             </div>
           </>

@@ -1,4 +1,5 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import StatisticsPage from '../pages/StatisticsPage';
 import { getStatistics, listPublicCode } from '../api/client';
 
@@ -8,32 +9,19 @@ jest.mock('../api/client', () => ({
   publicCodeUrl: (endpoint) => `https://api.example.com${endpoint}`,
 }));
 
-const season = {
-  view: 'season',
-  season: 2026,
-  availableSeasons: [2026, 2025],
-  rows: [
-    { driverId: 'r', name: 'Red Bull Driver', teamName: 'Red Bull Racing', points: 25, fastestLapMs: 60001, fixturesCount: 1 },
-    { driverId: 'm', name: 'Mercedes Driver', teamName: 'Mercedes', points: 18, fastestLapMs: null, fixturesCount: 2 },
-    { driverId: 'f', name: 'Ferrari Driver', teamName: 'Ferrari', points: 15, fastestLapMs: 0, fixturesCount: 3 },
-    { driverId: 'o', name: 'Other Driver', teamName: 'McLaren', points: 12, fastestLapMs: 98765, fixturesCount: 4 },
-    { driverId: 'n', name: 'No Team Driver', teamName: null, points: 0, fastestLapMs: null, fixturesCount: 5 },
-  ],
-};
-
 const fixture = {
   view: 'fixture',
   sessionId: 's1',
-  availableSessions: [{ id: 's1', label: 'Bahrain Race' }, { id: 's2', label: 'Monaco Race' }],
+  availableSessions: [{ id: 's1', label: 'Bahrain Race', season: 2026 }, { id: 's2', label: 'Monaco Race' }],
   rows: [
-    { driverId: 'r', name: 'Red Bull Driver', teamName: 'Red Bull Racing', finalPosition: 1, points: 25, fastestLapMs: 60001, avgLapMs: 61000, totalPitTimeMs: 2034, positionsGained: 2 },
+    { driverId: 'r', name: 'Red Bull Driver', teamId: 't1', teamName: 'Red Bull Racing', teamColor: '#3671C6', teamCode: 'RBR', finalPosition: 1, points: 25, fastestLapMs: 60001, avgLapMs: 61000, totalPitTimeMs: 2034, positionsGained: 2 },
     { driverId: 'o', name: 'Other Driver', teamName: null, finalPosition: null, points: null, fastestLapMs: null, avgLapMs: null, totalPitTimeMs: null, positionsGained: null },
-    { driverId: 'm', name: 'Mercedes Driver', teamName: 'Mercedes', finalPosition: 3, points: 15, fastestLapMs: 62000, avgLapMs: 63000, totalPitTimeMs: 0, positionsGained: -1 },
+    { driverId: 'm', name: 'Mystery Driver', teamId: null, teamName: 'Mystery Team', teamColor: '#8A8F98', teamCode: null, finalPosition: 3, points: 15, fastestLapMs: 62000, avgLapMs: 63000, totalPitTimeMs: 0, positionsGained: -1 },
   ],
 };
 
-function renderPage() {
-  return render(<StatisticsPage />);
+function renderPage(path = '/statistics?view=fixture') {
+  return render(<MemoryRouter initialEntries={[path]}><StatisticsPage /></MemoryRouter>);
 }
 
 describe('StatisticsPage additional states', () => {
@@ -42,50 +30,39 @@ describe('StatisticsPage additional states', () => {
     listPublicCode.mockResolvedValue({ data: [] });
   });
 
-  test('formats season rows, supports every team tag type, and changes seasons', async () => {
-    getStatistics.mockResolvedValue(season);
-    renderPage();
-    await screen.findByText('Red Bull Driver');
-
-    expect(screen.getByLabelText('Red Bull Racing')).toHaveTextContent('RB');
-    expect(screen.getByLabelText('Mercedes')).toHaveTextContent('MER');
-    expect(screen.getByLabelText('Ferrari')).toHaveTextContent('FER');
-    expect(screen.getByText('McLaren')).toBeInTheDocument();
-    expect(screen.getAllByText('—').length).toBeGreaterThan(1);
-    expect(screen.getByText('1:00.001')).toBeInTheDocument();
-    expect(screen.getByText('1 fixture')).toBeInTheDocument();
-    expect(screen.getByText('2 fixtures')).toBeInTheDocument();
-
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: '2025' } });
-    await waitFor(() => expect(getStatistics).toHaveBeenLastCalledWith({ view: 'season', season: 2025 }));
-  });
-
-  test('loads fixture tables, selector changes, and every comparison display format', async () => {
+  test('formats every fixture column and handles missing teams and codes', async () => {
     getStatistics.mockResolvedValue(fixture);
     renderPage();
-    fireEvent.click(screen.getByText('Fixture', { selector: '.tab' }));
-    await screen.findByText('Bahrain Race');
-    await waitFor(() => expect(screen.getByText('Avg lap')).toBeInTheDocument());
+    await screen.findByText('Avg lap');
 
     expect(screen.getByText('+2')).toBeInTheDocument();
     expect(screen.getByText('-1')).toBeInTheDocument();
     expect(screen.getByText('2.03s')).toBeInTheDocument();
     expect(screen.getByText('0.00s')).toBeInTheDocument();
+    expect(screen.getByText('1:00.001')).toBeInTheDocument();
     expect(screen.getAllByText('—').length).toBeGreaterThan(1);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 's2' } });
-    await waitFor(() => expect(getStatistics).toHaveBeenLastCalledWith({ view: 'fixture', sessionId: 's2' }));
+    // A team without an id or code still shows, unlinked, by name.
+    expect(screen.getByLabelText('Mystery Team')).toHaveTextContent('Mystery Team');
+    expect(screen.getByRole('group', { name: 'Other' })).toBeInTheDocument();
   });
 
   test('reports request errors and does not update an unmounted request', async () => {
     getStatistics.mockRejectedValueOnce(new Error('service unavailable'));
-    renderPage();
-    expect(await screen.findByText(/service unavailable/i)).toBeInTheDocument();
+    renderPage('/statistics');
+    expect(await screen.findByText(/Couldn't load the statistics: service unavailable/i)).toBeInTheDocument();
 
     let resolve;
     getStatistics.mockReturnValueOnce(new Promise((done) => { resolve = done; }));
-    const pending = renderPage();
+    const pending = renderPage('/statistics');
     pending.unmount();
-    await act(async () => resolve(season));
+    await act(async () => resolve(fixture));
     expect(getStatistics).toHaveBeenCalledTimes(2);
+  });
+
+  test('an unknown view in the address falls back to the season view', async () => {
+    getStatistics.mockResolvedValue({ view: 'season', season: null, availableSeasons: [], rows: [] });
+    renderPage('/statistics?view=bogus');
+    await screen.findByText(/No figures derived yet/);
+    expect(getStatistics).toHaveBeenCalledWith({ view: 'season' });
   });
 });

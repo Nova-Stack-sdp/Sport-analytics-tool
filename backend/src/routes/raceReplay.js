@@ -21,7 +21,7 @@
 
 import { Router } from 'express';
 import { fetchSessionTrackTelemetryRaw } from './openf1.js';
-import { FROM_UNDELETED_DATASET } from '../lib/eventVisibility.js';
+import { FROM_PUBLISHED_DATASET } from '../lib/eventVisibility.js';
 import { deriveTrackShapeFromTelemetry, readStaticTrackShape } from '../lib/trackShape.js';
 
 export const raceReplayRouter = Router();
@@ -53,8 +53,11 @@ export async function buildReplayContext(sessionId) {
     include: { driver: true, team: true },
   });
 
+  // Race Replay is public: only published data (OpenF1 syncs and accepted
+  // uploads), and only the current version of each event — a corrected
+  // event and its replacement would otherwise both be replayed.
   const events = await prisma.event.findMany({
-    where: { sessionId, ...FROM_UNDELETED_DATASET },
+    where: { sessionId, supersededById: null, ...FROM_PUBLISHED_DATASET },
     orderBy: { occurredAt: 'asc' },
   });
 
@@ -256,7 +259,39 @@ export function computeStateAtLap(context, lap) {
       windSpeed: latestWeather.payload.wind_speed ?? null,
     } : null,
     recentRaceControl,
+    safetyCar: safetyCarStateAt(flagEvents, clampedLap),
   };
+}
+
+/**
+ * Whether a safety car ('SC') or virtual safety car ('VSC') is out at the
+ * end of a lap, replaying every race-control event up to that lap in
+ * order. The last five messages alone can't answer this: "SAFETY CAR
+ * DEPLOYED" stays among them after "SAFETY CAR IN THIS LAP", and drops out
+ * during a long safety-car period.
+ *
+ * Track-wide green isn't recorded as such (a sector "CLEAR" is stored as a
+ * green flag too), so only the safety-car messages themselves, a red flag
+ * or the chequered flag end a period.
+ */
+export function safetyCarStateAt(raceControl, lap) {
+  let state = null;
+  for (const e of raceControl) {
+    if ((e.lapNumber ?? 0) > lap) continue;
+    const payload = e.payload ?? {};
+    if (e.eventType === 'flag_event') {
+      if (payload.flag === 'safety_car') state = 'SC';
+      else if (payload.flag === 'vsc') state = 'VSC';
+      else if (payload.flag === 'red' || payload.flag === 'chequered') state = null;
+      continue;
+    }
+    const text = String(payload.message_text ?? '').toUpperCase();
+    if (/VIRTUAL SAFETY CAR (DEPLOYED|IN EFFECT)/.test(text)) state = 'VSC';
+    else if (/VIRTUAL SAFETY CAR ENDING/.test(text)) state = null;
+    else if (/SAFETY CAR DEPLOYED/.test(text)) state = 'SC';
+    else if (/SAFETY CAR IN THIS LAP|SAFETY CAR (IS )?WITHDRAWN/.test(text)) state = null;
+  }
+  return state;
 }
 
 /**
@@ -406,8 +441,14 @@ raceReplayRouter.get('/:sessionId/track-shape', async (req, res, next) => {
     // was previously leaving the frontend on its illustrative fallback for
     // 30s-2min+ on every single load. Checking static first makes the
     // common case (a circuit we've already generated a trace for) instant.
+    // Saved files come from FastF1 (generate_track_shapes.py) or, for
+    // circuits FastF1 can't map, from OpenF1 location data
+    // (generate-track-shape-from-openf1.js); `source` says which.
     const staticShape = await readStaticTrackShape(session.meeting.circuit.name);
-    if (staticShape) return res.json({ ...staticShape, source: 'fastf1-static-fallback' });
+    if (staticShape) {
+      const source = staticShape.source === 'openf1' ? 'openf1-static' : 'fastf1-static-fallback';
+      return res.json({ ...staticShape, source });
+    }
 
     // 2. No static trace for this circuit yet — worth the slower live fetch
     // as a last resort, for whatever session-specific telemetry it can get.
