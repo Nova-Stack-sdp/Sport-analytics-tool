@@ -70,11 +70,44 @@ test.each([
   expect(mockPrisma.$transaction).not.toHaveBeenCalled();
 });
 
-test('rejects datasets larger than 1 MiB with 413', async () => {
+test('rejects datasets larger than 10 MiB with 413 and says what the limit is', async () => {
   const res = await authed(request(createApp()).post('/api/submissions'))
-    .send({ text: 'x'.repeat(1024 * 1024) });
+    .send({ text: 'x'.repeat(10 * 1024 * 1024) });
   expect(res.status).toBe(413);
+  expect(res.body.error).toBe('Request body exceeds the 10 MiB limit.');
   expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+});
+
+test('accepts a full-race-sized dataset (about 3 MB) past the body checks', async () => {
+  mockPrisma.session.findUnique.mockResolvedValue(null);
+  const laps = Array.from({ length: 1200 }, (_, i) => ({
+    driver_number: (i % 20) + 1, lap_number: Math.floor(i / 20) + 1, lap_duration: 95.123,
+    segments_sector_1: Array(8).fill(2049), segments_sector_2: Array(8).fill(2049), segments_sector_3: Array(8).fill(2049),
+    date_start: '2026-10-04T08:33:00.000Z', note: 'x'.repeat(1500),
+  }));
+  const res = await authed(request(createApp()).post('/api/submissions')).send({ session_key: 99999, laps });
+  // 404 means the body passed size, nesting and key checks and reached the route.
+  expect(res.status).toBe(404);
+});
+
+test.each([
+  ['{"session_key":11230,"laps":[{"__proto__":{"admin":true}}]}', 'JSON contains a prohibited prototype-related key.'],
+  ['{"laps":' + '['.repeat(33) + ']'.repeat(33) + '}', 'JSON exceeds the maximum nesting depth of 32.'],
+])('says which rule a refused dataset broke: %s', async (body, message) => {
+  const res = await authed(request(createApp()).post('/api/submissions'))
+    .set('Content-Type', 'application/json').send(body);
+  expect(res.status).toBe(400);
+  expect(res.body).toEqual({ error: message });
+});
+
+test('refuses bytes that are not valid UTF-8, without echoing them', async () => {
+  const res = await authed(request(createApp()).post('/api/submissions'))
+    .set('Content-Type', 'application/json')
+    // Send the bytes as they are (superagent would otherwise JSON-encode the Buffer).
+    .serialize((bytes) => bytes)
+    .send(Buffer.from([0x7b, 0x22, 0xff, 0x22, 0x3a, 0x31, 0x7d]));
+  expect(res.status).toBe(400);
+  expect(res.body).toEqual({ error: 'JSON must be valid UTF-8.' });
 });
 
 describe('POST /api/submissions — auth', () => {

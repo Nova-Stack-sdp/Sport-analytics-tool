@@ -18,6 +18,15 @@ describe('Footer', () => {
     expect(href('Telemetry TV')).toBe('/telemetry-tv');
   });
 
+  test('links the project documentation, opened in a new tab', () => {
+    mockAuth = { user: null, isDeveloperMode: false };
+    renderFooter();
+    const docs = screen.getByRole('link', { name: 'Documentation ↗' });
+    expect(docs).toHaveAttribute('href', 'https://nova-stack-doc.netlify.app/');
+    expect(docs).toHaveAttribute('target', '_blank');
+    expect(docs).toHaveAttribute('rel', 'noreferrer');
+  });
+
   test('signed out: sign-in links, and no claim that the site is live', () => {
     mockAuth = { user: null, isDeveloperMode: false };
     renderFooter();

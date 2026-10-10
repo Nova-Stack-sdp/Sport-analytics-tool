@@ -55,6 +55,18 @@ describe('SubmissionsPanel', () => {
     expect(screen.getByRole('button', { name: /submit batch/i })).toBeEnabled();
   });
 
+  test.each([
+    ['{"laps":[{"__proto__":{"admin":true}}]}', /prohibited prototype-related key/i],
+    ['{"laps":' + '['.repeat(40) + ']'.repeat(40) + '}', /maximum nesting depth/i],
+    ['{"laps": [', /not valid JSON/i],
+  ])('blocks a payload the API would refuse before sending it: %s', async (payload, message) => {
+    render(<SubmissionsPanel />);
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: payload } });
+    await submit();
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(submitData).not.toHaveBeenCalled();
+  });
+
   test('shows an auth error instead of a fake "✓ undefined" success on 401', async () => {
     submitData.mockRejectedValue(httpError(401, { error: 'Invalid or expired token' }));
     render(<SubmissionsPanel />);

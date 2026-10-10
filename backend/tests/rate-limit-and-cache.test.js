@@ -181,6 +181,21 @@ describe('in the app', () => {
     expect((await request(app).get('/api/v1')).status).toBe(200);
   });
 
+  test('new uploads have an hourly limit per client, counted before the body is read', async () => {
+    const app = createApp({ submissionRateLimit: 2 });
+    // Not signed in, so each upload is refused with 401, but every POST
+    // still counts against the allowance.
+    expect((await request(app).post('/api/code-submissions').send({})).status).toBe(401);
+    expect((await request(app).post('/api/code-submissions').send({})).status).toBe(401);
+    const blocked = await request(app).post('/api/code-submissions').send({});
+    expect(blocked.status).toBe(429);
+    expect(blocked.body.detail).toMatch(/The code submission allows 2 requests per hour per client/);
+    // Datasets have their own allowance, and reading the queue doesn't count.
+    expect((await request(app).post('/api/submissions').send({})).status).toBe(401);
+    expect((await request(app).get('/api/code-submissions')).status).toBe(401);
+    expect((await request(app).get('/api/code-submissions')).status).toBe(401);
+  });
+
   test('token exchanges have their own tight limit (POST /api/auth/session)', async () => {
     const app = createApp({ sessionRateLimit: 2 });
     // No idToken in the body: the route answers 400, but every hit still

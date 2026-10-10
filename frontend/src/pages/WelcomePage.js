@@ -4,6 +4,7 @@ import FeaturedVideos from '../components/FeaturedVideos';
 import Faq from '../components/Faq';
 import Footer from '../components/Footer';
 import { useAuth } from '../context/AuthContext';
+import { DOCS_URL } from '../utils/externalLinks';
 
 // One card per public page. Descriptions say what each page really shows
 // today; keep them in step with the pages.
@@ -94,6 +95,11 @@ function WelcomePage() {
               Developers can then turn on developer mode in Profile → Settings to submit datasets and code.
             </p>
           )}
+          <p className="explore-docs-note">
+            Want to know how F1Lytics is built? Read the{' '}
+            <a href={DOCS_URL} target="_blank" rel="noreferrer">project documentation</a>
+            : architecture, API and methodology.
+          </p>
         </div>
       </section>
 

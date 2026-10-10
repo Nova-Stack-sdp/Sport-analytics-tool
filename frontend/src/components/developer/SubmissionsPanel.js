@@ -71,14 +71,14 @@ function SubmissionsPanel() {
     setSubmitting(true);
     setSubmitError(null);
     setSubmitResult(null);
+    // Checked in the order a person fixes them: is it JSON at all, is it the
+    // right shape, then the size, nesting and key rules (the API applies the
+    // same rules again).
     let body;
     try {
-      const security = validateJsonBatch(payloadText);
-      if (!security.isValid) throw new Error(security.error);
       body = JSON.parse(payloadText);
-      if (Array.isArray(body)) throw new Error('Event data must be a JSON object.');
-    } catch (err) {
-      setSubmitError(err.message);
+    } catch {
+      setSubmitError('Event data is not valid JSON');
       setSubmitting(false);
       return;
     }
@@ -87,12 +87,16 @@ function SubmissionsPanel() {
       setSubmitting(false);
       return;
     }
+    const security = validateJsonBatch(payloadText);
+    if (!security.isValid) {
+      setSubmitError(security.error);
+      setSubmitting(false);
+      return;
+    }
     body.session_key = Number(sessionKey);
     // Race data is the backend's default, so only test data needs saying.
     if (purpose !== 'race_data') body.purpose = purpose;
     try {
-      const security = validateJsonBatch(JSON.stringify(body));
-      if (!security.isValid) throw new Error(security.error);
       const result = await submitData(body);
       setSubmitResult(result);
       if (activeTab === 'Pending') loadSubmissions('Pending');

@@ -5,7 +5,7 @@ This project's Race Replay feature (`frontend/src/pages/RaceReplayPage.js`,
 
 **F1 Race Replay**
 Copyright (c) Tom Shaw ([tomshaw.dev](https://tomshaw.dev))
-Source: https://github.com/tomshaw3591/f1-race-replay
+Source: https://github.com/IAmTomShaw/f1-race-replay/
 License: MIT
 
 Specifically, the safety-car "deployed at a fixed distance ahead of the

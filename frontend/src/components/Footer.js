@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { DOCS_URL } from '../utils/externalLinks';
 
 // Every public page, in the same order as the welcome page's cards.
 const PLATFORM_LINKS = [
@@ -71,6 +72,9 @@ function Footer() {
                   <Link to={link.to}>{link.label}</Link>
                 </li>
               ))}
+              <li>
+                <a href={DOCS_URL} target="_blank" rel="noreferrer">Documentation ↗</a>
+              </li>
             </ul>
           </div>
           <div>

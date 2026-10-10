@@ -35,6 +35,19 @@ describe('WelcomePage', () => {
     expect(screen.queryByText(/unlock Submissions, Datasets/i)).not.toBeInTheDocument();
   });
 
+  test('links the project documentation for everyone, in a new tab', () => {
+    for (const user of [null, { uid: 'u1' }]) {
+      mockUser = user;
+      const { unmount } = renderPage();
+      const docs = screen.getByRole('link', { name: 'project documentation' });
+      expect(docs).toHaveAttribute('href', 'https://nova-stack-doc.netlify.app/');
+      expect(docs).toHaveAttribute('target', '_blank');
+      expect(docs).toHaveAttribute('rel', 'noreferrer');
+      expect(docs.closest('p')).toHaveTextContent('Want to know how F1Lytics is built? Read the project documentation: architecture, API and methodology.');
+      unmount();
+    }
+  });
+
   test('hides the sign-in note when signed in', () => {
     mockUser = { uid: 'u1' };
     renderPage();

@@ -105,7 +105,7 @@ describe('CodeSubmissionPage', () => {
     submit();
 
     expect(screen.getByLabelText('Code')).toHaveAttribute('aria-invalid', 'true');
-    expect(screen.getByText(/Code contains a prohibited/)).toBeInTheDocument();
+    expect(screen.getByText(/^Line 1: `\w+` isn't available to submitted scripts/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /submit script/i })).toBeEnabled();
     expect(submitCodeSubmission).not.toHaveBeenCalled();
   });
@@ -119,7 +119,7 @@ describe('CodeSubmissionPage', () => {
     expect(submitCodeSubmission).not.toHaveBeenCalled();
 
     fill('Code', VALID_CODE);
-    expect(screen.queryByText(/Code contains a prohibited/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/isn't available to submitted scripts/)).not.toBeInTheDocument();
     submit();
     expect(await screen.findByText('cs_corrected')).toBeInTheDocument();
     expect(submitCodeSubmission).toHaveBeenCalledTimes(1);

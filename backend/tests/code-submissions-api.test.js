@@ -62,7 +62,7 @@ beforeEach(() => {
     id: 'cs-1',
     title: 'Tyre delta',
     language: 'JavaScript',
-    code: 'x = 1',
+    code: 'export const x = 1;',
     description: null,
     tags: [],
     status: 'pending',
@@ -90,8 +90,28 @@ test.each(['eval("x")', 'document["cookie"]', 'window.location', 'localStorage.g
   const res = await authed(request(createApp()).post('/api/code-submissions'))
     .send({ title: 'Security test', language: 'JavaScript', code, description: 'A security regression test.', testDatasetId: 'ds-security' });
   expect(res.status).toBe(400);
-  expect(res.body.errors).toEqual([expect.stringContaining('prohibited')]);
+  expect(res.body.errors).toEqual([expect.stringMatching(/^Line 1: `\w+` isn't available to submitted scripts/)]);
   expect(mockPrisma.submission.findUnique).not.toHaveBeenCalled();
+  expect(mockPrisma.codeSubmission.create).not.toHaveBeenCalled();
+});
+
+test('checks Python too, and returns every finding with its line', async () => {
+  const res = await authed(request(createApp()).post('/api/code-submissions'))
+    .send({ title: 'Python test', language: 'Python', code: 'import math\nimport os\nx = eval("1")', description: 'A security regression test.' });
+  expect(res.status).toBe(400);
+  expect(res.body.errors).toEqual([expect.stringMatching(/^Line 2: Importing `os` isn't allowed/)]);
+  expect(res.body.findings).toEqual([
+    expect.objectContaining({ line: 2, rule: 'import' }),
+    expect.objectContaining({ line: 3, rule: 'builtin' }),
+  ]);
+  expect(mockPrisma.codeSubmission.create).not.toHaveBeenCalled();
+});
+
+test.each([['an array', ['eval("x")']], ['an object', { toString: 'x' }], ['a number', 42]])('refuses code sent as %s instead of text', async (_label, code) => {
+  const res = await authed(request(createApp()).post('/api/code-submissions'))
+    .send({ title: 'Type test', language: 'JavaScript', code, description: 'A type confusion test.' });
+  expect(res.status).toBe(400);
+  expect(res.body.errors).toContain('Code must be text.');
   expect(mockPrisma.codeSubmission.create).not.toHaveBeenCalled();
 });
 
@@ -346,6 +366,17 @@ describe('GET /api/code-submissions/:id', () => {
     expect(mockPrisma.verifiedCode.findUnique).not.toHaveBeenCalled();
   });
 
+  test('includes the current policy check for the reviewer', async () => {
+    asAdmin();
+    mockPrisma.codeSubmission.findUnique.mockResolvedValueOnce({ id: 'cs-1', language: 'JavaScript', code: 'x = 1', status: 'pending' });
+    let res = await authed(request(createApp()).get('/api/code-submissions/cs-1'));
+    expect(res.body.policyCheck).toEqual({ passed: false, findings: [expect.objectContaining({ line: 1, rule: 'global' })] });
+
+    mockPrisma.codeSubmission.findUnique.mockResolvedValueOnce({ id: 'cs-2', language: 'Python', code: 'import math', status: 'pending' });
+    res = await authed(request(createApp()).get('/api/code-submissions/cs-2'));
+    expect(res.body.policyCheck).toEqual({ passed: true, findings: [] });
+  });
+
   test('finds approved code in verified_code by its original submission id', async () => {
     asAdmin();
     mockPrisma.codeSubmission.findUnique.mockResolvedValue(null);
@@ -526,6 +557,20 @@ describe('PATCH /api/code-submissions/:id', () => {
         .toBeLessThan(mockTx.codeSubmission.deleteMany.mock.invocationCallOrder[0]);
       // Approval no longer flips the status on the old row.
       expect(mockPrisma.codeSubmission.updateMany).not.toHaveBeenCalled();
+    });
+
+    test('refuses to publish code that fails the current policy (422), creating and deleting nothing', async () => {
+      asAdmin();
+      mockTx.codeSubmission.findUnique.mockResolvedValueOnce({
+        id: 'cs-old', title: 'Old script', language: 'JavaScript', code: 'const fs = require("fs");', tags: [], status: 'pending',
+      });
+      const res = await authed(request(createApp()).patch('/api/code-submissions/cs-old')).send({ status: 'approved' });
+      expect(res.status).toBe(422);
+      expect(res.body.error).toMatch(/fails the submission policy.*Line 1: `require`.*Reject it instead\./);
+      expect(res.body.findings).toEqual([expect.objectContaining({ line: 1, rule: 'global' })]);
+      expect(mockTx.verifiedCode.create).not.toHaveBeenCalled();
+      expect(mockTx.codeSubmission.deleteMany).not.toHaveBeenCalled();
+      expect(mockTx.notification.create).not.toHaveBeenCalled();
     });
 
     test('returns 404 when neither table has the id', async () => {

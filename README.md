@@ -118,6 +118,10 @@ or by accepting a manual submission, which triggers `backend/src/derivation/inde
 - **Backend:** `npm test` (Jest + Supertest). For a coverage report run `npm test -- --coverage` in `backend/` and open `backend/coverage/index.html`. Set `DATABASE_URL=postgresql://nobody@127.0.0.1:1/none` so no test can reach Neon, and run `npx prisma generate` first after any schema change; tests that fail to load count as uncovered and drag the numbers towards 0%.
 - **Coverage reports are not committed.** `coverage/` folders are git-ignored: each person generates their own, and CI runs the tests fresh. A committed report is a stale snapshot of one machine's run.
 
+## Submission security
+
+Uploaded code and datasets are checked in the browser and again by the API, and submitted code is never executed. The rules, their limits and where they live are in [backend/docs/submission-security.md](backend/docs/submission-security.md).
+
 ## CI/CD
 
 - **Gitea Actions** (`.gitea/workflows/ci.yml`) runs frontend tests via `docker compose run --rm frontend` on push/PR to `main`.

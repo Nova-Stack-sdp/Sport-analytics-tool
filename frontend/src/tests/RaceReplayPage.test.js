@@ -234,6 +234,15 @@ describe('race replay page (real data, mocked API)', () => {
     expect(screen.getByRole('group', { name: '2025' })).toBeInTheDocument();
     expect(screen.queryByText(/Watch Live/)).not.toBeInTheDocument();
   });
+
+  test('credits F1 Race Replay with a link to its repository, opened safely in a new tab', async () => {
+    apiClient.getFixtures.mockResolvedValue({ fixtures: [] });
+    renderPage();
+    const credit = await screen.findByRole('link', { name: 'F1 Race Replay' });
+    expect(credit).toHaveAttribute('href', 'https://github.com/IAmTomShaw/f1-race-replay/');
+    expect(credit).toHaveAttribute('target', '_blank');
+    expect(credit).toHaveAttribute('rel', 'noreferrer');
+  });
 });
 
 describe('trackSourceNote', () => {

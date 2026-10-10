@@ -23,7 +23,14 @@ describe('validateSubmission', () => {
   test('reports prohibited JavaScript against the code field', () => {
     const result = validateSubmission(validDraft({ code: 'document.cookie' }));
     expect(result.valid).toBe(false);
-    expect(result.errors).toEqual([{ field: 'code', message: expect.stringContaining('prohibited') }]);
+    expect(result.errors).toEqual([{ field: 'code', message: expect.stringMatching(/^Line 1: `document` isn't available/) }]);
+  });
+
+  test('checks Python with the Python rules', () => {
+    expect(validateSubmission(validDraft({ language: 'Python', code: 'import subprocess' })).errors)
+      .toEqual([{ field: 'code', message: expect.stringMatching(/^Line 1: Importing `subprocess` isn't allowed/) }]);
+    expect(validateSubmission(validDraft({ language: 'Python', code: 'import statistics\n\ndef mean(xs):\n    return statistics.mean(xs)\n' })))
+      .toEqual({ valid: true, errors: [] });
   });
 
   test('accepts a draft that satisfies every rule', () => {
@@ -46,7 +53,8 @@ describe('validateSubmission', () => {
   test('accepts every boundary value exactly at the limits', () => {
     const result = validateSubmission(validDraft({
       title: 'a'.repeat(LIMITS.titleMin),
-      code: 'x'.repeat(LIMITS.codeMax),
+      // A comment is valid JavaScript at any length.
+      code: '//' + 'x'.repeat(LIMITS.codeMax - 2),
       description: 'd'.repeat(LIMITS.descriptionMax),
       tags: 'a, b, c, d, e', // maxTags tags, each well under tagMax
     }));
