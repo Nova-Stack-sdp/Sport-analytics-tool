@@ -1,5 +1,5 @@
 import express from 'express';
-import { MAX_JSON_BYTES, validateJsonBatch } from './lib/securityHelpers.js';
+import { MAX_JSON_BYTES, checkJsonKeys, checkJsonText } from './lib/securityHelpers.js';
 import helmet from 'helmet';
 import { serverTiming } from './middleware/serverTiming.js';
 import cors from 'cors';
@@ -60,6 +60,14 @@ function readConfig(options) {
   };
 }
 
+// An error raised by the dataset body check, carrying a message written by
+// the policy (lib/securityHelpers.js) that the error handler may return.
+function policyError(message) {
+  const err = new Error(message);
+  err.policyMessage = message;
+  return err;
+}
+
 export function createApp(options = {}) {
   const app = express();
   const config = readConfig(options);
@@ -116,15 +124,32 @@ export function createApp(options = {}) {
   app.use(createOriginGuard({ allowedOrigins, wildcard: wildcardOrigin }));
   // Dataset uploads: keep the exact bytes received (req.rawBody) as well as
   // the parsed JSON, so the original upload can be stored and downloaded.
+  // The submission policy (lib/securityHelpers.js) runs in two halves so the
+  // body is parsed once: size, encoding and nesting on the raw bytes before
+  // parsing, then prototype-related keys on the parsed object.
   app.use('/api/submissions', express.json({
     limit: MAX_JSON_BYTES,
     verify: (req, res, buf, encoding) => {
-      if (encoding !== 'utf-8') throw new Error('JSON must use UTF-8.');
-      const security = validateJsonBatch(new TextDecoder('utf-8', { fatal: true }).decode(buf));
-      if (!security.isValid) throw new Error(security.error);
+      if (encoding !== 'utf-8') throw policyError('JSON must use UTF-8.');
+      let text;
+      try {
+        text = new TextDecoder('utf-8', { fatal: true }).decode(buf);
+      } catch {
+        throw policyError('JSON must be valid UTF-8.');
+      }
+      const check = checkJsonText(text);
+      if (!check.isValid) throw policyError(check.error);
       req.rawBody = buf;
     },
   }));
+  app.use('/api/submissions', (req, res, next) => {
+    // req._body is body-parser's "I parsed this request" flag.
+    if (req._body) {
+      const check = checkJsonKeys(req.body);
+      if (!check.isValid) return res.status(400).json({ error: check.error });
+    }
+    next();
+  });
   app.use(express.json());
   // cookie-parser is required so requireAuth can read the httpOnly
   // __session cookie set by POST /api/auth/session.
@@ -215,7 +240,11 @@ export function createApp(options = {}) {
   // traces to the client while still logging them server-side.
   app.use((err, req, res, next) => {
     // Parser errors may carry raw request bodies. Never log or echo them.
-    if (err.type === 'entity.too.large') return res.status(413).json({ error: 'Request body exceeds the size limit.' });
+    if (err.type === 'entity.too.large') {
+      return res.status(413).json({ error: `Request body exceeds the ${Math.round(MAX_JSON_BYTES / (1024 * 1024))} MiB limit.` });
+    }
+    // Our own policy messages (never the body) are safe to return as they are.
+    if (err.type === 'entity.verify.failed' && err.policyMessage) return res.status(400).json({ error: err.policyMessage });
     if (['entity.parse.failed', 'entity.verify.failed', 'request.aborted', 'request.size.invalid'].includes(err.type)) {
       return res.status(400).json({ error: 'Invalid JSON submission: check syntax, nesting, encoding and prohibited keys.' });
     }

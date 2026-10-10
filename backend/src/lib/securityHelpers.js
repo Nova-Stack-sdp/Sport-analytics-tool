@@ -18,7 +18,11 @@
 import { parse } from 'acorn';
 
 export const MAX_FILE_BYTES = 2 * 1024 * 1024;
-export const MAX_JSON_BYTES = 1024 * 1024;
+// Dataset uploads. A full race (laps with sector segments, position changes,
+// stints, pits, race control, weather, grid and result for 20 cars) is
+// roughly 1-2 MB of JSON, more when pretty-printed, so 1 MiB refused real
+// races. 10 MiB is half the API's old 20 MB limit and leaves headroom.
+export const MAX_JSON_BYTES = 10 * 1024 * 1024;
 export const MAX_JSON_DEPTH = 32;
 // How many problems one error message lists. The full list is in `findings`.
 export const MAX_REPORTED_FINDINGS = 3;
@@ -609,33 +613,42 @@ export function checkSubmissionCode(language, code) {
 // JSON datasets
 // ---------------------------------------------------------------------------
 
+const MIB = 1024 * 1024;
+
 /**
- * Validate JSON containers up to 1 MiB UTF-8 and 32 nested containers (root = 1).
- * Preflight depth before JSON.parse, ignoring braces in escaped JSON strings.
- * Traverse iteratively; reject pollution keys at every depth, including escaped
- * spellings decoded by JSON.parse. JSON.parse itself does not pollute prototypes;
- * this protects subsequent unsafe merges. Business schema checks remain required.
+ * Text-level checks that must happen before JSON.parse: a string, at most
+ * MAX_JSON_BYTES of UTF-8, and at most MAX_JSON_DEPTH nested containers
+ * (root = 1), ignoring brackets inside strings. The API runs this on the
+ * raw request bytes before Express parses them.
  */
-export function validateJsonBatch(jsonString) {
+export function checkJsonText(jsonString) {
   if (typeof jsonString !== 'string') return fail('JSON must be a string.');
-  if (exceedsUtf8Limit(jsonString, MAX_JSON_BYTES)) return fail('JSON exceeds the 1 MiB limit.');
+  if (exceedsUtf8Limit(jsonString, MAX_JSON_BYTES)) return fail(`JSON exceeds the ${MAX_JSON_BYTES / MIB} MiB limit.`);
   let depth = 0;
   let inString = false;
   let escaped = false;
-  for (const c of jsonString) {
+  for (let i = 0; i < jsonString.length; i += 1) {
+    const c = jsonString.charCodeAt(i);
     if (inString) {
       if (escaped) escaped = false;
-      else if (c === '\\') escaped = true;
-      else if (c === '"') inString = false;
-    } else if (c === '"') inString = true;
-    else if (c === '{' || c === '[') {
+      else if (c === 92) escaped = true; // backslash
+      else if (c === 34) inString = false; // "
+    } else if (c === 34) inString = true;
+    else if (c === 123 || c === 91) { // { [
       depth += 1;
       if (depth > MAX_JSON_DEPTH) return fail(`JSON exceeds the maximum nesting depth of ${MAX_JSON_DEPTH}.`);
-    } else if (c === '}' || c === ']') depth -= 1;
+    } else if (c === 125 || c === 93) depth -= 1; // } ]
   }
-  let parsed;
-  try { parsed = JSON.parse(jsonString); }
-  catch { return fail('Event data is not valid JSON'); }
+  return ok();
+}
+
+/**
+ * Checks parsed JSON for prototype-related keys (__proto__, prototype,
+ * constructor) at every depth, including escaped spellings JSON.parse has
+ * decoded. Iterative, so depth can't exhaust the stack. JSON.parse itself
+ * doesn't pollute prototypes; this protects any later unsafe merge.
+ */
+export function checkJsonKeys(parsed) {
   if (parsed === null || typeof parsed !== 'object') return fail('JSON batch must be an object or array.');
   const stack = [parsed];
   while (stack.length) {
@@ -647,6 +660,19 @@ export function validateJsonBatch(jsonString) {
     }
   }
   return ok();
+}
+
+/**
+ * Text checks, parse, key checks: everything above in one call, for the
+ * browser before an upload is sent. Business schema checks remain required.
+ */
+export function validateJsonBatch(jsonString) {
+  const text = checkJsonText(jsonString);
+  if (!text.isValid) return text;
+  let parsed;
+  try { parsed = JSON.parse(jsonString); }
+  catch { return fail('Event data is not valid JSON'); }
+  return checkJsonKeys(parsed);
 }
 
 /** Async companion: validate metadata, read bounded UTF-8 bytes, then check text. */
