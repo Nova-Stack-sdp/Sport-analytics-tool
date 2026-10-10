@@ -310,7 +310,15 @@ export function testDatasetSummary(dataset) {
 
 function withTestDataset(row, shape) {
   const { testDataset, ...rest } = row;
-  return { ...shape(rest), testDataset: testDatasetSummary(testDataset) };
+  return { ...shape(rest), testDataset: testDatasetSummary(testDataset), policyCheck: policyCheckFor(rest) };
+}
+
+// The submission policy run again on the stored code, for the reviewer:
+// code stored before the policy existed (or before it last changed) gets
+// the current rules, and what passed shows as passed.
+function policyCheckFor(row) {
+  const check = checkSubmissionCode(row.language, row.code);
+  return { passed: check.isValid, findings: check.findings };
 }
 
 // Looks in code_submission first (pending, rejected, and rows approved
@@ -364,6 +372,12 @@ async function approveSubmission(id, adminUid) {
           : { ok: false, notFound: true };
       }
       if (submission.status !== 'pending') return { ok: false, currentStatus: submission.status };
+
+      // Publishing is the last gate, so the stored code is checked against
+      // the current policy here too. This catches anything that reached the
+      // queue before the policy (or a stricter version of it) existed.
+      const policy = checkSubmissionCode(submission.language, submission.code);
+      if (!policy.isValid) return { ok: false, policy };
 
       await tx.verifiedCode.create({
         data: {
@@ -437,6 +451,12 @@ codeSubmissionsRouter.patch('/:id', requireAuth, requireVerifiedEmail, requireAd
 
     if (!result.ok) {
       if (result.notFound) return res.status(404).json({ error: 'Code submission not found' });
+      if (result.policy) {
+        return res.status(422).json({
+          error: `This script fails the submission policy, so it can't be published. ${result.policy.error} Reject it instead.`,
+          findings: result.policy.findings,
+        });
+      }
       return res.status(409).json({ error: `Code submission is already '${result.currentStatus}', not pending` });
     }
 
