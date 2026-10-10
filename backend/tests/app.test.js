@@ -94,3 +94,55 @@ describe('App-level endpoints', () => {
     expect(res.headers['access-control-allow-methods']).toContain('GET');
   });
 });
+
+describe('security headers and the CSRF origin guard', () => {
+  test('sets the standard hardening headers on every response', async () => {
+    const app = createApp();
+    const res = await request(app).get('/health');
+
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+    expect(res.headers['x-frame-options']).toBe('SAMEORIGIN');
+    expect(res.headers['strict-transport-security']).toContain('max-age=');
+    // helmet also removes the framework fingerprint.
+    expect(res.headers['x-powered-by']).toBeUndefined();
+  });
+
+  test('rejects a cross-site POST whose Origin is not on the allowlist', async () => {
+    process.env.FRONTEND_ORIGIN = 'https://app.example.com';
+    const app = createApp();
+    const res = await request(app)
+      .post('/api/auth/logout')
+      .set('Origin', 'https://evil.example.com');
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('ORIGIN_NOT_ALLOWED');
+  });
+
+  test('lets the allowlisted frontend and origin-less clients through', async () => {
+    process.env.FRONTEND_ORIGIN = 'https://app.example.com';
+    const app = createApp();
+
+    const fromApp = await request(app)
+      .post('/api/auth/logout')
+      .set('Origin', 'https://app.example.com');
+    expect(fromApp.status).toBe(200);
+
+    // curl, server-to-server calls and the test suite send no Origin.
+    const fromCli = await request(app).post('/api/auth/logout');
+    expect(fromCli.status).toBe(200);
+  });
+
+  test('never blocks reads, and a wildcard origin keeps its wildcard meaning', async () => {
+    process.env.FRONTEND_ORIGIN = 'https://app.example.com';
+    const app = createApp();
+    const read = await request(app).get('/health').set('Origin', 'https://evil.example.com');
+    expect(read.status).toBe(200);
+
+    process.env.FRONTEND_ORIGIN = '*';
+    const wild = createApp();
+    const post = await request(wild)
+      .post('/api/auth/logout')
+      .set('Origin', 'https://anywhere.example.com');
+    expect(post.status).toBe(200);
+  });
+});

@@ -1,0 +1,463 @@
+
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Code coverage report for src/data/longBeachAnchors.js</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../prettify.css" />
+    <link rel="stylesheet" href="../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+    
+<body>
+<div class='wrapper'>
+    <div class='pad1'>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">src/data</a> longBeachAnchors.js</h1>
+        <div class='clearfix'>
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">100% </span>
+                <span class="quiet">Statements</span>
+                <span class='fraction'>1/1</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">100% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>0/0</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">100% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>0/0</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">100% </span>
+                <span class="quiet">Lines</span>
+                <span class='fraction'>1/1</span>
+            </div>
+        
+            
+        </div>
+        <p class="quiet">
+            Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em> for the previous block.
+        </p>
+        <template id="filterTemplate">
+            <div class="quiet">
+                Filter:
+                <input type="search" id="fileSearch">
+            </div>
+        </template>
+    </div>
+    <div class='status-line high'></div>
+    <pre><table class="coverage">
+<tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
+<a name='L2'></a><a href='#L2'>2</a>
+<a name='L3'></a><a href='#L3'>3</a>
+<a name='L4'></a><a href='#L4'>4</a>
+<a name='L5'></a><a href='#L5'>5</a>
+<a name='L6'></a><a href='#L6'>6</a>
+<a name='L7'></a><a href='#L7'>7</a>
+<a name='L8'></a><a href='#L8'>8</a>
+<a name='L9'></a><a href='#L9'>9</a>
+<a name='L10'></a><a href='#L10'>10</a>
+<a name='L11'></a><a href='#L11'>11</a>
+<a name='L12'></a><a href='#L12'>12</a>
+<a name='L13'></a><a href='#L13'>13</a>
+<a name='L14'></a><a href='#L14'>14</a>
+<a name='L15'></a><a href='#L15'>15</a>
+<a name='L16'></a><a href='#L16'>16</a>
+<a name='L17'></a><a href='#L17'>17</a>
+<a name='L18'></a><a href='#L18'>18</a>
+<a name='L19'></a><a href='#L19'>19</a>
+<a name='L20'></a><a href='#L20'>20</a>
+<a name='L21'></a><a href='#L21'>21</a>
+<a name='L22'></a><a href='#L22'>22</a>
+<a name='L23'></a><a href='#L23'>23</a>
+<a name='L24'></a><a href='#L24'>24</a>
+<a name='L25'></a><a href='#L25'>25</a>
+<a name='L26'></a><a href='#L26'>26</a>
+<a name='L27'></a><a href='#L27'>27</a>
+<a name='L28'></a><a href='#L28'>28</a>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a>
+<a name='L33'></a><a href='#L33'>33</a>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a>
+<a name='L38'></a><a href='#L38'>38</a>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a>
+<a name='L46'></a><a href='#L46'>46</a>
+<a name='L47'></a><a href='#L47'>47</a>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a>
+<a name='L64'></a><a href='#L64'>64</a>
+<a name='L65'></a><a href='#L65'>65</a>
+<a name='L66'></a><a href='#L66'>66</a>
+<a name='L67'></a><a href='#L67'>67</a>
+<a name='L68'></a><a href='#L68'>68</a>
+<a name='L69'></a><a href='#L69'>69</a>
+<a name='L70'></a><a href='#L70'>70</a>
+<a name='L71'></a><a href='#L71'>71</a>
+<a name='L72'></a><a href='#L72'>72</a>
+<a name='L73'></a><a href='#L73'>73</a>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a>
+<a name='L78'></a><a href='#L78'>78</a>
+<a name='L79'></a><a href='#L79'>79</a>
+<a name='L80'></a><a href='#L80'>80</a>
+<a name='L81'></a><a href='#L81'>81</a>
+<a name='L82'></a><a href='#L82'>82</a>
+<a name='L83'></a><a href='#L83'>83</a>
+<a name='L84'></a><a href='#L84'>84</a>
+<a name='L85'></a><a href='#L85'>85</a>
+<a name='L86'></a><a href='#L86'>86</a>
+<a name='L87'></a><a href='#L87'>87</a>
+<a name='L88'></a><a href='#L88'>88</a>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a>
+<a name='L98'></a><a href='#L98'>98</a>
+<a name='L99'></a><a href='#L99'>99</a>
+<a name='L100'></a><a href='#L100'>100</a>
+<a name='L101'></a><a href='#L101'>101</a>
+<a name='L102'></a><a href='#L102'>102</a>
+<a name='L103'></a><a href='#L103'>103</a>
+<a name='L104'></a><a href='#L104'>104</a>
+<a name='L105'></a><a href='#L105'>105</a>
+<a name='L106'></a><a href='#L106'>106</a>
+<a name='L107'></a><a href='#L107'>107</a>
+<a name='L108'></a><a href='#L108'>108</a>
+<a name='L109'></a><a href='#L109'>109</a>
+<a name='L110'></a><a href='#L110'>110</a>
+<a name='L111'></a><a href='#L111'>111</a>
+<a name='L112'></a><a href='#L112'>112</a>
+<a name='L113'></a><a href='#L113'>113</a>
+<a name='L114'></a><a href='#L114'>114</a>
+<a name='L115'></a><a href='#L115'>115</a>
+<a name='L116'></a><a href='#L116'>116</a>
+<a name='L117'></a><a href='#L117'>117</a>
+<a name='L118'></a><a href='#L118'>118</a>
+<a name='L119'></a><a href='#L119'>119</a>
+<a name='L120'></a><a href='#L120'>120</a>
+<a name='L121'></a><a href='#L121'>121</a>
+<a name='L122'></a><a href='#L122'>122</a>
+<a name='L123'></a><a href='#L123'>123</a>
+<a name='L124'></a><a href='#L124'>124</a>
+<a name='L125'></a><a href='#L125'>125</a>
+<a name='L126'></a><a href='#L126'>126</a>
+<a name='L127'></a><a href='#L127'>127</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">24x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// Curated Long Beach 2023 anchors extracted from the FOX broadcast transcript
+// and official timing sources. Source of truth: .scratch-indycar/longbeach_2023_anchors.json
+// Regenerate with: node .scratch-indycar/generate-longbeach-anchors.mjs
+// (do not edit by hand unless the source JSON cannot express the change).
+export const longBeachAnchors = {
+  lapCalibration: [
+    {"video_s":1930,"lap":1,"basis":"green flag"},
+    {"video_s":2265,"lap":4,"basis":"restart after caution 1 (official: restart at conclusion of lap 3)"},
+    {"video_s":2859,"lap":17,"basis":"broadcast: 16 laps into the 85-lap race"},
+    {"video_s":3286,"lap":22,"basis":"pits open under caution 2; lead cars pit on lap 22"},
+    {"video_s":3439,"lap":26,"basis":"restart after caution 2 (official: restart at conclusion of lap 25)"},
+    {"video_s":4611,"lap":49,"basis":"broadcast: 37 to go"},
+    {"video_s":4852,"lap":52.8,"basis":"Newgarden final stop on lap 52; 33 to go"},
+    {"video_s":5207,"lap":60,"basis":"Ericsson passes Newgarden at start of lap 60 (Speedcafe)"},
+    {"video_s":5468,"lap":66,"basis":"broadcast: 20 laps remain"},
+    {"video_s":5637,"lap":69,"basis":"broadcast: 17 to go"},
+    {"video_s":5940,"lap":75,"basis":"broadcast: 11 to go"},
+    {"video_s":6169,"lap":79,"basis":"broadcast: 7 to go"},
+    {"video_s":6439,"lap":82.8,"basis":"broadcast: 4 to go (about 3.2 laps by timing)"},
+    {"video_s":6581,"lap":85,"basis":"white flag (start of lap 85)"},
+    {"video_s":6654,"lap":86,"basis":"checkered flag"},
+  ],
+  events: [
+    {"id":"e001","video_s":1823,"type":"grid","lap":0,"drivers":["Kirkwood"],"confidence":"high","detail":"Kirkwood starts from pole (first career pole). Grid top 5: Kirkwood, Ericsson, Grosjean, Palou, Dixon."},
+    {"id":"e002","video_s":1863,"type":"track_condition","lap":1,"confidence":"high","detail":"New pavement section in turn 6 and a big bump at turn 8; the repaved turn-8 inside line makes inside passes possible for the first time."},
+    {"id":"e003","video_s":1930,"type":"green_flag","lap":1,"drivers":["Kirkwood"],"confidence":"high","detail":"Green flag: Kirkwood leads from pole, Ericsson tries to go three-wide outside, Newgarden goes through the single-lane fountain section."},
+    {"id":"e004","video_s":1946,"type":"crash","lap":1,"drivers":["Castroneves"],"confidence":"high","detail":"Caution 1 on lap 1: Castroneves takes a lot of curb into turn 1 on cold tires, gets aggressive on throttle and hits the wall; front wing destroyed."},
+    {"id":"e005","video_s":2105,"type":"pit_stop","lap":2,"drivers":["Castroneves"],"confidence":"high","detail":"Under caution Castroneves is forced into the pits by IndyCar officials for a new nose and wing; rejoins one lap down."},
+    {"id":"e006","video_s":2149,"type":"start_complaint","lap":1,"drivers":["Dixon","O'Ward","Newgarden"],"confidence":"medium","detail":"Dixon (5th) loses two spots at the start; says the O'Ward and Newgarden rows (primary-tire cars) went on the gas before the leaders."},
+    {"id":"e007","video_s":2157,"type":"strategy_setup","lap":3,"drivers":["O'Ward","Newgarden"],"confidence":"high","detail":"Only O'Ward (6th) and Newgarden (8th) of the top ten start on the primary (black) tire; everyone else is on the alternate (green sidewall). Power also starts on blacks from 13th."},
+    {"id":"e008","video_s":2201,"type":"position_gain","lap":1,"drivers":["Newgarden"],"confidence":"high","detail":"Newgarden goes from 8th to about 4th in the opening corners with wheel-to-wheel contact between Ericsson, Kirkwood and Newgarden at turn 1."},
+    {"id":"e009","video_s":2265,"type":"restart","lap":4,"drivers":["Kirkwood"],"confidence":"high","detail":"Restart on lap 4: Kirkwood pulls away immediately; Herta pressures Dixon."},
+    {"id":"e010","video_s":2306,"type":"overtake","lap":4,"drivers":["Palou","O'Ward"],"confidence":"high","detail":"Palou (alternates) passes O'Ward (primaries) on the inside at turn 6 right after the restart; alternates give more grip on restarts."},
+    {"id":"e011","video_s":2382,"type":"overtake","lap":6,"drivers":["Rossi","Rosenqvist"],"confidence":"high","detail":"Rossi dives up the inside at turn 8 on teammate Rosenqvist, a pass not possible before the repave."},
+    {"id":"e012","video_s":2431,"type":"gap","lap":7,"drivers":["Kirkwood","Ericsson"],"confidence":"high","detail":"Kirkwood leads Ericsson by almost 1 s; official reports show a full second within three laps of the restart."},
+    {"id":"e013","video_s":2479,"type":"position_snapshot","lap":8,"confidence":"high","detail":"Order: Kirkwood, Ericsson, Grosjean, Newgarden 4th (first of the primary-tire runners), Palou 5th."},
+    {"id":"e014","video_s":2504,"type":"tire_failure","lap":9,"drivers":["Ilott"],"confidence":"medium","detail":"Ilott punctures the right front, hits the wall; rim shattered, limps to pits and goes a lap down (his 4th stop of the day)."},
+    {"id":"e015","video_s":2649,"type":"fuel_save","lap":12,"drivers":["Kirkwood"],"confidence":"high","detail":"Kirkwood is already saving fuel while leading and managing the alternate tires."},
+    {"id":"e016","video_s":2656,"type":"strategy_model","lap":12,"confidence":"high","detail":"Teams plan a two-stop race. Early yellows help the fuel number. Alternates are faster but fall off more."},
+    {"id":"e017","video_s":2705,"type":"push_to_pass","lap":13,"drivers":["Kirkwood"],"confidence":"high","detail":"Kirkwood has not touched push-to-pass (no pressure from behind)."},
+    {"id":"e018","video_s":2945,"type":"contact","lap":18,"drivers":["Dixon"],"confidence":"medium","detail":"Dixon scuffs the wall (floor edge touches); no major damage."},
+    {"id":"e019","video_s":2976,"type":"overtake","lap":18,"drivers":["Newgarden","Grosjean"],"confidence":"high","detail":"Newgarden (primaries, 20 laps into stint) outbrakes Grosjean into turn 1 after a run down Shoreline; he has now made up five positions from the green flag."},
+    {"id":"e020","video_s":3015,"type":"pace_snapshot","lap":18,"drivers":["Newgarden"],"confidence":"high","detail":"Newgarden on the primary tire is the fastest car on track for the last five laps; Penske strong on long runs but without one-lap pace."},
+    {"id":"e021","video_s":3097,"type":"crash","lap":21,"drivers":["Dixon","O'Ward"],"confidence":"high","detail":"Caution 2: O'Ward dives inside Dixon late at turn 7-8 (square shoulder-to-shoulder); Dixon turned in and committed, locks up, hits the tire barrier. O'Ward on primaries, Dixon on alternates at the crossover. Not penalised."},
+    {"id":"e022","video_s":3286,"type":"pits_open","lap":22,"confidence":"high","detail":"Pits open on lap 22; field comes in for first stops."},
+    {"id":"e023","video_s":3310,"type":"pit_stop","lap":22,"drivers":["Ericsson"],"confidence":"high","detail":"Ericsson: easy in and out, no changes."},
+    {"id":"e024","video_s":3317,"type":"pit_stop","lap":22,"drivers":["Kirkwood"],"confidence":"high","detail":"Kirkwood takes new primaries (within the window to finish on one more stop); strategist calls the caution timing ideal for Andretti."},
+    {"id":"e025","video_s":3325,"type":"pit_stop","lap":22,"drivers":["Newgarden"],"confidence":"high","detail":"Newgarden goes primary to alternate and gains four spots in pit road; exits right behind Kirkwood."},
+    {"id":"e026","video_s":3342,"type":"pit_exit_event","lap":22,"drivers":["Newgarden","Kirkwood"],"confidence":"high","detail":"Newgarden fishtails into the fast lane on pit exit (slipping the clutch); Kirkwood gets by, no contact."},
+    {"id":"e027","video_s":3424,"type":"strategy_call","lap":23,"drivers":["Canapino","Castroneves"],"confidence":"high","detail":"Canapino stays out (off sequence) and inherits the lead; Castroneves is stuck without a wave-around; Ilott leaves pit lane in front of his teammate."},
+    {"id":"e028","video_s":3439,"type":"restart","lap":26,"drivers":["Canapino"],"confidence":"high","detail":"Restart on lap 26 with Canapino leading the field; stacked cars behind."},
+    {"id":"e029","video_s":3455,"type":"driving_error","lap":26,"drivers":["Ericsson"],"confidence":"high","detail":"Ericsson gets sideways on acceleration at the restart; Canapino slow, Castroneves passes him around the outside of turn 6."},
+    {"id":"e030","video_s":3481,"type":"crash","lap":26,"drivers":["O'Ward","Ericsson","Palou","Kirkwood"],"confidence":"high","detail":"O'Ward (alternates) goes in far too deep trying to pass Ericsson at turn 8, locks the rears, spins; Ericsson hits him and loses front wing, Palou is caught on the outside and drops to ~12-13th; Kirkwood escapes after being hit twice (Canapino, then O'Ward area)."},
+    {"id":"e031","video_s":3502,"type":"lead_change","lap":26,"drivers":["Newgarden","Kirkwood"],"confidence":"high","detail":"Newgarden (fresh alternates, better on restart) takes the lead on lap 26; Kirkwood second."},
+    {"id":"e032","video_s":3510,"type":"position_gain","lap":27,"drivers":["McLaughlin","Rossi","Armstrong"],"confidence":"medium","detail":"Big movers on the restart: McLaughlin vaults up the order, Rossi and rookie Armstrong into the top ten."},
+    {"id":"e033","video_s":3609,"type":"contact","lap":29,"drivers":["Canapino"],"confidence":"medium","detail":"Canapino clips the wall at the apex of turn 6 while trying to find out if the car is drivable; he stacks up the field."},
+    {"id":"e034","video_s":3633,"type":"lockup","lap":29,"drivers":["Malukas"],"confidence":"high","detail":"Malukas locks up over the orange line and runs deep into turn 1 (a day after a big practice crash)."},
+    {"id":"e035","video_s":3683,"type":"gap","lap":30,"drivers":["Kirkwood","Newgarden"],"confidence":"high","detail":"Kirkwood 1.1 s behind Newgarden at the front."},
+    {"id":"e036","video_s":3757,"type":"radio","lap":32,"drivers":["Newgarden"],"confidence":"high","detail":"Penske tells Newgarden he cannot open the gap or push; fuel must stretch so keep Kirkwood close behind him and save tires."},
+    {"id":"e037","video_s":3832,"type":"position_gain","lap":33,"drivers":["Rahal"],"confidence":"medium","detail":"Rahal already up eight spots from the start, doing what he does on Sundays."},
+    {"id":"e038","video_s":3902,"type":"position_snapshot","lap":35,"drivers":["McLaughlin","Herta"],"confidence":"high","detail":"McLaughlin (alternates) up to 4th from 9th; Herta (primaries) lurking behind waiting for the crossover."},
+    {"id":"e039","video_s":3926,"type":"fuel_model","lap":35,"confidence":"high","detail":"Everyone pit lap 22 so the second stint must hit a big fuel number; Honda vs Chevrolet fuel mileage is a first real test. Second stop window is the mid-50s laps."},
+    {"id":"e040","video_s":3949,"type":"tire_degradation","lap":36,"drivers":["Newgarden"],"confidence":"high","detail":"Newgarden's alternates are starting to give up; Kirkwood on primaries is running him down."},
+    {"id":"e041","video_s":3974,"type":"power_model","lap":36,"confidence":"high","detail":"Push-to-pass gives about 50 hp and a couple of mph but burns more fuel; 200 s per race, usable in up to 20 s bursts."},
+    {"id":"e042","video_s":4005,"type":"push_to_pass","lap":37,"drivers":["Kirkwood"],"confidence":"high","detail":"Kirkwood still has 182 s of push-to-pass; he led 21 laps so did not need it. Big lift-and-coast to save fuel."},
+    {"id":"e043","video_s":4152,"type":"position_snapshot","lap":39,"confidence":"high","detail":"Order: Newgarden, Kirkwood (&lt;1 s), Grosjean a few seconds back, McLaughlin, Herta, Ericsson."},
+    {"id":"e044","video_s":4208,"type":"push_to_pass","lap":41,"drivers":["Kirkwood"],"confidence":"high","detail":"Kirkwood uses push-to-pass on the last lap and sets the fastest lap on track."},
+    {"id":"e045","video_s":4235,"type":"tire_degradation","lap":41,"drivers":["Newgarden"],"confidence":"high","detail":"17 laps on the alternate set: the transition point. Newgarden's alternates start to fall apart while Kirkwood waits for the pass."},
+    {"id":"e046","video_s":4258,"type":"retirement","lap":42,"drivers":["Canapino"],"confidence":"low","detail":"Canapino out: driver says Castroneves tried to pass, touched the car and wall, broke the front left."},
+    {"id":"e047","video_s":4291,"type":"retirement","lap":37,"drivers":["Dixon"],"confidence":"high","detail":"Dixon out with no oil pressure (announced late; official 37 laps, mechanical)."},
+    {"id":"e048","video_s":4299,"type":"overtake","lap":42,"drivers":["Herta","McLaughlin","Ericsson"],"confidence":"high","detail":"Herta sweeps around the outside of McLaughlin; Ericsson also gets by. McLaughlin falls back on dead alternates, no protest."},
+    {"id":"e049","video_s":4351,"type":"strategy_window","lap":43,"drivers":["Newgarden","Kirkwood","Grosjean"],"confidence":"medium","detail":"Strategy debate: pit early and risk being slow in the final stint, or stretch to force the alternate runners to pit first (overcut). First driver to pit under yellow gets to the front."},
+    {"id":"e050","video_s":4441,"type":"local_yellow","lap":45,"drivers":["Pedersen"],"confidence":"high","detail":"Pedersen spins on fresh paint, stalls in turn 1 runoff; local yellow, race stays green. Newgarden wants a full-course caution to dump his dying alternates."},
+    {"id":"e051","video_s":4693,"type":"contact","lap":50,"drivers":["Palou","McLaughlin"],"confidence":"high","detail":"Light contact between Palou and McLaughlin in the 180+ mph brake zone; McLaughlin fading on alternates."},
+    {"id":"e052","video_s":4717,"type":"lockup","lap":50,"drivers":["Ericsson","Herta"],"confidence":"high","detail":"Ericsson dives inside Herta at turn 1, hits the bump, locks up and loses the position back."},
+    {"id":"e053","video_s":4791,"type":"overtake","lap":51,"drivers":["Ericsson","Herta"],"confidence":"high","detail":"Ericsson passes Herta cleanly down the inside at turn 1, then defends with a late brake position change to seal Herta off."},
+    {"id":"e054","video_s":4826,"type":"pit_stop","lap":52,"drivers":["Newgarden"],"confidence":"high","detail":"Newgarden first of the leaders to make the final stop: primaries, no changes. 33 to go."},
+    {"id":"e055","video_s":4877,"type":"pit_stop","lap":52,"drivers":["O'Ward"],"confidence":"medium","detail":"O'Ward pits (told one lap earlier to push as hard as he wants); has made no progress since the lap-26 incident."},
+    {"id":"e056","video_s":4902,"type":"pit_stop","lap":53,"drivers":["Grosjean"],"confidence":"high","detail":"Grosjean final stop: fresh primaries; overcut works as he exits ahead of Newgarden (Newgarden had a lap of temperature in his tires, Grosjean cold)."},
+    {"id":"e057","video_s":4918,"type":"pit_stop","lap":53,"drivers":["Rossi"],"confidence":"medium","detail":"Rossi dives in for the final stop; says car much better on this run."},
+    {"id":"e058","video_s":4959,"type":"pit_stop","lap":54,"drivers":["Kirkwood"],"confidence":"high","detail":"Kirkwood final stop on lap 54: stuck in traffic on the in-lap, fuel alarm on the dash; fresh primaries, good stop; stays out two laps longer than Newgarden and one lap longer than Grosjean, then beats both out on cold tires."},
+    {"id":"e059","video_s":4985,"type":"pit_stop","lap":54,"drivers":["Ericsson"],"confidence":"high","detail":"Ericsson final stop lap 54 (same lap as Kirkwood): primaries and Shell fuel; out ahead of Herta."},
+    {"id":"e060","video_s":4985,"type":"pit_stop","lap":54,"drivers":["Herta"],"confidence":"medium","detail":"Herta final stop around lap 54: he was the only one with a tire choice but chose primaries (alternates would not last)."},
+    {"id":"e061","video_s":5056,"type":"pit_stop","lap":55,"drivers":["Palou"],"confidence":"high","detail":"Palou is the last of the leaders to stop (lap 55) after running longer from the back half of the top ten; led laps 54-55 officially."},
+    {"id":"e062","video_s":5109,"type":"position_snapshot","lap":58,"confidence":"high","detail":"After the stops Kirkwood leads Grosjean by over a second; top 20 all on the same (primary) compound. Castroneves 21st one lap down."},
+    {"id":"e063","video_s":5207,"type":"overtake","lap":60,"drivers":["Ericsson","Newgarden"],"confidence":"high","detail":"Ericsson passes Newgarden for third on the inside at the start of lap 60; Penske told Newgarden to let the #8 and #26 go because of the fuel number."},
+    {"id":"e064","video_s":5272,"type":"push_to_pass","lap":60,"drivers":["Grosjean","Kirkwood","Ericsson"],"confidence":"high","detail":"Push-to-pass remaining: Grosjean 158 s, Kirkwood 70 s, Ericsson 37 s. Grosjean is far stingier and can defend later."},
+    {"id":"e065","video_s":5385,"type":"gap","lap":64,"drivers":["Ericsson","Grosjean"],"confidence":"high","detail":"Ericsson's gap to the leaders closing: 6.2 s then 5.7 s."},
+    {"id":"e066","video_s":5402,"type":"overtake","lap":64,"drivers":["Herta","Newgarden"],"confidence":"high","detail":"Herta passes Newgarden (told to let the #26 go; Herta can still attack while Newgarden is in massive fuel save)."},
+    {"id":"e067","video_s":5507,"type":"contact","lap":66,"drivers":["Palou","Newgarden"],"confidence":"medium","detail":"Palou and Newgarden make contact as Newgarden struggles on fuel; Newgarden eventually finishes 9th."},
+    {"id":"e068","video_s":5569,"type":"wall_contact","lap":67,"drivers":["Grosjean"],"confidence":"high","detail":"Grosjean clips the wall on the driver's left; steering appears fine."},
+    {"id":"e069","video_s":5619,"type":"gap","lap":68,"drivers":["Grosjean","Kirkwood"],"confidence":"high","detail":"Grosjean was 1.9 s behind Kirkwood, now 1.4 s."},
+    {"id":"e070","video_s":5628,"type":"push_to_pass","lap":68,"drivers":["Grosjean","Kirkwood"],"confidence":"high","detail":"Push-to-pass: Grosjean 153 s, Kirkwood 57 s with about 17 laps to go."},
+    {"id":"e071","video_s":5808,"type":"pace_delta","lap":72,"drivers":["Ericsson","Kirkwood"],"confidence":"high","detail":"Ericsson's last lap half a second quicker than Kirkwood; he is chasing the top two."},
+    {"id":"e072","video_s":5903,"type":"pit_stop_analysis","lap":74,"drivers":["Kirkwood","Newgarden"],"confidence":"high","detail":"NTT pit differential: in-lap slightly to Newgarden (Kirkwood stuck in traffic), time in pit lane to Penske, out-lap on cold tires 0.2 s to Kirkwood; overall a small advantage to Kirkwood, helped by his two extra laps of push-to-pass."},
+    {"id":"e073","video_s":5949,"type":"traffic","lap":75,"drivers":["Kirkwood","Daly","Canapino"],"confidence":"high","detail":"Kirkwood works through lapped cars Daly and Canapino (blue flags)."},
+    {"id":"e074","video_s":6072,"type":"gap","lap":76,"drivers":["Ericsson","Grosjean"],"confidence":"high","detail":"Ericsson less than 3 s behind Grosjean; Ericsson pitted a lap later than Grosjean so has a fuel edge but only 37 s of push-to-pass."},
+    {"id":"e075","video_s":6176,"type":"gap","lap":79,"drivers":["Ericsson","Grosjean"],"confidence":"medium","detail":"The Ericsson-Grosjean gap, once over 5 s, is cut in half."},
+    {"id":"e076","video_s":6243,"type":"lapped_car","lap":80,"drivers":["O'Ward","Kirkwood"],"confidence":"high","detail":"O'Ward is last car on the lead lap, about 4 s behind Kirkwood and 1.5 s a lap slower; rule says he does not have to let them by until lapped by the whole field."},
+    {"id":"e077","video_s":6407,"type":"lapped_car","lap":82,"drivers":["O'Ward"],"confidence":"high","detail":"O'Ward lets the leaders through anyway (gentlemanly)."},
+    {"id":"e078","video_s":6456,"type":"push_to_pass","lap":83,"drivers":["Grosjean"],"confidence":"high","detail":"Grosjean finally told he can use 30 s of his 153 s in the last three laps; he uses little, in 20 s bursts."},
+    {"id":"e079","video_s":6581,"type":"white_flag","lap":85,"drivers":["Kirkwood"],"confidence":"high","detail":"Kirkwood sees the white flag with a clear track."},
+    {"id":"e080","video_s":6614,"type":"tire_failure","lap":84,"drivers":["Rossi"],"confidence":"high","detail":"Rossi gets a puncture into turn 9 on the final laps while running in the top ten; falls to 22nd (Off Course status)."},
+    {"id":"e081","video_s":6654,"type":"finish","lap":85,"drivers":["Kirkwood"],"confidence":"high","detail":"Kirkwood wins his first IndyCar race by 0.9907 s over Grosjean; Ericsson third, Herta 4th, Palou 5th. Honda sweeps the top five."},
+    {"id":"e082","video_s":7458,"type":"post_race","lap":85,"drivers":["Palou"],"confidence":"high","detail":"Palou: strong early, then caught up in the O'Ward incident and fell to about 12th-13th; recovered to 5th on pit stops and car speed."},
+    {"id":"e083","video_s":7567,"type":"championship","lap":85,"drivers":["Ericsson","O'Ward","Palou","Newgarden","Kirkwood"],"confidence":"high","detail":"Ericsson retakes the points lead (110), O'Ward 95, Palou 91, Newgarden 89, Kirkwood 74 (up from 20th)."},
+    {"id":"e084","video_s":7581,"type":"post_race","lap":85,"drivers":["Power"],"confidence":"high","detail":"Power 13th to 6th: fuel and tire conservation; said a yellow around lap 20 would have been worst for black-tire starters; careful not to slip the tire on restarts."},
+    {"id":"e085","video_s":7786,"type":"post_race","lap":85,"drivers":["Newgarden"],"confidence":"high","detail":"Newgarden: first-stint yellow hurt Penske strategy; without it they would have run longer green. Something else did them in at the end."},
+    {"id":"e086","video_s":7854,"type":"post_race","lap":85,"drivers":["O'Ward"],"confidence":"high","detail":"O'Ward admits the lap-26 spin was completely his fault (stopped the car too late, locked the rears) and defends his move on Dixon as a racing incident."},
+  ],
+  // Broadcast-called stop list rebuilt from the pit_stop events: the lap
+  // stated on air, or one interpolated from the calibration above and
+  // labelled "video estimate". The route prefers a bundle's official
+  // parsed pit data when it has any; these cover the no-data fallback.
+  pitStops: [
+    {"car":"27","driver":"Kirkwood","total":2,"stops":[{"stop":1,"raceLap":22,"video_s":3317,"basis":"stated"},{"stop":2,"raceLap":54,"video_s":4959,"basis":"stated"}]},
+    {"car":"28","driver":"Grosjean","total":2,"stops":[{"stop":1,"raceLap":53,"video_s":4902,"basis":"stated"}]},
+    {"car":"8","driver":"Ericsson","total":2,"stops":[{"stop":1,"raceLap":22,"video_s":3310,"basis":"stated"},{"stop":2,"raceLap":54,"video_s":4985,"basis":"stated"}]},
+    {"car":"26","driver":"Herta","total":2,"stops":[{"stop":1,"raceLap":54,"video_s":4985,"basis":"stated"}]},
+    {"car":"10","driver":"Palou","total":2,"stops":[{"stop":1,"raceLap":55,"video_s":5056,"basis":"stated"}]},
+    {"car":"2","driver":"Newgarden","total":2,"stops":[{"stop":1,"raceLap":22,"video_s":3325,"basis":"stated"},{"stop":2,"raceLap":52,"video_s":4826,"basis":"stated"}]},
+    {"car":"5","driver":"O'Ward","total":2,"stops":[{"stop":1,"raceLap":52,"video_s":4877,"basis":"stated"}]},
+    {"car":"06","driver":"Castroneves","total":3,"stops":[{"stop":1,"raceLap":2,"video_s":2105,"basis":"stated"}]},
+    {"car":"7","driver":"Rossi","total":3,"stops":[{"stop":1,"raceLap":53,"video_s":4918,"basis":"stated"}]},
+  ],
+};
+&nbsp;</pre></td></tr></table></pre>
+
+                <div class='push'></div><!-- for sticky footer -->
+            </div><!-- /wrapper -->
+            <div class='footer quiet pad2 space-top1 center small'>
+                Code coverage generated by
+                <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
+                at 2026-10-09T17:44:30.853Z
+            </div>
+        <script src="../../prettify.js"></script>
+        <script>
+            window.onload = function () {
+                prettyPrint();
+            };
+        </script>
+        <script src="../../sorter.js"></script>
+        <script src="../../block-navigation.js"></script>
+    </body>
+</html>
+    

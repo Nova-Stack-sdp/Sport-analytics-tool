@@ -49,7 +49,9 @@ async function getAuthToken() {
 }
 
 async function request(path, options = {}) {
-  const { timeoutMs = DEFAULT_TIMEOUT_MS, ...fetchOptions } = options;
+  // raw: resolve with the Response itself (e.g. to read a file as a Blob)
+  // instead of parsing it as JSON. Errors are reported the same way.
+  const { timeoutMs = DEFAULT_TIMEOUT_MS, raw = false, ...fetchOptions } = options;
   // Start the clock first so a slow token refresh counts toward the timeout.
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -92,7 +94,7 @@ async function request(path, options = {}) {
     }
     throw error;
   }
-  return res.json();
+  return raw ? res : res.json();
 }
 
 // ---------------------------------------------------------------------------
@@ -131,6 +133,24 @@ export function getSession(idToken) {
 }
 
 /**
+ * Permanently delete the signed-in account (the "Delete profile" button
+ * under Profile). The backend removes every uid-keyed row from PostgreSQL,
+ * the Firestore mirror document and the Firebase account itself, then
+ * clears the session cookie — so a resolved promise means the account no
+ * longer exists anywhere and the caller should drop local auth state.
+ *
+ * `idToken` is optional and sent explicitly when provided, same pattern as
+ * getSession above: requireAuth checks the header first and falls back to
+ * the cookie.
+ */
+export function deleteAccount(idToken) {
+  return request('/api/auth/account', {
+    method: 'DELETE',
+    ...(idToken ? { headers: { Authorization: `Bearer ${idToken}` } } : {}),
+  });
+}
+
+/**
  * Set the `developer` custom claim on the signed-in user's own Firebase
  * account. This is self-service (any signed-in user can toggle their own
  * flag) — see the backend route for the reasoning. The frontend still
@@ -158,8 +178,109 @@ export function setDeveloperModeOnServer(enabled, idToken) {
 }
 
 // ---------------------------------------------------------------------------
+// Email verification (6-digit code)
+//
+// Firebase happily creates an email/password account for any syntactically
+// valid address without ever mailing it, so the backend proves the address
+// with a code sent to it (see backend/src/routes/emailVerification.js) and
+// gates the protected routes behind that proof.
+// ---------------------------------------------------------------------------
+
+/**
+ * Ask the backend to mail a fresh 6-digit code to the signed-in account's
+ * own address. Resolves with { status, email, expiresInMinutes,
+ * resendAfterSeconds } — and, while the console mail provider is active
+ * outside production, a `devCode`. Rejects with a body whose `code` explains
+ * any refusal: NO_EMAIL, RESEND_COOLDOWN (too soon — `retryAfterSeconds`
+ * says how long), DAILY_LIMIT, EMAIL_SEND_FAILED.
+ *
+ * `idToken` is optional and sent explicitly for the same reason as
+ * setDeveloperModeOnServer above.
+ */
+export function requestEmailVerificationCode(idToken) {
+  return request('/api/auth/verify-email/request', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+    },
+  });
+}
+
+/**
+ * Submit a code for checking. On success the backend flags the Firebase
+ * account as verified — which only becomes visible locally in a token minted
+ * afterwards, so the caller has to force a fresh one (see AuthContext's
+ * confirmEmailCode).
+ */
+export function confirmEmailVerificationCode(code, idToken) {
+  return request('/api/auth/verify-email/confirm', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+    },
+    body: JSON.stringify({ code }),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Account creation (the account is born only once the code is confirmed)
+//
+// The Firebase account deliberately does NOT exist when the sign-up form is
+// submitted: the backend notes a pending sign-up, mails a code to the
+// address, and creates the account (Admin SDK, already verified) only when
+// the code is confirmed — see backend/src/routes/signup.js. The caller then
+// signs in with the credentials it is still holding.
+// ---------------------------------------------------------------------------
+
+/**
+ * Note a pending sign-up for an address and have a code mailed to it.
+ * Resolves like requestEmailVerificationCode: { status, email (masked),
+ * expiresInMinutes, resendAfterSeconds } plus `devCode` while the console
+ * provider is active outside production. Rejects with a body whose `code`
+ * explains any refusal: RESEND_COOLDOWN (too soon — `retryAfterSeconds`
+ * says how long), DAILY_LIMIT, EMAIL_SEND_FAILED, INVALID_EMAIL.
+ *
+ * The response is identical whether or not the address already has an
+ * account — that only ever surfaces at confirm, where the caller has
+ * proved they can read the address's inbox.
+ */
+export function requestSignupCode(email) {
+  return request('/api/auth/signup/request', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+}
+
+/**
+ * Confirm the code and have the account created along with it. The password
+ * travels with this one call (it is handed straight to Admin createUser and
+ * never stored); a resolved promise means the account now exists, verified.
+ * Rejects with CODE_MISMATCH, CODE_EXPIRED, TOO_MANY_ATTEMPTS,
+ * NO_PENDING_SIGNUP, EMAIL_EXISTS, WEAK_PASSWORD or CREATE_FAILED in
+ * error.body.code.
+ */
+export function confirmSignup({ email, code, password, firstName, lastName }) {
+  return request('/api/auth/signup/confirm', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code, password, firstName, lastName }),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Account notifications
 // ---------------------------------------------------------------------------
+
+export function createNotification(notificationData) {
+  return request('/api/notifications', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(notificationData),
+  });
+}
 
 /**
  * The signed-in user's own notifications, newest first (requireAuth on the
@@ -180,6 +301,13 @@ export function markNotificationRead(id) {
 // ---------------------------------------------------------------------------
 // Data endpoints
 // ---------------------------------------------------------------------------
+
+export async function downloadDatasetExport({ dataset, season, format }) {
+  const query = new URLSearchParams({ format });
+  if (season) query.set('season', season);
+  const response = await request(`/api/v1/exports/${encodeURIComponent(dataset)}?${query}`, { raw: true });
+  return response.blob();
+}
 
 export function getOverview() {
   return request('/api/overview');
@@ -411,14 +539,82 @@ export function reviewSubmission(id, status) {
 }
 
 // ---------------------------------------------------------------------------
+// Dataset submissions — admin view (backend/src/routes/adminDatasets.js)
+//
+// view is one of: pending, accepted, rejected, test, deleted. Accepting or
+// rejecting race data stays on reviewSubmission() above.
+// ---------------------------------------------------------------------------
+
+export function listAdminDatasets(view = 'pending') {
+  return request(`/api/admin/datasets?view=${encodeURIComponent(view)}`);
+}
+
+export function getAdminDataset(id) {
+  return request(`/api/admin/datasets/${encodeURIComponent(id)}`);
+}
+
+// Resolves with { blob, kind } where kind is 'original' (the exact upload)
+// or 'rebuilt' (an older dataset reconstructed from what was stored).
+// Large files get a longer timeout than ordinary API calls.
+export async function downloadAdminDataset(id) {
+  const res = await request(`/api/admin/datasets/${encodeURIComponent(id)}/upload`, {
+    raw: true,
+    timeoutMs: 60000,
+  });
+  const blob = await res.blob();
+  return { blob, kind: res.headers.get('X-Dataset-Upload') === 'rebuilt' ? 'rebuilt' : 'original' };
+}
+
+export function deleteAdminDataset(id) {
+  return request(`/api/admin/datasets/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export function restoreAdminDataset(id) {
+  return request(`/api/admin/datasets/${encodeURIComponent(id)}/restore`, { method: 'POST' });
+}
+
+// ---------------------------------------------------------------------------
+// Code submissions (developer submits a script, admin reviews it)
+//
+// Backed by the code_submission table (backend/src/routes/codeSubmissions.js).
+// New submissions are stored as 'pending'; an admin moves them to 'approved'
+// or 'rejected'. The body shape is pinned by
+// features/code-submission/submissionFormat.js.
+// ---------------------------------------------------------------------------
+
+export function submitCodeSubmission(body) {
+  return request('/api/code-submissions', { method: 'POST', ...jsonBody(body) });
+}
+
+export function listCodeSubmissions(status) {
+  const query = status ? `?status=${encodeURIComponent(status)}` : '';
+  return request(`/api/code-submissions${query}`);
+}
+
+export function getCodeSubmission(id) {
+  return request(`/api/code-submissions/${encodeURIComponent(id)}`);
+}
+
+export function reviewCodeSubmission(id, status) {
+  return request(`/api/code-submissions/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    ...jsonBody({ status }),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // F1 news feed
 // ---------------------------------------------------------------------------
 
-export function getF1News({ limit = 100, offset = 0 } = {}) {
+export function getF1News({ driverId, teamId, limit = 100, offset = 0 } = {}) {
   const params = new URLSearchParams({
     limit: String(limit),
     offset: String(offset),
   });
+  
+  if (driverId) params.set('driverId', driverId);
+  if (teamId) params.set('teamId', teamId);
+  
   return request(`/api/news?${params.toString()}`);
 }
 
@@ -482,4 +678,42 @@ export function getTelemetryTVWeather(slug) {
   return request(`/api/telemetry-tv/races/${encodeURIComponent(slug)}/weather`, {
     timeoutMs: 15000,
   });
+}
+
+// ---------------------------------------------------------------------------
+// Approved code — public API (backend/src/api/v1/code.js)
+//
+// No sign-in needed. Each item is
+//   { slug, name, description, language, code, tags, approvedAt, endpoint }
+// where endpoint is the path to call it, e.g. /api/v1/code/average-pit-loss.
+// ---------------------------------------------------------------------------
+
+export function listPublicCode({ language, tag } = {}) {
+  const params = new URLSearchParams();
+  if (language) params.set('language', language);
+  if (tag) params.set('tag', tag);
+  const query = params.toString();
+  return request(`/api/v1/code${query ? `?${query}` : ''}`);
+}
+
+export function getPublicCode(slug) {
+  return request(`/api/v1/code/${encodeURIComponent(slug)}`);
+}
+
+// Full public URL of a script, for showing "how to call it".
+export function publicCodeUrl(endpoint) {
+  return `${API_BASE_URL}${endpoint}`;
+}
+
+// ---------------------------------------------------------------------------
+// Approved code — admin management (backend/src/routes/adminVerifiedCode.js)
+// ---------------------------------------------------------------------------
+
+export function listPublishedCode() {
+  return request('/api/admin/verified-code');
+}
+
+// Permanent: takes the script off the public API. Confirm with the admin first.
+export function removePublishedCode(id) {
+  return request(`/api/admin/verified-code/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }

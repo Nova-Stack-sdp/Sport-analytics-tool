@@ -4,7 +4,7 @@ import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useDeveloperMode } from '../context/DeveloperModeContext';
-import { clearSession } from '../api/client';
+import { clearSession, getNotifications } from '../api/client';
 import { resetFollowCache } from '../services/followService';
 import { readLocalProfile, subscribeToLocalProfile } from '../services/userProfile';
 
@@ -18,7 +18,7 @@ const NAV_ITEMS = [
   { to: '/replay', label: 'Race Replay' },
   // Developer is visible to every signed-in user — it explains the role
   // and how to turn it on for those who don't have it yet. Datasets and
-  // Submissions are tabs inside it (developer mode only), not nav items.
+  // Submit Code are tabs inside it (developer mode only), not nav items.
   { to: '/developer', label: 'Developer', requiresAuth: true },
   // Profile sits where Settings used to — Settings is now a tab inside it.
   { to: '/profile', label: 'Profile', requiresAuth: true },
@@ -51,32 +51,39 @@ function TopNav({ theme, onToggleTheme }) {
 
   // Notifications state
   const [notifications, setNotifications] = useState([]);
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const [selectedNotification, setSelectedNotification] = useState(null);
+  const unreadCount = user ? notifications.filter(n => !n.isRead).length : 0;
+  const notificationRequest = useRef(0);
 
   // Helper function to fetch notifications safely
   const fetchNavNotifications = useCallback(async () => {
-    if (!user) return; // Don't fetch if unauthenticated
+    const requestId = ++notificationRequest.current;
+    if (!user) {
+      setNotifications([]);
+      return;
+    }
 
     try {
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
-      const response = await fetch(`${API_URL}/api/notifications`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // CRITICAL: Send HTTP-only session cookie
-      });
-
-      if (response.ok) {
-        const data = await response.json();
+      // The shared client adds the current Firebase ID token as a Bearer header.
+      const data = await getNotifications();
+      if (requestId === notificationRequest.current) {
         setNotifications(data);
       }
     } catch (err) {
+      if (requestId !== notificationRequest.current) return;
+      setNotifications([]);
       console.error('Failed to fetch notifications for nav', err);
     }
   }, [user]);
 
   // 1. Fetch on mount / user auth state change
   useEffect(() => {
+    setNotifications([]);
+    setNotificationsOpen(false);
+    setSelectedNotification(null);
     fetchNavNotifications();
+    // Ignore responses from a previous user or an unmounted navigation bar.
+    return () => { notificationRequest.current += 1; };
   }, [fetchNavNotifications]);
 
   // 2. Handle Bell Click: Toggle dropdown AND fetch fresh notifications
@@ -86,7 +93,7 @@ function TopNav({ theme, onToggleTheme }) {
     const nextState = !notificationsOpen;
     setNotificationsOpen(nextState);
 
-    // Re-fetch when opening the dropdown so data is always fresh and session timing issues are bypassed
+    // Re-fetch when opening the dropdown so data is fresh.
     if (nextState) {
       fetchNavNotifications();
     }
@@ -238,26 +245,39 @@ function TopNav({ theme, onToggleTheme }) {
                         </div>
                       ) : (
                         notifications.slice(0, 4).map(n => (
-                          <div 
+                          <button 
                             key={n.id} 
                             className="notification-item" 
+                            onClick={() => {
+                              setSelectedNotification(n);
+                              setNotificationsOpen(false);
+                            }}
                             style={{ 
-                              padding: '0.5rem 1rem', 
-                              borderBottom: '1px solid var(--border-color, #eee)',
-                              fontWeight: n.isRead ? 'normal' : 'bold'
+                              padding: '0.75rem 1rem', 
+                              border: '1px solid var(--border-soft, #ccc)',
+                              borderRadius: '8px',
+                              marginBottom: '0.5rem',
+                              fontWeight: n.isRead ? 'normal' : 'bold',
+                              width: '100%',
+                              textAlign: 'left',
+                              background: 'var(--surface, #fff)',
+                              cursor: 'pointer',
+                              display: 'block',
+                              transition: 'border-color 0.2s ease',
                             }}
                           >
                             <strong>{n.title}</strong><br/>
                             <span style={{ fontSize: '0.85em', opacity: 0.8 }}>{n.message}</span>
-                          </div>
+                          </button>
                         ))
                       )}
                     </div>
 
                     <NavLink 
-                      to="/profile" 
+                      to="/profile?tab=notifications" 
                       className="avatar-menu-button" 
                       onClick={() => setNotificationsOpen(false)}
+                      style={{ marginTop: '0.5rem' }}
                     >
                       View all in Profile
                     </NavLink>
@@ -265,6 +285,42 @@ function TopNav({ theme, onToggleTheme }) {
                 )}
               </div>
               {/* --- END Notification Bell --- */}
+              {selectedNotification && (
+                <div className="modal-overlay" onMouseDown={() => setSelectedNotification(null)}>
+                  <div
+                    className="modal-panel"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Notification details"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    style={{ padding: '2rem', maxWidth: '400px', width: '100%' }}
+                  >
+                    <div className="modal-head" style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <h2 style={{ margin: 0 }}>{selectedNotification.title}</h2>
+                      <button type="button" className="modal-close" onClick={() => setSelectedNotification(null)} aria-label="Close" style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
+                    </div>
+                    <p style={{ marginBottom: '1.5rem' }}>{selectedNotification.message}</p>
+                    {selectedNotification.linkUrl && (
+                      <a 
+                        href={selectedNotification.linkUrl} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        style={{ 
+                          display: 'inline-block', 
+                          padding: '0.5rem 1.25rem', 
+                          background: 'var(--accent, #CE0D14)', 
+                          color: 'var(--accent-contrast, #fff)', 
+                          textDecoration: 'none', 
+                          borderRadius: '9999px',
+                          fontWeight: '600'
+                        }}
+                      >
+                        Read Article
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
             <div className="avatar-wrap" ref={menuRef}>
               <button
                 className="avatar"

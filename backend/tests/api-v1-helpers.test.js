@@ -50,12 +50,17 @@ describe('filters -> Prisma where', () => {
       lapNumber: { gte: 10, lte: 20 },
       occurredAt: { gte: from },
       supersededById: null,
+      sourceSubmission: { deletedAt: null },
     });
   });
 
   test('corrected-away events are excluded unless asked for', () => {
-    expect(eventWhere({})).toEqual({ supersededById: null });
-    expect(eventWhere({ includeSuperseded: true })).toEqual({});
+    expect(eventWhere({})).toEqual({ supersededById: null, sourceSubmission: { deletedAt: null } });
+    expect(eventWhere({ includeSuperseded: true })).toEqual({ sourceSubmission: { deletedAt: null } });
+  });
+
+  test('events from a deleted dataset are always excluded, even with includeSuperseded', () => {
+    expect(eventWhere({ includeSuperseded: true, fixture: ID })).toMatchObject({ sourceSubmission: { deletedAt: null } });
   });
 
   test('fixture filters', () => {

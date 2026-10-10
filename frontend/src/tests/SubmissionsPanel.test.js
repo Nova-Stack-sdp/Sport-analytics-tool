@@ -1,11 +1,16 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import SubmissionsPanel from '../components/developer/SubmissionsPanel';
-import { submitData, listSubmissions } from '../api/client';
+import { submitData, listSubmissions, reviewSubmission } from '../api/client';
 
 jest.mock('../api/client', () => ({
   submitData: jest.fn(),
   listSubmissions: jest.fn(),
   reviewSubmission: jest.fn(),
+}));
+
+let mockIsAdmin = false;
+jest.mock('../context/AuthContext', () => ({
+  useAuth: () => ({ isAdmin: mockIsAdmin }),
 }));
 
 function httpError(status, body) {
@@ -23,7 +28,31 @@ async function submit(sessionKey = '11230') {
 describe('SubmissionsPanel', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockIsAdmin = false;
     listSubmissions.mockResolvedValue({ submissions: [] });
+  });
+
+  test('shows full session UUIDs within the horizontally scrollable queue', async () => {
+    const sessionId = '9ca5b1f0-b0b6-462b-87d2-804235b10a05';
+    mockIsAdmin = true;
+    listSubmissions.mockResolvedValue({ submissions: [{
+      id: 'sub-uuid', sessionId, status: 'pending', purpose: 'race_data', submittedAt: '2026-10-09T01:30:50Z',
+    }] });
+    render(<SubmissionsPanel />);
+    const cell = await screen.findByRole('cell', { name: sessionId });
+    expect(cell).toHaveAttribute('title', sessionId);
+    expect(cell.closest('table')).toHaveClass('submission-queue-table');
+    expect(cell.closest('table').parentElement).toHaveClass('submission-queue-scroll');
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument();
+  });
+
+  test.each(['null', '[]', '42'])('rejects a non-object JSON payload: %s', async (payload) => {
+    render(<SubmissionsPanel />);
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: payload } });
+    await submit();
+    expect(await screen.findByText(/must be a JSON object/i)).toBeInTheDocument();
+    expect(submitData).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: /submit batch/i })).toBeEnabled();
   });
 
   test('shows an auth error instead of a fake "✓ undefined" success on 401', async () => {
@@ -64,5 +93,33 @@ describe('SubmissionsPanel', () => {
 
     expect(await screen.findByText(/pending — 2 event\(s\) written/)).toBeInTheDocument();
     await waitFor(() => expect(submitData).toHaveBeenCalledWith({ laps: [], session_key: 11230 }));
+  });
+
+  describe('review queue', () => {
+    const pendingRow = {
+      id: 'sub-9', sessionId: 'session-1', status: 'pending', submittedAt: '2026-10-08T10:00:00Z',
+    };
+
+    test('a developer sees their own pending batch but no Approve/Reject buttons', async () => {
+      listSubmissions.mockResolvedValue({ submissions: [pendingRow] });
+      render(<SubmissionsPanel />);
+
+      expect(await screen.findByTitle('session-1')).toBeInTheDocument();
+      expect(screen.getByText('My submissions')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument();
+    });
+
+    test('an admin sees the review queue with Approve/Reject on pending batches', async () => {
+      mockIsAdmin = true;
+      reviewSubmission.mockResolvedValue({ submissionId: 'sub-9', status: 'accepted' });
+      listSubmissions.mockResolvedValue({ submissions: [pendingRow] });
+      render(<SubmissionsPanel />);
+
+      expect(await screen.findByTitle('session-1')).toBeInTheDocument();
+      expect(screen.getByText('Review & approval queue')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+      await waitFor(() => expect(reviewSubmission).toHaveBeenCalledWith('sub-9', 'accepted'));
+    });
   });
 });

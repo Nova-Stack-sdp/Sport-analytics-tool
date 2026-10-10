@@ -1,0 +1,20 @@
+# Security headers for the Netlify deploy (frontend/public is copied to the
+# publish root, so Netlify picks this up next to _redirects).
+#
+# The CSP is the main containment for XSS: the app keeps a Firebase session
+# in browser storage, so a successful script injection could act as the user
+# — this stops any script that was not shipped in the build from running or
+# calling out. Origins below are everything the app verifiably talks to:
+#   fonts.googleapis.com / fonts.gstatic.com  — webfonts (index.html + auth.css)
+#   *.googleapis.com, *.firebaseapp.com       — Firebase Auth (sign-in, token refresh, auth iframe)
+#   sport--backend-api--...code.run           — the API (REACT_APP_API_URL; update if that URL changes)
+#   www.youtube.com                           — Telemetry TV embeds
+# img-src/media-src allow any https host on purpose: team logos and cached
+# images are served from third-party URLs the backend proxies.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https://sport--backend-api--7kcwxz9xblx5.code.run https://*.googleapis.com https://*.firebaseapp.com; frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://github.com https://*.youtube.com https://youtube.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains

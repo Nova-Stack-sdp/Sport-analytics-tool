@@ -187,7 +187,7 @@
   padding: 12px 14px;
   background: linear-gradient(105deg, var(--ttv-lead-soft), transparent 48%);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 0;
 }
 
 #page-telemetry-tv .race-picker {
@@ -225,7 +225,7 @@
   min-width: 0;
   padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: 0;
   background: var(--bg);
   color: var(--text-primary);
   font: inherit;
@@ -692,7 +692,7 @@
 #page-telemetry-tv .video-panel {
   padding: 0;
   overflow: hidden;
-  border-radius: 8px;
+  border-radius: 0;
 }
 
 #page-telemetry-tv .live-panel-head {
@@ -872,7 +872,7 @@
 
 #page-telemetry-tv .radar-column {
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 0;
   padding: 10px;
   background: var(--ttv-tile);
 }
@@ -1892,7 +1892,7 @@
   height: 34px;
   margin-top: 10px;
   overflow: hidden;
-  border-radius: 6px;
+  border-radius: 0;
   background: var(--ttv-tile);
 }
 
@@ -2004,7 +2004,7 @@
   max-width: 620px;
   padding: 16px 22px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 0;
   /* Neutral gray wash — the red tint read as an error state. Fixed so it
      works on both the light and dark card surfaces. */
   background: rgba(85, 85, 85, 0.08);
@@ -2146,7 +2146,7 @@
   gap: 10px;
   padding: 8px 10px;
   border: 1px solid var(--border-soft);
-  border-radius: 6px;
+  border-radius: 0;
   background: var(--ttv-tile);
 }
 

@@ -85,13 +85,6 @@ function TeamDetailPage() {
             Current chassis: {team.chassis || '—'}. Power unit: {team.engine || '—'}.
           </div>
         </div>
-
-        <h3 className="gallery-title">Gallery</h3>
-        <div className="gallery-row" style={{ '--tc': team.color }}>
-          {[1, 2, 3, 4].map((n) => (
-            <div key={n} className="gallery-cell" />
-          ))}
-        </div>
       </div>
     </div>
   );

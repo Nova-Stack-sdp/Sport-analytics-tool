@@ -25,6 +25,7 @@
  */
 
 import net from 'node:net';
+import { pathToFileURL } from 'node:url';
 import pkg from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import 'dotenv/config';
@@ -43,40 +44,42 @@ net.setDefaultAutoSelectFamily(false);
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
-const sessionKeyArg = process.argv[2];
-if (!sessionKeyArg) {
-  console.error('Usage: node src/jobs/openf1-sync.js <session_key>');
-  process.exit(1);
-}
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  const sessionKeyArg = process.argv[2];
+  if (!sessionKeyArg) {
+    console.error('Usage: node src/jobs/openf1-sync.js <session_key>');
+    process.exit(1);
+  }
 
-console.log(`Syncing session_key=${sessionKeyArg}...`);
-syncOpenF1Session(sessionKeyArg, {
-  prisma,
-  client: createOpenF1Client(),
-  runDerivation: runDerivationForSession,
-  onProgress: ({ stage, state, ms, detail }) => {
-    if (state === 'done') console.log(`  ${stage.padEnd(10)} ${String(ms).padStart(6)} ms  ${detail ?? ''}`);
-  },
-})
-  .then((result) => {
-    const { summary, submission, rejections } = result;
-    if (rejections.length > 0) {
-      console.warn(`${rejections.length} record(s) rejected:`);
-      for (const r of rejections.slice(0, 50)) console.warn(`  [${r.eventType}] ${r.reason}`);
-      if (rejections.length > 50) console.warn(`  ...and ${rejections.length - 50} more (all saved on the submission)`);
-    }
-    console.log(
-      `Submission ${submission.id} — status: ${submission.status}. `
-      + `Inserted ${summary.inserted}, corrected ${summary.corrected}, `
-      + `already stored ${summary.unchanged}, rejected ${summary.rejected}.`
-    );
-    if (!result.changed) {
-      console.log('Nothing new for this session — derived statistics are already up to date.');
-    }
-    console.log(`Done in ${result.readyMs} ms.`);
+  console.log(`Syncing session_key=${sessionKeyArg}...`);
+  syncOpenF1Session(sessionKeyArg, {
+    prisma,
+    client: createOpenF1Client(),
+    runDerivation: runDerivationForSession,
+    onProgress: ({ stage, state, ms, detail }) => {
+      if (state === 'done') console.log(`  ${stage.padEnd(10)} ${String(ms).padStart(6)} ms  ${detail ?? ''}`);
+    },
   })
-  .catch((err) => {
-    console.error('Sync failed:', err);
-    process.exitCode = 1;
-  })
-  .finally(() => prisma.$disconnect());
+    .then((result) => {
+      const { summary, submission, rejections } = result;
+      if (rejections.length > 0) {
+        console.warn(`${rejections.length} record(s) rejected:`);
+        for (const r of rejections.slice(0, 50)) console.warn(`  [${r.eventType}] ${r.reason}`);
+        if (rejections.length > 50) console.warn(`  ...and ${rejections.length - 50} more (all saved on the submission)`);
+      }
+      console.log(
+        `Submission ${submission.id} — status: ${submission.status}. `
+        + `Inserted ${summary.inserted}, corrected ${summary.corrected}, `
+        + `already stored ${summary.unchanged}, rejected ${summary.rejected}.`
+      );
+      if (!result.changed) {
+        console.log('Nothing new for this session — derived statistics are already up to date.');
+      }
+      console.log(`Done in ${result.readyMs} ms.`);
+    })
+    .catch((err) => {
+      console.error('Sync failed:', err);
+      process.exitCode = 1;
+    })
+    .finally(() => prisma.$disconnect());
+}

@@ -14,7 +14,8 @@ import {
  */
 const LIVE = {
   supersededBy: null,
-  sourceSubmission: { status: { in: ["accepted", "partially_accepted"] } },
+  // Only accepted datasets count, and never one an admin has deleted.
+  sourceSubmission: { status: { in: ["accepted", "partially_accepted"] }, deletedAt: null },
 };
 
 /** Recompute driver_session_stats for every entry in one session. */

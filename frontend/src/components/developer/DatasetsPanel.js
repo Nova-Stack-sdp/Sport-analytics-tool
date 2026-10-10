@@ -1,51 +1,73 @@
-// Datasets tab of the Developer page. Used to be its own /datasets page;
-// that URL now redirects to /developer?tab=datasets (see AppRoutes).
+import { useState } from 'react';
+import { downloadDatasetExport } from '../../api/client';
+
 function DatasetsPanel() {
+  const [dataset, setDataset] = useState('events');
+  const [season, setSeason] = useState('');
+  const [format, setFormat] = useState('csv');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [notice, setNotice] = useState(null);
+
+  async function handleExport(event) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const blob = await downloadDatasetExport({ dataset, season, format });
+      const contents = await blob.text();
+      const empty = format === 'json'
+        ? JSON.parse(contents).length === 0
+        : contents.trim().split(/\r?\n/).length <= 1;
+      if (empty) {
+        setNotice('No records match this export. Try another season or dataset.');
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${dataset}${season ? `-${season}` : ''}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setNotice('Your export has been downloaded.');
+    } catch (err) {
+      setError(err.body?.error || err.message || 'Export failed. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="developer-panel" id="developer-datasets">
-      <div className="rationale">
-        <span className="ic">◆</span>
-        <div>
-          <b>Why this tab:</b> the brief distinguishes an ad-hoc export from a proper release: "the datasets should become releases rather than ad-hoc downloads: versioned snapshots published with their schema... and a checksum." That reproducibility guarantee is the whole point of this tab — it sits alongside the API console because both are developer tools, but it's aimed at analysts doing offline research rather than integrators calling the live API.
-        </div>
-      </div>
-
-      <div className="grid grid-2" style={{ marginBottom: 16 }}>
-        <div className="card">
-          <div className="card-head"><div className="card-title">Build a custom export</div></div>
-          <div className="kv"><span>Dataset</span><b>2026 season · full event log</b></div>
-          <div className="kv"><span>Filter</span><b>drivers, teams</b></div>
-          <div className="kv"><span>Format</span><b>CSV</b></div>
-          <button className="btn btn-primary btn-full" style={{ marginTop: 14 }}>Request export</button>
-          <div className="card-note">Large requests are handed off as a job — come back once it's ready rather than waiting on the request.</div>
-        </div>
-        <div className="card">
-          <div className="card-head"><div className="card-title">Export jobs</div></div>
-          <table>
-            <tbody>
-              <tr><th>Job</th><th>Status</th><th>Progress</th><th></th></tr>
-              <tr><td>Full event log</td><td><span className="pill pill-amber">Processing</span></td><td><div className="mini-progress"><div style={{ width: '64%' }}></div></div></td><td className="secondary mono">64%</td></tr>
-              <tr><td>Driver telemetry</td><td><span className="pill pill-green">Ready</span></td><td><div className="mini-progress"><div style={{ width: '100%' }}></div></div></td><td style={{ cursor: 'pointer' }}>⬇</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
       <div className="card">
-        <div className="card-head"><div className="card-title">Published releases</div></div>
-        <div className="dataset-row" style={{ fontSize: '10.5px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600, borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
-          <span>Release</span><span>Fixtures</span><span>Size</span><span>Checksum</span><span></span>
-        </div>
-        <div className="dataset-row">
-          <div><div className="name">v2026.10.20</div><div className="sub">schema v3 · full season</div></div>
-          <span className="secondary">312</span><span className="secondary">1.8 GB</span><span className="mono secondary">a92f…c1</span>
-          <span className="pill pill-gray">Download</span>
-        </div>
-        <div className="dataset-row">
-          <div><div className="name">v2026.10.18</div><div className="sub">schema v3 · full season</div></div>
-          <span className="secondary">311</span><span className="secondary">1.8 GB</span><span className="mono secondary">7e1d…9a</span>
-          <span className="pill pill-gray">Download</span>
-        </div>
+        <div className="card-head"><div className="card-title">Build a custom export</div></div>
+        <p className="card-note">Download events or driver season statistics as CSV or JSON. Leave the season blank to include all available seasons.</p>
+        <form onSubmit={handleExport}>
+          <fieldset disabled={busy} style={{ border: 0, padding: 0, display: 'grid', gap: 12 }}>
+            <label>Dataset
+              <select value={dataset} onChange={(event) => setDataset(event.target.value)}>
+                <option value="events">Event log</option>
+                <option value="driver-season-stats">Driver season statistics</option>
+              </select>
+            </label>
+            <label>Season (optional)
+              <input type="number" min="1950" max="2100" step="1" value={season} onChange={(event) => setSeason(event.target.value)} />
+            </label>
+            <label>Format
+              <select value={format} onChange={(event) => setFormat(event.target.value)}>
+                <option value="csv">CSV</option><option value="json">JSON</option>
+              </select>
+            </label>
+            <button type="submit" className="btn btn-primary btn-full" style={{ marginTop: 14 }}>
+              {busy ? 'Preparing export…' : 'Download export'}
+            </button>
+          </fieldset>
+        </form>
+        {error && <div className="card-note" role="alert">{error}</div>}
+        {notice && <div className="card-note" role="status">{notice}</div>}
       </div>
     </div>
   );

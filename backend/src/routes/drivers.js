@@ -15,7 +15,7 @@ import {
   getUploadedImageVersions,
   saveUploadedDriverImage,
 } from '../lib/driverUploadedImage.js';
-import { requireAuth } from '../middleware/requireAuth.js';
+import { requireAuth, requireVerifiedEmail } from '../middleware/requireAuth.js';
 
 export const driversRouter = Router();
 
@@ -346,7 +346,7 @@ function readImageBody(req, res, next) {
 
 // Upload (or replace) a driver's photo. Requires a signed-in user. The photo
 // is stored in the same Postgres database as the driver rows.
-driversRouter.put('/:id/image', requireAuth, readImageBody, async (req, res, next) => {
+driversRouter.put('/:id/image', requireAuth, requireVerifiedEmail, readImageBody, async (req, res, next) => {
   try {
     const driverId = req.params.id;
 

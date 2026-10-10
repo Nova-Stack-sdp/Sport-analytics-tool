@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import pkg from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
-import { requireAuth, requireAdmin } from '../middleware/requireAuth.js';
+import { requireAuth, requireAdmin, requireVerifiedEmail } from '../middleware/requireAuth.js';
 import { runDerivationForSession } from '../derivation/index.js';
+import { buildUploadRecord } from '../lib/datasetUpload.js';
 import {
   mapLap,
   mapPitStop,
@@ -14,15 +15,18 @@ import {
   mapClassification,
 } from '../validation/event-records.js';
 
-const { SubmissionSource, SubmissionStatus } = pkg;
+const { SubmissionSource, SubmissionStatus, SubmissionPurpose } = pkg;
+const PURPOSES = Object.values(SubmissionPurpose);
 
 export const submissionsRouter = Router();
 
-function requireDeveloperOrAdmin(req, res, next) {
-  if (!req.user.developer && !req.user.admin) {
-    return res.status(403).json({ error: 'Developer or admin access required to submit data' });
-  }
-  next();
+function developerOrAdminTo(action) {
+  return function requireDeveloperOrAdmin(req, res, next) {
+    if (!req.user.developer && !req.user.admin) {
+      return res.status(403).json({ error: `Developer or admin access required to ${action}` });
+    }
+    next();
+  };
 }
 
 /**
@@ -60,12 +64,21 @@ async function buildEntryLookup(sessionId) {
  * pending: events exist in the log but are excluded from derived stats
  * until an admin approves (see the LIVE filter in derivation/db.js).
  */
-submissionsRouter.post('/', requireAuth, requireDeveloperOrAdmin, async (req, res, next) => {
+submissionsRouter.post('/', requireAuth, requireVerifiedEmail, developerOrAdminTo('submit data'), async (req, res, next) => {
   try {
     const { session_key: sessionKey } = req.body;
     if (!sessionKey) {
       return res.status(400).json({ error: 'session_key is required' });
     }
+    // race_data (default): events go into the event log, pending review.
+    // code_test: sample data for testing a developer's code. Validated the
+    // same way and stored as uploaded, but never written to the event log,
+    // so it can never reach statistics, the public API or replays.
+    const purpose = req.body.purpose ?? SubmissionPurpose.race_data;
+    if (!PURPOSES.includes(purpose)) {
+      return res.status(400).json({ error: `purpose must be one of: ${PURPOSES.join(', ')}` });
+    }
+    const isTestData = purpose === SubmissionPurpose.code_test;
 
     const session = await prisma.session.findUnique({
       where: { openf1Key: Number(sessionKey) },
@@ -115,6 +128,8 @@ submissionsRouter.post('/', requireAuth, requireDeveloperOrAdmin, async (req, re
     }
 
     const status = events.length === 0 ? SubmissionStatus.rejected : SubmissionStatus.pending;
+    const upload = buildUploadRecord(req);
+    const eventsToWrite = isTestData ? [] : events;
 
     const submission = await prisma.$transaction(
       async (tx) => {
@@ -124,13 +139,23 @@ submissionsRouter.post('/', requireAuth, requireDeveloperOrAdmin, async (req, re
             submitterId: req.user.uid,
             sessionId: session.id,
             status,
+            purpose,
             validationErrors: rejections.length > 0 ? rejections : undefined,
+            summary: {
+              validRecords: events.length,
+              rejectedRecords: rejections.length,
+              eventsWritten: eventsToWrite.length,
+            },
           },
         });
 
-        if (events.length > 0) {
+        // The original upload is kept even when nothing in it validated, so
+        // an admin can see exactly what was sent.
+        await tx.submissionUpload.create({ data: { submissionId: created.id, ...upload } });
+
+        if (eventsToWrite.length > 0) {
           await tx.event.createMany({
-            data: events.map((e) => ({
+            data: eventsToWrite.map((e) => ({
               sessionId: session.id,
               entryId: e.entryId,
               eventType: e.eventType,
@@ -150,7 +175,9 @@ submissionsRouter.post('/', requireAuth, requireDeveloperOrAdmin, async (req, re
     res.status(status === SubmissionStatus.rejected ? 422 : 201).json({
       submissionId: submission.id,
       status: submission.status,
-      eventsWritten: events.length,
+      purpose,
+      validRecords: events.length,
+      eventsWritten: eventsToWrite.length,
       rejections,
     });
   } catch (err) {
@@ -158,15 +185,27 @@ submissionsRouter.post('/', requireAuth, requireDeveloperOrAdmin, async (req, re
   }
 });
 
+const LISTABLE_STATUSES = Object.values(SubmissionStatus);
+
 /**
  * GET /api/submissions?status=pending
  * Review queue. Shape matches overview.js's existing submissionQueue
  * fields, plus review-relevant extras (submitterId, validationErrors).
+ *
+ * Admins see every submission. Developers see only their own — the rows
+ * carry other submitters' IDs and the raw records that failed validation,
+ * so they must not be visible to anyone else. Everyone else gets 403.
  */
-submissionsRouter.get('/', requireAuth, async (req, res, next) => {
+submissionsRouter.get('/', requireAuth, requireVerifiedEmail, developerOrAdminTo('view submissions'), async (req, res, next) => {
   try {
     const { status } = req.query;
-    const where = status ? { status } : {};
+    if (status !== undefined && !LISTABLE_STATUSES.includes(status)) {
+      return res.status(400).json({ error: `status must be one of: ${LISTABLE_STATUSES.join(', ')}` });
+    }
+    const where = {
+      ...(status ? { status } : {}),
+      ...(req.user.admin ? {} : { submitterId: req.user.uid }),
+    };
     const submissions = await prisma.submission.findMany({
       where,
       orderBy: { submittedAt: 'desc' },
@@ -180,6 +219,10 @@ submissionsRouter.get('/', requireAuth, async (req, res, next) => {
         reviewedBy: true,
         reviewedAt: true,
         validationErrors: true,
+        purpose: true,
+        deletedAt: true,
+        summary: true,
+        session: { select: { openf1Key: true, type: true, meeting: { select: { name: true, season: true } } } },
       },
     });
     res.json({ submissions });
@@ -191,12 +234,11 @@ submissionsRouter.get('/', requireAuth, async (req, res, next) => {
 /**
  * PATCH /api/submissions/:id
  * Body: { status: 'accepted' | 'rejected' }
- * Admin review action. No role check yet — any authenticated user can
- * approve/reject (no Submitter/Role model exists in the schema yet; see
- * project notes). Approving triggers derivation so the now-live events
- * actually count toward stats.
+ * Admin review action (requireAdmin). Approving triggers derivation so the
+ * now-live events actually count toward stats. Test data (purpose
+ * code_test) and deleted datasets cannot be reviewed here.
  */
-submissionsRouter.patch('/:id', requireAuth, requireAdmin, async (req, res, next) => {
+submissionsRouter.patch('/:id', requireAuth, requireVerifiedEmail, requireAdmin, async (req, res, next) => {
   try {
     const { status } = req.body;
     if (![SubmissionStatus.accepted, SubmissionStatus.rejected].includes(status)) {
@@ -205,20 +247,33 @@ submissionsRouter.patch('/:id', requireAuth, requireAdmin, async (req, res, next
 
     const submission = await prisma.submission.findUnique({ where: { id: req.params.id } });
     if (!submission) return res.status(404).json({ error: 'Submission not found' });
+    if (submission.deletedAt) {
+      return res.status(409).json({ error: 'Submission has been deleted; restore it before reviewing' });
+    }
+    if (submission.purpose === SubmissionPurpose.code_test) {
+      return res.status(409).json({
+        error: 'Test data is not reviewed on its own; it is reviewed together with the code it belongs to',
+      });
+    }
     if (submission.status !== SubmissionStatus.pending) {
       return res.status(409).json({ error: `Submission is already '${submission.status}', not pending` });
     }
 
-    const updated = await prisma.submission.update({
-      where: { id: submission.id },
+    // Conditional update: if the submission was reviewed or deleted after the
+    // read above, nothing changes and the admin gets a conflict.
+    const { count } = await prisma.submission.updateMany({
+      where: { id: submission.id, status: SubmissionStatus.pending, deletedAt: null },
       data: { status, reviewedBy: req.user.uid, reviewedAt: new Date() },
     });
+    if (count === 0) {
+      return res.status(409).json({ error: 'Submission changed while it was being reviewed; reload and try again' });
+    }
 
     if (status === SubmissionStatus.accepted) {
       await runDerivationForSession(prisma, submission.sessionId);
     }
 
-    res.json({ submissionId: updated.id, status: updated.status });
+    res.json({ submissionId: submission.id, status });
   } catch (err) {
     next(err);
   }
