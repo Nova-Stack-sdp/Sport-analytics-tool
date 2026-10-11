@@ -15,7 +15,7 @@ env:
 
 jobs:
   frontend-test:
-    runs-on: novastack-only
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout repository
@@ -34,10 +34,11 @@ jobs:
 
       - name: Run frontend tests
         continue-on-error: true
-        run: docker compose run --rm frontend npm test -- --watchAll=false
+        run: |
+          docker compose run --rm frontend npm test -- --watchAll=false
 
   backend-test:
-    runs-on: novastack-only
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout repository
@@ -59,4 +60,5 @@ jobs:
 
       - name: Run backend tests
         continue-on-error: true
-        run: docker compose run --rm backend npm test
+        run: |
+          docker compose run --rm backend npm test
