@@ -8,14 +8,28 @@ on:
     branches:
       - main
 
-jobs:
+env:
+  DOCKER_BUILDKIT: 1
+  COMPOSE_DOCKER_CLI_BUILD: 1
 
+jobs:
   frontend-test:
     runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: buildx-${{ runner.os }}-frontend-${{ github.sha }}
+          restore-keys: |
+            buildx-${{ runner.os }}-frontend-
 
       - name: Run frontend tests
         continue-on-error: true
@@ -28,6 +42,17 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: buildx-${{ runner.os }}-backend-${{ github.sha }}
+          restore-keys: |
+            buildx-${{ runner.os }}-backend-
 
       - name: Build backend
         run: docker compose build backend
