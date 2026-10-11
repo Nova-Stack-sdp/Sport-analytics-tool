@@ -1,5 +1,10 @@
 # Sport Analytics Tool
 
+| | |
+|---|---|
+| **🌐 Website** | **<https://novastack-f1-frontend.netlify.app>** |
+| **⚙️ API** | **<https://sport--backend-api--7kcwxz9xblx5.code.run>** (health check: [`/health`](https://sport--backend-api--7kcwxz9xblx5.code.run/health)) |
+
 A full-stack Formula 1 analytics web application, built as a Software Design (SD) sprint project. It ingests session data from [OpenF1](https://openf1.org/) and derives statistics (driver/team standings, head-to-head, career stats) that are surfaced through a React frontend.
 
 ## Tech Stack
@@ -56,6 +61,7 @@ Defined in `backend/prisma/schema.prisma`. Core entities:
 - `Circuit`, `Meeting`, `Session` — event/race structure
 - `Team`, `Driver`, `Entry` — participants
 - `Submission`, `Event` — manual/raw data submissions
+- `CodeSubmission` — scripts submitted from the Developer page's Submit Code tab, awaiting admin review (`pending` → `approved` / `rejected`)
 - `DriverSessionStats`, `DriverCareerStats`, `TeamSeasonStats`, `HeadToHead` — derived statistics
 
 ## Getting Started
@@ -79,11 +85,13 @@ The server binds to `process.env.PORT` (defaults to `8080`) on `0.0.0.0`.
 
 Health check: `GET /health` or `GET /`
 
-API routes:
-- `/api/overview`
-- `/api/statistics`
-- `/api/fixtures`
-- `/api/timetravel`
+API routes (all under `/api`):
+- `/overview`, `/statistics`, `/fixtures`, `/timetravel`
+- `/teams`, `/drivers`, `/news`, `/videos`, `/images`, `/openf1`, `/race-replay`, `/telemetry-tv`
+- `/follows`, `/notifications`, `/auth`
+- `/submissions` — dataset (event batch) submissions
+- `/code-submissions` — code submissions: `POST` (developer/admin), `GET` and `PATCH /:id` (admin; sets `approved` or `rejected`)
+- `/v1/...` — public API
 
 ### Frontend
 
@@ -102,6 +110,15 @@ Copy `frontend/.env.example` to `.env.local` and set:
 npm start
 ```
 
+### Developer page and code submissions
+
+Developer mode adds a **Developer** page with four tabs: API Console, Datasets, **Submit Code** and **Submit Dataset**.
+
+- **Submit Code** saves a script to the `code_submission` table with status `pending` (the client cannot choose the status).
+- The **Admin → Submissions** tab reads that table and lists each submission with Approve / Reject. These set the status to `approved` or `rejected` in the database, and the page shows the stored values.
+- **Submit Dataset** is the original event-batch submission flow (`/api/submissions`).
+- After pulling these changes, apply the new migration: `cd backend && npx prisma migrate deploy`.
+
 ### Pulling Real Data
 
 Tables are empty by default. Populate them with:
@@ -115,12 +132,7 @@ or by accepting a manual submission, which triggers `backend/src/derivation/inde
 ## Testing & Coverage
 
 - **Frontend:** `react-scripts test` (Create React App / Jest). Coverage outputs automatically to `coverage/lcov.info` — do **not** set `coverageDirectory` in the Jest config, as it breaks the Codecov upload.
-- **Backend:** `npm test` (Jest + Supertest). For a coverage report run `npm test -- --coverage` in `backend/` and open `backend/coverage/index.html`. Set `DATABASE_URL=postgresql://nobody@127.0.0.1:1/none` so no test can reach Neon, and run `npx prisma generate` first after any schema change; tests that fail to load count as uncovered and drag the numbers towards 0%.
-- **Coverage reports are not committed.** `coverage/` folders are git-ignored: each person generates their own, and CI runs the tests fresh. A committed report is a stale snapshot of one machine's run.
-
-## Submission security
-
-Uploaded code and datasets are checked in the browser and again by the API, and submitted code is never executed. The rules, their limits and where they live are in [backend/docs/submission-security.md](backend/docs/submission-security.md).
+- **Backend:** `npm test` (Jest + Supertest), covering the overview, statistics, fixtures, timetravel, and auth-middleware routes.
 
 ## CI/CD
 
@@ -132,7 +144,8 @@ Uploaded code and datasets are checked in the browser and again by the API, and 
 See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the full backend (Northflank) / frontend (Netlify) / database (Neon) setup, including required environment variables and known gotchas (health check binding, Prisma client generation, CORS origin config).
 
 ### Known gaps (see DEPLOYMENT.md for detail)
-- Only the Overview page currently calls the live backend; Statistics, Datasets, Fixtures/Events, Time Travel, Submissions, and Admin are still static mock UI.
+- On the Admin page only the Submissions tab is live; the API Keys, Dataset Releases, API Versions and Reconciliation tabs are still static mock UI.
+- Approved code submissions are not yet deployed or run anywhere, and submitters are not notified of the outcome.
 - Sign-in/sign-up flow is still being finalized (a `User` model / auth wiring is outstanding).
 
 ## Team
